@@ -1,3 +1,14 @@
+"""
+Provide test build deployment package utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test build deployment package through a consuming regression::
+
+        python -m pytest -q tests/scripts/test_build_deployment_package.py
+"""
 from __future__ import annotations
 
 import importlib.util
@@ -18,6 +29,18 @@ SPEC.loader.exec_module(build_deployment_package)
 
 
 def test_exclusion_rules_keep_deployment_bundle_source_focused() -> None:
+    """
+    Perform the test exclusion rules keep deployment bundle source focused operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test exclusion rules keep deployment bundle source focused through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_build_deployment_package.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     assert build_deployment_package.should_exclude_path(
         Path("LiuXin_alpha_data/private.db"),
         include_tests=True,
@@ -45,6 +68,19 @@ def test_exclusion_rules_keep_deployment_bundle_source_focused() -> None:
 
 
 def test_collect_package_files_prunes_excluded_directories(tmp_path: Path) -> None:
+    """
+    Perform the test collect package files prunes excluded directories operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test collect package files prunes excluded directories through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_build_deployment_package.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     (tmp_path / "src" / "LiuXin_alpha").mkdir(parents=True)
     (tmp_path / "src" / "LiuXin_alpha" / "__init__.py").write_text("", encoding="utf-8")
     (tmp_path / "tests").mkdir()
@@ -65,12 +101,24 @@ def test_collect_package_files_prunes_excluded_directories(tmp_path: Path) -> No
 
 
 def test_generated_remote_helpers_cover_install_and_postgres_workflow() -> None:
+    """
+    Perform the test generated remote helpers cover install and postgres workflow operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test generated remote helpers cover install and postgres workflow through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_build_deployment_package.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     install_script = build_deployment_package.render_remote_install_script()
     postgres_script = build_deployment_package.render_postgres_setup_script()
     bundle_readme = build_deployment_package.render_bundle_readme()
 
     assert (
-        "LIUXIN_INSTALL_EXTRAS=\"${LIUXIN_INSTALL_EXTRAS:-postgres,search,archives}\""
+        "LIUXIN_INSTALL_EXTRAS=\"${LIUXIN_INSTALL_EXTRAS:-postgres,search,archives,conversion}\""
         in install_script
     )
     assert "-m venv" in install_script
@@ -100,6 +148,19 @@ def test_generated_remote_helpers_cover_install_and_postgres_workflow() -> None:
 
 
 def test_build_deployment_package_writes_tarball_with_generated_helpers(tmp_path: Path) -> None:
+    """
+    Perform the test build deployment package writes tarball with generated helpers operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test build deployment package writes tarball with generated helpers through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_build_deployment_package.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     repo = tmp_path / "repo"
     _write_minimal_repo(repo)
     output_dir = tmp_path / "out"
@@ -134,6 +195,19 @@ def test_build_deployment_package_writes_tarball_with_generated_helpers(tmp_path
 
 
 def _write_minimal_repo(repo: Path) -> None:
+    """
+    Write minimal repo under the format's safety and compatibility rules.
+
+    Example:
+        Exercise  write minimal repo through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_build_deployment_package.py
+
+
+    :param repo: Value supplied for repo under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     (repo / "src" / "LiuXin_alpha" / "surfaces" / "cli").mkdir(parents=True)
     (repo / "src" / "LiuXin_alpha" / "__init__.py").write_text("", encoding="utf-8")
     (repo / "src" / "LiuXin_alpha" / "surfaces" / "cli" / "__main__.py").write_text("", encoding="utf-8")

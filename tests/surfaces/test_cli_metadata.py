@@ -1,4 +1,12 @@
-"""Operational contract tests for ``liuxin metadata``."""
+"""
+Exercise metadata CLI request shaping, byte publication, and catalogue integration.
+
+Most cases use a recording Core with fixed catalogue, rewritten-file, and job
+receipts; they do not contact online providers or verify real ebook metadata.
+Temporary filesystem writes exercise output ownership and selected race checks.
+The final integration case uses a real local SQLite Core and minimal EPUB to
+check catalogue writes, OPF export, and title rewriting through the CLI.
+"""
 
 from __future__ import annotations
 
@@ -6,7 +14,6 @@ import base64
 import json
 import os
 import zipfile
-
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +24,17 @@ from LiuXin_alpha.surfaces.cli.app import main as cli_main
 
 
 def _wire(content: bytes) -> dict[str, str]:
+    """
+    Encode fixture bytes in the tagged Core wire representation.
+
+    Example:
+        >>> _wire(b"book")
+        {'$type': 'bytes', 'base64': 'Ym9vaw=='}
+
+
+    :param content: Exact bytes to expose through a JSON-compatible fake receipt.
+    :return: New bytes-tag/base64 dictionary with ASCII payload text.
+    """
     return {
         "$type": "bytes",
         "base64": base64.b64encode(content).decode("ascii"),
@@ -24,13 +42,56 @@ def _wire(content: bytes) -> dict[str, str]:
 
 
 class _Core:
+    """
+    Record metadata/job calls and return deterministic, deliberately narrow fixtures.
+
+    Queries expose two pageable item IDs, hostile Unicode, and immediate job
+    completion. File inspection distinguishes only the fixed rewritten bytes;
+    file writes do not parse ebooks. Cover results depend on the most recent
+    recorded command. Unexpected operation names fail after being recorded.
+
+    Example:
+        >>> core = _Core()
+        >>> core.query("metadata.get", {"item_id": 7})["liuxin"]
+        {'title': 'Book 7'}
+    """
+
     def __init__(self) -> None:
+        """
+        Create independent call logs and the default catalogue/rewrite fixtures.
+
+        Example:
+            >>> core = _Core()
+            >>> core.item_ids, core.commands
+            ([3, 7], [])
+
+
+        :return: None; initialize two item IDs, fixed output bytes, and empty call lists.
+        """
         self.queries: list[tuple[str, dict[str, Any]]] = []
         self.commands: list[tuple[str, dict[str, Any]]] = []
         self.item_ids = [3, 7]
         self.updated_file = b"updated-book-bytes"
 
     def query(self, name: str, payload: dict[str, Any] | None = None) -> Any:
+        """
+        Record a shallow payload copy and serve one supported metadata/job query.
+
+        Paginate item_ids by offset/limit; decode inspection bytes strictly but
+        do not parse a book. jobs.get is immediately succeeded; jobs.result returns
+        a cover only when the last recorded command started cover discovery.
+
+        Example:
+            >>> core = _Core()
+            >>> core.query("metadata.file.formats")["writable"]
+            ['epub']
+
+
+        :param name: Exact metadata, rows.query, jobs.get, or jobs.result operation.
+        :param payload: Request values shallow-copied for recording, or None for empty.
+        :return: Fresh operation-specific fixture receipt, not a live database result.
+        :raises AssertionError: The recorded operation name has no fake implementation.
+        """
         values = dict(payload or {})
         self.queries.append((name, values))
         if name == "metadata.get":
@@ -101,6 +162,23 @@ class _Core:
         raise AssertionError("Unexpected query: {}".format(name))
 
     def command(self, name: str, payload: dict[str, Any] | None = None) -> Any:
+        """
+        Record a request and fabricate a metadata-write or online-job submission receipt.
+
+        Catalogue writes echo selected fields without persistence. File writes
+        require no path key and return updated_file without modifying any input.
+        Both online operations share the fixed pending job ID job-1.
+
+        Example:
+            >>> _Core().command("metadata.identify.start")
+            {'job_id': 'job-1', 'state': 'pending'}
+
+
+        :param name: Supported catalogue/file write or identify/cover start operation.
+        :param payload: Request values shallow-copied into the command log; None means empty.
+        :return: Synthetic write or job receipt; no catalogue, file, or job is created.
+        :raises AssertionError: A file request contains path or the operation is unsupported.
+        """
         values = dict(payload or {})
         self.commands.append((name, values))
         if name == "metadata.write":
@@ -124,18 +202,77 @@ class _Core:
 
 
 class _Session:
+    """
+    Expose a fake Core through the session context expected by metadata handlers.
+
+    Enter and exit do not acquire, close, or reset anything; exceptions propagate.
+
+    Example:
+        >>> core = _Core()
+        >>> with _Session(core) as session:
+        ...     session.client is core
+        True
+    """
+
     def __init__(self, core: _Core) -> None:
+        """
+        Retain the supplied client without copying its observations or taking ownership.
+
+        Example:
+            >>> core = _Core()
+            >>> _Session(core).client is core
+            True
+
+
+        :param core: Recording fake shared with the test making assertions.
+        :return: None; expose core as the client attribute.
+        """
         self.client = core
 
     def __enter__(self) -> "_Session":
+        """
+        Return this already-constructed session without opening a resource.
+
+        Example:
+            >>> session = _Session(_Core())
+            >>> session.__enter__() is session
+            True
+
+
+        :return: This session, preserving its original client reference.
+        """
         return self
 
     def __exit__(self, *_args: object) -> None:
+        """
+        Leave context without cleanup or exception suppression.
+
+        Example:
+            >>> _Session(_Core()).__exit__(None, None, None) is None
+            True
+
+
+        :param _args: Ignored exception type, value, and traceback supplied by with.
+        :return: None, allowing any body exception to propagate.
+        """
         return None
 
 
 @pytest.fixture
 def fake_core(monkeypatch: pytest.MonkeyPatch) -> _Core:
+    """
+    Route every metadata Core opening in a test to one shared recording client.
+
+    Parsed local/remote selectors and startup flags are ignored by the opener;
+    using an endpoint in these tests does not open a socket.
+
+    Example:
+        >>> core = fake_core.__wrapped__(monkeypatch)  # doctest: +SKIP
+
+
+    :param monkeypatch: Pytest patcher restoring the real session opener after the test.
+    :return: Fresh fake Core shared by all sessions opened during this fixture's lifetime.
+    """
     core = _Core()
     monkeypatch.setattr(
         metadata_cli,
@@ -146,6 +283,16 @@ def fake_core(monkeypatch: pytest.MonkeyPatch) -> _Core:
 
 
 def _connection() -> list[str]:
+    """
+    Supply a dummy catalogue selector accepted by the CLI and ignored by the fake opener.
+
+    Example:
+        >>> _connection()
+        ['--database', 'catalogue.sqlite']
+
+
+    :return: Fresh two-token argument list; no database file is created here.
+    """
     return ["--database", "catalogue.sqlite"]
 
 
@@ -153,6 +300,17 @@ def test_show_reads_one_record_as_interoperable_json(
     fake_core: _Core,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    """
+    Escape a lone surrogate in JSON and forward the selected metadata shape flags.
+
+    Example:
+        >>> test_show_reads_one_record_as_interoperable_json(fake_core, capsys)  # doctest: +SKIP
+
+
+    :param fake_core: Recording client returning the hostile-text item fixture.
+    :param capsys: Capture used to inspect escaped text and decode the resulting JSON.
+    :return: None; assert item identity, valid JSON, and the exact metadata.get payload.
+    """
     rc = cli_main(["metadata", "show", *_connection(), "7", "--no-related"])
 
     assert rc == 0
@@ -170,6 +328,17 @@ def test_show_accepts_remote_core_endpoint(
     fake_core: _Core,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    """
+    Accept the get alias and remote selector while using a mocked session opener.
+
+    Example:
+        >>> test_show_accepts_remote_core_endpoint(fake_core, capsys)  # doctest: +SKIP
+
+
+    :param fake_core: Fixture redirecting even endpoint-based sessions to the fake client.
+    :param capsys: Capture for decoding the selected record's JSON.
+    :return: None; assert successful parsing/dispatch and item identity, not HTTP transport.
+    """
     rc = cli_main(
         [
             "metadata",
@@ -188,6 +357,19 @@ def test_dump_all_pages_ids_and_atomically_writes_deterministic_document(
     fake_core: _Core,
     tmp_path: Path,
 ) -> None:
+    """
+    Page both fake IDs into a complete ordered dump and leave no staging file behind.
+
+    This observes successful publication, not visibility during a crash or rename.
+
+    Example:
+        >>> test_dump_all_pages_ids_and_atomically_writes_deterministic_document(fake_core, tmp_path)  # doctest: +SKIP
+
+
+    :param fake_core: Two-item recording client exposing one row per requested page.
+    :param tmp_path: Directory receiving the dump and checked for staging residue.
+    :return: None; assert envelope version/count/order, two page queries, and cleanup.
+    """
     output = tmp_path / "metadata.json"
 
     rc = cli_main(
@@ -217,6 +399,17 @@ def test_dump_supports_json_lines_and_utf8_bom_item_id_file(
     fake_core: _Core,
     tmp_path: Path,
 ) -> None:
+    """
+    Read BOM-prefixed, commented ID lines and preserve first-seen order in JSONL.
+
+    Example:
+        >>> test_dump_supports_json_lines_and_utf8_bom_item_id_file(fake_core, tmp_path)  # doctest: +SKIP
+
+
+    :param fake_core: Fake client hydrating each selected item ID.
+    :param tmp_path: Directory for the input ID list and generated JSONL file.
+    :return: None; assert IDs 7 then 3 occur once each in the published records.
+    """
     ids = tmp_path / "ids.txt"
     ids.write_text("\ufeff# selected\n7\n3\n7\n", encoding="utf-8")
     output = tmp_path / "metadata.jsonl"
@@ -244,6 +437,20 @@ def test_dump_refuses_existing_output_without_core_queries(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    """
+    Refuse a pre-existing dump destination and preserve its operator-owned contents.
+
+    This case asserts status, content, and guidance; it does not inspect the query log.
+
+    Example:
+        >>> test_dump_refuses_existing_output_without_core_queries(fake_core, tmp_path, capsys)  # doctest: +SKIP
+
+
+    :param fake_core: Installed fake session fixture for any attempted Core access.
+    :param tmp_path: Directory containing the pre-owned report destination.
+    :param capsys: Capture for replacement-option guidance on stderr.
+    :return: None; assert status two, retained content, and the refusal message.
+    """
     output = tmp_path / "owned.json"
     output.write_text("operator-owned\n", encoding="utf-8")
 
@@ -269,6 +476,18 @@ def test_set_accepts_hydrated_dump_and_convenience_values(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    """
+    Merge a single-item dump with CLI overrides into an ordered expression-level write.
+
+    Example:
+        >>> test_set_accepts_hydrated_dump_and_convenience_values(fake_core, tmp_path, capsys)  # doctest: +SKIP
+
+
+    :param fake_core: Recorder for metadata.write and its synthetic changed receipt.
+    :param tmp_path: Directory holding the hydrated JSON values fixture.
+    :param capsys: Capture for decoding the write report.
+    :return: None; assert override values, field order, replacement policy, and target level.
+    """
     values = tmp_path / "values.json"
     values.write_text(
         json.dumps(
@@ -326,6 +545,17 @@ def test_clear_requires_authoritative_replace(
     fake_core: _Core,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    """
+    Reject a field-clear request lacking --replace before dispatching any command.
+
+    Example:
+        >>> test_clear_requires_authoritative_replace(fake_core, capsys)  # doctest: +SKIP
+
+
+    :param fake_core: Recorder whose command list must remain empty.
+    :param capsys: Capture for the authoritative-replacement requirement message.
+    :return: None; assert status two, no mutation request, and explanatory stderr.
+    """
     rc = cli_main(["metadata", "set", *_connection(), "7", "--clear", "tags"])
 
     assert rc == 2
@@ -334,6 +564,15 @@ def test_clear_requires_authoritative_replace(
 
 
 def test_catalogue_write_values_accept_file_inspect_report() -> None:
+    """
+    Extract supported catalogue fields from an inspection report while dropping title.
+
+    Example:
+        >>> test_catalogue_write_values_accept_file_inspect_report()
+
+
+    :return: None; assert only tags and identifiers survive the writable-field projection.
+    """
     assert metadata_cli._extract_write_values(
         {
             "file_type": "epub",
@@ -354,6 +593,18 @@ def test_set_refuses_owned_report_before_catalogue_mutation(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    """
+    Preserve an occupied JSON report and avoid sending the proposed catalogue write.
+
+    Example:
+        >>> test_set_refuses_owned_report_before_catalogue_mutation(fake_core, tmp_path, capsys)  # doctest: +SKIP
+
+
+    :param fake_core: Command recorder checked for absence of mutation requests.
+    :param tmp_path: Directory containing the pre-existing write report.
+    :param capsys: Capture for the output replacement refusal.
+    :return: None; assert failure status, empty command log, retained content, and guidance.
+    """
     output = tmp_path / "write-report.json"
     output.write_text("operator-owned\n", encoding="utf-8")
 
@@ -381,6 +632,18 @@ def test_set_treats_broken_output_symlink_as_owned_before_mutation(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    """
+    Treat a dangling report symlink as occupied rather than publishing through it.
+
+    Example:
+        >>> test_set_treats_broken_output_symlink_as_owned_before_mutation(fake_core, tmp_path, capsys)  # doctest: +SKIP
+
+
+    :param fake_core: Recorder whose mutation log must remain empty.
+    :param tmp_path: Temporary directory supporting the dangling symlink fixture.
+    :param capsys: Capture for the replacement-option refusal.
+    :return: None; assert status two, no command, and preservation of the symlink.
+    """
     output = tmp_path / "write-report.json"
     output.symlink_to(tmp_path / "missing-target.json")
 
@@ -408,6 +671,18 @@ def test_export_opf_decodes_wire_bytes_and_never_clobbers(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    """
+    Publish the fake wire-encoded OPF once and refuse a second non-replacing export.
+
+    Example:
+        >>> test_export_opf_decodes_wire_bytes_and_never_clobbers(fake_core, tmp_path, capsys)  # doctest: +SKIP
+
+
+    :param fake_core: Fixture supplying the fixed package-element wire bytes.
+    :param tmp_path: Directory for the exported OPF file.
+    :param capsys: Capture for the repeated-export refusal message.
+    :return: None; assert exact bytes survive the successful then refused publications.
+    """
     output = tmp_path / "book.opf"
     assert cli_main(
         ["metadata", "export-opf", *_connection(), "3", "--output", str(output)]
@@ -426,6 +701,21 @@ def test_file_inspect_transfers_tortured_client_path_as_bytes(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    """
+    Send file contents, not a hostile local filename, to Core inspection.
+
+    The filename contains an undecodable byte represented by a surrogate after
+    filesystem decoding; JSON must escape it. The fake does not parse an EPUB.
+
+    Example:
+        >>> test_file_inspect_transfers_tortured_client_path_as_bytes(fake_core, tmp_path, capsys)  # doctest: +SKIP
+
+
+    :param fake_core: Recorder for the final byte-based inspection request.
+    :param tmp_path: Directory supporting the raw-byte filename fixture.
+    :param capsys: Capture for escaped-path JSON and the synthetic metadata result.
+    :return: None; assert valid output, absent remote path, and the original transferred bytes.
+    """
     raw_path = os.fsencode(tmp_path) + b"/bad-name-\xff.epub"
     descriptor = os.open(raw_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
     os.write(descriptor, b"book-bytes")
@@ -450,6 +740,21 @@ def test_file_write_creates_verified_artifact_without_changing_input(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    """
+    Publish rewritten fixture bytes separately and report successful re-inspection.
+
+    Verification here uses the fake inspector, not an ebook parser or independent
+    comparison of every requested metadata value.
+
+    Example:
+        >>> test_file_write_creates_verified_artifact_without_changing_input(fake_core, tmp_path, capsys)  # doctest: +SKIP
+
+
+    :param fake_core: Recorder returning fixed rewritten bytes and inspection metadata.
+    :param tmp_path: Directory for independent source and output files.
+    :param capsys: Capture for the unmanaged/verified result flags.
+    :return: None; assert preserved input, published bytes, and unwrapped byte-based request.
+    """
     source = tmp_path / "book.epub"
     source.write_bytes(b"original-book")
     output = tmp_path / "updated.epub"
@@ -489,6 +794,20 @@ def test_file_write_in_place_is_atomic_and_keeps_backup(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    """
+    Observe successful in-place replacement with original bytes retained in a backup.
+
+    The assertions check final files and report fields, not crash-time atomicity.
+
+    Example:
+        >>> test_file_write_in_place_is_atomic_and_keeps_backup(fake_core, tmp_path, capsys)  # doctest: +SKIP
+
+
+    :param fake_core: Fixture returning the fixed rewritten file bytes.
+    :param tmp_path: Directory for the unmanaged source and default .bak file.
+    :param capsys: Capture for in-place and backup-path report fields.
+    :return: None; assert final source/backup contents and successful in-place reporting.
+    """
     source = tmp_path / "book.epub"
     source.write_bytes(b"original-book")
 
@@ -518,6 +837,18 @@ def test_file_write_in_place_refuses_owned_backup_before_core_mutation(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    """
+    Refuse an occupied default backup before requesting the metadata rewrite.
+
+    Example:
+        >>> test_file_write_in_place_refuses_owned_backup_before_core_mutation(fake_core, tmp_path, capsys)  # doctest: +SKIP
+
+
+    :param fake_core: Recorder checked for absence of rewrite commands.
+    :param tmp_path: Directory containing source and operator-owned backup fixtures.
+    :param capsys: Capture for backup replacement guidance.
+    :return: None; assert failure status, unchanged files, and an empty command log.
+    """
     source = tmp_path / "book.epub"
     backup = tmp_path / "book.epub.bak"
     source.write_bytes(b"original-book")
@@ -549,11 +880,37 @@ def test_file_write_in_place_refuses_concurrent_input_change(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    """
+    Detect a source rewrite injected during the Core command before backup publication.
+
+    This covers one explicit timing boundary, not every possible filesystem race.
+
+    Example:
+        >>> test_file_write_in_place_refuses_concurrent_input_change(fake_core, tmp_path, monkeypatch, capsys)  # doctest: +SKIP
+
+
+    :param fake_core: Original command implementation wrapped by the injected race.
+    :param tmp_path: Directory holding the concurrently changed source file.
+    :param monkeypatch: Patcher installing and restoring the command wrapper.
+    :param capsys: Capture for the changed-input diagnostic.
+    :return: None; assert refusal preserves concurrent bytes and creates no backup.
+    """
     source = tmp_path / "book.epub"
     source.write_bytes(b"original-book")
     original_command = fake_core.command
 
     def racing_command(name: str, payload: dict[str, Any] | None = None) -> Any:
+        """
+        Delegate to the fake and change the source after a metadata-file write receipt.
+
+        Example:
+            >>> receipt = racing_command("metadata.file.write", {"file_type": "epub"})  # doctest: +SKIP
+
+
+        :param name: Operation delegated unchanged to the captured original command.
+        :param payload: Optional request mapping forwarded without modification.
+        :return: Original receipt after injecting concurrent-writer bytes for file writes.
+        """
         result = original_command(name, payload)
         if name == "metadata.file.write":
             source.write_bytes(b"concurrent-writer")
@@ -585,6 +942,18 @@ def test_file_write_refuses_existing_output_without_modifying_either_file(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    """
+    Reject a new-artifact destination that already contains operator-owned bytes.
+
+    Example:
+        >>> test_file_write_refuses_existing_output_without_modifying_either_file(fake_core, tmp_path, capsys)  # doctest: +SKIP
+
+
+    :param fake_core: Installed fake Core fixture for the attempted write workflow.
+    :param tmp_path: Directory containing the independent source and occupied output.
+    :param capsys: Capture for replacement-option guidance.
+    :return: None; assert status two and byte-for-byte preservation of both files.
+    """
     source = tmp_path / "book.epub"
     output = tmp_path / "updated.epub"
     source.write_bytes(b"original-book")
@@ -614,6 +983,17 @@ def test_online_sources_and_detached_identify_are_json(
     fake_core: _Core,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    """
+    Render source capabilities and submit an identifier/plugin-selected detached job.
+
+    Example:
+        >>> test_online_sources_and_detached_identify_are_json(fake_core, capsys)  # doctest: +SKIP
+
+
+    :param fake_core: Recorder supplying capabilities and a pending job receipt.
+    :param capsys: Capture for the separate source and detached-submission JSON reports.
+    :return: None; assert routing/selectors and detach reporting without contacting providers.
+    """
     assert cli_main(["metadata", "online", "sources", *_connection()]) == 0
     assert json.loads(capsys.readouterr().out)["sources"][0]["name"] == "Example"
 
@@ -642,6 +1022,19 @@ def test_online_identify_waits_for_and_returns_job_result(
     fake_core: _Core,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    """
+    Project the fake job's immediate successful completion into the identify report.
+
+    No nonterminal poll, timeout, or live source lookup is exercised here.
+
+    Example:
+        >>> test_online_identify_waits_for_and_returns_job_result(fake_core, capsys)  # doctest: +SKIP
+
+
+    :param fake_core: Fixture returning succeeded on the first job-status query.
+    :param capsys: Capture for the completion state and synthetic metadata title.
+    :return: None; assert success status and the nested identification result.
+    """
     rc = cli_main(
         ["metadata", "online", "identify", *_connection(), "--title", "Found"]
     )
@@ -657,6 +1050,20 @@ def test_online_cover_can_publish_binary_separately_from_json_report(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    """
+    Publish fake cover bytes and replace their wire payload with report path/size fields.
+
+    The fixture bytes are not a validated JPEG despite the destination suffix.
+
+    Example:
+        >>> test_online_cover_can_publish_binary_separately_from_json_report(fake_core, tmp_path, capsys)  # doctest: +SKIP
+
+
+    :param fake_core: Fixture returning the synthetic completed cover job.
+    :param tmp_path: Directory receiving the binary cover artifact.
+    :param capsys: Capture for the JSON report, kept separate from cover bytes.
+    :return: None; assert exact artifact bytes and path/size replacing embedded content.
+    """
     cover = tmp_path / "cover.jpg"
 
     rc = cli_main(
@@ -681,26 +1088,46 @@ def test_online_cover_can_publish_binary_separately_from_json_report(
     assert "content" not in cover_report
 
 
-def test_metadata_help_is_available_from_packaged_and_compatibility_parsers(
+def test_metadata_help_is_available_from_the_application_parser(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    """
+    Expose metadata help through the application entry point.
+
+    Example:
+        >>> test_metadata_help_is_available_from_the_application_parser(capsys)  # doctest: +SKIP
+
+
+    :param capsys: Capture for the parser help invocation.
+    :return: None; assert clean argparse exits and advertised dump-json support.
+    """
     with pytest.raises(SystemExit) as packaged:
         cli_main(["metadata", "--help"])
     assert packaged.value.code == 0
     assert "dump-json" in capsys.readouterr().out
 
-    from LiuXin_alpha.surfaces.cli.squashfs import main as compatibility_main
-
-    with pytest.raises(SystemExit) as compatibility:
-        compatibility_main(["metadata", "--help"])
-    assert compatibility.value.code == 0
-    assert "dump-json" in capsys.readouterr().out
 
 
 def test_catalogue_commands_round_trip_through_a_real_local_core(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    """
+    Persist catalogue metadata and rewrite a minimal EPUB through a real SQLite Core.
+
+    Create a WEMI item, read/tag/dump it through fresh CLI sessions, and export OPF.
+    Build an EPUB locally, inspect its original title, rewrite it from the selected
+    item, then re-inspect the rewritten title. Storage and maintenance managers
+    are disabled on initial Core creation; no online source or PostgreSQL is used.
+
+    Example:
+        >>> test_catalogue_commands_round_trip_through_a_real_local_core(tmp_path, capsys)  # doctest: +SKIP
+
+
+    :param tmp_path: Isolated directory for SQLite, JSON reports, OPF, and EPUB artifacts.
+    :param capsys: Capture isolating startup chatter and the catalogue write receipt.
+    :return: None; assert persisted tags, export content, changed EPUB bytes, and final title.
+    """
     from LiuXin_alpha.core import create_core
 
     database = tmp_path / "catalogue.sqlite"

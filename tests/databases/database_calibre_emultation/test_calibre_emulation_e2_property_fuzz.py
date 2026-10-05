@@ -1,3 +1,15 @@
+"""
+Define optional Hypothesis properties for small generated Calibre libraries and datetime custom values.
+
+The module skips at import when Hypothesis is unavailable. Properties retain their
+configured example limits, disabled deadlines, and fixture health-check
+suppressions. Expected custom-value normalization reuses reader coercion helpers.
+
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_e2_property_fuzz.py
+"""
 from __future__ import annotations
 
 import uuid
@@ -35,10 +47,38 @@ _SAFE_CHARS = list("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ01234567
 
 def _safe_text(*, min_size: int = 1, max_size: int = 40) -> st.SearchStrategy[str]:
     # Keep it cross-platform and path-friendly (no separators, no control chars, no surrogates).
+    """
+    Build a restricted-alphabet text strategy, stripping boundary whitespace and replacing an empty result with X.
+
+    The output can be shorter than min_size after stripping; even max_size=0 can produce
+    X.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_e2_property_fuzz.py
+
+
+    :param min_size: Minimum size of the raw generated string before stripping.
+    :param max_size: Maximum size of the raw generated string before stripping.
+    :return: Hypothesis strategy producing nonempty strings without separators,
+        controls, or surrogates.
+    """
     return st.text(alphabet=_SAFE_CHARS, min_size=min_size, max_size=max_size).map(lambda s: s.strip() or "X")
 
 
 def _label() -> st.SearchStrategy[str]:
+    """
+    Build lowercase custom-column labels beginning with a letter and followed by up to ten letters, digits, or underscores.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_e2_property_fuzz.py
+
+
+    :return: Hypothesis strategy producing one-to-eleven-character labels.
+    """
     first = st.sampled_from(list("abcdefghijklmnopqrstuvwxyz"))
     rest = st.text(alphabet=list("abcdefghijklmnopqrstuvwxyz0123456789_"), min_size=0, max_size=10)
     return st.tuples(first, rest).map(lambda t: (t[0] + t[1]).lower())
@@ -46,6 +86,14 @@ def _label() -> st.SearchStrategy[str]:
 
 @dataclass(frozen=True)
 class CustomColSpec:
+    """
+    Hold a frozen label, display name, datatype, and multi-value flag for a generated custom column.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_e2_property_fuzz.py
+    """
     label: str
     name: str
     datatype: str
@@ -56,7 +104,32 @@ _CUSTOM_TYPES = ("text", "bool", "int", "float", "datetime", "series", "enumerat
 
 
 def _custom_col_spec() -> st.SearchStrategy[CustomColSpec]:
+    """
+    Build custom-column specifications from supported datatypes, allowing multi-value mode only for text.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_e2_property_fuzz.py
+
+
+    :return: Hypothesis strategy yielding CustomColSpec values.
+    """
     def _build(label: str, datatype: str, multi_flag: bool) -> CustomColSpec:
+        """
+        Construct a custom-column specification with a CC-prefixed name and a text-only multi-value flag.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_e2_property_fuzz.py
+
+
+        :param label: Generated custom-column label.
+        :param datatype: Parametrized custom-column datatype.
+        :param multi_flag: Generated flag honored only for the text datatype.
+        :return: CustomColSpec for the supplied label and datatype.
+        """
         is_multiple = bool(multi_flag) if datatype == "text" else False
         name = f"CC {label}"
         return CustomColSpec(label=label, name=name, datatype=datatype, is_multiple=is_multiple)
@@ -71,6 +144,17 @@ def _custom_col_spec() -> st.SearchStrategy[CustomColSpec]:
 
 @dataclass(frozen=True)
 class BookSpec:
+    """
+    Describe a generated book’s metadata, format bytes, cover flag, and custom values.
+
+    The frozen dataclass does not freeze nested mappings and is not instantiated by the
+    current property tests.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_e2_property_fuzz.py
+    """
     title: str
     authors: Tuple[str, ...]
     tags: Tuple[str, ...]
@@ -88,10 +172,40 @@ _FORMATS = ("EPUB", "PDF", "MOBI", "AZW3", "TXT")
 
 def _format_bytes(tag: str) -> bytes:
     # Small, deterministic-ish payloads (enough to test file presence/size).
+    """
+    Encode the tag, a newline, and 128 x characters as UTF-8 test file content.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_e2_property_fuzz.py
+
+
+    :param tag: Format label inserted at the start of the content.
+    :return: Deterministic bytes; these placeholders are not validated ebook files.
+    """
     return (f"{tag}\n" + ("x" * 128)).encode("utf-8")
 
 
 def _draw_value_for_col(data: st.DataObject, col: CustomColSpec) -> Any:
+    """
+    Draw a builder-compatible value for the selected custom datatype.
+
+    Text may be multi-valued with injected duplicates; scalar types may yield None.
+    Floats use scaled integers, datetimes use fixed timestamp choices, and series values
+    use tuple or mapping form. Unknown datatypes raise AssertionError.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_e2_property_fuzz.py
+
+
+    :param data: Hypothesis data object supplying draws to the enclosing property.
+    :param col: Custom-column specification selecting value shape and bounds.
+    :return: Generated scalar, list, series pair/mapping, or None according to the
+        column.
+    """
     dt = col.datatype
     if dt == "text":
         if col.is_multiple:
@@ -142,7 +256,23 @@ def _draw_value_for_col(data: st.DataObject, col: CustomColSpec) -> Any:
 
 
 def _expected_custom_value(col: CustomColSpec, raw_value: Any) -> Any:
-    """Convert a builder-input value into the CalibreReader output shape."""
+    """
+    Convert a builder value into the expected reader shape using the reader’s normalization and coercion helpers.
+
+    Handle None, datetime, series tuple/list/mapping forms, and ordered deduplicated
+    multi-text values explicitly. This is a shared-helper expectation, not an
+    independent implementation of normalization.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_e2_property_fuzz.py
+
+
+    :param col: Custom-column specification selecting the normalization branch.
+    :param raw_value: Builder input value to normalize.
+    :return: Expected decoded custom value.
+    """
     dt = col.datatype
     if raw_value is None:
         return None if not col.is_multiple else []
@@ -181,12 +311,24 @@ def _expected_custom_value(col: CustomColSpec, raw_value: Any) -> Any:
 )
 @given(st.data())
 def test_e2_fuzz_roundtrip_reader_payloads(provision_calibre_library, data: st.DataObject) -> None:
-    """Generate small random Calibre libraries and assert reader invariants.
+    """
+    Generate up to four distinct-label custom columns and one-to-six books, then compare streamed payload metadata and file references.
 
-    This is intended to catch corner cases in:
-      - joins/ordering for authors/tags/languages/formats
-      - custom-column decoding/normalization (D2)
-      - schema guardrails that should not break basic reads
+    Require exact titles/authors/identifiers/series, set-normalized tags and languages,
+    matching format labels with nonempty files, cover presence, and supplied custom
+    values. Comments only require a paragraph marker when present. UUID names and
+    identifiers are generated outside Hypothesis.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_e2_property_fuzz.py::test_e2_fuzz_roundtrip_reader_payloads
+
+
+    :param provision_calibre_library: Fixture factory creating an isolated blank
+        library; skips when SQLite lacks the required FTS5 support.
+    :param data: Hypothesis data object used to generate each small library.
+    :return: None; failed properties raise AssertionError.
     """
     # Keep the generated libraries small and fast.
     cols = data.draw(st.lists(_custom_col_spec(), min_size=0, max_size=4))
@@ -345,7 +487,20 @@ def test_e2_fuzz_roundtrip_reader_payloads(provision_calibre_library, data: st.D
 )
 @given(st.data())
 def test_e2_fuzz_datetime_normalization_is_stable(provision_calibre_library, data: st.DataObject) -> None:
-    """Fuzz datetime-ish custom column values and assert ISO normalization."""
+    """
+    Draw absent or equivalent timestamp values and compare the streamed custom value with the shared datetime normalizer.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_e2_property_fuzz.py::test_e2_fuzz_datetime_normalization_is_stable
+
+
+    :param provision_calibre_library: Fixture factory creating an isolated blank
+        library; skips when SQLite lacks the required FTS5 support.
+    :param data: Hypothesis data object choosing one of the fixed datetime inputs.
+    :return: None; failed expectations raise AssertionError.
+    """
     lib = provision_calibre_library(name=f"fuzz_dt_{uuid.uuid4().hex}")
     b = CalibreLibraryBuilder(lib.root)
     b.create_custom_column(label="dt", name="Datetime", datatype="datetime", is_multiple=False)

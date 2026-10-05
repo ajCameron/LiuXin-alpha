@@ -1,4 +1,14 @@
-"""Job handler for the existing-drives-to-SquashFS prototype pipeline."""
+"""
+Run the existing-drive SquashFS backup job.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise existing drive squashfs backup through a consuming regression::
+
+        python -m pytest -q tests/jobs/test_jobs_worker.py
+"""
 
 from __future__ import annotations
 
@@ -15,7 +25,14 @@ from LiuXin_alpha.storage.backup.prototype_pipeline import ConsoleReporter, Exis
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class ExistingDriveSquashfsBackupJobPayload:
-    """Durable JSON-shaped inputs for one drive-to-SquashFS backup job."""
+    """
+    Durable JSON-shaped inputs for one drive-to-SquashFS backup job.
+
+    Example:
+        Exercise ExistingDriveSquashfsBackupJobPayload through a consuming regression::
+
+            python -m pytest -q tests/jobs/test_jobs_worker.py
+    """
 
     input_paths: tuple[str, ...]
     database_path: str
@@ -30,6 +47,19 @@ class ExistingDriveSquashfsBackupJobPayload:
 
     @classmethod
     def from_json(cls, payload_json: str) -> "ExistingDriveSquashfsBackupJobPayload":
+        """
+        Perform the from json operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ExistingDriveSquashfsBackupJobPayload.from json through a consuming regression::
+
+                python -m pytest -q tests/jobs/test_jobs_worker.py
+
+
+        :param payload_json: Value supplied for payload json under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = json.loads(payload_json)
         if not isinstance(data, dict):
             raise TypeError("Job payload must decode to a JSON object")
@@ -54,18 +84,82 @@ class ExistingDriveSquashfsBackupJobPayload:
         )
 
     def to_json(self) -> str:
+        """
+        Perform the to json operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ExistingDriveSquashfsBackupJobPayload.to json through a consuming regression::
+
+                python -m pytest -q tests/jobs/test_jobs_worker.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return json.dumps(dataclasses.asdict(self), sort_keys=True)
 
 
 class _JobReporter(ConsoleReporter):
+    """
+    Provide the jobreporter contract for validated ebook processing.
+
+    Example:
+        Exercise  JobReporter through a consuming regression::
+
+            python -m pytest -q tests/jobs/test_jobs_worker.py
+    """
     def __init__(self, run_context: JobRunContext) -> None:
+        """
+        Initialize and validate the jobreporter state.
+
+        Example:
+            Exercise  JobReporter.  init   through a consuming regression::
+
+                python -m pytest -q tests/jobs/test_jobs_worker.py
+
+
+        :param run_context: Value supplied for run context under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         super().__init__()
         self.run_context = run_context
 
     def line(self, text: str = "") -> None:
+        """
+        Perform the line operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  JobReporter.line through a consuming regression::
+
+                python -m pytest -q tests/jobs/test_jobs_worker.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.run_context.log(text)
 
     def index_progress(self, *, label: str, scanned: int, total: int | None, ebooks: int, inserted: int, updated: int, skipped: int) -> None:
+        """
+        Perform the index progress operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  JobReporter.index progress through a consuming regression::
+
+                python -m pytest -q tests/jobs/test_jobs_worker.py
+
+
+        :param label: Value supplied for label under the utility contract.
+        :param scanned: Value supplied for scanned under the utility contract.
+        :param total: Value supplied for total under the utility contract.
+        :param ebooks: Value supplied for ebooks under the utility contract.
+        :param inserted: Value supplied for inserted under the utility contract.
+        :param updated: Value supplied for updated under the utility contract.
+        :param skipped: Value supplied for skipped under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         super().index_progress(label=label, scanned=scanned, total=total, ebooks=ebooks, inserted=inserted, updated=updated, skipped=skipped)
         self.run_context.update_progress(
             JobProgressUpdate(
@@ -77,6 +171,22 @@ class _JobReporter(ConsoleReporter):
         )
 
     def pack_progress(self, *, label: str, staged: int, total: int, status: str) -> None:
+        """
+        Perform the pack progress operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  JobReporter.pack progress through a consuming regression::
+
+                python -m pytest -q tests/jobs/test_jobs_worker.py
+
+
+        :param label: Value supplied for label under the utility contract.
+        :param staged: Value supplied for staged under the utility contract.
+        :param total: Value supplied for total under the utility contract.
+        :param status: Value supplied for status under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         super().pack_progress(label=label, staged=staged, total=total, status=status)
         self.run_context.update_progress(
             JobProgressUpdate(
@@ -90,11 +200,31 @@ class _JobReporter(ConsoleReporter):
 
 
 class ExistingDriveSquashfsBackupJobHandler(JobHandlerAPI):
-    """Run the prototype drive-to-SquashFS pipeline through the jobs engine."""
+    """
+    Run the prototype drive-to-SquashFS pipeline through the jobs engine.
+
+    Example:
+        Exercise ExistingDriveSquashfsBackupJobHandler through a consuming regression::
+
+            python -m pytest -q tests/jobs/test_jobs_worker.py
+    """
 
     job_kind = "existing_drives_to_squashfs_backup"
 
     def validate_payload(self, payload_json: str) -> None:
+        """
+        Validate payload under the format's safety and compatibility rules.
+
+        Example:
+            Exercise ExistingDriveSquashfsBackupJobHandler.validate payload through a consuming regression::
+
+                python -m pytest -q tests/jobs/test_jobs_worker.py
+
+
+        :param payload_json: Value supplied for payload json under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         payload = ExistingDriveSquashfsBackupJobPayload.from_json(payload_json)
         if payload.target_pack_size_bytes <= 0:
             raise ValueError("target_pack_size_bytes must be > 0")
@@ -102,6 +232,20 @@ class ExistingDriveSquashfsBackupJobHandler(JobHandlerAPI):
             raise ValueError("delete_originals remains gated off for now")
 
     def run(self, *, payload_json: str, run_context: JobRunContext) -> dict[str, Any]:
+        """
+        Execute the configured conversion stage and return its primary result.
+
+        Example:
+            Exercise ExistingDriveSquashfsBackupJobHandler.run through a consuming regression::
+
+                python -m pytest -q tests/jobs/test_jobs_worker.py
+
+
+        :param payload_json: Value supplied for payload json under the utility contract.
+        :param run_context: Value supplied for run context under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         payload = ExistingDriveSquashfsBackupJobPayload.from_json(payload_json)
         reporter = _JobReporter(run_context)
         prototype = ExistingDriveSquashfsPrototype(

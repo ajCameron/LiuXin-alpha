@@ -1,3 +1,14 @@
+"""
+Convert MOBI content into the normalized ebook conversion pipeline.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise mobi input through a consuming regression::
+
+        python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+"""
 from __future__ import with_statement
 from __future__ import annotations
 
@@ -16,12 +27,38 @@ __docformat__ = "restructuredtext en"
 
 class MOBIInput(InputFormatPlugin):
 
+    """
+    Convert mobiinput sources into the normalized OEB pipeline model.
+
+    Example:
+        Exercise MOBIInput through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+    """
     name = "MOBI Input"
     author = "Kovid Goyal"
     description = "Convert MOBI files (.mobi, .prc, .azw) to HTML"
     file_types = {"mobi", "prc", "azw", "azw3", "pobi"}
 
     def convert(self: _typing.Self, stream: _typing.Any, options: _typing.Any, file_ext: _typing.Any, log: _typing.Any, accelerators: _typing.Any) -> _typing.Any:
+        """
+        Convert the supplied source into the stage's normalized output representation.
+
+        Example:
+            Exercise MOBIInput.convert through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param options: Value supplied for options under the utility contract.
+        :param file_ext: Value supplied for file ext under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :param accelerators: Value supplied for accelerators under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if accelerators is None:
             accelerators = {}
         self.is_kf8 = False

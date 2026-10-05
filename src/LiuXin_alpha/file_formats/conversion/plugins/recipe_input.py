@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Convert RECIPE content into the normalized ebook conversion pipeline.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise recipe input through a consuming regression::
+
+        python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -23,11 +34,27 @@ __docformat__ = "restructuredtext en"
 
 
 class RecipeDisabled(Exception):
+    """
+    Provide the recipedisabled contract for validated ebook processing.
+
+    Example:
+        Exercise RecipeDisabled through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+    """
     pass
 
 
 class RecipeInput(InputFormatPlugin):
 
+    """
+    Convert recipeinput sources into the normalized OEB pipeline model.
+
+    Example:
+        Exercise RecipeInput through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+    """
     name = "Recipe Input"
     author = "Kovid Goyal"
     description = _("Download periodical content from the internet")
@@ -80,19 +107,20 @@ class RecipeInput(InputFormatPlugin):
     def convert(self: _typing.Self, recipe_or_file: _typing.Any, options: _typing.Any, file_ext: _typing.Any, log: _typing.Any, accelerators: _typing.Any) -> _typing.Any:
         """
         Download news from a site. Convert that news to an OEB for later conversion to another type of ebook.
-        :param recipe_or_file: The recipe to download - either the name of an inbuilt recipe, a path to a .recipe file
-                               or a zipped recipe extension
-        :param options: Options to control the download
-        :param file_ext: Control for what type of recipe it is.
-                         If file_ext is 'downloaded_recipe' then the file is assumed to be a zipped recipe plugin.
-                         (A zip file with a file in it, containing valid python, called 'download.recipe')
-                         Otherwise will check to see if the passed recipe is a file - if it is them reads it and tries
-                         to compile it.
-                         Otherwise checks to see if the string is the name of an inbuilt plugin - if it is then loads it
-                         and proceeds
-        :param log:
-        :param accelerators:
-        :return:
+
+        Example:
+            Exercise RecipeInput.convert through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param recipe_or_file: Value supplied for recipe or file under the utility contract.
+        :param options: Value supplied for options under the utility contract.
+        :param file_ext: Value supplied for file ext under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :param accelerators: Value supplied for accelerators under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         from LiuXin_alpha.utils.web.feeds.recipes import compile_recipe
@@ -183,10 +211,41 @@ class RecipeInput(InputFormatPlugin):
                     return os.path.abspath(f)
 
     def postprocess_book(self: _typing.Self, oeb: _typing.Any, opts: _typing.Any, log: _typing.Any) -> None:
+        """
+        Perform the postprocess book operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise RecipeInput.postprocess book through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param oeb: Value supplied for oeb under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.recipe_object is not None:
             self.recipe_object.postprocess_book(oeb, opts, log)
 
     def specialize(self: _typing.Self, oeb: _typing.Any, opts: _typing.Any, log: _typing.Any, output_fmt: _typing.Any) -> None:
+        """
+        Perform the specialize operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise RecipeInput.specialize through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param oeb: Value supplied for oeb under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :param output_fmt: Value supplied for output fmt under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if opts.no_inline_navbars:
             from LiuXin_alpha.file_formats.oeb.base import XPath
 
@@ -195,6 +254,19 @@ class RecipeInput(InputFormatPlugin):
                     div.getparent().remove(div)
 
     def save_download(self: _typing.Self, zf: _typing.Any) -> None:
+        """
+        Perform the save download operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise RecipeInput.save download through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param zf: Value supplied for zf under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raw = self.recipe_source
         if isinstance(raw, str):
             raw = raw.encode("utf-8")

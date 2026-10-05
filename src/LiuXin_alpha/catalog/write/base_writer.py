@@ -1,5 +1,12 @@
 """
-Inheritance-oriented foundations for catalog writers.
+Define shared catalog writer adaptation, validation and application flow.
+
+The module keeps validation, normalization and host mutation boundaries explicit.
+
+Example:
+    Exercise base writer through its owning regression module::
+
+        python -m pytest -q tests/catalog/test_writer_factory.py
 """
 
 from __future__ import annotations
@@ -15,25 +22,24 @@ class BaseCatalogWriter[UpdateT, ResultT](ABC):
     """
     Coordinate construction and application of one catalog update.
 
-    This base owns only the stable writer lifecycle. Storage-specific
-    subclasses decide what an update contains and which catalog operation
-    applies it. Consequently the same base can support a column on the source
-    row, a value stored in another table, or any link-table cardinality.
+    Example:
+        Exercise BaseCatalogWriter through its owning regression module::
 
-    Subclasses should implement :meth:`build_update`,
-    :meth:`build_one_update`, and :meth:`apply_update`. They should not
-    override :meth:`write` or :meth:`write_one` merely to reproduce those
-    lifecycles.
-
-    :param catalog: Catalog facade through which the update is applied.
+            python -m pytest -q tests/catalog/test_writer_factory.py
     """
 
     def __init__(self, catalog: CatalogWriterHostAPI) -> None:
         """
         Store the catalog dependency used by the concrete writer.
 
-        :param catalog: Catalog facade through which the update is applied.
-        :return: None.
+        Example:
+            Exercise BaseCatalogWriter.init through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+        :param catalog: Catalog host or facade supplying metadata and mutation services.
+        :return: None; the function records state or raises through its assertions.
         """
 
         self._catalog = catalog
@@ -43,7 +49,13 @@ class BaseCatalogWriter[UpdateT, ResultT](ABC):
         """
         Return the catalog facade used by this writer.
 
-        :return: Configured catalog facade.
+        Example:
+            Exercise BaseCatalogWriter.catalog through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         return self._catalog
@@ -53,9 +65,15 @@ class BaseCatalogWriter[UpdateT, ResultT](ABC):
         """
         Normalize caller intent into the concrete writer's update type.
 
-        :param args: Positional inputs defined by the concrete writer.
-        :param kwargs: Keyword inputs defined by the concrete writer.
-        :return: Storage-specific update ready for application.
+        Example:
+            Exercise BaseCatalogWriter.build update through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+        :param args: Value supplied for args under the catalog contract.
+        :param kwargs: Value supplied for kwargs under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         raise NotImplementedError
@@ -70,14 +88,16 @@ class BaseCatalogWriter[UpdateT, ResultT](ABC):
         """
         Normalize one source-to-destination instruction.
 
-        Storage-specific subclasses decide how a single pair is represented
-        in their normal update type. Implementations must preserve the same
-        semantics as passing a one-entry mapping to :meth:`build_update`.
+        Example:
+            Exercise BaseCatalogWriter.build one update through its owning regression module::
 
-        :param src_id: Source-table ID to update.
-        :param dst_value: One raw destination value or unlink instruction.
-        :param kwargs: Additional options accepted by :meth:`build_update`.
-        :return: Storage-specific update ready for application.
+                python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+        :param src_id: Value supplied for src id under the catalog contract.
+        :param dst_value: Value supplied for dst value under the catalog contract.
+        :param kwargs: Value supplied for kwargs under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         raise NotImplementedError
@@ -87,8 +107,14 @@ class BaseCatalogWriter[UpdateT, ResultT](ABC):
         """
         Apply one normalized update through the catalog boundary.
 
-        :param update: Storage-specific update built by this writer.
-        :return: Concrete writer result.
+        Example:
+            Exercise BaseCatalogWriter.apply update through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+        :param update: Prepared catalog update to validate or apply.
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         raise NotImplementedError
@@ -97,12 +123,15 @@ class BaseCatalogWriter[UpdateT, ResultT](ABC):
         """
         Build and apply exactly one update.
 
-        Database failures are deliberately allowed to propagate. The base
-        neither retries a partial operation nor performs cache reconciliation.
+        Example:
+            Exercise BaseCatalogWriter.write through its owning regression module::
 
-        :param args: Positional inputs accepted by :meth:`build_update`.
-        :param kwargs: Keyword inputs accepted by :meth:`build_update`.
-        :return: Result returned by :meth:`apply_update`.
+                python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+        :param args: Value supplied for args under the catalog contract.
+        :param kwargs: Value supplied for kwargs under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         return self.apply_update(self.build_update(*args, **kwargs))
@@ -116,15 +145,16 @@ class BaseCatalogWriter[UpdateT, ResultT](ABC):
         """
         Build and apply one source-to-destination instruction.
 
-        This is the single-pair form of :meth:`write`; it returns the normal
-        writer result without unwrapping its source-keyed mapping. Database
-        failures propagate without retries or partial fallback writes.
+        Example:
+            Exercise BaseCatalogWriter.write one through its owning regression module::
 
-        :param src_id: Source-table ID to update.
-        :param dst_value: One raw destination value or unlink instruction.
-        :param kwargs: Additional options accepted by
-            :meth:`build_one_update`.
-        :return: Result returned by :meth:`apply_update`.
+                python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+        :param src_id: Value supplied for src id under the catalog contract.
+        :param dst_value: Value supplied for dst value under the catalog contract.
+        :param kwargs: Value supplied for kwargs under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         return self.apply_update(
@@ -141,9 +171,10 @@ class CatalogValueWriter[
     """
     Add reusable metadata value preparation to a catalog writer.
 
-    Same-table scalar writers, other-table one-to-one writers, and link
-    writers can all inherit this layer without inheriting one another's
-    persistence behavior.
+    Example:
+        Exercise CatalogValueWriter through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_writer_factory.py
     """
 
     def build_one_update(
@@ -155,13 +186,16 @@ class CatalogValueWriter[
         """
         Build the normal update from one source/value pair.
 
-        The one-pair form deliberately has the same meaning as passing
-        ``{src_id: dst_value}`` as the first argument to :meth:`build_update`.
+        Example:
+            Exercise CatalogValueWriter.build one update through its owning regression module::
 
-        :param src_id: Source-table ID to update.
-        :param dst_value: Raw destination value supplied by the caller.
-        :param kwargs: Additional options accepted by :meth:`build_update`.
-        :return: Storage-specific update ready for application.
+                python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+        :param src_id: Value supplied for src id under the catalog contract.
+        :param dst_value: Value supplied for dst value under the catalog contract.
+        :param kwargs: Value supplied for kwargs under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         return self.build_update({src_id: dst_value}, **kwargs)
@@ -171,8 +205,14 @@ class CatalogValueWriter[
         """
         Convert one caller value into the field's domain representation.
 
-        :param raw_value: Raw metadata value supplied by the caller.
-        :return: Adapted field value.
+        Example:
+            Exercise CatalogValueWriter.adapt through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+        :param raw_value: Value supplied for raw value under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         raise NotImplementedError
@@ -181,19 +221,28 @@ class CatalogValueWriter[
         """
         Validate one adapted field value.
 
-        The default accepts every value. Concrete field writers may raise a
-        domain-specific exception to reject a value before persistence.
+        Example:
+            Exercise CatalogValueWriter.validate through its owning regression module::
 
-        :param value: Adapted field value.
-        :return: None.
+                python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+        :param value: Public or stored value to normalize, compare or write.
+        :return: The deterministic value, row, identity or collection described above.
         """
 
     def prepare_value(self, raw_value: RawValueT) -> ValueT:
         """
         Adapt and validate one caller value in the stable order.
 
-        :param raw_value: Raw metadata value supplied by the caller.
-        :return: Adapted and validated field value.
+        Example:
+            Exercise CatalogValueWriter.prepare value through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+        :param raw_value: Value supplied for raw value under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         value = self.adapt(raw_value)

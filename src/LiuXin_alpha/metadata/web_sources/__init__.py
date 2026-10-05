@@ -1,9 +1,13 @@
 """
-Web metadata-source plugin package.
+Expose deterministic discovery and explicit imports for staged online metadata-source modules.
 
-This package hosts online metadata/cover source integrations (Amazon, Google,
-OpenLibrary, etc.). Most concrete source modules are being ported in stages;
-this module provides a stable, typed package surface in the meantime.
+The module makes ordering, fallback, ownership and optional-integration behavior
+explicit for callers.
+
+Example:
+    Exercise   init   with the owning regression module::
+
+        python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
 """
 
 from __future__ import annotations
@@ -41,18 +45,31 @@ KNOWN_WEB_SOURCE_MODULES: tuple[str, ...] = (
 
 def iter_known_web_source_modules() -> tuple[str, ...]:
     """
-    Return the known web-source module names in deterministic order.
+    Return known staged web-source module names in stable declaration order.
+
+    Example:
+        Exercise iter known web source modules with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+    :return: The normalized row, metadata object or value described above.
     """
     return KNOWN_WEB_SOURCE_MODULES
 
 
 def import_web_source_module(module_name: str) -> ModuleType:
     """
-    Import and return a web-source module by short name.
+    Import one web-source module by short name and propagate genuine import failures.
 
-    Raises:
-        ValueError: if module_name is empty.
-        ModuleNotFoundError: if the module has not been ported yet.
+    Example:
+        Exercise import web source module with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+    :param module_name: Short source-module name below the current package.
+    :return: The normalized row, metadata object or value described above.
     """
     name = str(module_name or "").strip()
     if not name:

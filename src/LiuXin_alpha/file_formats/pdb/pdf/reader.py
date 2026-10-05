@@ -1,7 +1,15 @@
 # -*- coding: utf-8 -*-
 
 """
-Read content from palmdoc pdb file.
+Read the package format into normalized text, metadata and resources.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise reader through a consuming regression::
+
+        python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
 """
 from __future__ import annotations
 
@@ -18,13 +26,50 @@ __docformat__ = "restructuredtext en"
 
 
 class Reader(FormatReader):
+    """
+    Parse reader data into normalized ebook structures.
+
+    Example:
+        Exercise Reader through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+    """
     def __init__(self: _typing.Self, header: _typing.Any, stream: _typing.Any, log: _typing.Any, options: _typing.Any) -> None:
+        """
+        Initialize and validate the reader state.
+
+        Example:
+            Exercise Reader.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :param header: Value supplied for header under the utility contract.
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param log: Value supplied for log under the utility contract.
+        :param options: Value supplied for options under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.header = header
         self.stream = stream
         self.log = log
         self.options = options
 
     def extract_content(self: _typing.Self, output_dir: _typing.Any) -> _typing.Any:
+        """
+        Extract content under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Reader.extract content through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :param output_dir: Value supplied for output dir under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.log.info("Extracting PDF...")
 
         pdf = PersistentTemporaryFile(".pdf")

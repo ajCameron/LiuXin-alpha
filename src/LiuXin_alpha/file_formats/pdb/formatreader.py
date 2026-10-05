@@ -1,7 +1,15 @@
 # -*- coding: utf-8 -*-
 
 """
-Interface defining the necessary public functions for a pdb format reader.
+Define the shared Palm database format-reader interface.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise formatreader through a consuming regression::
+
+        python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
 """
 from __future__ import annotations
 
@@ -17,6 +25,14 @@ __docformat__ = "restructuredtext en"
 
 
 class FormatReader(ABC):
+    """
+    Parse formatreader data into normalized ebook structures.
+
+    Example:
+        Exercise FormatReader through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+    """
     @abstractmethod
     def __init__(
         self: _typing.Self,
@@ -24,10 +40,41 @@ class FormatReader(ABC):
         stream: BinaryIO,
         log: object,
         options: object,
-    ) -> None: ...
+    ) -> None:
+        """
+        Initialize and validate the formatreader state.
+
+        Example:
+            Exercise FormatReader.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :param header: Value supplied for header under the utility contract.
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param log: Value supplied for log under the utility contract.
+        :param options: Value supplied for options under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
+        ...
 
     @abstractmethod
     def extract_content(
         self: _typing.Self,
         output_dir: str | PathLike[str],
-    ) -> object: ...
+    ) -> object:
+        """
+        Extract content under the format's safety and compatibility rules.
+
+        Example:
+            Exercise FormatReader.extract content through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :param output_dir: Value supplied for output dir under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
+        ...

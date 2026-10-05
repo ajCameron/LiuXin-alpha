@@ -1,4 +1,11 @@
-"""Battle-ready contracts for the concrete filesystem driver and Store."""
+"""
+Exercise filesystem driver and configured Store behavior with real local files.
+
+The regressions cover staged publication/abort, collision policies, byte ranges,
+digests, copy/move/delete, read-only configuration, URI handling, and Unicode paths.
+Fixed symlink checks and normal publication assertions do not establish race-free
+containment or crash recovery. Platform-dependent filename cases skip explicitly.
+"""
 
 from __future__ import annotations
 
@@ -24,10 +31,35 @@ from tests.storage.contracts.unicode_paths import exercise_unicode_path_case
 
 
 def _digest(data: bytes) -> api.Digest:
+    """
+    Compute the SHA-256 expectation for an exact byte payload used by filesystem tests.
+
+    Example:
+        >>> _digest(b"book").algorithm
+        'sha256'
+
+
+    :param data: Complete fixture payload whose expected digest is required.
+    :return: Storage Digest containing the SHA-256 hex value for data.
+    """
     return api.Digest("sha256", hashlib.sha256(data).hexdigest())
 
 
 def test_filesystem_driver_stages_verifies_and_commits_atomically(tmp_path) -> None:
+    """
+    Verify staged bytes stay unpublished until commit and satisfy size/digest expectations.
+
+    Assert per-object/staging characteristics, write the payload in two chunks, then check
+    address/content and absence of leftover .part files. This observes the normal publication path,
+    without simulating process crashes or concurrent mutation.
+
+    Example:
+        >>> test_filesystem_driver_stages_verifies_and_commits_atomically(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary root for real local files, directories, and staged writes.
+    :return: None after the stated regression assertions pass.
+    """
     driver = FilesystemStorageDriver(tmp_path, address_space_uuid=uuid4())
     assert driver.startup().available
     assert (
@@ -56,6 +88,19 @@ def test_filesystem_driver_stages_verifies_and_commits_atomically(tmp_path) -> N
 
 
 def test_filesystem_driver_aborts_failed_and_abandoned_writes(tmp_path) -> None:
+    """
+    Remove staging for abandoned sessions and failed size checks without publishing destinations.
+
+    Exercise context abort and commit-time size mismatch, then check destination absence and no
+    remaining .part files under the real staging directory.
+
+    Example:
+        >>> test_filesystem_driver_aborts_failed_and_abandoned_writes(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary root for real local files, directories, and staged writes.
+    :return: None after the stated regression assertions pass.
+    """
     driver = FilesystemStorageDriver(tmp_path, address_space_uuid=uuid4())
     driver.startup()
     abandoned = driver.parse_object_address("abandoned.bin")
@@ -75,6 +120,20 @@ def test_filesystem_driver_aborts_failed_and_abandoned_writes(tmp_path) -> None:
 def test_filesystem_driver_collision_modes_ranges_inventory_and_mutation(
     tmp_path,
 ) -> None:
+    """
+    Exercise collision modes, range reads, hashing, copy/move, inventory prefixes, and deletion.
+
+    Use real files to reject duplicate creation and replacement of a missing key, then replace,
+    copy, move with an observed source version, and enumerate results. Prefix assertions cover the
+    selected archive key, not component-boundary semantics.
+
+    Example:
+        >>> test_filesystem_driver_collision_modes_ranges_inventory_and_mutation(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary root for real local files, directories, and staged writes.
+    :return: None after the stated regression assertions pass.
+    """
     driver = FilesystemStorageDriver(tmp_path, address_space_uuid=uuid4())
     driver.startup()
     original = driver.store_bytes(b"original", object_address="objects/a")
@@ -125,6 +184,19 @@ def test_filesystem_driver_collision_modes_ranges_inventory_and_mutation(
 
 
 def test_filesystem_driver_rejects_traversal_and_symlink_escape(tmp_path) -> None:
+    """
+    Reject selected noncanonical paths and an existing symlink pointing outside the root.
+
+    The symlink case skips when the host cannot create one. It tests a fixed escape path, not
+    changes to a symlink between validation and later I/O.
+
+    Example:
+        >>> test_filesystem_driver_rejects_traversal_and_symlink_escape(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary root for real local files, directories, and staged writes.
+    :return: None after the stated regression assertions pass.
+    """
     driver = FilesystemStorageDriver(tmp_path / "store", address_space_uuid=uuid4())
     driver.startup()
 
@@ -144,6 +216,20 @@ def test_filesystem_driver_rejects_traversal_and_symlink_escape(tmp_path) -> Non
 
 
 def test_filesystem_store_round_trips_results_and_enforces_read_only(tmp_path) -> None:
+    """
+    Verify Store result conveniences, versioned reads, and configured read-only policy.
+
+    A writable Store round-trips bytes, stat, existence, digest, and deletion, and rejects a stale
+    read token. A separate read-only Store reads existing content, reports matching characteristics,
+    and rejects writes and deletes.
+
+    Example:
+        >>> test_filesystem_store_round_trips_results_and_enforces_read_only(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary root for real local files, directories, and staged writes.
+    :return: None after the stated regression assertions pass.
+    """
     store = FilesystemStore(tmp_path / "mutable")
     assert store.startup().writable
     stored = store.store_bytes(
@@ -185,6 +271,19 @@ def test_filesystem_store_round_trips_results_and_enforces_read_only(tmp_path) -
 
 
 def test_filesystem_driver_file_uri_round_trip_and_capacity(tmp_path) -> None:
+    """
+    Round-trip a published object URI and check consistent containing-volume capacity fields.
+
+    The capacity assertions compare reported total/free bytes; they do not reserve space or test
+    full-disk behavior.
+
+    Example:
+        >>> test_filesystem_driver_file_uri_round_trip_and_capacity(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary root for real local files, directories, and staged writes.
+    :return: None after the stated regression assertions pass.
+    """
     driver = FilesystemStorageDriver(tmp_path, address_space_uuid=uuid4())
     status = driver.startup()
     stored = driver.store_bytes(b"uri", object_address="objects/uri.bin")
@@ -205,6 +304,20 @@ def test_filesystem_store_reads_tortured_unicode_paths_exactly(
     tmp_path: Path,
     case: StoragePathCase,
 ) -> None:
+    """
+    Apply the shared Unicode path contract to real filesystem Store publication and URI conversion.
+
+    Seed each parametrized case through Store writes and enable the shared URI round-trip checks so
+    object identity crosses both representations.
+
+    Example:
+        >>> test_filesystem_store_reads_tortured_unicode_paths_exactly(tmp_path, case)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary root for real local files, directories, and staged writes.
+    :param case: Parametrized StoragePathCase from the shared Unicode path fixture matrix.
+    :return: None after the stated regression assertions pass.
+    """
     store = FilesystemStore(tmp_path / "tortured")
 
     exercise_unicode_path_case(
@@ -218,6 +331,17 @@ def test_filesystem_store_reads_tortured_unicode_paths_exactly(
 def test_filesystem_store_reads_control_characters_without_normalizing_them(
     tmp_path: Path,
 ) -> None:
+    """
+    Preserve newline and tab characters in a key across storage, enumeration, reading, and URI
+    conversion.
+
+    Example:
+        >>> test_filesystem_store_reads_control_characters_without_normalizing_them(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary root for real local files, directories, and staged writes.
+    :return: None after the stated regression assertions pass.
+    """
     store = FilesystemStore(tmp_path / "controls")
     key = "directory/line\nbreak-tab\tname.epub"
     payload = b"control-character path payload"
@@ -234,6 +358,19 @@ def test_filesystem_store_reads_control_characters_without_normalizing_them(
 def test_filesystem_store_reads_undecodable_directory_entry_bytes(
     tmp_path: Path,
 ) -> None:
+    """
+    Read a POSIX byte-named file through surrogateescaped Locations and percent-encoded URIs.
+
+    Create the filename using raw bytes, open the Store read-only, and require exact key/content
+    round trips plus the expected percent escapes. Skip non-POSIX hosts.
+
+    Example:
+        >>> test_filesystem_store_reads_undecodable_directory_entry_bytes(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary root for real local files, directories, and staged writes.
+    :return: None after the stated regression assertions pass.
+    """
     root = tmp_path / "bad-encoding"
     root.mkdir()
     raw_path = os.path.join(os.fsencode(root), POSIX_BAD_BYTES_FILENAME_BYTES)

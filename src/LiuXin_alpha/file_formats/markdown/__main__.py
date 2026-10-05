@@ -1,4 +1,14 @@
-"""Command-line entry point for the bundled Markdown converter."""
+"""
+Expose the retained Markdown command-line conversion entry point.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   main   through a consuming regression::
+
+        python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+"""
 from __future__ import annotations
 
 import sys
@@ -15,6 +25,15 @@ logger = logging.getLogger("MARKDOWN")
 def parse_options() -> tuple[_typing.Any, ...]:
     """
     Define and parse `optparse` options for command-line usage.
+
+    Example:
+        Exercise parse options through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     usage = """%prog [options] [INPUTFILE]
        (STDIN is assumed if no INPUTFILE is given)"""
@@ -115,7 +134,18 @@ def parse_options() -> tuple[_typing.Any, ...]:
 
 
 def run() -> None:
-    """Run Markdown from the command line."""
+    """
+    Run Markdown from the command line.
+
+    Example:
+        Exercise run through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
 
     # Parse options and adjust logging level if necessary
     options, logging_level = parse_options()

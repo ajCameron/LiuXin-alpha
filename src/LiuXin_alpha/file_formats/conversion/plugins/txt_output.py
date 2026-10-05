@@ -1,5 +1,16 @@
 # -*- coding: utf-8 -*-
 
+"""
+Convert TXT content from the normalized ebook conversion pipeline.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise txt output through a consuming regression::
+
+        python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -23,6 +34,21 @@ NEWLINE_TYPES = ["system", "unix", "old_mac", "windows"]
 
 
 def _report_context(output_plugin: _typing.Any, input_plugin: _typing.Any, opts: _typing.Any) -> _typing.Any:
+    """
+    Perform the report context operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  report context through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+    :param output_plugin: Value supplied for output plugin under the utility contract.
+    :param input_plugin: Value supplied for input plugin under the utility contract.
+    :param opts: Value supplied for opts under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     edge = getattr(opts, "conversion_edge", None)
     input_format = getattr(input_plugin, "file_type", None) or "oeb"
     source_format = getattr(edge, "source_format", None) or input_format
@@ -37,6 +63,20 @@ def _report_context(output_plugin: _typing.Any, input_plugin: _typing.Any, opts:
 
 
 def _unencodable_character_counts(text: _typing.Any, encoding: _typing.Any) -> _typing.Any:
+    """
+    Perform the unencodable character counts operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  unencodable character counts through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+    :param text: Text parsed, normalized or rendered.
+    :param encoding: Value supplied for encoding under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     counts = {}
     for char in text:
         try:
@@ -47,6 +87,23 @@ def _unencodable_character_counts(text: _typing.Any, encoding: _typing.Any) -> _
 
 
 def _report_output_encoding_replacements(report: _typing.Any, unsupported_counts: _typing.Any, output_encoding: _typing.Any) -> None:
+    """
+    Perform the report output encoding replacements operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  report output encoding replacements through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+    :param report: Value supplied for report under the utility contract.
+    :param unsupported_counts: Value supplied for unsupported counts under the utility
+        contract.
+    :param output_encoding: Value supplied for output encoding under the utility
+        contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if not unsupported_counts:
         return
     replacement_count = sum(unsupported_counts.values())
@@ -70,6 +127,14 @@ def _report_output_encoding_replacements(report: _typing.Any, unsupported_counts
 
 class TXTOutput(OutputFormatPlugin):
 
+    """
+    Provide the txtoutput contract for validated ebook processing.
+
+    Example:
+        Exercise TXTOutput through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+    """
     name = "TXT Output"
     author = "John Schember"
     file_type = "txt"
@@ -168,6 +233,23 @@ class TXTOutput(OutputFormatPlugin):
     }
 
     def convert(self: _typing.Self, oeb_book: _typing.Any, output_path: _typing.Any, input_plugin: _typing.Any, opts: _typing.Any, log: _typing.Any) -> None:
+        """
+        Convert the supplied source into the stage's normalized output representation.
+
+        Example:
+            Exercise TXTOutput.convert through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param oeb_book: Value supplied for oeb book under the utility contract.
+        :param output_path: Value supplied for output path under the utility contract.
+        :param input_plugin: Value supplied for input plugin under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         from LiuXin_alpha.file_formats.txt.newlines import specified_newlines, TxtNewlines
         from LiuXin_alpha.file_formats.txt.txtml import TXTMLizer
         from LiuXin_alpha.utils.libraries.cleantext import clean_ascii_chars
@@ -216,12 +298,37 @@ class TXTOutput(OutputFormatPlugin):
 
 class TXTZOutput(TXTOutput):
 
+    """
+    Provide the txtzoutput contract for validated ebook processing.
+
+    Example:
+        Exercise TXTZOutput through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+    """
     name = "TXTZ Output"
     author = "John Schember"
     file_type = "txtz"
 
     def convert(self: _typing.Self, oeb_book: _typing.Any, output_path: _typing.Any, input_plugin: _typing.Any, opts: _typing.Any, log: _typing.Any) -> None:
 
+        """
+        Convert the supplied source into the stage's normalized output representation.
+
+        Example:
+            Exercise TXTZOutput.convert through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param oeb_book: Value supplied for oeb book under the utility contract.
+        :param output_path: Value supplied for output path under the utility contract.
+        :param input_plugin: Value supplied for input plugin under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         from lxml import etree
         from LiuXin_alpha.file_formats.oeb.base import OEB_IMAGES
         from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile

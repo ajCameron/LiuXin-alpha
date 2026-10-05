@@ -1,3 +1,14 @@
+"""
+Group inline RTF formatting and emit normalized inline elements.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise inline through a consuming regression::
+
+        python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -22,8 +33,12 @@ States.
 
 class Inline:
     """
-    Make inline tags within lists.
-    Logic:
+    Make inline tags within lists. Logic:
+
+    Example:
+        Exercise Inline through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
     """
 
     def __init__(
@@ -34,14 +49,19 @@ class Inline:
         run_level: int = 1,
     ) -> None:
         """
-        Required:
-            'file'--file to parse
-        Optional:
-            'copy'-- whether to make a copy of result for debugging
-            'temp_dir' --where to output temporary results (default is
-            directory from which the script is run.)
-        Returns:
-            nothing
+        Required: 'file'--file to parse Optional: 'copy'-- whether to make a copy of result for debugging 'temp_dir' --where to output temporary results (default is directory from which the script is run.) Returns: nothing
+
+        Example:
+            Exercise Inline.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param in_file: Value supplied for in file under the utility contract.
+        :param bug_handler: Value supplied for bug handler under the utility contract.
+        :param copy: Value supplied for copy under the utility contract.
+        :param run_level: Value supplied for run level under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self.__file = in_file
         self.__bug_handler = bug_handler
@@ -52,6 +72,15 @@ class Inline:
     def __initiate_values(self: _typing.Self) -> None:
         """
         Initiate all values.
+
+        Example:
+            Exercise Inline.  initiate values through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__state_dict = {
             "default": self.__default_func,
@@ -124,11 +153,17 @@ class Inline:
 
     def __set_list_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line--line of text
-        Returns:
-            nothing
-        Logic:
+        Requires: line--line of text Returns: nothing Logic:
+
+        Example:
+            Exercise Inline.  set list func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.__place == "in_list":
             if self.__token_info == "mi<mk<lst-tx-end":
@@ -143,12 +178,17 @@ class Inline:
 
     def __default_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line-- line of text
-        Returns:
-            nothing
-        Logic:
-            Write if not hardline break
+        Requires: line-- line of text Returns: nothing Logic: Write if not hardline break
+
+        Example:
+            Exercise Inline.  default func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         action = self.__default_dict.get(self.__token_info)
         if action:
@@ -157,12 +197,17 @@ class Inline:
 
     def __found_open_bracket_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line -- current line of text
-        Returns:
-            nothing
-        Logic:
-            Change the state to 'after_open_bracket'
+        Requires: line -- current line of text Returns: nothing Logic: Change the state to 'after_open_bracket'
+
+        Example:
+            Exercise Inline.  found open bracket func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__state = "after_open_bracket"
         self.__brac_count += 1
@@ -172,15 +217,17 @@ class Inline:
 
     def __after_open_bracket_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line --line of text
-        Returns:
-            nothing
-        Logic:
-            If the token is a control word for character info (cw<ci), use another
-            method to add to the dictionary.
-            Use the dictionary to get the appropriate function.
-            Always print out the line.
+        Requires: line --line of text Returns: nothing Logic: If the token is a control word for character info (cw<ci), use another method to add to the dictionary. Use the dictionary to get the appropriate function. Always print out the line.
+
+        Example:
+            Exercise Inline.  after open bracket func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if line[0:5] == "cw<ci":  # calibre: bug in original function no diff between cw<ci and cw<pf
             self.__handle_control_word(line)
@@ -193,16 +240,17 @@ class Inline:
 
     def __handle_control_word(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Required:
-            line --line of text
-        Returns:
-            nothing
-        Logic:
-            Handle the control word for inline groups.
-            Add each name - value to a dictionary.
-            If the font style of Symbol, Wingdings, or Dingbats is found,
-            always mark this. I need this later to convert the text to
-            the right utf.
+        Required: line --line of text Returns: nothing Logic: Handle the control word for inline groups. Add each name - value to a dictionary. If the font style of Symbol, Wingdings, or Dingbats is found, always mark this. I need this later to convert the text to the right utf.
+
+        Example:
+            Exercise Inline.  handle control word through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # cw<ci<shadow_____<nu<true
         # self.__char_dict = {
@@ -224,15 +272,17 @@ class Inline:
 
     def __close_bracket_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line --line of text
-        Returns:
-            Nothing
-        Logic:
-            If there are no inline groups, do nothing.
-            Get the keys of the last dictionary in the inline_groups.
-            If 'contains_inline' in the keys, write a close tag.
-            If the_dict contains font information, write a mk tag.
+        Requires: line --line of text Returns: Nothing Logic: If there are no inline groups, do nothing. Get the keys of the last dictionary in the inline_groups. If 'contains_inline' in the keys, write a close tag. If the_dict contains font information, write a mk tag.
+
+        Example:
+            Exercise Inline.  close bracket func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if len(self.__inline_list) == 0:
             # nothing to add
@@ -266,17 +316,17 @@ class Inline:
 
     def __found_text_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Required:
-            line--line of text
-        Return:
-            nothing
-        Logic:
-            Three cases:
-            1. in a list. Simply write inline
-            2. Not in a list
-                Text can mark the start of a paragraph.
-                If already in a paragraph, check to see if any groups are waiting
-                to be added. If so, use another method to write these groups.
+        Required: line--line of text Return: nothing Logic: Three cases: 1. in a list. Simply write inline 2. Not in a list Text can mark the start of a paragraph. If already in a paragraph, check to see if any groups are waiting to be added. If so, use another method to write these groups.
+
+        Example:
+            Exercise Inline.  found text func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.__place == "in_list":
             self.__write_inline()
@@ -289,21 +339,16 @@ class Inline:
 
     def __write_inline(self: _typing.Self) -> None:
         """
-        Required:
-            nothing
-        Returns
-            Nothing
-        Logic:
-            Method for writing inline when text is found.
-            Only write those groups that are "waiting", or that have no
-            tags yet.
-            First, slice the list self.__inline list to get just the groups
-            in waiting.
-            Iterate through this slice, which contains only dictionaries.
-            Get the keys in each dictionary. If 'font-style' is in the keys,
-            write a marker tag. (I will use this marker tag later when converting
-            hext text to utf8.)
-            Write a tag for the inline values.
+        Required: nothing Returns Nothing Logic: Method for writing inline when text is found. Only write those groups that are "waiting", or that have no tags yet. First, slice the list self.__inline list to get just the groups in waiting. Iterate through this slice, which contains only dictionaries. Get the keys in each dictionary. If 'font-style' is in the keys, write a marker tag. (I will use this marker tag later when converting hext text to utf8.) Write a tag for the inline values.
+
+        Example:
+            Exercise Inline.  write inline through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.__groups_in_waiting[0] != 0:
             last_index = -1 * self.__groups_in_waiting[0]
@@ -333,14 +378,17 @@ class Inline:
 
     def __end_para_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line -- line of text
-        Returns:
-            nothing
-        Logic:
-            Slice from the end the groups in waiting.
-            Iterate through the list. If the dictionary contaings info, write
-            a closing tag.
+        Requires: line -- line of text Returns: nothing Logic: Slice from the end the groups in waiting. Iterate through the list. If the dictionary contaings info, write a closing tag.
+
+        Example:
+            Exercise Inline.  end para func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if not self.__in_para:
             return
@@ -362,14 +410,17 @@ class Inline:
 
     def __start_para_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line -- line of text
-        Returns:
-            nothing
-        Logic:
-            Iterate through the self.__inline_list to get each dict.
-            If the dict containst inline info, get the keys.
-            Iterate through the keys and print out the key and value.
+        Requires: line -- line of text Returns: nothing Logic: Iterate through the self.__inline_list to get each dict. If the dict containst inline info, get the keys. Iterate through the keys and print out the key and value.
+
+        Example:
+            Exercise Inline.  start para func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         for the_dict in self.__inline_list:
             contains_info = the_dict.get("contains_inline")
@@ -390,20 +441,32 @@ class Inline:
 
     def __found_field_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Just a default function to make sure I don't prematurely exit
-        default state
+        Just a default function to make sure I don't prematurely exit default state
+
+        Example:
+            Exercise Inline.  found field func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         pass
 
     def form_tags(self: _typing.Self) -> None:
         """
-        Requires:
-            area--area to parse (list or non-list)
-        Returns:
-            nothing
-        Logic:
-            Read one line in at a time. Determine what action to take based on
-            the state.
+        Requires: area--area to parse (list or non-list) Returns: nothing Logic: Read one line in at a time. Determine what action to take based on the state.
+
+        Example:
+            Exercise Inline.form tags through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__initiate_values()
         with open_for_read(self.__file) as read_obj:

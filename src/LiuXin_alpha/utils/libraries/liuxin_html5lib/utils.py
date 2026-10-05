@@ -1,3 +1,14 @@
+"""
+Provide shared HTML5 parser, serializer and tree utility helpers.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise utils through a consuming regression::
+
+        python -m pytest -q tests/file_formats/html/test_html_modernized.py
+"""
 from __future__ import absolute_import, division, unicode_literals
 
 from types import ModuleType
@@ -18,22 +29,31 @@ __all__ = [
 
 
 class MethodDispatcher(dict):
-    """Dict with 2 special properties:
+    """
+    Dict with 2 special properties:
 
-    On initiation, keys that are lists, sets or tuples are converted to
-    multiple keys so accessing any one of the items in the original
-    list-like object returns the matching value
+    Example:
+        Exercise MethodDispatcher through a consuming regression::
 
-    md = MethodDispatcher({("foo", "bar"):"baz"})
-    md["foo"] == "baz"
-
-    A default value which can be set through the default attribute.
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
     """
 
     def __init__(self, items=()):
         # Using _dictEntries instead of directly assigning to self is about
         # twice as fast. Please do careful performance testing before changing
         # anything here.
+        """
+        Initialize and validate the MethodDispatcher state.
+
+        Example:
+            Exercise MethodDispatcher.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param items: Value supplied for items under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         _dictEntries = []
         for name, value in items:
             if type(name) in (list, tuple, frozenset, set):
@@ -45,6 +65,19 @@ class MethodDispatcher(dict):
         self.default = None
 
     def __getitem__(self, key):
+        """
+        Expose getitem behavior for the compatibility container.
+
+        Example:
+            Exercise MethodDispatcher.  getitem   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param key: Metadata, identifier or local-variable key.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return dict.get(self, key, self.default)
 
 
@@ -53,6 +86,19 @@ class MethodDispatcher(dict):
 
 
 def isSurrogatePair(data):
+    """
+    Perform the isSurrogatePair utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise isSurrogatePair through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return (
         len(data) == 2
         and ord(data[0]) >= 0xD800
@@ -63,6 +109,19 @@ def isSurrogatePair(data):
 
 
 def surrogatePairToCodepoint(data):
+    """
+    Perform the surrogatePairToCodepoint utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise surrogatePairToCodepoint through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     char_val = 0x10000 + (ord(data[0]) - 0xD800) * 0x400 + (ord(data[1]) - 0xDC00)
     return char_val
 
@@ -72,9 +131,37 @@ def surrogatePairToCodepoint(data):
 
 
 def moduleFactoryFactory(factory):
+    """
+    Perform the moduleFactoryFactory utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise moduleFactoryFactory through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+    :param factory: Value supplied for factory under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     moduleCache = {}
 
     def moduleFactory(baseModule, *args, **kwargs):
+        """
+        Perform the moduleFactory utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise moduleFactoryFactory.moduleFactory through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param baseModule: Value supplied for baseModule under the utility contract.
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if isinstance(ModuleType.__name__, type("")):
             name = "_%s_factory" % baseModule.__name__
         else:

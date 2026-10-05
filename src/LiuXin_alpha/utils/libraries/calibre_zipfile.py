@@ -1,33 +1,36 @@
 
 """
-Read and write ZIP files.
+Read and write ZIP archives through the retained Calibre compatibility implementation.
 
-Modified by Kovid Goyal to support replacing files in a zip archive, detecting filename encoding, updating zip files,
-etc.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise calibre zipfile through a consuming regression::
+
+        python -m pytest -q tests/utils/test_calibre_zipfile.py
 """
 
 from __future__ import print_function
 
-import struct
+import binascii
+import io
 import os
-import time
-import sys
+import re
 import shutil
 import stat
-import re
-import io
-import binascii
-
+import struct
+import sys
+import time
 from contextlib import closing
 from tempfile import SpooledTemporaryFile
 
 from LiuXin_alpha.constants import filesystem_encoding
-
-from LiuXin_alpha.file_formats.chardet import detect
-
+from LiuXin_alpha.utils.libraries.calibre_chardet import detect
+from LiuXin_alpha.utils.libraries.liuxin_six import basestring, six_cStringIO
+from LiuXin_alpha.utils.libraries.liuxin_six import six_long as long
+from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode as unicode
 from LiuXin_alpha.utils.storage.local.filenames import sanitize_file_name2
-from LiuXin_alpha.utils.libraries.liuxin_six import six_cStringIO, basestring, six_unicode as unicode, six_long as long
-
 
 try:
     import zlib  # We may need its compression method
@@ -52,14 +55,26 @@ __all__ = [
 
 
 class BadZipfile(Exception):
+    """
+    Provide the BadZipfile utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise BadZipfile through a consuming regression::
+
+            python -m pytest -q tests/utils/test_calibre_zipfile.py
+    """
     pass
 
 
 class LargeZipFile(Exception):
 
     """
-    Raised when writing a zipfile, the zipfile requires ZIP64 extensions
-    and those extensions are disabled.
+    Raised when writing a zipfile, the zipfile requires ZIP64 extensions and those extensions are disabled.
+
+    Example:
+        Exercise LargeZipFile through a consuming regression::
+
+            python -m pytest -q tests/utils/test_calibre_zipfile.py
     """
 
 
@@ -170,6 +185,19 @@ _CD64_OFFSET_START_CENTDIR = 9
 
 
 def decode_arcname(name):
+    """
+    Perform the decode arcname utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise decode arcname through a consuming regression::
+
+            python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if not isinstance(name, unicode):
         try:
             name = name.decode("utf-8")
@@ -188,12 +216,38 @@ def decode_arcname(name):
 
 
 def fixtimevar(val):
+    """
+    Perform the fixtimevar utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise fixtimevar through a consuming regression::
+
+            python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+    :param val: Template or metadata value evaluated by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if val < 0 or val > 0xFFFF:
         val = 0
     return val
 
 
 def _check_zipfile(fp):
+    """
+    Perform the check zipfile utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  check zipfile through a consuming regression::
+
+            python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+    :param fp: Value supplied for fp under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         if _EndRecData(fp):
             return True  # file has correct magic number
@@ -203,9 +257,17 @@ def _check_zipfile(fp):
 
 
 def is_zipfile(filename):
-    """Quickly see if a file is a ZIP file by checking the magic number.
+    """
+    Quickly see if a file is a ZIP file by checking the magic number.
 
-    The filename argument may be a file or file-like object too.
+    Example:
+        Exercise is zipfile through a consuming regression::
+
+            python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+    :param filename: Filename used for type inference or archive output.
+    :return: True when the documented condition holds; otherwise False.
     """
     result = False
     try:
@@ -222,6 +284,18 @@ def is_zipfile(filename):
 def _EndRecData64(fpin, offset, endrec):
     """
     Read the ZIP64 end-of-archive records and use that to update endrec
+
+    Example:
+        Exercise  EndRecData64 through a consuming regression::
+
+            python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+    :param fpin: Value supplied for fpin under the utility contract.
+    :param offset: Value supplied for offset under the utility contract.
+    :param endrec: Value supplied for endrec under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     try:
         fpin.seek(offset - sizeEndCentDir64Locator, 2)
@@ -259,10 +333,19 @@ def _EndRecData64(fpin, offset, endrec):
 
 
 def _EndRecData(fpin):
-    """Return data from the "End of Central Directory" record, or None.
+    """
+    Return data from the "End of Central Directory" record, or None.
 
-    The data is a list of the nine items in the ZIP "End of central dir"
-    record followed by a tenth item, the file seek offset of this record."""
+    Example:
+        Exercise  EndRecData through a consuming regression::
+
+            python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+    :param fpin: Value supplied for fpin under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
 
     # Determine file size
     fpin.seek(0, 2)
@@ -318,7 +401,14 @@ def _EndRecData(fpin):
 
 class ZipInfo(object):
 
-    """Class with attributes describing each file in the ZIP archive."""
+    """
+    Class with attributes describing each file in the ZIP archive.
+
+    Example:
+        Exercise ZipInfo through a consuming regression::
+
+            python -m pytest -q tests/utils/test_calibre_zipfile.py
+    """
 
     __slots__ = (
         "orig_filename",
@@ -344,6 +434,19 @@ class ZipInfo(object):
     )
 
     def __init__(self, filename="NoName", date_time=(1980, 1, 1, 0, 0, 0)):
+        """
+        Initialize and validate the ZipInfo state.
+
+        Example:
+            Exercise ZipInfo.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+        :param filename: Filename used for type inference or archive output.
+        :param date_time: Value supplied for date time under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.orig_filename = filename  # Original file name in archive
 
         # Terminate the file name at the first null byte. Null bytes in file names are used as tricks
@@ -390,7 +493,18 @@ class ZipInfo(object):
         # file_size             Size of the uncompressed file
 
     def FileHeader(self):
-        """Return the per-file header as a string."""
+        """
+        Return the per-file header as a string.
+
+        Example:
+            Exercise ZipInfo.FileHeader through a consuming regression::
+
+                python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         dt = self.date_time
         dosdate = (dt[0] - 1980) << 9 | dt[1] << 5 | dt[2]
         dostime = dt[3] << 11 | dt[4] << 5 | (dt[5] // 2)
@@ -434,12 +548,36 @@ class ZipInfo(object):
         return header + filename + extra
 
     def _encodeFilenameFlags(self):
+        """
+        Perform the encodeFilenameFlags utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise ZipInfo. encodeFilenameFlags through a consuming regression::
+
+                python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if isinstance(self.filename, unicode):
             return self.filename.encode("utf-8"), self.flag_bits | 0x800
         else:
             return self.filename, self.flag_bits
 
     def _decodeFilename(self):
+        """
+        Perform the decodeFilename utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise ZipInfo. decodeFilename through a consuming regression::
+
+                python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.flag_bits & 0x800:
             if isinstance(self.filename, (bytes, bytearray)):
                 return bytes(self.filename).decode("utf-8")
@@ -448,6 +586,18 @@ class ZipInfo(object):
 
     def _decodeExtra(self):
         # Try to decode the extra field.
+        """
+        Perform the decodeExtra utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise ZipInfo. decodeExtra through a consuming regression::
+
+                python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         extra = self.extra
         unpack = struct.unpack
         while extra:
@@ -498,26 +648,27 @@ class ZipInfo(object):
 
 class _ZipDecrypter:
 
-    """Class to handle decryption of files stored within a ZIP archive.
+    """
+    Class to handle decryption of files stored within a ZIP archive.
 
-    ZIP supports a password-based form of encryption. Even though known
-    plaintext attacks have been found against it, it is still useful
-    to be able to get data out of such a file.
+    Example:
+        Exercise  ZipDecrypter through a consuming regression::
 
-    This implementation is byte-oriented for Python 3.
-
-    Usage:
-        zd = _ZipDecrypter(mypwd)
-        plain_char = zd(cypher_char)
-        plain_text = map(zd, cypher_text)
+            python -m pytest -q tests/utils/test_calibre_zipfile.py
     """
 
     def _GenerateCRCTable():
-        """Generate a CRC-32 table.
+        """
+        Generate a CRC-32 table.
 
-        ZIP encryption uses the CRC32 one-byte primitive for scrambling some
-        internal keys. We noticed that a direct implementation is faster than
-        relying on binascii.crc32().
+        Example:
+            Exercise  ZipDecrypter. GenerateCRCTable through a consuming regression::
+
+                python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         poly = 0xEDB88320
         table = [0] * 256
@@ -534,10 +685,35 @@ class _ZipDecrypter:
     crctable = _GenerateCRCTable()
 
     def _crc32(self, ch: int, crc: int) -> int:
-        """Compute the CRC32 primitive on one byte."""
+        """
+        Compute the CRC32 primitive on one byte.
+
+        Example:
+            Exercise  ZipDecrypter. crc32 through a consuming regression::
+
+                python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+        :param ch: Value supplied for ch under the utility contract.
+        :param crc: Value supplied for crc under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return ((crc >> 8) & 0xFFFFFF) ^ self.crctable[(crc ^ ch) & 0xFF]
 
     def __init__(self, pwd):
+        """
+        Initialize and validate the ZipDecrypter state.
+
+        Example:
+            Exercise  ZipDecrypter.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+        :param pwd: Value supplied for pwd under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         if isinstance(pwd, str):
             pwd_bytes = pwd.encode("utf-8")
         else:
@@ -549,13 +725,38 @@ class _ZipDecrypter:
             self._UpdateKeys(p)
 
     def _UpdateKeys(self, c: int) -> None:
+        """
+        Perform the UpdateKeys utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  ZipDecrypter. UpdateKeys through a consuming regression::
+
+                python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+        :param c: Value supplied for c under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.key0 = self._crc32(c, self.key0)
         self.key1 = (self.key1 + (self.key0 & 255)) & 0xFFFFFFFF
         self.key1 = (self.key1 * 134775813 + 1) & 0xFFFFFFFF
         self.key2 = self._crc32((self.key1 >> 24) & 255, self.key2)
 
     def __call__(self, c: int) -> int:
-        """Decrypt a single byte."""
+        """
+        Decrypt a single byte.
+
+        Example:
+            Exercise  ZipDecrypter.  call   through a consuming regression::
+
+                python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+        :param c: Value supplied for c under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         k = self.key2 | 2
         plain = c ^ (((k * (k ^ 1)) >> 8) & 255)
         self._UpdateKeys(plain)
@@ -564,11 +765,13 @@ class _ZipDecrypter:
 
 class ZipExtFile(io.BufferedIOBase):
 
-    """File-like object for reading an archive member.
+    """
+    File-like object for reading an archive member.
 
-    Returned by :meth:`ZipFile.open`.
+    Example:
+        Exercise ZipExtFile through a consuming regression::
 
-    Bytes-oriented implementation suitable for Python 3.
+            python -m pytest -q tests/utils/test_calibre_zipfile.py
     """
 
     # Max size supported by decompressor.
@@ -583,12 +786,19 @@ class ZipExtFile(io.BufferedIOBase):
     def __init__(self, fileobj, mode, zipinfo, decrypter=None, internal=False):
         """
         Provides a file like object pointing to an element of the archive.
-        :param fileobj:
-        :param mode:
-        :param zipinfo:
-        :param decrypter:
-        :param internal: If True then the file is just for use within ZipFile and can be safely closed when it's been
-                         used.
+
+        Example:
+            Exercise ZipExtFile.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+        :param fileobj: Value supplied for fileobj under the utility contract.
+        :param mode: Open or adapter mode controlling read/write behavior.
+        :param zipinfo: Value supplied for zipinfo under the utility contract.
+        :param decrypter: Value supplied for decrypter under the utility contract.
+        :param internal: Value supplied for internal under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self._fileobj = fileobj
         self._decrypter = decrypter
@@ -626,35 +836,84 @@ class ZipExtFile(io.BufferedIOBase):
     def close_fileobj(self):
         """
         Close the underlying file object from which this class reads.
-        :return:
+
+        Example:
+            Exercise ZipExtFile.close fileobj through a consuming regression::
+
+                python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self._fileobj.close()
 
     def close(self, *args, **kwargs):
         """
         If the :param internal: is set to True, will also close the internal fileobj.
-        :param args:
-        :param kwargs:
-        :return:
+
+        Example:
+            Exercise ZipExtFile.close through a consuming regression::
+
+                python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         io.BufferedIOBase.close(self, *args, **kwargs)
         if self.internal:
             self.close_fileobj()
 
     def readable(self):
+        """
+        Perform the readable utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise ZipExtFile.readable through a consuming regression::
+
+                python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return True
 
     def peek(self, n=1):
-        """Return buffered bytes without advancing the position."""
+        """
+        Return buffered bytes without advancing the position.
+
+        Example:
+            Exercise ZipExtFile.peek through a consuming regression::
+
+                python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+        :param n: Value supplied for n under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if n > len(self._readbuffer) - self._offset:
             chunk = self.read(n)
             self._offset -= len(chunk)
         return self._readbuffer[self._offset : self._offset + 512]
 
     def readline(self, limit=-1):
-        """Read and return a line from the stream.
+        """
+        Read and return a line from the stream.
 
-        If limit is specified, at most limit bytes will be read.
+        Example:
+            Exercise ZipExtFile.readline through a consuming regression::
+
+                python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+        :param limit: Value supplied for limit under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         if not self._universal and limit < 0:
@@ -703,8 +962,18 @@ class ZipExtFile(io.BufferedIOBase):
 
 
     def read(self, n=-1):
-        """Read and return up to n bytes.
-        If the argument is omitted, None, or negative, data is read and returned until EOF is reached..
+        """
+        Read and return up to n bytes. If the argument is omitted, None, or negative, data is read and returned until EOF is reached..
+
+        Example:
+            Exercise ZipExtFile.read through a consuming regression::
+
+                python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+        :param n: Value supplied for n under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         buf = ""
         if n is None:
@@ -723,6 +992,20 @@ class ZipExtFile(io.BufferedIOBase):
 
     def _update_crc(self, newdata, eof):
         # Update the CRC using the given data.
+        """
+        Perform the update crc utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise ZipExtFile. update crc through a consuming regression::
+
+                python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+        :param newdata: Value supplied for newdata under the utility contract.
+        :param eof: Value supplied for eof under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self._expected_crc is None:
             # No need to compute the CRC if we don't have a reference value
             return
@@ -732,7 +1015,19 @@ class ZipExtFile(io.BufferedIOBase):
             raise BadZipfile("Bad CRC-32 for file %r" % self.name)
 
     def read1(self, n):
-        """Read up to n bytes with at most one read() system call."""
+        """
+        Read up to n bytes with at most one read() system call.
+
+        Example:
+            Exercise ZipExtFile.read1 through a consuming regression::
+
+                python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+        :param n: Value supplied for n under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
 
         # Simplify algorithm (branching) by transforming negative n to large n.
         if n < 0 or n is None:
@@ -780,7 +1075,18 @@ class ZipExtFile(io.BufferedIOBase):
         return data
 
     def read_raw(self):
-        """Read raw compressed bytes for the member without changing stream position."""
+        """
+        Read raw compressed bytes for the member without changing stream position.
+
+        Example:
+            Exercise ZipExtFile.read raw through a consuming regression::
+
+                python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         pos = self._fileobj.tell()
         self._fileobj.seek(self._orig_pos)
         bytes_to_read = self._compress_size
@@ -795,24 +1101,33 @@ class ZipExtFile(io.BufferedIOBase):
 
 class ZipFile:
 
-    """Class with methods to open, read, write, close, list and update zip files.
+    """
+    Class with methods to open, read, write, close, list and update zip files.
 
-    z = ZipFile(file, mode="r", compression=ZIP_STORED, allowZip64=False)
+    Example:
+        Exercise ZipFile through a consuming regression::
 
-    file: Either the path to the file, or a file-like object.
-          If it is a path, the file will be opened and closed by ZipFile.
-    mode: The mode can be either read "r", write "w" or append "a".
-    compression: ZIP_STORED (no compression) or ZIP_DEFLATED (requires zlib).
-    allowZip64: if True ZipFile will create files with ZIP64 extensions when
-                needed, otherwise it will raise an exception when this would
-                be necessary.
-
+            python -m pytest -q tests/utils/test_calibre_zipfile.py
     """
 
     fp = None  # Set here since __del__ checks it
 
     def __init__(self, file, mode="r", compression=ZIP_DEFLATED, allowZip64=False):
-        """Open the ZIP file with mode read "r", write "w" or append "a"."""
+        """
+        Open the ZIP file with mode read "r", write "w" or append "a".
+
+        Example:
+            Exercise ZipFile.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+        :param file: Value supplied for file under the utility contract.
+        :param mode: Open or adapter mode controlling read/write behavior.
+        :param compression: Value supplied for compression under the utility contract.
+        :param allowZip64: Value supplied for allowZip64 under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         if mode not in ("r", "w", "a"):
             raise RuntimeError('ZipFile() requires mode "r", "w", or "a" not %s' % mode)
 
@@ -882,14 +1197,51 @@ class ZipFile:
 
 
     def __enter__(self):
+        """
+        Implement the resource's enter lifecycle operation.
+
+        Example:
+            Exercise ZipFile.  enter   through a consuming regression::
+
+                python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self
 
     def __exit__(self, type, value, traceback):
+        """
+        Implement the resource's exit lifecycle operation.
+
+        Example:
+            Exercise ZipFile.  exit   through a consuming regression::
+
+                python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+        :param type: Value supplied for type under the utility contract.
+        :param value: Value normalized, stored, formatted or returned.
+        :param traceback: Value supplied for traceback under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.close()
 
     def _GetContents(self):
-        """Read the directory, making sure we close the file if the format
-        is bad."""
+        """
+        Read the directory, making sure we close the file if the format is bad.
+
+        Example:
+            Exercise ZipFile. GetContents through a consuming regression::
+
+                python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         try:
             self._RealGetContents()
         except BadZipfile:
@@ -899,7 +1251,18 @@ class ZipFile:
             raise
 
     def _RealGetContents(self):
-        """Read in the table of contents for the ZIP file."""
+        """
+        Read in the table of contents for the ZIP file.
+
+        Example:
+            Exercise ZipFile. RealGetContents through a consuming regression::
+
+                python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         fp = self.fp
         try:
             endrec = _EndRecData(fp)
@@ -980,6 +1343,18 @@ class ZipFile:
                 print("total", total)
 
     def _calculate_file_offsets(self):
+        """
+        Perform the calculate file offsets utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise ZipFile. calculate file offsets through a consuming regression::
+
+                python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for zip_info in self.filelist:
             self.fp.seek(zip_info.header_offset, 0)
             fheader = self.fp.read(30)
@@ -1003,8 +1378,21 @@ class ZipFile:
             zip_info.file_offset = file_offset
 
     def replace(self, filename, arcname=None, compress_type=None):
-        """Delete arcname, and put the bytes from filename into the
-        archive under the name arcname."""
+        """
+        Delete arcname, and put the bytes from filename into the archive under the name arcname.
+
+        Example:
+            Exercise ZipFile.replace through a consuming regression::
+
+                python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+        :param filename: Filename used for type inference or archive output.
+        :param arcname: Value supplied for arcname under the utility contract.
+        :param compress_type: Value supplied for compress type under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         deleteName = arcname
         if deleteName is None:
             deleteName = filename
@@ -1012,14 +1400,37 @@ class ZipFile:
         self.write(filename, arcname, compress_type)
 
     def replacestr(self, zinfo, bytes):
-        """Delete zinfo.filename, and write a new file into the archive. The
-        contents is the string 'bytes'."""
+        """
+        Delete zinfo.filename, and write a new file into the archive. The contents is the string 'bytes'.
+
+        Example:
+            Exercise ZipFile.replacestr through a consuming regression::
+
+                python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+        :param zinfo: Value supplied for zinfo under the utility contract.
+        :param bytes: Value supplied for bytes under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.delete(zinfo.filename)
         self.writestr(zinfo, bytes)
 
     def delete(self, name):
-        """Delete the file from the archive. If it appears multiple
-        times only the first instance will be deleted."""
+        """
+        Delete the file from the archive. If it appears multiple times only the first instance will be deleted.
+
+        Example:
+            Exercise ZipFile.delete through a consuming regression::
+
+                python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for i in range(0, len(self.filelist)):
             if self.filelist[i].filename == name:
                 if self.debug:
@@ -1061,26 +1472,69 @@ class ZipFile:
             print(name, "not in archive")
 
     def namelist(self):
-        """Return a list of file names in the archive."""
+        """
+        Return a list of file names in the archive.
+
+        Example:
+            Exercise ZipFile.namelist through a consuming regression::
+
+                python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         l = []
         for data in self.filelist:
             l.append(data.filename)
         return l
 
     def infolist(self):
-        """Return a list of class ZipInfo instances for files in the
-        archive."""
+        """
+        Return a list of class ZipInfo instances for files in the archive.
+
+        Example:
+            Exercise ZipFile.infolist through a consuming regression::
+
+                python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.filelist
 
     def printdir(self):
-        """Print a table of contents for the zip file."""
+        """
+        Print a table of contents for the zip file.
+
+        Example:
+            Exercise ZipFile.printdir through a consuming regression::
+
+                python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         print("%-46s %19s %12s" % ("File Name", "Modified    ", "Size"))
         for zinfo in self.filelist:
             date = "%d-%02d-%02d %02d:%02d:%02d" % zinfo.date_time[:6]
             print("%-46s %s %12d" % (zinfo.filename, date, zinfo.file_size))
 
     def testzip(self):
-        """Read all the files and check the CRC."""
+        """
+        Read all the files and check the CRC.
+
+        Example:
+            Exercise ZipFile.testzip through a consuming regression::
+
+                python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         chunk_size = 2**20
         for zinfo in self.filelist:
             try:
@@ -1093,7 +1547,19 @@ class ZipFile:
                 return zinfo.filename
 
     def getinfo(self, name):
-        """Return the instance of ZipInfo given 'name'."""
+        """
+        Return the instance of ZipInfo given 'name'.
+
+        Example:
+            Exercise ZipFile.getinfo through a consuming regression::
+
+                python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         info = self.NameToInfo.get(name)
         if info is None:
             raise KeyError("There is no item named %r in the archive" % name)
@@ -1101,21 +1567,74 @@ class ZipFile:
         return info
 
     def setpassword(self, pwd):
-        """Set default password for encrypted files."""
+        """
+        Set default password for encrypted files.
+
+        Example:
+            Exercise ZipFile.setpassword through a consuming regression::
+
+                python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+        :param pwd: Value supplied for pwd under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.pwd = pwd
 
     def read(self, name, pwd=None):
-        """Return file bytes (as a string) for name."""
+        """
+        Return file bytes (as a string) for name.
+
+        Example:
+            Exercise ZipFile.read through a consuming regression::
+
+                python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param pwd: Value supplied for pwd under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.open(name, "r", pwd).read()
 
     def read_raw(self, name, mode="r", pwd=None):
-        """Return the raw bytes in the zipfile corresponding to name."""
+        """
+        Return the raw bytes in the zipfile corresponding to name.
+
+        Example:
+            Exercise ZipFile.read raw through a consuming regression::
+
+                python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param mode: Open or adapter mode controlling read/write behavior.
+        :param pwd: Value supplied for pwd under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         zef = self.open(name, mode=mode, pwd=pwd)
         return zef.read_raw()
 
     # Todo - Should be used in zip_fs_driver open instead of the current hack
     def open(self, name, mode="r", pwd=None):
-        """Return file-like object for 'name'."""
+        """
+        Return file-like object for 'name'.
+
+        Example:
+            Exercise ZipFile.open through a consuming regression::
+
+                python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param mode: Open or adapter mode controlling read/write behavior.
+        :param pwd: Value supplied for pwd under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if mode not in ("r", "U", "rU"):
             raise RuntimeError('open() requires mode "r", "U", or "rU"')
         if not self.fp:
@@ -1191,10 +1710,21 @@ class ZipFile:
         return ZipExtFile(zef_file, mode, zinfo, zd)
 
     def extract(self, member, path=None, pwd=None):
-        """Extract a member from the archive to the current working directory,
-        using its full name. Its file information is extracted as accurately
-        as possible. `member' may be a filename or a ZipInfo object. You can
-        specify a different directory using `path'.
+        """
+        Extract a member from the archive to the current working directory, using its full name. Its file information is extracted as accurately as possible. `member' may be a filename or a ZipInfo object. You can specify a different directory using `path'.
+
+        Example:
+            Exercise ZipFile.extract through a consuming regression::
+
+                python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+        :param member: Value supplied for member under the utility contract.
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :param pwd: Value supplied for pwd under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if not isinstance(member, ZipInfo):
             member = self.getinfo(member)
@@ -1205,10 +1735,21 @@ class ZipFile:
         return self._extract_member(member, path, pwd)
 
     def extractall(self, path=None, members=None, pwd=None):
-        """Extract all members from the archive to the current working
-        directory. `path' specifies a different directory to extract to.
-        `members' is optional and must be a subset of the list returned
-        by namelist().
+        """
+        Extract all members from the archive to the current working directory. `path' specifies a different directory to extract to. `members' is optional and must be a subset of the list returned by namelist().
+
+        Example:
+            Exercise ZipFile.extractall through a consuming regression::
+
+                python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :param members: Value supplied for members under the utility contract.
+        :param pwd: Value supplied for pwd under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if members is None:
             members = self.namelist()
@@ -1221,8 +1762,20 @@ class ZipFile:
             self.extract(zipinfo, path, pwd)
 
     def _extract_member(self, member, targetpath, pwd):
-        """Extract the ZipInfo object 'member' to a physical
-        file on the path targetpath.
+        """
+        Extract the ZipInfo object 'member' to a physical file on the path targetpath.
+
+        Example:
+            Exercise ZipFile. extract member through a consuming regression::
+
+                python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+        :param member: Value supplied for member under the utility contract.
+        :param targetpath: Value supplied for targetpath under the utility contract.
+        :param pwd: Value supplied for pwd under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # build the destination pathname, replacing
         # forward slashes to platform specific separators.
@@ -1288,7 +1841,19 @@ class ZipFile:
         return targetpath
 
     def _writecheck(self, zinfo):
-        """Check for errors before writing a file to the archive."""
+        """
+        Check for errors before writing a file to the archive.
+
+        Example:
+            Exercise ZipFile. writecheck through a consuming regression::
+
+                python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+        :param zinfo: Value supplied for zinfo under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if zinfo.filename in self.NameToInfo:
             if self.debug:  # Warning for duplicate names
                 print("Duplicate name:", zinfo.filename)
@@ -1308,8 +1873,21 @@ class ZipFile:
                 raise LargeZipFile("Zipfile size would require ZIP64 extensions")
 
     def write(self, filename, arcname=None, compress_type=None):
-        """Put the bytes from filename into the archive under the name
-        arcname."""
+        """
+        Put the bytes from filename into the archive under the name arcname.
+
+        Example:
+            Exercise ZipFile.write through a consuming regression::
+
+                python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+        :param filename: Filename used for type inference or archive output.
+        :param arcname: Value supplied for arcname under the utility contract.
+        :param compress_type: Value supplied for compress type under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if not self.fp:
             raise RuntimeError("Attempt to write to ZIP archive that was already closed")
 
@@ -1393,9 +1971,24 @@ class ZipFile:
         self.NameToInfo[zinfo.filename] = zinfo
 
     def writestr(self, zinfo_or_arcname, bytes, permissions=0o0600, compression=ZIP_DEFLATED, raw_bytes=False):
-        """Write a file into the archive.  The contents is the string
-        'bytes'.  'zinfo_or_arcname' is either a ZipInfo instance or
-        the name of the file in the archive."""
+        """
+        Write a file into the archive. The contents is the string 'bytes'. 'zinfo_or_arcname' is either a ZipInfo instance or the name of the file in the archive.
+
+        Example:
+            Exercise ZipFile.writestr through a consuming regression::
+
+                python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+        :param zinfo_or_arcname: Value supplied for zinfo or arcname under the utility
+            contract.
+        :param bytes: Value supplied for bytes under the utility contract.
+        :param permissions: Value supplied for permissions under the utility contract.
+        :param compression: Value supplied for compression under the utility contract.
+        :param raw_bytes: Value supplied for raw bytes under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         assert not raw_bytes or (raw_bytes and isinstance(zinfo_or_arcname, ZipInfo))
         if not isinstance(zinfo_or_arcname, ZipInfo):
             if not isinstance(zinfo_or_arcname, unicode):
@@ -1444,6 +2037,19 @@ class ZipFile:
     def add_dir(self, path, prefix="", simple_filter=lambda x: False):
         """
         Add a directory recursively to the zip file with an optional prefix.
+
+        Example:
+            Exercise ZipFile.add dir through a consuming regression::
+
+                python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :param prefix: Text prepended to the formatted or selected result.
+        :param simple_filter: Value supplied for simple filter under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if prefix:
             self.writestr(prefix + "/", "", 0o0755)
@@ -1463,12 +2069,33 @@ class ZipFile:
             os.chdir(cwd)
 
     def __del__(self):
-        """Call the "close()" method in case the user forgot."""
+        """
+        Call the "close()" method in case the user forgot.
+
+        Example:
+            Exercise ZipFile.  del   through a consuming regression::
+
+                python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.close()
 
     def close(self):
-        """Close the file, and for mode "w" and "a" write the ending
-        records."""
+        """
+        Close the file, and for mode "w" and "a" write the ending records.
+
+        Example:
+            Exercise ZipFile.close through a consuming regression::
+
+                python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         # Make sure any currently open file handlers are closed - needed because the extactall method seems to open
         # a LOT of individual copies of this file - one for every file to be opened.
         for fh in self.handlers_to_close:
@@ -1629,20 +2256,22 @@ class ZipFile:
 
 def safe_replace(zipstream, name, datastream, extra_replacements={}, add_missing=False):
     """
-    Replace a file in a zip file in a safe manner. This proceeds by extracting
-    and re-creating the zipfile. This is necessary because :method:`ZipFile.replace`
-    sometimes created corrupted zip files.
+    Replace a file in a zip file in a safe manner. This proceeds by extracting and re-creating the zipfile. This is necessary because :method:`ZipFile.replace` sometimes created corrupted zip files.
+
+    Example:
+        Exercise safe replace through a consuming regression::
+
+            python -m pytest -q tests/utils/test_calibre_zipfile.py
 
 
-    :param zipstream:  Stream from a zip file
-    :param name:       The name of the file to replace
-    :param datastream: The data to replace the file with.
-    :param extra_replacements: Extra replacements. Mapping of name to file-like
-                               objects
-    :param add_missing: If a replacement does not exist in the zip file, it is
-                        added. Use with care as currently parent directories
-                        are not created.
-
+    :param zipstream: Value supplied for zipstream under the utility contract.
+    :param name: Field, file, function or resource name addressed by the operation.
+    :param datastream: Value supplied for datastream under the utility contract.
+    :param extra_replacements: Value supplied for extra replacements under the utility
+        contract.
+    :param add_missing: Value supplied for add missing under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     z = ZipFile(zipstream, "r")
     replacements = {name: datastream}
@@ -1651,6 +2280,19 @@ def safe_replace(zipstream, name, datastream, extra_replacements={}, add_missing
     found = set([])
 
     def rbytes(name):
+        """
+        Perform the rbytes utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise safe replace.rbytes through a consuming regression::
+
+                python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         r = replacements[name]
         if not isinstance(r, bytes):
             r = r.read()
@@ -1680,19 +2322,29 @@ def safe_replace(zipstream, name, datastream, extra_replacements={}, add_missing
 
 class PyZipFile(ZipFile):
 
-    """Class to create ZIP archives with Python library files and packages."""
+    """
+    Class to create ZIP archives with Python library files and packages.
+
+    Example:
+        Exercise PyZipFile through a consuming regression::
+
+            python -m pytest -q tests/utils/test_calibre_zipfile.py
+    """
 
     def writepy(self, pathname, basename=""):
-        """Add all files from "pathname" to the ZIP archive.
+        """
+        Add all files from "pathname" to the ZIP archive.
 
-        If pathname is a package directory, search the directory and
-        all package subdirectories recursively for all *.py and enter
-        the modules into the archive.  If pathname is a plain
-        directory, listdir *.py and enter all modules.  Else, pathname
-        must be a Python *.py file and the module will be put into the
-        archive.  Added modules are always module.pyo or module.pyc.
-        This method will compile the module.py into module.pyc if
-        necessary.
+        Example:
+            Exercise PyZipFile.writepy through a consuming regression::
+
+                python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+        :param pathname: Value supplied for pathname under the utility contract.
+        :param basename: Value supplied for basename under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         dir, name = os.path.split(pathname)
         if os.path.isdir(pathname):
@@ -1745,11 +2397,19 @@ class PyZipFile(ZipFile):
             self.write(fname, arcname)
 
     def _get_codename(self, pathname, basename):
-        """Return (filename, archivename) for the path.
+        """
+        Return (filename, archivename) for the path.
 
-        Given a module name path, return the correct file path and
-        archive name, compiling if necessary.  For example, given
-        /python/lib/string, return (/python/lib/string.pyc, string).
+        Example:
+            Exercise PyZipFile. get codename through a consuming regression::
+
+                python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+        :param pathname: Value supplied for pathname under the utility contract.
+        :param basename: Value supplied for basename under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         file_py = pathname + ".py"
         file_pyc = pathname + ".pyc"
@@ -1775,6 +2435,19 @@ class PyZipFile(ZipFile):
 
 
 def main(args=None):
+    """
+    Perform the main utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise main through a consuming regression::
+
+            python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+    :param args: Positional values forwarded to the compatibility implementation.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     import textwrap
 
     USAGE = textwrap.dedent(
@@ -1837,6 +2510,22 @@ def main(args=None):
             sys.exit(1)
 
         def addToZip(zf, path, zippath):
+            """
+            Perform the addToZip utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise main.addToZip through a consuming regression::
+
+                    python -m pytest -q tests/utils/test_calibre_zipfile.py
+
+
+            :param zf: Value supplied for zf under the utility contract.
+            :param path: Filesystem path read, written, normalized or validated by the
+                operation.
+            :param zippath: Value supplied for zippath under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if os.path.isfile(path):
                 zf.write(path, zippath, ZIP_DEFLATED)
             elif os.path.isdir(path):

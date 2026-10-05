@@ -1,4 +1,14 @@
-"""Launcher and CLI for the LiuXin Tkinter GUI surface."""
+"""
+Construct and run the Tk desktop application.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise app through a consuming regression::
+
+        python -m pytest -q tests/surfaces/test_tkinter_gui.py
+"""
 
 from __future__ import annotations
 
@@ -19,9 +29,15 @@ def run_tkinter_gui(config: TkGuiConfig) -> int:
     """
     Start the Tkinter operator interface with the supplied configuration.
 
+    Example:
+        Exercise run tkinter gui through a consuming regression::
 
-    :param config:
-    :return:
+            python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+    :param config: Value supplied for config under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     tk, _ttk, _filedialog, _messagebox = open_tk_modules()
     root = tk.Tk()
@@ -38,8 +54,14 @@ def build_arg_parser() -> argparse.ArgumentParser:
     """
     Build the Tkinter operator-interface command-line parser.
 
+    Example:
+        Exercise build arg parser through a consuming regression::
 
-    :return:
+            python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     parser = argparse.ArgumentParser(description="Run the LiuXin Tkinter GUI.")
     add_core_client_arguments(
@@ -87,9 +109,15 @@ def config_from_args(args: argparse.Namespace) -> TkGuiConfig:
     """
     Build Tkinter application configuration from parsed arguments.
 
+    Example:
+        Exercise config from args through a consuming regression::
 
-    :param args:
-    :return:
+            python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+    :param args: Positional values forwarded to the compatibility implementation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return TkGuiConfig(
         database=(
@@ -115,9 +143,15 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     """
     Run the tkinter gui command-line entry point.
 
+    Example:
+        Exercise main through a consuming regression::
 
-    :param argv:
-    :return:
+            python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+    :param argv: Value supplied for argv under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     parser = build_arg_parser()
     args = parser.parse_args(argv)

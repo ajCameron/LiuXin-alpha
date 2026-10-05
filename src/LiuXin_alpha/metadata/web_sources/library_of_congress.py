@@ -1,9 +1,13 @@
 """
-Library of Congress metadata source.
+Identify bibliographic metadata and covers from Library of Congress JSON search and item records.
 
-This source uses the Library of Congress JSON API. The public endpoint is
-sometimes protected by browser challenges, so request failures are logged and
-treated as a source miss instead of failing the whole metadata lookup.
+The module keeps network, parsing, caching, cancellation and result-order behavior
+explicit for callers.
+
+Example:
+    Exercise library of congress with the owning regression module::
+
+        python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
 """
 
 from __future__ import annotations
@@ -41,10 +45,28 @@ _IMAGE_SIZE_RE = re.compile(r"[_/-](\d{2,5})px(?:[_/.]|$)", re.I)
 class LibraryOfCongressBlocked(RuntimeError):
     """
     Raised when loc.gov returns a browser challenge instead of JSON.
+
+    Example:
+        Exercise LibraryOfCongressBlocked with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
     """
 
 
 def _as_text(raw) -> str:
+    """
+    Convert optional or hostile input to text without propagating conversion failures.
+
+    Example:
+        Exercise  as text with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     if raw is None:
         return ""
     if isinstance(raw, bytes):
@@ -56,6 +78,19 @@ def _as_text(raw) -> str:
 
 
 def _first(raw):
+    """
+    Perform the library of congress first operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  first with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     if raw is None:
         return None
     if isinstance(raw, (str, bytes)):
@@ -72,6 +107,19 @@ def _first(raw):
 
 
 def _as_list(raw) -> list:
+    """
+    Perform the library of congress as list operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  as list with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     if raw is None:
         return []
     if isinstance(raw, (str, bytes)):
@@ -84,12 +132,41 @@ def _as_list(raw) -> list:
 
 
 def _first_identifier_value(identifiers, key):
+    """
+    Perform the library of congress first identifier value operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  first identifier value with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+    :param identifiers: Metadata identifier mapping used for direct lookup and cache
+        resolution.
+    :param key: Value supplied for key.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     if not isinstance(identifiers, Mapping):
         return None
     return _first(identifiers.get(key))
 
 
 def _safe_isbn(identifiers) -> str | None:
+    """
+    Return a validated isbn or the documented empty fallback.
+
+    Example:
+        Exercise  safe isbn with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+    :param identifiers: Metadata identifier mapping used for direct lookup and cache
+        resolution.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     for key in ("isbn", "isbn13", "isbn10"):
         raw = _first_identifier_value(identifiers or {}, key)
         if raw is None:
@@ -104,11 +181,37 @@ def _safe_isbn(identifiers) -> str | None:
 
 
 def _compact_lccn(raw) -> str | None:
+    """
+    Normalize compact lccn into the provider's canonical safe representation.
+
+    Example:
+        Exercise  compact lccn with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     text = re.sub(r"\s+", "", _as_text(raw)).strip().strip("/,.;:")
     return text or None
 
 
 def _normalize_url(raw) -> str | None:
+    """
+    Normalize normalize url into the provider's canonical safe representation.
+
+    Example:
+        Exercise  normalize url with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     text = _as_text(raw).strip()
     if not text:
         return None
@@ -124,6 +227,18 @@ def _normalize_url(raw) -> str | None:
 
 
 def _looks_like_guard_page(raw) -> bool:
+    """
+    Perform the library of congress looks like guard page operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  looks like guard page with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: True when the described condition is satisfied; otherwise False.
+    """
     text = decode_http_body(raw)
     lowered = text[:5000].lower()
     return (
@@ -138,6 +253,19 @@ def _looks_like_guard_page(raw) -> bool:
 
 
 def _image_sort_key(url: str) -> tuple[int, int]:
+    """
+    Perform the library of congress image sort key operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  image sort key with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+    :param url: Provider URL to normalize, request or associate with cached data.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     text = _as_text(url)
     m = _IMAGE_SIZE_RE.search(text)
     size = int(m.group(1)) if m else 0
@@ -146,6 +274,19 @@ def _image_sort_key(url: str) -> tuple[int, int]:
 
 
 def _dedupe_text(values) -> list[str]:
+    """
+    Perform the library of congress dedupe text operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  dedupe text with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+    :param values: Input values to normalize and deduplicate.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     seen = set()
     out = []
     for raw in _as_list(values):
@@ -158,6 +299,14 @@ def _dedupe_text(values) -> list[str]:
 
 
 class LibraryOfCongress(Source):
+    """
+    Implement the library of congress metadata-source integration and its explicit recovery policy.
+
+    Example:
+        Exercise LibraryOfCongress with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+    """
     name = "Library of Congress"
     version = (1, 0, 0)
     description = _("Downloads metadata and covers from the Library of Congress")
@@ -192,6 +341,20 @@ class LibraryOfCongress(Source):
 
     # URL helpers {{{
     def get_book_url(self, identifiers):
+        """
+        Return canonical provider link tuples for recognized metadata identifiers.
+
+        Example:
+            Exercise LibraryOfCongress.get book url with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+        :param identifiers: Metadata identifier mapping used for direct lookup and cache
+            resolution.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         identifiers = identifiers or {}
         loc_id = _first_identifier_value(identifiers, "loc")
         if loc_id:
@@ -206,6 +369,19 @@ class LibraryOfCongress(Source):
         return None
 
     def id_from_url(self, url):
+        """
+        Extract a normalized provider identifier from a recognized canonical URL.
+
+        Example:
+            Exercise LibraryOfCongress.id from url with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+        :param url: Provider URL to normalize, request or associate with cached data.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         try:
             parsed = urlparse(_as_text(url))
         except Exception:
@@ -228,6 +404,22 @@ class LibraryOfCongress(Source):
 
     # Query/request helpers {{{
     def create_query(self, title=None, authors=None, identifiers=None):
+        """
+        Build create query from normalized identifiers and search inputs.
+
+        Example:
+            Exercise LibraryOfCongress.create query with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+        :param title: Book title used to construct or rank the provider query.
+        :param authors: Author names used to construct or rank the provider query.
+        :param identifiers: Metadata identifier mapping used for direct lookup and cache
+            resolution.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         identifiers = identifiers or {}
         loc_id = _first_identifier_value(identifiers, "loc")
         if loc_id:
@@ -249,6 +441,19 @@ class LibraryOfCongress(Source):
         return " ".join(terms) or None
 
     def _search_params(self, **kwargs):
+        """
+        Perform the library of congress search params operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise LibraryOfCongress. search params with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+        :param kwargs: Keyword arguments forwarded to the shared implementation.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         params = {
             "fo": "json",
             "c": str(int(kwargs.pop("count", self.SEARCH_RESULT_COUNT))),
@@ -257,13 +462,53 @@ class LibraryOfCongress(Source):
         return params
 
     def _build_search_url(self, query: str, *, count: int | None = None, page: int | None = None) -> str:
+        """
+        Build search url from normalized identifiers and search inputs.
+
+        Example:
+            Exercise LibraryOfCongress. build search url with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+        :param query: Encoded provider search expression.
+        :param count: Maximum result count requested from the provider.
+        :param page: One-based provider result page.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         params = self._search_params(q=query, count=count or self.SEARCH_RESULT_COUNT, sp=page)
         return self.API_SEARCH + "?" + urlencode(params)
 
     def _build_item_url(self, loc_id: str) -> str:
+        """
+        Build item url from normalized identifiers and search inputs.
+
+        Example:
+            Exercise LibraryOfCongress. build item url with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+        :param loc_id: Library of Congress item identifier.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         return (self.API_ITEM % quote(_as_text(loc_id).strip().strip("/"), safe="")) + "?fo=json"
 
     def _retry_policy(self) -> RetryPolicy:
+        """
+        Build the bounded retry policy used by this provider's HTTP requests.
+
+        Example:
+            Exercise LibraryOfCongress. retry policy with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         return RetryPolicy(
             attempts=int(self.HTTP_RETRY_ATTEMPTS),
             base_delay=float(self.HTTP_RETRY_BASE_SECONDS),
@@ -271,6 +516,19 @@ class LibraryOfCongress(Source):
         )
 
     def _retry_backoff(self, attempt: int) -> float:
+        """
+        Compute the capped delay for one provider retry attempt.
+
+        Example:
+            Exercise LibraryOfCongress. retry backoff with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+        :param attempt: Zero-based retry attempt used to calculate backoff.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         return compute_backoff_delay(
             attempt=attempt,
             base_delay=float(self.HTTP_RETRY_BASE_SECONDS),
@@ -278,12 +536,56 @@ class LibraryOfCongress(Source):
         )
 
     def _wait_for_backoff(self, abort, delay: float) -> bool:
+        """
+        Wait interruptibly for a retry delay and report whether it completed.
+
+        Example:
+            Exercise LibraryOfCongress. wait for backoff with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param delay: Backoff duration in seconds.
+        :return: True when the described condition is satisfied; otherwise False.
+        """
         return wait_for_backoff(abort, delay)
 
     def _request_bytes(self, url: str, timeout: int = 30) -> bytes:
+        """
+        Perform the provider request bytes operation with explicit timeout and response policy.
+
+        Example:
+            Exercise LibraryOfCongress. request bytes with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+        :param url: Provider URL to normalize, request or associate with cached data.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         return self.browser().open_novisit(url, timeout=timeout).read()
 
     def _request_bytes_with_backoff(self, log, abort, url: str, timeout: int, context: str):
+        """
+        Run the request bytes operation with bounded retry, diagnostics and cancellation.
+
+        Example:
+            Exercise LibraryOfCongress. request bytes with backoff with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+        :param log: Logger receiving structured provider diagnostics.
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param url: Provider URL to normalize, request or associate with cached data.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :param context: Short operation label included in retry diagnostics.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         return call_with_backoff(
             lambda: self._request_bytes(url, timeout=timeout),
             log=log,
@@ -300,6 +602,20 @@ class LibraryOfCongress(Source):
         )
 
     def _request_json(self, url: str, timeout: int = 30):
+        """
+        Perform the provider request json operation with explicit timeout and response policy.
+
+        Example:
+            Exercise LibraryOfCongress. request json with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+        :param url: Provider URL to normalize, request or associate with cached data.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         raw = self._request_bytes(url, timeout=timeout)
         if _looks_like_guard_page(raw):
             raise LibraryOfCongressBlocked("Library of Congress returned a browser challenge page")
@@ -307,7 +623,36 @@ class LibraryOfCongress(Source):
         return json.loads(text)
 
     def _request_json_with_backoff(self, log, abort, url: str, timeout: int, context: str):
+        """
+        Run the request json operation with bounded retry, diagnostics and cancellation.
+
+        Example:
+            Exercise LibraryOfCongress. request json with backoff with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+        :param log: Logger receiving structured provider diagnostics.
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param url: Provider URL to normalize, request or associate with cached data.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :param context: Short operation label included in retry diagnostics.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         def _open():
+            """
+            Perform the provider open operation with explicit timeout and response policy.
+
+            Example:
+                Exercise LibraryOfCongress. request json with backoff. open with the owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+            :return: The normalized provider value, metadata result or collection described
+                above.
+            """
             raw = self._request_bytes(url, timeout=timeout)
             if _looks_like_guard_page(raw):
                 raise LibraryOfCongressBlocked("Library of Congress returned a browser challenge page")
@@ -329,6 +674,23 @@ class LibraryOfCongress(Source):
         )
 
     def _request_json_or_none(self, log, abort, url: str, timeout: int, context: str):
+        """
+        Perform the provider request json or none operation with explicit timeout and response policy.
+
+        Example:
+            Exercise LibraryOfCongress. request json or none with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+        :param log: Logger receiving structured provider diagnostics.
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param url: Provider URL to normalize, request or associate with cached data.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :param context: Short operation label included in retry diagnostics.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         try:
             return self._request_json_with_backoff(
                 log=log,
@@ -354,6 +716,19 @@ class LibraryOfCongress(Source):
     # Parsing helpers {{{
     @staticmethod
     def _records_from_payload(payload) -> list[Mapping]:
+        """
+        Perform the library of congress records from payload operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise LibraryOfCongress. records from payload with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+        :param payload: Provider response payload or bytes processed by the operation.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         if not isinstance(payload, Mapping):
             return []
         results = payload.get("results")
@@ -370,6 +745,19 @@ class LibraryOfCongress(Source):
 
     @classmethod
     def _extract_loc_id(cls, record: Mapping) -> str | None:
+        """
+        Extract loc id with stable ordering and malformed-input tolerance.
+
+        Example:
+            Exercise LibraryOfCongress. extract loc id with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+        :param record: Provider JSON/XML record projected into metadata.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         for key in ("item_id", "id", "url"):
             raw = record.get(key)
             text = _as_text(raw).strip()
@@ -385,6 +773,19 @@ class LibraryOfCongress(Source):
 
     @staticmethod
     def _authors_from_record(record: Mapping) -> list[str]:
+        """
+        Perform the library of congress authors from record operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise LibraryOfCongress. authors from record with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+        :param record: Provider JSON/XML record projected into metadata.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         authors = _dedupe_text(record.get("contributor_names"))
         if not authors:
             authors = _dedupe_text(record.get("creator") or record.get("creators"))
@@ -411,6 +812,19 @@ class LibraryOfCongress(Source):
 
     @staticmethod
     def _description_from_record(record: Mapping) -> str | None:
+        """
+        Perform the library of congress description from record operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise LibraryOfCongress. description from record with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+        :param record: Provider JSON/XML record projected into metadata.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         parts = _dedupe_text(record.get("summary"))
         if not parts:
             parts = _dedupe_text(record.get("description"))
@@ -420,6 +834,19 @@ class LibraryOfCongress(Source):
 
     @staticmethod
     def _publisher_from_record(record: Mapping) -> str | None:
+        """
+        Perform the library of congress publisher from record operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise LibraryOfCongress. publisher from record with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+        :param record: Provider JSON/XML record projected into metadata.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         for key in ("publisher", "publishers", "publisher_display"):
             values = _dedupe_text(record.get(key))
             if values:
@@ -436,6 +863,19 @@ class LibraryOfCongress(Source):
 
     @staticmethod
     def _pubdate_from_record(record: Mapping):
+        """
+        Perform the library of congress pubdate from record operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise LibraryOfCongress. pubdate from record with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+        :param record: Provider JSON/XML record projected into metadata.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         for key in ("date", "date_issued", "created_published_date", "sort_date"):
             for raw in _as_list(record.get(key)):
                 text = _as_text(raw).strip()
@@ -454,6 +894,19 @@ class LibraryOfCongress(Source):
 
     @staticmethod
     def _language_from_record(record: Mapping) -> str | None:
+        """
+        Perform the library of congress language from record operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise LibraryOfCongress. language from record with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+        :param record: Provider JSON/XML record projected into metadata.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         for raw in _as_list(record.get("language") or record.get("languages")):
             text = _as_text(raw).strip()
             if not text:
@@ -477,6 +930,19 @@ class LibraryOfCongress(Source):
 
     @staticmethod
     def _tags_from_record(record: Mapping) -> list[str]:
+        """
+        Perform the library of congress tags from record operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise LibraryOfCongress. tags from record with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+        :param record: Provider JSON/XML record projected into metadata.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         tags = []
         for key in ("subject", "subjects", "genre", "location"):
             for raw in _as_list(record.get(key)):
@@ -491,9 +957,35 @@ class LibraryOfCongress(Source):
 
     @staticmethod
     def _image_urls_from_resources(resources) -> list[str]:
+        """
+        Perform the library of congress image urls from resources operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise LibraryOfCongress. image urls from resources with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+        :param resources: Nested provider resource data searched for image URLs.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         urls = []
 
         def walk(value):
+            """
+            Perform the library of congress walk operation with explicit ordering and failure behavior.
+
+            Example:
+                Exercise LibraryOfCongress. image urls from resources.walk with the owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+            :param value: Input value to normalize, compare, store or parse.
+            :return: The normalized provider value, metadata result or collection described
+                above.
+            """
             if isinstance(value, Mapping):
                 for key in ("image", "image_url", "thumbnail_url", "url"):
                     normalized = _normalize_url(value.get(key))
@@ -511,6 +1003,19 @@ class LibraryOfCongress(Source):
 
     @classmethod
     def _cover_url_from_record(cls, record: Mapping) -> str | None:
+        """
+        Perform the library of congress cover url from record operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise LibraryOfCongress. cover url from record with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+        :param record: Provider JSON/XML record projected into metadata.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         urls = []
         for raw in _as_list(record.get("image_url")):
             normalized = _normalize_url(raw)
@@ -524,9 +1029,36 @@ class LibraryOfCongress(Source):
 
     @staticmethod
     def _identifier_values_from_record(record: Mapping) -> dict[str, list[str]]:
+        """
+        Perform the library of congress identifier values from record operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise LibraryOfCongress. identifier values from record with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+        :param record: Provider JSON/XML record projected into metadata.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         values: dict[str, list[str]] = {"isbn": [], "lccn": [], "oclc": []}
 
         def add(key: str, value: str | None) -> None:
+            """
+            Perform the library of congress add operation with explicit ordering and failure behavior.
+
+            Example:
+                Exercise LibraryOfCongress. identifier values from record.add with the owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+            :param key: Value supplied for key.
+            :param value: Input value to normalize, compare, store or parse.
+            :return: The normalized provider value, metadata result or collection described
+                above.
+            """
             if not value:
                 return
             if value not in values[key]:
@@ -566,6 +1098,20 @@ class LibraryOfCongress(Source):
         return values
 
     def _metadata_from_record(self, record: Mapping, relevance: int = 0):
+        """
+        Project one provider record into normalized metadata and retain source relevance.
+
+        Example:
+            Exercise LibraryOfCongress. metadata from record with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+        :param record: Provider JSON/XML record projected into metadata.
+        :param relevance: Zero-based provider result relevance.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         title = _as_text(record.get("title")).strip() or _("Unknown")
         authors = self._authors_from_record(record)
         mi = calibreMetaInformation(title, authors)
@@ -605,6 +1151,20 @@ class LibraryOfCongress(Source):
         return mi
 
     def _postprocess_downloaded_metadata(self, mi, relevance: int = 0):
+        """
+        Apply source relevance, identifier caches and shared cleanup to downloaded metadata.
+
+        Example:
+            Exercise LibraryOfCongress. postprocess downloaded metadata with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+        :param mi: Metadata object supplying identifiers or receiving normalized fields.
+        :param relevance: Zero-based provider result relevance.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         if mi is None:
             return None
         mi.source_relevance = relevance
@@ -623,6 +1183,20 @@ class LibraryOfCongress(Source):
 
     # Source API {{{
     def get_cached_cover_url(self, identifiers):
+        """
+        Return cached cover url when present without network access.
+
+        Example:
+            Exercise LibraryOfCongress.get cached cover url with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+        :param identifiers: Metadata identifier mapping used for direct lookup and cache
+            resolution.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         identifiers = identifiers or {}
         loc_id = _first_identifier_value(identifiers, "loc")
         if loc_id is None:
@@ -643,6 +1217,25 @@ class LibraryOfCongress(Source):
         identifiers=None,
         timeout=30,
     ):
+        """
+        Run provider lookup, honor cancellation, isolate per-result failures and enqueue normalized metadata.
+
+        Example:
+            Exercise LibraryOfCongress.identify with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+        :param log: Logger receiving structured provider diagnostics.
+        :param result_queue: Queue receiving normalized metadata or cover results.
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param title: Book title used to construct or rank the provider query.
+        :param authors: Author names used to construct or rank the provider query.
+        :param identifiers: Metadata identifier mapping used for direct lookup and cache
+            resolution.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :return: None.
+        """
         identifiers = identifiers or {}
         if abort.is_set():
             return
@@ -702,6 +1295,26 @@ class LibraryOfCongress(Source):
         timeout=30,
         get_best_cover=False,
     ):
+        """
+        Resolve and download cover candidates, honor cancellation and enqueue valid image bytes.
+
+        Example:
+            Exercise LibraryOfCongress.download cover with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+        :param log: Logger receiving structured provider diagnostics.
+        :param result_queue: Queue receiving normalized metadata or cover results.
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param title: Book title used to construct or rank the provider query.
+        :param authors: Author names used to construct or rank the provider query.
+        :param identifiers: Metadata identifier mapping used for direct lookup and cache
+            resolution.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :param get_best_cover: Stop after the best usable cover when true.
+        :return: None.
+        """
         del get_best_cover
         identifiers = identifiers or {}
         cover_url = self.get_cached_cover_url(identifiers)

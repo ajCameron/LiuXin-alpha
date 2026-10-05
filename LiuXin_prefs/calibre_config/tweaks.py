@@ -34,6 +34,17 @@
 # expression produces a value for series_index, or if you are reading metadata
 # from books and the import plugin produces a value, then that value will
 # be used irrespective of the setting of the tweak.
+"""
+Define retained Calibre-compatible behavioral tweak defaults.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise tweaks through a consuming regression::
+
+        python -m pytest -q tests/preferences/test_preferences_regression.py
+"""
 series_index_auto_increment = 'next'
 use_series_auto_increment_tweak_when_importing = False
 

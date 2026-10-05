@@ -1,9 +1,15 @@
-"""Canonical registry, construction-context, and persistence coverage."""
+"""
+Exercise backend discovery, runtime construction dependencies, and row translation.
+
+Pure descriptor/serialization checks are combined with inert S3 injection,
+synthetic Store-row enumeration, and real local encryption/archive operations.
+Readback tests reopen backend objects within the same process. The RAR builder
+case checks staged bytes rather than sealing an archive or invoking its tool.
+"""
 
 from __future__ import annotations
 
 import json
-
 from uuid import uuid4
 
 import pytest
@@ -15,8 +21,6 @@ from LiuXin_alpha.storage.backend_registry import (
     StorageBackendRegistry,
     StoreConstructionContext,
 )
-from LiuXin_alpha.storage.store_factory import build_store
-from LiuXin_alpha.storage.store_manager import StorageManager
 from LiuXin_alpha.storage.store_backend_plugins.iso_readonly import (
     IsoReadOnlyStorageBackend,
 )
@@ -41,6 +45,7 @@ from LiuXin_alpha.storage.store_backend_plugins.zip_readonly import (
 from LiuXin_alpha.storage.store_backend_plugins.zip_writable import (
     ZipWritableStorageBackend,
 )
+from LiuXin_alpha.storage.store_manager import StorageManager
 from LiuXin_alpha.storage.store_spec_utils import (
     store_configuration_from_row,
     store_configuration_to_row_dict,
@@ -55,6 +60,21 @@ from tests.fixtures.iso_image import build_joliet_iso
 
 
 def _configuration(kind: str, root: str, **kwargs) -> api.StoreConfiguration:
+    """
+    Build a test StoreConfiguration with an optional supplied UUID/name and forwarded fields.
+    Defaults use a fresh UUID and the kind as name; construction applies ordinary configuration
+    validation without creating a backend.
+
+    Example:
+        >>> _configuration("filesystem", "file:///srv").store_name
+        'filesystem'
+
+
+    :param kind: Backend kind or alias retained in the configuration.
+    :param root: Endpoint URI/text passed as store_root_uri.
+    :param kwargs: Additional configuration fields, with store_uuid and store_name consumed as optional overrides.
+    :return: A new StoreConfiguration with the requested endpoint and test defaults.
+    """
     return api.StoreConfiguration(
         store_uuid=kwargs.pop("store_uuid", uuid4()),
         store_name=kwargs.pop("store_name", kind),
@@ -65,6 +85,17 @@ def _configuration(kind: str, root: str, **kwargs) -> api.StoreConfiguration:
 
 
 def test_default_registry_contains_every_supported_backend_family() -> None:
+    """
+    Check that the canonical registry contains the expected backend families and resolves selected
+    historical/case/hyphen aliases. The family assertion permits additional descriptors; this test
+    does not construct Stores or prove backend availability.
+
+    Example:
+        >>> test_default_registry_contains_every_supported_backend_family()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     kinds = {descriptor.kind for descriptor in DEFAULT_BACKEND_REGISTRY}
 
     assert {
@@ -109,6 +140,17 @@ def test_default_registry_contains_every_supported_backend_family() -> None:
 
 
 def test_every_default_backend_advertises_storage_characteristics() -> None:
+    """
+    Check the exact default backend set and its declared publication, staging, and usage profiles.
+    Require archive expansion-limit notes and selected rclone/S3/encryption caveats. These are
+    descriptor-contract assertions, not measured capabilities of live endpoints.
+
+    Example:
+        >>> test_every_default_backend_advertises_storage_characteristics()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     profiles = {
         descriptor.kind: descriptor.characteristics
         for descriptor in DEFAULT_BACKEND_REGISTRY
@@ -191,12 +233,24 @@ def test_every_default_backend_advertises_storage_characteristics() -> None:
 
 
 def test_factory_constructs_filesystem_through_registry(tmp_path) -> None:
+    """
+    Resolve the file alias through the factory, retain configuration identity, and publish seven
+    bytes into a real temporary filesystem Store. The assertion checks the returned size, without an
+    independent readback in this test.
+
+    Example:
+        >>> test_factory_constructs_filesystem_through_registry(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Temporary root for the real filesystem Store and object bytes.
+    :return: None after the stated regression assertions pass.
+    """
     configuration = _configuration(
         "file",
         (tmp_path / "files").resolve().as_uri(),
     )
 
-    store = build_store(configuration)
+    store = DEFAULT_BACKEND_REGISTRY.build(configuration)
 
     assert isinstance(store, FilesystemStore)
     assert store.configuration is configuration
@@ -204,6 +258,17 @@ def test_factory_constructs_filesystem_through_registry(tmp_path) -> None:
 
 
 def test_s3_factory_uses_injected_client_and_persisted_non_secret_options() -> None:
+    """
+    Construct an S3 Store with an inert injected client and configuration options. Verify
+    Store/configuration/client identity and endpoint projection without invoking S3 methods, making
+    a network request, or persisting a database row.
+
+    Example:
+        >>> test_s3_factory_uses_injected_client_and_persisted_non_secret_options()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     client = object()
     configuration = _configuration(
         "s3",
@@ -214,7 +279,7 @@ def test_s3_factory_uses_injected_client_and_persisted_non_secret_options() -> N
         ),
     )
 
-    store = build_store(
+    store = DEFAULT_BACKEND_REGISTRY.build(
         configuration,
         context=StoreConstructionContext(s3_client=client),
     )
@@ -226,6 +291,18 @@ def test_s3_factory_uses_injected_client_and_persisted_non_secret_options() -> N
 
 
 def test_encrypted_factory_requires_runtime_dependencies(tmp_path) -> None:
+    """
+    Reject missing inner-Store and key-provider dependencies, then construct an encrypted wrapper
+    over a real filesystem Store. Publish a payload and check its reported size and prefixed
+    physical-object existence; this test does not independently decrypt it.
+
+    Example:
+        >>> test_encrypted_factory_requires_runtime_dependencies(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Temporary root for the inner Store and encrypted bytes.
+    :return: None after the stated regression assertions pass.
+    """
     inner = FilesystemStore(tmp_path / "inner")
     configuration = _configuration(
         "encrypted",
@@ -243,14 +320,14 @@ def test_encrypted_factory_requires_runtime_dependencies(tmp_path) -> None:
     )
 
     with pytest.raises(api.StoreUnsupportedOperation, match="inner-Store resolver"):
-        build_store(configuration)
+        DEFAULT_BACKEND_REGISTRY.build(configuration)
     with pytest.raises(api.StoreUnsupportedOperation, match="key provider"):
-        build_store(
+        DEFAULT_BACKEND_REGISTRY.build(
             configuration,
             context=StoreConstructionContext(store_resolver=lambda _ref: inner),
         )
 
-    store = build_store(
+    store = DEFAULT_BACKEND_REGISTRY.build(
         configuration,
         context=StoreConstructionContext(
             store_resolver=lambda store_ref: (
@@ -266,6 +343,18 @@ def test_encrypted_factory_requires_runtime_dependencies(tmp_path) -> None:
 
 
 def test_backend_policy_round_trip_handles_new_backends_and_strips_secrets() -> None:
+    """
+    Round-trip selected backend option sets through row dictionaries and policy JSON. Verify the
+    supplied secret_access_key/session_token values are absent and supported options survive across
+    the backend matrix. This is in-memory serialization coverage, not exhaustive secret detection or
+    a database/backend operation.
+
+    Example:
+        >>> test_backend_policy_round_trip_handles_new_backends_and_strips_secrets()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     for kind, options in (
         (
             "s3",
@@ -423,6 +512,17 @@ def test_backend_policy_round_trip_handles_new_backends_and_strips_secrets() -> 
 
 
 def test_store_configuration_roundtrips_backing_and_extended_replica_modes() -> None:
+    """
+    Round-trip an Asset-backed archive configuration through scalar fields and the version-1 manager
+    policy extension. Assert complete configuration equality and exact backing/mode JSON while
+    leaving referenced catalogue identities unresolved.
+
+    Example:
+        >>> test_store_configuration_roundtrips_backing_and_extended_replica_modes()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     materialization_ref = uuid4()
     backing = api.StoreBackingReference(
         api.DigitalAssetID(7),
@@ -456,6 +556,17 @@ def test_store_configuration_roundtrips_backing_and_extended_replica_modes() -> 
 
 
 def test_registry_rejects_writable_backend_over_a_catalogued_asset() -> None:
+    """
+    Reject a writable ZIP descriptor for a read-only Asset-backed configuration even with a supplied
+    backing-path resolver. The expected registry error precedes image access; no archive or
+    catalogue Asset is created.
+
+    Example:
+        >>> test_registry_rejects_writable_backend_over_a_catalogued_asset()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     configuration = api.StoreConfiguration.for_backed_backend(
         "mutable archive",
         "zip_writable",
@@ -466,7 +577,7 @@ def test_registry_rejects_writable_backend_over_a_catalogued_asset() -> None:
         api.StoreUnsupportedOperation,
         match="cannot expose a read-only Store backed by a Digital Asset",
     ):
-        build_store(
+        DEFAULT_BACKEND_REGISTRY.build(
             configuration,
             context=StoreConstructionContext(
                 backing_path_resolver=lambda _configuration: "/tmp/archive.zip"
@@ -475,19 +586,79 @@ def test_registry_rejects_writable_backend_over_a_catalogued_asset() -> None:
 
 
 class _RowsDatabase:
+    """
+    Expose borrowed Store rows through the minimal manager-bootstrap interface. This double
+    advertises only the stores table and returns the same row collection on each non-iterator read.
+    It supplies no real database, transaction, schema migration, or durable manager metadata.
+    Archive tests pair these synthetic rows with real temporary local bytes.
+
+    Example:
+        >>> rows = [{"store_id": 1}]
+        >>> _RowsDatabase(rows).get_all_rows("stores", iterator_return=False) is rows
+        True
+    """
     def __init__(self, rows):
+        """
+        Retain the supplied row collection by reference without copying or validation. Mutations to
+        that collection remain visible to later manager reads.
+
+        Example:
+            >>> database = _RowsDatabase([])
+
+
+        :param rows: Synthetic stores-row collection returned unchanged by get_all_rows.
+        :return: None after retaining rows.
+        """
         self.rows = rows
 
     def get_tables(self):
+        """
+        Advertise the stores-only schema used by these bootstrap tests. The returned list is fresh;
+        no backend introspection or migration occurs.
+
+        Example:
+            >>> _RowsDatabase([]).get_tables()
+            ['stores']
+
+
+        :return: A new list containing only the stores table name.
+        """
         return ["stores"]
 
     def get_all_rows(self, table: str, *, iterator_return: bool):
+        """
+        Assert that the manager requests stores with iterator_return=False, then return the borrowed
+        row collection. This checks the selected enumeration contract without reading a database or
+        creating a snapshot.
+
+        Example:
+            >>> _RowsDatabase([]).get_all_rows("stores", iterator_return=False)
+            []
+
+
+        :param table: Requested table name, asserted to equal stores.
+        :param iterator_return: Requested iterator flag, asserted to be exactly False.
+        :return: The original rows object after assertions pass.
+        """
         assert table == "stores"
         assert iterator_return is False
         return self.rows
 
 
 def test_manager_bootstraps_encrypted_wrapper_after_its_inner_store(tmp_path) -> None:
+    """
+    Load synthetic rows listed wrapper-first and verify dependency-aware construction. Real
+    filesystem encryption must round-trip the plaintext through the wrapper, publish under its
+    configured prefix, and omit that plaintext from the physical representation. The row double
+    supplies no durable database or process-restart evidence.
+
+    Example:
+        >>> test_manager_bootstraps_encrypted_wrapper_after_its_inner_store(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Temporary physical Store root used for actual encrypted writes and reads.
+    :return: None after the stated regression assertions pass.
+    """
     inner_ref = uuid4()
     encrypted_ref = uuid4()
     rows = [
@@ -539,6 +710,18 @@ def test_manager_bootstraps_encrypted_wrapper_after_its_inner_store(tmp_path) ->
 
 
 def test_manager_bootstraps_iso_backend_from_database_row(tmp_path) -> None:
+    """
+    Construct a read-only ISO Store from a synthetic row and read known member bytes from a real
+    generated Joliet image. Manager bootstrap uses the row double without a real database, while
+    archive parsing and byte readback use the actual backend.
+
+    Example:
+        >>> test_manager_bootstraps_iso_backend_from_database_row(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Temporary directory holding the generated Joliet image.
+    :return: None after the stated regression assertions pass.
+    """
     store_ref = uuid4()
     image = build_joliet_iso(
         tmp_path / "database-library.iso",
@@ -570,6 +753,18 @@ def test_manager_bootstraps_iso_backend_from_database_row(tmp_path) -> None:
 
 
 def test_manager_bootstraps_sevenzip_backend_from_database_row(tmp_path) -> None:
+    """
+    Build a real 7z fixture, bootstrap its Store from a synthetic row, and verify member readback
+    plus retained parser limits. Skip when py7zr is unavailable; successful execution exercises
+    local archive bytes without a real database or external service.
+
+    Example:
+        >>> test_manager_bootstraps_sevenzip_backend_from_database_row(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Temporary directory for the 7z archive created by py7zr.
+    :return: None after the stated regression assertions pass.
+    """
     py7zr = pytest.importorskip("py7zr")
     store_ref = uuid4()
     archive = tmp_path / "database-library.7z"
@@ -616,6 +811,18 @@ def test_manager_bootstraps_sevenzip_backend_from_database_row(tmp_path) -> None
 
 
 def test_manager_bootstraps_writable_iso_backend_from_database_row(tmp_path) -> None:
+    """
+    Bootstrap a writable ISO Store from a synthetic row, publish a member, and read it through both
+    the original Store and a newly constructed read-only backend. This verifies real image
+    persistence across backend reopen within one process.
+
+    Example:
+        >>> test_manager_bootstraps_writable_iso_backend_from_database_row(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Temporary directory for the new ISO image and actual publication/readback.
+    :return: None after the stated regression assertions pass.
+    """
     store_ref = uuid4()
     image = tmp_path / "database-writable.iso"
     manager = StorageManager(
@@ -682,6 +889,24 @@ def test_manager_bootstraps_writable_archive_backends_from_database_rows(
     suffix,
     policy,
 ) -> None:
+    """
+    Bootstrap each parametrized writable ZIP/TAR backend from a synthetic row and policy. Publish
+    bytes, read through the writer, then reopen a separate read-only backend and verify the member
+    again. Real archive persistence is tested within one process; the rows themselves are supplied
+    by a non-durable database double.
+
+    Example:
+        >>> test_manager_bootstraps_writable_archive_backends_from_database_rows(tmp_path, kind, protocol, backend_type, suffix, policy)  # doctest: +SKIP
+
+
+    :param tmp_path: Temporary root for the actual archive file.
+    :param kind: Parametrized zip_writable or tar_writable registry key.
+    :param protocol: Persisted access-protocol label used in the synthetic row.
+    :param backend_type: Expected concrete writable Store class after bootstrap.
+    :param suffix: Archive filename suffix selecting the case's local output path.
+    :param policy: Backend-specific compression/determinism options encoded into row policy JSON.
+    :return: None after the stated regression assertions pass.
+    """
     store_ref = uuid4()
     archive = tmp_path / f"database{suffix}"
     manager = StorageManager(
@@ -721,6 +946,18 @@ def test_manager_bootstraps_writable_archive_backends_from_database_rows(
 
 
 def test_manager_bootstraps_durable_rar_builder_from_database_row(tmp_path) -> None:
+    """
+    Bootstrap a RAR build Store with explicit staging and tool options from a synthetic row. Verify
+    identity/path/options and real staged member write/readback. The configured rar-custom
+    executable is not invoked and no sealed RAR image is produced here.
+
+    Example:
+        >>> test_manager_bootstraps_durable_rar_builder_from_database_row(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Temporary archive pathname and persistent staging root used by the builder.
+    :return: None after the stated regression assertions pass.
+    """
     store_ref = uuid4()
     archive = tmp_path / "database-backup.rar"
     staging = tmp_path / "database-backup-stage"
@@ -771,7 +1008,31 @@ def test_manager_bootstraps_durable_rar_builder_from_database_row(tmp_path) -> N
 
 
 def test_registry_rejects_duplicate_aliases() -> None:
+    """
+    Reject registration of a second descriptor claiming an existing alias. An always-failing builder
+    ensures descriptor registration does not construct a Store; this assertion checks the raised
+    collision error without testing later registry reuse.
+
+    Example:
+        >>> test_registry_rejects_duplicate_aliases()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     def builder(configuration, context):
+        """
+        Fail if a construction callback is invoked during alias registration. Registration should
+        inspect descriptor names without constructing a Store; the ignored arguments only satisfy
+        the builder signature.
+
+        Example:
+            >>> builder(configuration, context)  # doctest: +SKIP
+
+
+        :param configuration: Unused Store configuration that would indicate unexpected construction.
+        :param context: Unused runtime construction context.
+        :return: Never returns normally; always raises AssertionError.
+        """
         del configuration, context
         raise AssertionError
 
@@ -780,3 +1041,33 @@ def test_registry_rejects_duplicate_aliases() -> None:
 
     with pytest.raises(ValueError, match="already registered"):
         registry.register(StorageBackendDescriptor("two", "Two", builder, aliases=("shared",)))
+
+
+@pytest.mark.parametrize("kind", ["sqlite", "single_file_sqlite"])
+def test_sqlite_registry_builds_the_canonical_store(tmp_path, kind) -> None:
+    """
+    Resolve either configured spelling to the concrete SQLite Store and round-trip bytes.
+
+    The builder retains the requested UUID and publishes the canonical backend kind.
+    The Store is closed in a finally block so failures do not retain an open database.
+
+    Example:
+        >>> test_sqlite_registry_builds_the_canonical_store(tmp_path, "sqlite")  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest directory for the real SQLite BLOB container.
+    :param kind: Canonical single_file_sqlite key or its supported sqlite configuration alias.
+    :return: None after checking construction, identity, kind, and byte persistence.
+    """
+    from LiuXin_alpha.storage.stores.sqlite import SQLiteStore
+
+    configuration = _configuration(kind, (tmp_path / "objects.sqlite").as_uri())
+    store = DEFAULT_BACKEND_REGISTRY.build(configuration)
+    try:
+        assert type(store) is SQLiteStore
+        assert store.configuration.store_kind == "single_file_sqlite"
+        assert store.configuration.store_uuid == configuration.store_uuid
+        info = store.store_bytes(b"canonical sqlite", location="sample")
+        assert store.read_bytes(info.location) == b"canonical sqlite"
+    finally:
+        store.close()

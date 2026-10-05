@@ -1,19 +1,17 @@
 """
-Driver registry for database backends.
+Register backend import locations and load their concrete owners on demand.
 
-Historically the package root used hard-coded if/else routing.
-This registry keeps the public ``loadDatabaseDriver`` function stable while allowing real registration and
-lightweight extension.
+Importing this module registers SQLite, SQLite_apsw and PostgreSQL names without
+importing their drivers. Direct-access and builder modules are cached by canonical
+name; registering a replacement does not clear those caches.
 """
 
 from __future__ import annotations
 
-import pathlib
-
 import importlib
 import os
+import pathlib
 from dataclasses import dataclass
-
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 
 from LiuXin_alpha.errors import DatabaseDriverError
@@ -23,7 +21,15 @@ from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 @dataclass(frozen=True)
 class DriverRegistration:
     """
-    Record of registering a driver class on the database.
+    Immutable import locations for one backend and its optional build/access helpers.
+
+    ``canonical_name`` is the display/cache name; ``driver_module`` and ``driver_attr``
+    locate the driver class. Optional module names identify direct access and building;
+    ``package_dir`` bypasses package import when resolving the backend directory.
+
+    Example:
+        ``DriverRegistration("Custom", "my_backend.driver")`` uses
+        ``DatabaseDriver`` as the driver attribute.
     """
     canonical_name: str
     driver_module: str
@@ -49,16 +55,24 @@ def register_database_driver(
     aliases: tuple[str, ...] = (),
 ) -> None:
     """
-    Preform registratiion of DatabaseDriver class.
+    Bind a name and aliases to one registration, replacing any matching keys.
 
-    :param name:
-    :param driver_module:
-    :param driver_attr:
-    :param direct_access_module:
-    :param builder_module:
-    :param package_dir:
-    :param aliases:
-    :return:
+    Keys are lowercased but not stripped. This does not import the modules or invalidate
+    previously cached direct-access/builder modules.
+
+    Example:
+        ``register_database_driver("Custom", driver_module="my_backend.driver",
+        aliases=("custom_alias",))`` installs two case-insensitive lookup keys.
+
+
+    :param name: Canonical backend name used in listings and cache keys.
+    :param driver_module: Import path of the module owning the driver class.
+    :param driver_attr: Attribute retrieved from the imported driver module.
+    :param direct_access_module: Optional module exposing backend direct access.
+    :param builder_module: Optional module containing a create_new_database entry point.
+    :param package_dir: Optional directory returned directly by get_driver_location.
+    :param aliases: Additional names bound to the same registration.
+    :return: None; updates the process-local registry.
     """
     registration = DriverRegistration(
         canonical_name=name,
@@ -74,10 +88,16 @@ def register_database_driver(
 
 def _get_registration(db_type: str) -> "DriverRegistration":
     """
-    Retrieve a recorded registration of a driver.
+    Resolve a case-insensitive backend name or raise DatabaseDriverError.
 
-    :param db_type:
-    :return:
+    The error lists the currently registered canonical names.
+
+    Example:
+        ``_get_registration("pg").canonical_name`` is ``"PostgreSQL"``.
+
+
+    :param db_type: Registered canonical name or case-insensitive alias.
+    :return: The shared immutable registration.
     """
     try:
         return _DRIVER_REGISTRY[db_type.lower()]
@@ -91,10 +111,17 @@ def _get_registration(db_type: str) -> "DriverRegistration":
 
 def load_database_driver(db_type: str):
     """
-    Load and return the database driver module.
+    Import the registered implementation and return its driver attribute.
 
-    :param db_type:
-    :return:
+    Returns the driver class for built-ins, not the imported module. Import and missing
+    attribute errors propagate; an unknown backend raises DatabaseDriverError.
+
+    Example:
+        ``load_database_driver("pg")`` returns the PostgreSQL DatabaseDriver class.
+
+
+    :param db_type: Registered canonical name or case-insensitive alias.
+    :return: The configured attribute from the implementation module.
     """
     registration = _get_registration(db_type)
     module = importlib.import_module(registration.driver_module)
@@ -103,19 +130,31 @@ def load_database_driver(db_type: str):
 
 def get_registered_database_driver_names() -> tuple[str, ...]:
     """
-    Get a tuple of all the types of driver known to the system.
+    List distinct canonical backend names in sorted order.
 
-    :return:
+    Example:
+        >>> "PostgreSQL" in get_registered_database_driver_names()
+        True
+
+
+    :return: Tuple of canonical names, with aliases omitted.
     """
     return tuple(sorted({reg.canonical_name for reg in _DRIVER_REGISTRY.values()}))
 
 
 def get_driver_location(db_type: str) -> str:
     """
-    Map the name of a driver to its actual file location.
+    Resolve a backend package directory from its registration.
 
-    :param db_type:
-    :return:
+    An explicit package_dir is returned unchanged; otherwise the parent of the driver
+    module is imported and its real file location supplies the directory.
+
+    Example:
+        ``get_driver_location("pg")`` identifies the PostgreSQL plugin directory.
+
+
+    :param db_type: Registered canonical name or case-insensitive alias.
+    :return: Registered directory or resolved parent-package directory.
     """
     registration = _get_registration(db_type)
     if registration.package_dir is not None:
@@ -126,10 +165,17 @@ def get_driver_location(db_type: str) -> str:
 
 def get_direct_access_module(db_type: str):
     """
-    Directly get the raw module containing the driver.
+    Import and cache the registered direct-access module.
 
-    :param db_type:
-    :return:
+    Aliases share the canonical-name cache. An unknown backend or absent direct-access
+    module raises DatabaseDriverError.
+
+    Example:
+        ``get_direct_access_module("pg")`` loads the PostgreSQL databasedriver module.
+
+
+    :param db_type: Registered canonical name or case-insensitive alias.
+    :return: Cached or newly imported direct-access module.
     """
     registration = _get_registration(db_type)
     key = registration.canonical_name.lower()
@@ -144,10 +190,17 @@ def get_direct_access_module(db_type: str):
 
 def get_database_builder_module(db_type: str):
     """
-    Get the database builder module from its name.
+    Import and cache the registered schema-builder module.
 
-    :param db_type:
-    :return:
+    Aliases share the canonical-name cache. An unknown backend or missing builder
+    registration raises DatabaseDriverError.
+
+    Example:
+        ``get_database_builder_module("pg")`` loads the PostgreSQL schema module.
+
+
+    :param db_type: Registered canonical name or case-insensitive alias.
+    :return: Cached or newly imported builder module.
     """
     registration = _get_registration(db_type)
     key = registration.canonical_name.lower()
@@ -162,11 +215,19 @@ def get_database_builder_module(db_type: str):
 
 def create_new_database(db_type: str, target_location: Union[str, pathlib.Path]):
     """
-    Create a new database of the given type, at the target location.
+    Invoke a backend builder when it exposes a callable create_new_database.
 
-    :param db_type:
-    :param target_location:
-    :return:
+    The target is passed through unchanged. If no callable entry point exists, return
+    the builder module itself; connection and creation errors otherwise propagate.
+
+    Example:
+        ``create_new_database("SQLite", new_path)`` delegates file creation to the
+        registered SQLite builder.
+
+
+    :param db_type: Registered canonical name or case-insensitive alias.
+    :param target_location: Target passed unchanged to the backend builder.
+    :return: The builder result, or the builder module when no callable entry point exists.
     """
     module = get_database_builder_module(db_type)
     create_fn = getattr(module, "create_new_database", None)
@@ -177,9 +238,16 @@ def create_new_database(db_type: str, target_location: Union[str, pathlib.Path])
 
 def register_builtin_database_drivers() -> None:
     """
-    Register built-in database drivers.
+    Install the three built-in registrations and their historical backend aliases.
 
-    :return:
+    This runs at import time and can replace registrations under the same keys without
+    clearing existing module caches.
+
+    Example:
+        ``register_builtin_database_drivers()`` restores the built-in ``pg`` alias.
+
+
+    :return: None; updates registry entries.
     """
     base_dir = os.path.dirname(os.path.realpath(__file__))
     register_database_driver(

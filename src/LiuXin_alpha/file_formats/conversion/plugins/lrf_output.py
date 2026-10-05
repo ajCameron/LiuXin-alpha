@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Convert LRF content from the normalized ebook conversion pipeline.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise lrf output through a consuming regression::
+
+        python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+"""
 from __future__ import with_statement
 from __future__ import annotations
 
@@ -24,6 +35,19 @@ __docformat__ = "restructuredtext en"
 
 
 def _coerce_text(value: _typing.Any) -> _typing.Any:
+    """
+    Perform the coerce text operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  coerce text through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+    :param value: Value normalized, stored, formatted or returned.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if value is None:
         return ""
     if isinstance(value, (bytes, bytearray, memoryview)):
@@ -41,8 +65,43 @@ def _coerce_text(value: _typing.Any) -> _typing.Any:
 
 
 class LRFOptions(object):
+    """
+    Provide the lrfoptions contract for validated ebook processing.
+
+    Example:
+        Exercise LRFOptions through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+    """
     def __init__(self: _typing.Self, output: _typing.Any, opts: _typing.Any, oeb: _typing.Any) -> None:
+        """
+        Initialize and validate the lrfoptions state.
+
+        Example:
+            Exercise LRFOptions.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param output: Value supplied for output under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :param oeb: Value supplied for oeb under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         def f2s(f: _typing.Any) -> _typing.Any:
+            """
+            Perform the f2s operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise LRFOptions.  init  .f2s through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+            :param f: Value supplied for f under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             if f is None:
                 return ""
             try:
@@ -132,6 +191,14 @@ class LRFOptions(object):
 
 class LRFOutput(OutputFormatPlugin):
 
+    """
+    Provide the lrfoutput contract for validated ebook processing.
+
+    Example:
+        Exercise LRFOutput through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+    """
     name = "LRF Output"
     author = "Kovid Goyal"
     file_type = "lrf"
@@ -207,6 +274,21 @@ class LRFOutput(OutputFormatPlugin):
 
     def convert_images(self: _typing.Self, pages: _typing.Any, opts: _typing.Any, wide: _typing.Any) -> None:
 
+        """
+        Convert images under the format's safety and compatibility rules.
+
+        Example:
+            Exercise LRFOutput.convert images through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param pages: Value supplied for pages under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :param wide: Value supplied for wide under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         from uuid import uuid4
         from LiuXin_alpha.file_formats.lrf.pylrs.pylrs import (
             Book,
@@ -253,6 +335,18 @@ class LRFOutput(OutputFormatPlugin):
             book.renderLrf(out)
 
     def flatten_toc(self: _typing.Self) -> None:
+        """
+        Perform the flatten toc operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LRFOutput.flatten toc through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         from LiuXin_alpha.file_formats.oeb.base import TOC
 
         nroot = TOC()
@@ -262,6 +356,23 @@ class LRFOutput(OutputFormatPlugin):
         self.oeb.toc = nroot
 
     def convert(self: _typing.Self, oeb_book: _typing.Any, output_path: _typing.Any, input_plugin: _typing.Any, opts: _typing.Any, log: _typing.Any) -> None:
+        """
+        Convert the supplied source into the stage's normalized output representation.
+
+        Example:
+            Exercise LRFOutput.convert through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param oeb_book: Value supplied for oeb book under the utility contract.
+        :param output_path: Value supplied for output path under the utility contract.
+        :param input_plugin: Value supplied for input plugin under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.log, self.opts, self.oeb = log, opts, oeb_book
 
         lrf_opts = LRFOptions(output_path, opts, oeb_book)

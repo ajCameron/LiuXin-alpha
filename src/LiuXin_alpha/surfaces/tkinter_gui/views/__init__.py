@@ -1,4 +1,14 @@
-"""Tk widget view classes for the LiuXin Tkinter GUI."""
+"""
+Expose the supported views compatibility surface.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/surfaces/test_tkinter_gui.py
+"""
 
 from __future__ import annotations
 

@@ -1,14 +1,10 @@
-"""Driver contract: views and triggers.
+"""
+Check view aliases and row readback, plus trigger listing, execution, removal, and baseline restoration.
 
-This module exercises the driver's view and trigger helpers.
+Example:
+    Run with pytest::
 
-We create a contract table with highly distinctive column names so that
-identify_table_from_row() cannot accidentally resolve to some other table.
-A contract view is then created with an explicit `id` column so the view helper
-(which assumes an `id` column) can round-trip data.
-
-A contract trigger is also created, verified via direct_get_triggers(), and then
-dropped via direct_drop_triggers().
+        python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_views_triggers.py
 """
 
 from __future__ import annotations
@@ -23,6 +19,16 @@ _CONTRACT_VIEW = "contract_view_contract_views_triggers"
 
 
 def _safe_close(conn: Any) -> None:
+    """
+    Attempt to close the supplied object and suppress any ordinary exception.
+
+    Example:
+        >>> _safe_close(None)
+
+
+    :param conn: Object whose close method is attempted.
+    :return: None; the object may already be closed or lack a usable close method.
+    """
     try:
         conn.close()
     except Exception:
@@ -30,7 +36,26 @@ def _safe_close(conn: Any) -> None:
 
 
 def _fetchall(conn: Any, stmt: str, params: Iterable[Any] | None = None) -> list[tuple]:
-    """Execute a statement and return rows for sqlite3/apsw-like connections."""
+    """
+    Execute SQL with materialized bindings and collect rows from a cursor or iterable.
+
+    On TypeError, retry without bindings only when params was None; otherwise retry with
+    the same tuple. A fetchall attribute is called without a callable check and its rows
+    are only wrapped in list. The iterable branch converts each row to tuple.
+
+    Example:
+        >>> import sqlite3
+        >>> connection = sqlite3.connect(':memory:')
+        >>> _fetchall(connection, 'SELECT ?', [42])
+        [(42,)]
+        >>> connection.close()
+
+
+    :param conn: Caller-owned SQLite connection; this helper does not close it.
+    :param stmt: SQL statement sent to the caller-owned connection.
+    :param params: Optional binding iterable consumed once into a tuple.
+    :return: Materialized rows; no commit or close occurs.
+    """
 
     params_tuple = tuple(params) if params is not None else None
 
@@ -49,7 +74,19 @@ def _fetchall(conn: Any, stmt: str, params: Iterable[Any] | None = None) -> list
 
 @pytest.fixture
 def vt_table(driver) -> str:
-    """Create (or recreate) the contract table used for view/trigger testing."""
+    """
+    Drop the contract view and table, recreate the backing table, and assert it appears after refreshing the cache.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_views_triggers.py
+
+
+    :param driver: Driver supplied by the isolated Database fixture; teardown attempts
+        to close it.
+    :return: Trusted table name; the isolated database fixture owns cleanup.
+    """
 
     t = _CONTRACT_TABLE
 
@@ -74,6 +111,18 @@ def vt_table(driver) -> str:
 
 @pytest.fixture
 def vt_cols(vt_table: str) -> dict[str, str]:
+    """
+    Derive ID, text, shadow, and timestamp column names from the backing table.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_views_triggers.py
+
+
+    :param vt_table: Recreated isolated table backing the view and trigger contracts.
+    :return: Fresh role-to-column mapping.
+    """
     t = vt_table
     return {
         "id": f"{t}_id",
@@ -85,7 +134,22 @@ def vt_cols(vt_table: str) -> dict[str, str]:
 
 @pytest.fixture
 def vt_view(driver, vt_table: str, vt_cols: dict[str, str]) -> str:
-    """Create (or recreate) the contract view with an explicit `id` column."""
+    """
+    Drop and recreate the contract view with id, text, and shadow aliases over the backing table.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_views_triggers.py
+
+
+    :param driver: Driver supplied by the isolated Database fixture; teardown attempts
+        to close it.
+    :param vt_table: Recreated isolated table backing the view and trigger contracts.
+    :param vt_cols: Mapping from view/trigger field roles to concrete base-table
+        columns.
+    :return: Trusted view name; existing backing rows are retained.
+    """
 
     view = _CONTRACT_VIEW
 
@@ -104,6 +168,20 @@ def vt_view(driver, vt_table: str, vt_cols: dict[str, str]) -> str:
 
 
 def _sqlite_master_has(conn: Any, obj_type: str, name: str) -> bool:
+    """
+    Count SQLite schema objects using bound type and name values.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_views_triggers.py
+
+
+    :param conn: Caller-owned SQLite connection; this helper does not close it.
+    :param obj_type: Object type bound to the sqlite_master query.
+    :param name: Exact object name bound to the query.
+    :return: True when the first count is positive; False for no rows or a zero count.
+    """
     rows = _fetchall(
         conn,
         "SELECT COUNT(*) FROM sqlite_master WHERE type = ? AND name = ?;",
@@ -113,6 +191,25 @@ def _sqlite_master_has(conn: Any, obj_type: str, name: str) -> bool:
 
 
 def test_view_can_roundtrip_row_dict(driver, vt_table: str, vt_cols: dict[str, str], vt_view: str, pick_payload):
+    """
+    Insert a payload and require nonempty view headings containing id plus exact ID/text readback.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_views_triggers.py::test_view_can_roundtrip_row_dict
+
+
+    :param driver: Driver supplied by the isolated Database fixture; teardown attempts
+        to close it.
+    :param vt_table: Recreated isolated table backing the view and trigger contracts.
+    :param vt_cols: Mapping from view/trigger field roles to concrete base-table
+        columns.
+    :param vt_view: Contract view exposing id, text, and shadow aliases.
+    :param pick_payload: Fixture callable selecting payload strings by a wrapping
+        integer index.
+    :return: None; failed expectations raise AssertionError.
+    """
     payload = pick_payload(10)  # avoid the explicit NUL payload
 
     # Insert a row via driver's helper (it identifies the table from the unique columns).
@@ -133,6 +230,20 @@ def test_view_can_roundtrip_row_dict(driver, vt_table: str, vt_cols: dict[str, s
 
 
 def test_view_is_listed_in_sqlite_master(driver, vt_view: str):
+    """
+    Require the contract view to appear as a view and not a table, then attempt to close the acquired connection in finally.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_views_triggers.py::test_view_is_listed_in_sqlite_master
+
+
+    :param driver: Driver supplied by the isolated Database fixture; teardown attempts
+        to close it.
+    :param vt_view: Contract view exposing id, text, and shadow aliases.
+    :return: None; failed expectations raise AssertionError.
+    """
     conn = driver.get_connection()
     try:
         assert _sqlite_master_has(conn, "view", vt_view)
@@ -143,6 +254,29 @@ def test_view_is_listed_in_sqlite_master(driver, vt_view: str):
 
 
 def test_triggers_can_be_listed_and_dropped(driver, vt_table: str, vt_cols: dict[str, str], pick_payload, assert_integrity):
+    """
+    Create a shadow-populating trigger, verify its effect, drop it, and require the original trigger-name set.
+
+    A subsequent insertion must retain a None shadow, followed by the shared integrity
+    check.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_views_triggers.py::test_triggers_can_be_listed_and_dropped
+
+
+    :param driver: Driver supplied by the isolated Database fixture; teardown attempts
+        to close it.
+    :param vt_table: Recreated isolated table backing the view and trigger contracts.
+    :param vt_cols: Mapping from view/trigger field roles to concrete base-table
+        columns.
+    :param pick_payload: Fixture callable selecting payload strings by a wrapping
+        integer index.
+    :param assert_integrity: Fixture callable requiring the first retained
+        integrity_check result to be ok.
+    :return: None; failed expectations raise AssertionError.
+    """
     baseline = set(driver.direct_get_triggers())
 
     trigger_name = f"trg_{vt_table}_shadow"  # safe characters only

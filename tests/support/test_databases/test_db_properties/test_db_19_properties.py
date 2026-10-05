@@ -1,6 +1,14 @@
 
 """
-Test DB 19 Properties.
+Declare expected capabilities and contents for test db 19 properties.
+
+The module keeps generated data, ordering and failure modes explicit so consumers
+can assert stable behavior.
+
+Example:
+    Exercise test db 19 properties through a consuming regression::
+
+        python -m pytest -q tests/support/test_databases/test_db_properties/test_db_19_properties.py
 """
 
 
@@ -15,6 +23,11 @@ from LiuXin_alpha.utils.libraries.liuxin_six import iteritems
 class TestDB19Properties(CommonDBProperties):
     """
     Properties for the test_db_19 test database.
+
+    Example:
+        Exercise TestDB19Properties through a consuming regression::
+
+            python -m pytest -q tests/support/test_databases/test_db_properties/test_db_19_properties.py
     """
 
     alpha_focus_row_counts = {

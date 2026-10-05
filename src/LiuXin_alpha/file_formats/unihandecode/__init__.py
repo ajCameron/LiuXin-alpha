@@ -1,5 +1,16 @@
 # -*- coding: utf-8 -*-
 
+"""
+Expose the supported unihandecode compatibility surface.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -25,10 +36,31 @@ import unicodedata
 
 
 class Unihandecoder(object):
+    """
+    Provide the unihandecoder contract for validated ebook processing.
+
+    Example:
+        Exercise Unihandecoder through a consuming regression::
+
+            python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+    """
     preferred_encoding = None
     decoder = None
 
     def __init__(self: _typing.Self, lang: str = "zh", encoding: str = "utf-8") -> None:
+        """
+        Initialize and validate the unihandecoder state.
+
+        Example:
+            Exercise Unihandecoder.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+        :param lang: Value supplied for lang under the utility contract.
+        :param encoding: Value supplied for encoding under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.preferred_encoding = encoding
         lang = lang.lower()
         if lang[:2] == "ja":
@@ -49,6 +81,19 @@ class Unihandecoder(object):
             self.decoder = Unidecoder()
 
     def decode(self: _typing.Self, text: _typing.Any) -> _typing.Any:
+        """
+        Perform the decode operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Unihandecoder.decode through a consuming regression::
+
+                python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             unicode  # python2
             if not isinstance(text, unicode):

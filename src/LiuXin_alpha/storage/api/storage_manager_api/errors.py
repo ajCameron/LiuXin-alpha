@@ -1,5 +1,8 @@
 """
-Typed failures produced by LiuXin-aware storage-manager operations.
+Distinguish managed storage catalogue, selection, policy, and stale-plan failures.
+
+All categories derive from the shared storage API StorageError hierarchy and use
+ordinary Exception arguments. They do not add persistence or recovery behavior.
 """
 
 from LiuXin_alpha.storage.api.errors import StorageError
@@ -7,113 +10,115 @@ from LiuXin_alpha.storage.api.errors import StorageError
 
 class StorageManagementError(StorageError):
     """
-    Base class for failures involving managed storage domain state.
+    Group failures involving managed storage catalogue, policy, or workflow state under the shared
+    StorageError hierarchy. Subclasses retain ordinary Exception arguments without automatic
+    translation or recovery.
 
     Example:
-        >>> isinstance(StorageManagementError("invalid state"), StorageError)
+        >>> isinstance(StorageManagementError("operation rejected"), StorageError)
         True
     """
 
 
 class StoreConfigurationNotFound(StorageManagementError):
     """
-    The requested Store is not configured in the storage manager.
-
-    This is distinct from ``StoreNotFound``, which means that a concrete
-    object is absent from a known Store, and ``StoreUnavailable``, which means
-    that a configured Store cannot currently be reached.
+    Report an unknown configured Store identity at the manager boundary. This category differs from
+    a missing concrete object and from a known Store that is currently unavailable.
 
     Example:
-        >>> isinstance(
-        ...     StoreConfigurationNotFound("unknown Store"), StorageError,
-        ... )
+        >>> isinstance(StoreConfigurationNotFound("operation rejected"), StorageError)
         True
     """
 
 
 class DigitalAssetNotFound(StorageManagementError):
     """
-    The requested Digital Asset is absent from the asset repository.
-
-    This is distinct from ``StoreNotFound``, which means that bytes are absent
-    at one concrete ``Location``.
+    Report an Asset identity absent from the managed catalogue. This does not describe whether bytes
+    exist at an unrelated concrete Location.
 
     Example:
-        >>> str(DigitalAssetNotFound("asset 7"))
-        'asset 7'
+        >>> isinstance(DigitalAssetNotFound("operation rejected"), StorageError)
+        True
     """
 
 
 class ReplicaNotFound(StorageManagementError):
     """
-    The requested Replica is absent from the replica repository.
+    Report a Replica identity absent from the managed catalogue. A registered Replica whose bytes
+    are missing or unavailable is a separate state or operation failure.
 
     Example:
-        >>> isinstance(ReplicaNotFound("replica 12"), StorageManagementError)
+        >>> isinstance(ReplicaNotFound("operation rejected"), StorageError)
         True
     """
 
 
 class NoReadableReplica(StorageManagementError):
     """
-    A Digital Asset is known but currently has no readable Replica.
+    Report that selection found no eligible readable Replica under the request's mode, Store, or
+    verification requirements. Other copies may exist but fail those requirements; this category
+    does not assert physical absence everywhere.
 
     Example:
-        >>> str(NoReadableReplica("asset 7 is offline"))
-        'asset 7 is offline'
+        >>> isinstance(NoReadableReplica("operation rejected"), StorageError)
+        True
     """
 
 
 class CompositeDigitalAssetNotFound(StorageManagementError):
     """
-    The requested Composite Digital Asset is not registered.
+    Report an unregistered Composite Digital Asset identity, distinct from an existing composite
+    with unresolved members.
 
     Example:
-        >>> isinstance(CompositeDigitalAssetNotFound("composite 3"), StorageError)
+        >>> isinstance(CompositeDigitalAssetNotFound("operation rejected"), StorageError)
         True
     """
 
 
 class CompositeDigitalAssetIncomplete(StorageManagementError):
     """
-    A Composite Digital Asset cannot resolve all required members.
+    Report that resolution of a known Composite Digital Asset could not satisfy its required-member
+    contract. The producing operation determines which member failures are aggregated or allowed.
 
     Example:
-        >>> str(CompositeDigitalAssetIncomplete("member 8 is unavailable"))
-        'member 8 is unavailable'
+        >>> isinstance(CompositeDigitalAssetIncomplete("operation rejected"), StorageError)
+        True
     """
 
 
 class DigitalAssetDerivationNotFound(StorageManagementError):
     """
-    The requested Digital Asset derivation is absent from the provenance
-    repository.
+    Report a derivation identity absent from the managed provenance repository. The exception adds
+    no attempt to reconstruct or replay provenance.
 
     Example:
-        >>> isinstance(
-        ...     DigitalAssetDerivationNotFound("derivation 11"), StorageError,
-        ... )
+        >>> isinstance(DigitalAssetDerivationNotFound("operation rejected"), StorageError)
         True
     """
 
 
 class StoragePolicyUnsatisfied(StorageManagementError):
     """
-    Required storage policy cannot be satisfied by current placement.
+    Report a requested storage policy that cannot be satisfied by the available placement or
+    recreation evidence. The producing operation supplies the failed requirement and owns any prior
+    effects.
 
     Example:
-        >>> isinstance(StoragePolicyUnsatisfied("no second failure domain"), StorageError)
+        >>> isinstance(StoragePolicyUnsatisfied("operation rejected"), StorageError)
         True
     """
 
 
 class StoreReconciliationPlanStale(StorageManagementError):
     """
-    A reconciliation plan no longer describes current repository state.
+    Report that a reconciliation plan's captured repository state or revisions no longer match the
+    state required for application. Callers must obtain current evidence rather than assume that the
+    old plan was applied.
 
     Example:
-        >>> str(StoreReconciliationPlanStale("replica revision changed"))
-        'replica revision changed'
+        >>> isinstance(StoreReconciliationPlanStale("operation rejected"), StorageError)
+        True
     """
 
 

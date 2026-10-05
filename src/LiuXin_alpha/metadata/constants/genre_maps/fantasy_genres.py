@@ -2,6 +2,22 @@
 # Run this ONLY if you've already classified the work as "Fantasy".
 # Most-specific-first.
 
+"""
+Provide leaf-label patterns for works already classified in the Fantasy branch.
+
+Insertion order places specific labels before broad fallbacks. Creature and motif
+expressions can be broad outside this branch; the table does not determine the
+top-level genre.
+
+Map canonical labels to tuples of uncompiled regular-expression strings. Consumers
+choose regex flags, normalization, and first-match or multi-match policy; importing
+the module performs no classification.
+
+Example:
+    >>> import re
+    >>> any(re.search(pattern, 'cozy fantasy', re.IGNORECASE) for pattern in FANTASY_LEAF_MAPPING['Cozy Fantasy']) is not False
+    True
+"""
 FANTASY_LEAF_MAPPING = {
     # --- Very specific modern shelf labels ---
     "Romantasy": (

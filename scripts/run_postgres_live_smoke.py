@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
-"""Run a live PostgreSQL smoke test for the LiuXin backend.
+"""
+Provide run postgres live smoke utility behavior.
 
-PostgreSQL is intentionally external to this script. Provide a DSN with
-``--url`` or ``LIUXIN_POSTGRES_URL``. By default the script creates a disposable
-schema, initializes LiuXin tables there, runs the strict checker, exercises a
-small driver CRUD path, and drops the schema at the end.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise run postgres live smoke through a consuming regression::
+
+        python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
 """
 
 from __future__ import annotations
@@ -51,6 +55,18 @@ from LiuXin_alpha.databases.database_driver_plugins.PostgreSQL.schema import (  
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """
+    Perform the build parser operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise build parser through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     parser = argparse.ArgumentParser(
         prog="scripts/run_postgres_live_smoke.py",
         description="Run a live LiuXin PostgreSQL backend smoke test against a configured target.",
@@ -105,6 +121,19 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """
+    Perform the main operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise main through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param argv: Value supplied for argv under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     args = build_parser().parse_args(argv)
     if args.env_file is not None:
         _load_env_file(args.env_file)
@@ -192,6 +221,19 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _resolve_schema(args: argparse.Namespace) -> tuple[str, bool]:
+    """
+    Perform the resolve schema operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  resolve schema through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param args: Positional values forwarded to the compatibility implementation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if args.schema:
         return str(args.schema), False
     if args.use_configured_schema:
@@ -201,6 +243,22 @@ def _resolve_schema(args: argparse.Namespace) -> tuple[str, bool]:
 
 
 def _should_drop_schema(args: argparse.Namespace, *, schema: str, generated_schema: bool) -> bool:
+    """
+    Perform the should drop schema operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  should drop schema through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param args: Positional values forwarded to the compatibility implementation.
+    :param schema: Value supplied for schema under the utility contract.
+    :param generated_schema: Value supplied for generated schema under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if schema.casefold() == "public":
         return False
     if args.drop_schema:
@@ -209,6 +267,20 @@ def _should_drop_schema(args: argparse.Namespace, *, schema: str, generated_sche
 
 
 def _metadata_for_target(target, *, schema: str) -> dict[str, object]:
+    """
+    Perform the metadata for target operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  metadata for target through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param target: Value supplied for target under the utility contract.
+    :param schema: Value supplied for schema under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     metadata: dict[str, object] = {"schema": schema}
     if target.kind == "service":
         metadata["postgres_service"] = target.value
@@ -218,6 +290,19 @@ def _metadata_for_target(target, *, schema: str) -> dict[str, object]:
 
 
 def _password_for_run(args: argparse.Namespace) -> str:
+    """
+    Perform the password for run operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  password for run through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param args: Positional values forwarded to the compatibility implementation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     password = configured_postgres_password(getattr(args, "password", None))
     if getattr(args, "password", None):
         store_postgres_password(password)
@@ -225,6 +310,23 @@ def _password_for_run(args: argparse.Namespace) -> str:
 
 
 def _create_schema(metadata: dict[str, object], *, password: str, prompt_for_password: bool, schema: str) -> None:
+    """
+    Create schema under the format's safety and compatibility rules.
+
+    Example:
+        Exercise  create schema through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param metadata: Value supplied for metadata under the utility contract.
+    :param password: Value supplied for password under the utility contract.
+    :param prompt_for_password: Value supplied for prompt for password under the utility
+        contract.
+    :param schema: Value supplied for schema under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     raw = connect_postgres(metadata, password=password, prompt_for_password=prompt_for_password)
     try:
         create_postgres_schema(PostgresConnectionAdapter(raw), schema=schema)
@@ -233,6 +335,23 @@ def _create_schema(metadata: dict[str, object], *, password: str, prompt_for_pas
 
 
 def _drop_schema(metadata: dict[str, object], *, password: str, prompt_for_password: bool, schema: str) -> None:
+    """
+    Perform the drop schema operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  drop schema through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param metadata: Value supplied for metadata under the utility contract.
+    :param password: Value supplied for password under the utility contract.
+    :param prompt_for_password: Value supplied for prompt for password under the utility
+        contract.
+    :param schema: Value supplied for schema under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     raw = connect_postgres(metadata, password=password, prompt_for_password=prompt_for_password)
     try:
         conn = PostgresConnectionAdapter(raw)
@@ -243,6 +362,19 @@ def _drop_schema(metadata: dict[str, object], *, password: str, prompt_for_passw
 
 
 def _run_driver_crud(metadata: dict[str, object]) -> dict[str, object]:
+    """
+    Perform the run driver crud operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  run driver crud through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param metadata: Value supplied for metadata under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     driver = DatabaseDriver(metadata, set_conn=True)
     row_id = None
     try:
@@ -273,6 +405,20 @@ def _run_driver_crud(metadata: dict[str, object]) -> dict[str, object]:
 
 
 def _load_env_file(path: Path) -> None:
+    """
+    Perform the load env file operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  load env file through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if not path.exists():
         raise SystemExit("Env file does not exist: {}".format(path))
     for raw_line in path.read_text(encoding="utf-8").splitlines():
@@ -300,6 +446,23 @@ def _record(
     message: str,
     details: object | None = None,
 ) -> None:
+    """
+    Perform the record operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  record through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param summary: Value supplied for summary under the utility contract.
+    :param name: Field, file, function or resource name addressed by the operation.
+    :param ok: Value supplied for ok under the utility contract.
+    :param message: Value supplied for message under the utility contract.
+    :param details: Value supplied for details under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     step: dict[str, Any] = {"name": name, "ok": bool(ok), "message": message}
     if details is not None:
         step["details"] = details
@@ -307,6 +470,20 @@ def _record(
 
 
 def _emit_summary(summary: dict[str, Any], *, json_output: bool) -> None:
+    """
+    Perform the emit summary operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  emit summary through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param summary: Value supplied for summary under the utility contract.
+    :param json_output: Value supplied for json output under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if json_output:
         print(json.dumps(summary, ensure_ascii=False, indent=2, sort_keys=True))
         return
@@ -319,6 +496,19 @@ def _emit_summary(summary: dict[str, Any], *, json_output: bool) -> None:
 
 
 def _quote_identifier(value: str) -> str:
+    """
+    Perform the quote identifier operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  quote identifier through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param value: Value normalized, stored, formatted or returned.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return '"' + str(value).replace('"', '""') + '"'
 
 

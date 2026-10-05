@@ -1,4 +1,6 @@
-"""WEMI bundle retrieval API."""
+"""
+Contracts for selecting a single WEMI path with metadata.
+"""
 
 from __future__ import annotations
 
@@ -9,49 +11,81 @@ from ..common import EntityId, WemiBundle
 
 @runtime_checkable
 class BundleRetrieverAPI(Protocol):
-    """Read coherent WEMI slices for workflows, caches, or interfaces.
+    """
+    Describe path retrieval with optional ancestors and descendants.
 
-    An Item is followed upward. Broader roots choose one deterministic path:
-    the first priority/ID-ordered relationship at each lower level. Use
-    repository ``list_*`` methods when every descendant is required.
+    First repository-ordered relationships select the path. Multiple reads do not
+    guarantee snapshot consistency; use graph retrieval for bounded descendants.
 
-    Example::
-
-        bundle = catalog.retrieval.bundles.for_item(item_id)
-        print(bundle.work["work_title"])
+    Example:
+        A ``BundleRetrieverAPI`` consumer must check ``bundle.work is not None``
+        before accessing an Item bundle's Work.
     """
 
     def for_item(self, item_id: EntityId) -> WemiBundle:
         """
-        Return a WEMI bundle rooted at an item.
+        Read one WEMI path through an existing Item.
 
-        :param item_id: Existing Item ID.
-        :return: Complete upward WEMI path and metadata attached along it.
+        Follow the Item's Manifestation, then the first linked Expression and Work. Repository ordering determines each first choice. Missing relationships leave
+        levels as None. Metadata collection and path reads do not share a snapshot transaction.
+        Missing owners and database errors propagate.
+
+        Example:
+            For an existing Item, call ``catalog.retrieval.bundles.for_item(item_id)``;
+            check optional ancestor and descendant rows before reading their columns.
+
+
+        :param item_id: Existing Item ID; validation is delegated to its repository.
+        :return: Bundle containing the requested row, available path rows, and their attached metadata.
         """
 
     def for_manifestation(self, manifestation_id: EntityId) -> WemiBundle:
         """
-        Return a WEMI bundle rooted at a manifestation.
+        Read one WEMI path through an existing Manifestation.
 
-        :param manifestation_id: Existing Manifestation ID.
-        :return: One deterministic Work/Expression/Manifestation/Item path plus
-            metadata attached to its populated rows.
+        Choose the first linked Expression, its first Work, and this Manifestation's first Item. Repository ordering determines each first choice. Missing relationships leave
+        levels as None. Metadata collection and path reads do not share a snapshot transaction.
+        Missing owners and database errors propagate.
+
+        Example:
+            For an existing Manifestation, call ``catalog.retrieval.bundles.for_manifestation(manifestation_id)``;
+            check optional ancestor and descendant rows before reading their columns.
+
+
+        :param manifestation_id: Existing Manifestation ID; validation is delegated to its repository.
+        :return: Bundle containing the requested row, available path rows, and their attached metadata.
         """
 
     def for_expression(self, expression_id: EntityId) -> WemiBundle:
         """
-        Return a WEMI bundle rooted at an expression.
+        Read one WEMI path through an existing Expression.
 
-        :param expression_id: Existing Expression ID.
-        :return: One deterministic Work/Expression/Manifestation/Item path plus
-            metadata attached to its populated rows.
+        Choose the first linked Work and Manifestation, then that Manifestation's first Item. Repository ordering determines each first choice. Missing relationships leave
+        levels as None. Metadata collection and path reads do not share a snapshot transaction.
+        Missing owners and database errors propagate.
+
+        Example:
+            For an existing Expression, call ``catalog.retrieval.bundles.for_expression(expression_id)``;
+            check optional ancestor and descendant rows before reading their columns.
+
+
+        :param expression_id: Existing Expression ID; validation is delegated to its repository.
+        :return: Bundle containing the requested row, available path rows, and their attached metadata.
         """
 
     def for_work(self, work_id: EntityId) -> WemiBundle:
         """
-        Return a WEMI bundle rooted at a work.
+        Read one WEMI path through an existing Work.
 
-        :param work_id: Existing Work ID.
-        :return: One deterministic Work/Expression/Manifestation/Item path plus
-            metadata attached to its populated rows.
+        Choose the first Expression, its first Manifestation, and that Manifestation's first Item. Repository ordering determines each first choice. Missing relationships leave
+        levels as None. Metadata collection and path reads do not share a snapshot transaction.
+        Missing owners and database errors propagate.
+
+        Example:
+            For an existing Work, call ``catalog.retrieval.bundles.for_work(work_id)``;
+            check optional ancestor and descendant rows before reading their columns.
+
+
+        :param work_id: Existing Work ID; validation is delegated to its repository.
+        :return: Bundle containing the requested row, available path rows, and their attached metadata.
         """

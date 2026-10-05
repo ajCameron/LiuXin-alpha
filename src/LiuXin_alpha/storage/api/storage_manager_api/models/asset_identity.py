@@ -1,5 +1,9 @@
 """
-Atomic Digital Asset identity and descriptive metadata values.
+Represent expected atomic byte identities and descriptive Asset metadata.
+
+Declarations and records validate selected value constraints without reading bytes
+or consulting repositories. Shared validators check size comparisons and digest
+algorithm uniqueness; manager operations own policy lookup and registration.
 """
 
 from __future__ import annotations
@@ -14,15 +18,27 @@ from LiuXin_alpha.storage.api.storage_manager_api.models.identifiers import (
 )
 
 
+# Todo: Should also store the id?
 @dataclasses.dataclass(slots=True, frozen=True)
 class DigitalAssetMetadata:
     """
-    Descriptive and technical metadata belonging to byte identity.
+    Retain descriptive labels and extension attributes for an atomic byte identity.
+
+    Optional labels must be nonblank when supplied, and attribute names must be nonblank and unique
+    in their original spelling. Validation does not strip retained text, check attribute values, or
+    copy nested containers; the frozen record is not a deep immutability boundary. These values
+    describe an Asset without proving any bytes exist.
 
     Example:
         >>> metadata = DigitalAssetMetadata(original_name="book.epub")
         >>> metadata.original_name
         'book.epub'
+
+
+    :ivar name: Optional display label, retained without whitespace normalization.
+    :ivar media_type: Optional media-type text; no MIME syntax or registry validation occurs.
+    :ivar original_name: Optional original filename or source label, not a validated filesystem path.
+    :ivar attributes: Ordered extension name/value pairs; only names receive nonblank and uniqueness checks.
     """
 
     name: str | None = None
@@ -32,7 +48,11 @@ class DigitalAssetMetadata:
 
     def __post_init__(self) -> None:
         """
-        Validate optional labels and extension attributes.
+        Reject blank optional labels and blank or repeated attribute names.
+
+        Names are compared exactly, so differently spaced names can coexist. String methods, pair
+        unpacking, and hashing may raise for malformed inputs. Attribute values remain unchecked and
+        nothing is reassigned or copied.
 
         Example:
             >>> DigitalAssetMetadata(media_type="")
@@ -41,7 +61,7 @@ class DigitalAssetMetadata:
             ValueError: media_type must not be empty when supplied.
 
 
-        :return:
+        :return: None when label/name checks pass; validation and malformed-input errors propagate.
         """
 
         for field_name, value in (
@@ -61,7 +81,12 @@ class DigitalAssetMetadata:
 @dataclasses.dataclass(slots=True, frozen=True)
 class DigitalAssetDeclaration:
     """
-    Input for declaring a known atomic byte sequence.
+    Describe an expected byte identity before the manager assigns its Asset ID.
+
+    Construction checks the size comparison, presence of digests, and unique digest algorithms. It
+    does not read bytes, verify digest values, require a Replica, or validate the supplied metadata
+    and policy references. The manager owns registration, deduplication, and policy existence
+    checks.
 
     Example:
         >>> declaration = DigitalAssetDeclaration(
@@ -69,6 +94,13 @@ class DigitalAssetDeclaration:
         ... )
         >>> declaration.size_bytes
         4
+
+
+    :ivar size_bytes: Expected byte count, rejected only when it compares below zero.
+    :ivar digests: Nonempty sequence of expected digests with distinct algorithm attributes.
+    :ivar metadata: Descriptive values, defaulting to a new empty metadata record.
+    :ivar replication_policy_id: Optional desired policy ID; construction does not resolve it.
+    :ivar backup_policy_id: Optional desired backup-policy ID; construction does not resolve it.
     """
 
     size_bytes: int
@@ -81,7 +113,8 @@ class DigitalAssetDeclaration:
 
     def __post_init__(self) -> None:
         """
-        Require a valid size-and-digest identity.
+        Delegate the shared size/digest identity checks without validating metadata or policy
+        references.
 
         Example:
             >>> DigitalAssetDeclaration(1, ())
@@ -90,7 +123,7 @@ class DigitalAssetDeclaration:
             ValueError: a Digital Asset requires at least one digest.
 
 
-        :return:
+        :return: None after validate_asset_identity succeeds; its errors propagate.
         """
 
         validate_asset_identity(self.size_bytes, self.digests)
@@ -99,7 +132,12 @@ class DigitalAssetDeclaration:
 @dataclasses.dataclass(slots=True, frozen=True)
 class DigitalAssetRecord:
     """
-    Manager-maintained facts about one atomic byte identity.
+    Retain a manager-assigned Asset identity with descriptive metadata and policy references.
+
+    The record describes expected bytes independently of physical Replica availability. Direct
+    construction checks an ID that does not compare at or below zero, shared size/digest
+    constraints, and a truthy supplied revision; it does not enforce integer types, query
+    repositories, or copy retained containers.
 
     Example:
         >>> record = DigitalAssetRecord(
@@ -107,6 +145,15 @@ class DigitalAssetRecord:
         ... )
         >>> record.digital_asset_id
         7
+
+
+    :ivar digital_asset_id: Manager identity rejected when it compares at or below zero; integer types and finiteness are not enforced.
+    :ivar size_bytes: Expected byte count checked by validate_asset_identity.
+    :ivar digests: Expected digests with at least one entry and unique algorithm attributes.
+    :ivar metadata: Retained descriptive metadata, separate from size/digest identity.
+    :ivar replication_policy_id: Optional stored replication-policy reference, not resolved here.
+    :ivar backup_policy_id: Optional stored backup-policy reference, not resolved here.
+    :ivar revision: Optional optimistic-lock token; false values reject, but whitespace is not stripped.
     """
 
     digital_asset_id: DigitalAssetID
@@ -121,7 +168,10 @@ class DigitalAssetRecord:
 
     def __post_init__(self) -> None:
         """
-        Validate identity and the optional optimistic-lock revision.
+        Reject nonpositive IDs, invalid size/digest structure, and false revisions when supplied.
+
+        These comparisons do not enforce integer IDs or sizes. Revision text is not normalized,
+        metadata and policy IDs are not examined, and no physical or repository lookup occurs.
 
         Example:
             >>> DigitalAssetRecord(
@@ -132,7 +182,7 @@ class DigitalAssetRecord:
             ValueError: digital_asset_id must be positive.
 
 
-        :return:
+        :return: None when these value checks succeed; comparison and identity-validation errors propagate.
         """
 
         if self.digital_asset_id <= 0:
@@ -147,15 +197,19 @@ def validate_asset_identity(
     digests: tuple[Digest, ...],
 ) -> None:
     """
-    Validate the size-and-digest identity shared by inputs and records.
+    Reject a size below zero, an empty digest collection, or repeated digest algorithms.
+
+    The size is compared directly without integer or finiteness checks. Digest entries are inspected
+    through their algorithm attributes; this function neither calculates hashes nor compares values
+    with a byte source.
 
     Example:
         >>> validate_asset_identity(1, (Digest("sha256", "aa"),))
 
 
-    :param size_bytes:
-    :param digests:
-    :return:
+    :param size_bytes: Expected byte count; only the less-than-zero comparison is validated.
+    :param digests: Nonempty digest collection passed to validate_unique_digests without copying.
+    :return: None when the size/digest structure passes; invalid values or malformed entries raise.
     """
 
     if size_bytes < 0:
@@ -167,14 +221,18 @@ def validate_asset_identity(
 
 def validate_unique_digests(digests: tuple[Digest, ...]) -> None:
     """
-    Require at most one digest value per algorithm.
+    Require distinct algorithm attributes across the supplied digest entries.
+
+    An empty collection is allowed here. Algorithm values are compared as supplied; ordinary Digest
+    construction has already stripped and lowercased its fields. This helper does not validate entry
+    types, digest values, supported algorithms, or hash length.
 
     Example:
         >>> validate_unique_digests((Digest("sha256", "aa"),))
 
 
-    :param digests:
-    :return:
+    :param digests: Digest entries whose algorithm attributes must be unique and hashable.
+    :return: None if no algorithm repeats; duplicate algorithms raise ValueError and malformed entries can raise their own errors.
     """
 
     algorithms = [digest.algorithm for digest in digests]

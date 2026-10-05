@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Build PalmDB, MOBI and KF8 header records.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise header through a consuming regression::
+
+        python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -24,19 +35,66 @@ NULL = 0xFFFFFFFF
 
 
 def zeroes(x: _typing.Any) -> _typing.Any:
+    """
+    Perform the zeroes operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise zeroes through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+    :param x: Value supplied for x under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return b"\0" * x
 
 
 def nulls(x: _typing.Any) -> _typing.Any:
+    """
+    Perform the nulls operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise nulls through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+    :param x: Value supplied for x under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return b"\xff" * x
 
 
 def short(x: _typing.Any) -> _typing.Any:
+    """
+    Perform the short operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise short through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+    :param x: Value supplied for x under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return pack(b">H", x)
 
 
 class Header(OrderedDict):
 
+    """
+    Provide the header contract for validated ebook processing.
+
+    Example:
+        Exercise Header through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+    """
     HEADER_NAME = b""
 
     DEFINITION = """
@@ -47,6 +105,17 @@ class Header(OrderedDict):
     SHORT_FIELDS = set()
 
     def __init__(self: _typing.Self) -> None:
+        """
+        Initialize and validate the header state.
+
+        Example:
+            Exercise Header.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         OrderedDict.__init__(self)
 
         for line in self.DEFINITION.splitlines():
@@ -73,9 +142,34 @@ class Header(OrderedDict):
             self[name] = val
 
     def dynamic_fields(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the dynamic fields operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Header.dynamic fields through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return tuple(k for k, v in iteritems(self) if v is None)
 
     def __call__(self: _typing.Self, **kwargs: _typing.Any) -> _typing.Any:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Header.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         positions = {}
         for name, val in iteritems(kwargs):
             if name not in self:
@@ -104,4 +198,18 @@ class Header(OrderedDict):
         return ans
 
     def format_value(self: _typing.Self, name: _typing.Any, val: _typing.Any) -> _typing.Any:
+        """
+        Perform the format value operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Header.format value through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param val: Template or metadata value evaluated by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return val

@@ -1,7 +1,13 @@
-"""Durable background jobs for LiuXin.
+"""
+Expose the supported jobs compatibility surface.
 
-This package is the application-level jobs layer. It is intentionally separate
-from `LiuXin_alpha.utils.jobs`, which remains a low-level execution helper.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/jobs/test_jobs_repository.py
 """
 
 from LiuXin_alpha.jobs.api import *  # noqa: F401,F403

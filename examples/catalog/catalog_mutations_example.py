@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""Run coordinated catalog attachments, rollback, and entity merging."""
+"""
+Demonstrate coordinated attachments, rejected writes, and a Work merge.
+
+Attach fields and related metadata, attempt an invalid Agent-role attachment,
+and merge a second Work into a target with existing canonical metadata. Print
+selected rollback and transfer observations. A caught rejection is part of the
+report, and false observation flags do not themselves cause a nonzero exit.
+"""
 
 from __future__ import annotations
 
@@ -15,7 +22,18 @@ from LiuXin_alpha.catalog.api import MetadataCandidate
 
 
 def parse_args() -> argparse.Namespace:
-    """Return command-line arguments for the mutation example."""
+    """
+    Parse process arguments for the coordinated mutations demonstration. The shared --database
+    option yields a Path when supplied and None otherwise. Directory expansion, refusal of an
+    existing retained path, temporary allocation, and template handling occur only when
+    open_catalog_example is entered.
+
+    Example:
+        >>> args = parse_args()  # doctest: +SKIP
+
+
+    :return: Namespace with the optional database path; help or invalid syntax raises SystemExit.
+    """
 
     parser = argparse.ArgumentParser(
         description="Catalog coordinated metadata mutation example"
@@ -25,7 +43,26 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
-    """Show an atomic attachment, rejected rollback, and metadata merge."""
+    """
+    Report a coordinated metadata attachment, rejected update, and entity merge. Attach Work fields,
+    title, author, identifier, and note, then retrieve its bundle. Save the Work title before
+    attempting an attachment with a replacement title and invalid Agent role. Catch any Exception
+    from that attempt and record its type/message; the catch does not prove that role validation was
+    the cause. Compare the subsequent title and Agent lookup to expose the selected rollback
+    observations.
+
+    Create source/target Works, link an Expression and note to the source, then merge into the
+    target. Report source absence, target fields, Expression transfer, and whether the target has
+    any notes. These are selected observations, not exhaustive merge/transaction assertions. Print
+    within the shared context; unexpected errors outside the rejection block propagate, and report
+    flags do not alter the zero return status.
+
+    Example:
+        >>> exit_code = main()  # doctest: +SKIP
+
+
+    :return: Zero after reporting and context cleanup; uncaught parsing, catalogue, rendering, or cleanup failures propagate.
+    """
 
     args = parse_args()
     with open_catalog_example(args.database) as session:

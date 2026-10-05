@@ -1,3 +1,14 @@
+"""
+Verify shared web-source configuration, browser, cache, token and ranking contracts.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test web sources base through its owning regression module::
+
+        python -m pytest -q tests/metadata/web_sources/test_web_sources_base.py
+"""
 from __future__ import annotations
 
 import gzip
@@ -10,12 +21,34 @@ from LiuXin_alpha.metadata.utils import calibreMetaInformation
 
 
 def test_web_sources_base_import_smoke() -> None:
+    """
+    Verify web sources base import smoke.
+
+    Example:
+        Exercise test web sources base import smoke through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_base.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.base as base
 
     assert base is not None
 
 
 def test_cleanup_title_and_fixauthors_behavior() -> None:
+    """
+    Verify cleanup title and fixauthors behavior.
+
+    Example:
+        Exercise test cleanup title and fixauthors behavior through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_base.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.base import cleanup_title, fixauthors
 
     assert cleanup_title("The  Book (Omnibus)") == "book"
@@ -23,6 +56,17 @@ def test_cleanup_title_and_fixauthors_behavior() -> None:
 
 
 def test_source_cache_roundtrip_and_job_split() -> None:
+    """
+    Verify source cache roundtrip and job split.
+
+    Example:
+        Exercise test source cache roundtrip and job split through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_base.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.base import Source
 
     source = Source()
@@ -39,6 +83,17 @@ def test_source_cache_roundtrip_and_job_split() -> None:
 
 
 def test_source_identify_results_keygen_prefers_exact_title() -> None:
+    """
+    Verify source identify results keygen prefers exact title.
+
+    Example:
+        Exercise test source identify results keygen prefers exact title through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_base.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.base import Source
 
     source = Source()
@@ -52,6 +107,19 @@ def test_source_identify_results_keygen_prefers_exact_title() -> None:
 
 
 def test_random_user_agent_can_rotate_with_env(monkeypatch) -> None:
+    """
+    Verify random user agent can rotate with env.
+
+    Example:
+        Exercise test random user agent can rotate with env through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_base.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.base as base
 
     monkeypatch.setenv("LIUXIN_WEB_SOURCES_RANDOM_UA", "1")
@@ -60,6 +128,19 @@ def test_random_user_agent_can_rotate_with_env(monkeypatch) -> None:
 
 
 def test_source_browser_adds_rich_headers_when_enabled(monkeypatch) -> None:
+    """
+    Verify source browser adds rich headers when enabled.
+
+    Example:
+        Exercise test source browser adds rich headers when enabled through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_base.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.base import Source
 
     monkeypatch.setenv("LIUXIN_WEB_SOURCES_RICH_HEADERS", "1")
@@ -74,6 +155,19 @@ def test_source_browser_adds_rich_headers_when_enabled(monkeypatch) -> None:
 
 
 def test_source_browser_adds_rich_headers_by_default(monkeypatch) -> None:
+    """
+    Verify source browser adds rich headers by default.
+
+    Example:
+        Exercise test source browser adds rich headers by default through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_base.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.base import Source
 
     monkeypatch.delenv("LIUXIN_WEB_SOURCES_RICH_HEADERS", raising=False)
@@ -85,15 +179,59 @@ def test_source_browser_adds_rich_headers_by_default(monkeypatch) -> None:
 
 
 def test_source_browser_rotates_user_agent_when_enabled(monkeypatch) -> None:
+    """
+    Verify source browser rotates user agent when enabled.
+
+    Example:
+        Exercise test source browser rotates user agent when enabled through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_base.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.base as base
 
     monkeypatch.setenv("LIUXIN_WEB_SOURCES_RANDOM_UA", "1")
 
     class _SeqChoice:
+        """
+        Provide the SeqChoice test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test source browser rotates user agent when enabled.SeqChoice through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_base.py
+        """
         def __init__(self):
+            """
+            Initialize the SeqChoice test double.
+
+            Example:
+                Exercise test source browser rotates user agent when enabled.SeqChoice.init through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_base.py
+
+
+            :return: None; the function records state or raises through its assertions.
+            """
             self.idx = 0
 
         def __call__(self, seq):
+            """
+            Perform the call test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test source browser rotates user agent when enabled.SeqChoice.call through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_base.py
+
+
+            :param seq: Value supplied for seq in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             item = seq[self.idx % len(seq)]
             self.idx += 1
             return item
@@ -109,6 +247,17 @@ def test_source_browser_rotates_user_agent_when_enabled(monkeypatch) -> None:
 
 
 def test_stream_log_records_levels_bytes_and_tracebacks() -> None:
+    """
+    Verify stream log records levels bytes and tracebacks.
+
+    Example:
+        Exercise test stream log records levels bytes and tracebacks through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_base.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.base import create_log
 
     log = create_log()
@@ -130,17 +279,63 @@ def test_stream_log_records_levels_bytes_and_tracebacks() -> None:
 
 
 def test_stdlib_browser_builds_headers_gzip_and_ssl_context(monkeypatch) -> None:
+    """
+    Verify stdlib browser builds headers gzip and ssl context.
+
+    Example:
+        Exercise test stdlib browser builds headers gzip and ssl context through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_base.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.base as base
 
     calls = {}
 
     class Response:
+        """
+        Provide the Response test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test stdlib browser builds headers gzip and ssl context.Response through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_base.py
+        """
         pass
 
     def fake_context():
+        """
+        Perform the fake context test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test stdlib browser builds headers gzip and ssl context.fake context through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_base.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return "insecure-context"
 
     def fake_urlopen(request, timeout, context):
+        """
+        Perform the fake urlopen test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test stdlib browser builds headers gzip and ssl context.fake urlopen through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_base.py
+
+
+        :param request: Pytest request object used to inspect parametrization or fixtures.
+        :param timeout: Value supplied for timeout in the focused test operation.
+        :param context: Value supplied for context in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         calls["url"] = request.full_url
         calls["headers"] = dict(request.header_items())
         calls["timeout"] = timeout
@@ -170,16 +365,62 @@ def test_stdlib_browser_builds_headers_gzip_and_ssl_context(monkeypatch) -> None
 
 
 def test_stdlib_browser_decompresses_gzip_payloads(monkeypatch) -> None:
+    """
+    Verify stdlib browser decompresses gzip payloads.
+
+    Example:
+        Exercise test stdlib browser decompresses gzip payloads through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_base.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.base as base
 
     class Response:
+        """
+        Provide the Response test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test stdlib browser decompresses gzip payloads.Response through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_base.py
+        """
         headers = {"Content-Encoding": "gzip"}
 
         @staticmethod
         def read():
+            """
+            Perform the read test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test stdlib browser decompresses gzip payloads.Response.read through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_base.py
+
+
+            :return: The deterministic value, row, identity or collection described above.
+            """
             return gzip.compress(b"<feed>ok</feed>")
 
     def fake_urlopen(request, timeout, context):
+        """
+        Perform the fake urlopen test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test stdlib browser decompresses gzip payloads.fake urlopen through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_base.py
+
+
+        :param request: Pytest request object used to inspect parametrization or fixtures.
+        :param timeout: Value supplied for timeout in the focused test operation.
+        :param context: Value supplied for context in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         del request, timeout, context
         return Response()
 
@@ -192,6 +433,17 @@ def test_stdlib_browser_decompresses_gzip_payloads(monkeypatch) -> None:
 
 
 def test_option_source_config_and_default_api_paths() -> None:
+    """
+    Verify option source config and default api paths.
+
+    Example:
+        Exercise test option source config and default api paths through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_base.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.base import Option, Source, fixcase
 
     opt = Option("mode", "choice", "fast", "Mode", "Mode help", choices=("fast", "slow"))
@@ -201,8 +453,27 @@ def test_option_source_config_and_default_api_paths() -> None:
     committed = []
 
     class Widget:
+        """
+        Provide the Widget test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test option source config and default api paths.Widget through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_base.py
+        """
         @staticmethod
         def commit():
+            """
+            Perform the commit test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test option source config and default api paths.Widget.commit through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_base.py
+
+
+            :return: The deterministic value, row, identity or collection described above.
+            """
             committed.append(True)
 
     source.save_settings(Widget())
@@ -223,6 +494,17 @@ def test_option_source_config_and_default_api_paths() -> None:
 
 
 def test_source_tokens_field_checks_and_cleaning() -> None:
+    """
+    Verify source tokens field checks and cleaning.
+
+    Example:
+        Exercise test source tokens field checks and cleaning through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_base.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.base import Source
 
     source = Source()
@@ -250,15 +532,57 @@ def test_source_tokens_field_checks_and_cleaning() -> None:
     assert source.test_fields(mi) is None
 
     class Cleanable:
+        """
+        Provide the Cleanable test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test source tokens field checks and cleaning.Cleanable through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_base.py
+        """
         language = "eng"
 
         def __init__(self):
+            """
+            Initialize the Cleanable test double.
+
+            Example:
+                Exercise test source tokens field checks and cleaning.Cleanable.init through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_base.py
+
+
+            :return: None; the function records state or raises through its assertions.
+            """
             self.cleaned = False
 
         def is_null(self, field):
+            """
+            Perform the is null test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test source tokens field checks and cleaning.Cleanable.is null through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_base.py
+
+
+            :param field: Value supplied for field in the focused test operation.
+            :return: True when the tested condition is satisfied; otherwise False.
+            """
             return field == "language"
 
         def clean(self):
+            """
+            Perform the clean test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test source tokens field checks and cleaning.Cleanable.clean through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_base.py
+
+
+            :return: The deterministic value, row, identity or collection described above.
+            """
             self.cleaned = True
 
     cleanable = Cleanable()
@@ -267,18 +591,64 @@ def test_source_tokens_field_checks_and_cleaning() -> None:
 
 
 def test_source_cache_helpers_and_module_cache_roundtrip(monkeypatch) -> None:
+    """
+    Verify source cache helpers and module cache roundtrip.
+
+    Example:
+        Exercise test source cache helpers and module cache roundtrip through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_base.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.customize.ui as ui
     import LiuXin_alpha.metadata.web_sources.base as base
 
     class PluginSource(base.Source):
+        """
+        Provide the PluginSource test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test source cache helpers and module cache roundtrip.PluginSource through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_base.py
+        """
         name = "PluginSource"
 
         def __init__(self, url=None, fail=False):
+            """
+            Initialize the PluginSource test double.
+
+            Example:
+                Exercise test source cache helpers and module cache roundtrip.PluginSource.init through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_base.py
+
+
+            :param url: Value supplied for url in the focused test operation.
+            :param fail: Value supplied for fail in the focused test operation.
+            :return: None; the function records state or raises through its assertions.
+            """
             self._url = url
             self._fail = fail
             super().__init__()
 
         def get_cached_cover_url(self, identifiers):
+            """
+            Return cached cover url from deterministic test state.
+
+            Example:
+                Exercise test source cache helpers and module cache roundtrip.PluginSource.get cached cover url through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_base.py
+
+
+            :param identifiers: Value supplied for identifiers in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             if self._fail:
                 raise RuntimeError("cache unavailable")
             return self._url
@@ -304,6 +674,19 @@ def test_source_cache_helpers_and_module_cache_roundtrip(monkeypatch) -> None:
 
 
 def test_source_download_cover_helpers(monkeypatch) -> None:
+    """
+    Verify source download cover helpers.
+
+    Example:
+        Exercise test source download cover helpers through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_base.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.base as base
 
     source = base.Source()
@@ -327,6 +710,21 @@ def test_source_download_cover_helpers(monkeypatch) -> None:
     seen = []
 
     def fake_download_image(url, timeout, log, out):
+        """
+        Perform the fake download image test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test source download cover helpers.fake download image through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_base.py
+
+
+        :param url: Value supplied for url in the focused test operation.
+        :param timeout: Value supplied for timeout in the focused test operation.
+        :param log: Value supplied for log in the focused test operation.
+        :param out: Value supplied for out in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         del timeout
         seen.append(url)
         log(f"download {url}")
@@ -348,13 +746,53 @@ def test_source_download_cover_helpers(monkeypatch) -> None:
     assert result_queue.get_nowait() == (source, b"https://one.example")
 
     class Response:
+        """
+        Provide the Response test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test source download cover helpers.Response through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_base.py
+        """
         @staticmethod
         def read():
+            """
+            Perform the read test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test source download cover helpers.Response.read through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_base.py
+
+
+            :return: The deterministic value, row, identity or collection described above.
+            """
             return b"cover-bytes"
 
     class Browser:
+        """
+        Provide the Browser test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test source download cover helpers.Browser through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_base.py
+        """
         @staticmethod
         def open_novisit(url, timeout=30):
+            """
+            Perform the open novisit test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test source download cover helpers.Browser.open novisit through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_base.py
+
+
+            :param url: Value supplied for url in the focused test operation.
+            :param timeout: Value supplied for timeout in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             assert url == "https://cover.example"
             assert timeout == 5
             return Response()
@@ -366,6 +804,19 @@ def test_source_download_cover_helpers(monkeypatch) -> None:
 
 
 def test_source_download_image_logs_failures(monkeypatch) -> None:
+    """
+    Verify source download image logs failures.
+
+    Example:
+        Exercise test source download image logs failures through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_base.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.base as base
 
     source = base.Source()
@@ -373,8 +824,29 @@ def test_source_download_image_logs_failures(monkeypatch) -> None:
     captured = []
 
     class Browser:
+        """
+        Provide the Browser test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test source download image logs failures.Browser through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_base.py
+        """
         @staticmethod
         def open_novisit(url, timeout=30):
+            """
+            Perform the open novisit test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test source download image logs failures.Browser.open novisit through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_base.py
+
+
+            :param url: Value supplied for url in the focused test operation.
+            :param timeout: Value supplied for timeout in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             raise OSError(f"cannot fetch {url} in {timeout}")
 
     monkeypatch.setattr(source, "browser", lambda: Browser())

@@ -1,4 +1,6 @@
-"""Contracts for coordinated semantic Catalog mutations."""
+"""
+Export contracts for coordinated Catalog writes and preliminary mutation policy.
+"""
 
 from __future__ import annotations
 
@@ -11,10 +13,16 @@ from .mutation_policy import MutationPolicyAPI
 
 @runtime_checkable
 class CatalogMutationsAPI(Protocol):
-    """Grouped mutation API exposed by the Catalog facade.
+    """
+    Describe grouped policy and writer services exposed by Catalog.
 
-    ``policy`` is a side-effect-free preflight surface. ``writer`` performs
-    multi-table attachment and merge operations transactionally.
+    Policy reads do not reserve entities. Transaction support depends on the
+    writer operation and supplied macro handle; attachment/merge permit a
+    legacy fallback without a transaction.
+
+    Example:
+        A consumer can inspect mutations.policy and perform a supported change
+        through mutations.writer.
     """
 
     writer: MetadataWriterAPI

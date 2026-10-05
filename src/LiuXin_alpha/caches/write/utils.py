@@ -1,6 +1,6 @@
 
 """
-Generic writer utils - supporting all other writers.
+Provide an unavailable-field writer and a mutable legacy update dictionary.
 """
 
 from __future__ import division, absolute_import, print_function, unicode_literals
@@ -15,20 +15,45 @@ if TYPE_CHECKING:
 
 class DummyWriter:
     """
-    Dummy for when you don't want have to set up an actual functional writer.
+    Reject public writes for fields without a writable implementation.
+
+    The separately exposed dummy hook returns an empty set, but both public writing methods raise NotImplementedError, including for empty updates.
+
+    Example:
+        >>> writer = DummyWriter(None)
+        >>> writer.set_books_func({7: "ignored"})
+        set()
     """
     def __init__(self, field) -> None:
+        """
+        Retain the supplied field and expose the no-op dummy hook.
+
+        Example:
+            >>> marker = object()
+            >>> DummyWriter(marker).field is marker
+            True
+
+
+        :param field: Field reference retained unchanged; no metadata is inspected.
+        :return: None; initializes field and set_books_func.
+        """
+
         self.field = field
         self.set_books_func = self.dummy
 
     @staticmethod
     def dummy(book_id_val_map, *args):
         """
-        Dummy for the writer which changes no books.
+        Return an empty affected-ID set without inspecting the update.
 
-        :param book_id_val_map:
-        :param args:
-        :return:
+        Example:
+            >>> DummyWriter.dummy({7: "ignored"}, None)
+            set()
+
+
+        :param book_id_val_map: Ignored update payload.
+        :param args: Ignored compatibility arguments.
+        :return: A new empty set; no values or collaborators are accessed.
         """
         return set()
 
@@ -39,13 +64,21 @@ class DummyWriter:
             allow_case_change: bool = True,
             error: bool = False) -> set[int]:
         """
-        Set books by writing their values out to the database.
+        Reject a write because this field has no available writer.
 
-        :param book_id_val_map:
-        :param db:
-        :param allow_case_change:
-        :param error:
-        :return:
+        Example:
+            >>> DummyWriter(None).set_books({}, None)
+            Traceback (most recent call last):
+            ...
+            NotImplementedError: writer is not available for this field
+
+
+        :param book_id_val_map: Unused requested updates.
+        :param db: Unused database adapter.
+        :param allow_case_change: Unused case-change flag.
+        :param error: Unused error flag; False does not suppress the exception.
+        :return: Never returns normally.
+        :raises NotImplementedError: Always, including for an empty mapping.
         """
         raise NotImplementedError("writer is not available for this field")
 
@@ -56,30 +89,55 @@ class DummyWriter:
             field,
             allow_case_change: bool = True) -> None:
         """
-        Set books for an enumeration type field.
+        Reject enumeration writes for an unavailable field.
 
-        :param book_id_val_map:
-        :param db:
-        :param field:
-        :param allow_case_change:
-        :return:
+        Example:
+            >>> DummyWriter(None).set_books_for_enum({}, None, None)
+            Traceback (most recent call last):
+            ...
+            NotImplementedError: writer is not available for this field
+
+
+        :param book_id_val_map: Unused requested updates.
+        :param db: Unused database adapter.
+        :param field: Unused field argument.
+        :param allow_case_change: Unused case-change flag.
+        :return: Never returns normally.
+        :raises NotImplementedError: Always; enumeration writes have no dummy implementation.
         """
         raise NotImplementedError("writer is not available for this field")
 
 
 class UpdateDict(dict):
     """
-    Designed to hold updates to the database in dictionary form
+    Store ordinary dictionary data with a separate mutable ``checked`` marker.
 
-    A dict with some additional attributes (such as have they been checked before writing).
+    Construction sets checked to False. Mapping updates neither validate content nor automatically change or reset this attribute; nested values retain normal dict sharing behavior.
+
+    Example:
+        >>> update = UpdateDict({7: [4]})
+        >>> update.checked
+        False
+        >>> update.checked = True
+        >>> update[8] = None
+        >>> update.checked
+        True
     """
 
     def __init__(self, *args, **kwargs):
         """
-        Startup the dict.
+        Initialize dictionary contents and reset the checked attribute to False.
 
-        :param args:
-        :param kwargs:
+        Example:
+            >>> update = UpdateDict(checked=True)
+            >>> (update["checked"], update.checked)
+            (True, False)
+
+
+        :param args: Positional arguments accepted by dict construction.
+        :param kwargs: Keyword entries accepted by dict construction; checked here is a mapping key, not the attribute.
+        :return: None; dictionary initialization runs before checked is assigned.
+        :raises TypeError: Arguments are invalid for dict construction; other dict conversion errors also propagate.
         """
         super(UpdateDict, self).__init__(*args, **kwargs)
 

@@ -1,3 +1,14 @@
+"""
+Verify Library of Congress search/item parsing, identifiers and covers.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test web sources library of congress through its owning regression module::
+
+        python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+"""
 from __future__ import annotations
 
 import queue
@@ -6,26 +17,116 @@ from threading import Event
 
 
 class _Log:
+    """
+    Provide the Log test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise Log through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+    """
     def __init__(self) -> None:
+        """
+        Initialize the Log test double.
+
+        Example:
+            Exercise Log.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+        :return: None; the function records state or raises through its assertions.
+        """
         self.events = []
 
     def __call__(self, *parts):
+        """
+        Perform the call test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.call through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("call", parts))
 
     def info(self, *parts):
+        """
+        Perform the info test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.info through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("info", parts))
 
     def warning(self, *parts):
+        """
+        Perform the warning test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.warning through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("warning", parts))
 
     def error(self, *parts):
+        """
+        Perform the error test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.error through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("error", parts))
 
     def exception(self, *parts):
+        """
+        Perform the exception test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.exception through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("exception", parts))
 
 
 def _sample_record() -> dict:
+    """
+    Perform the sample record test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise sample record through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return {
         "title": "LoC Sample Title",
         "contributor_names": ["Alice Author", "Bob Author"],
@@ -50,16 +151,57 @@ def _sample_record() -> dict:
 
 
 def test_web_sources_library_of_congress_import_smoke() -> None:
+    """
+    Verify web sources library of congress import smoke.
+
+    Example:
+        Exercise test web sources library of congress import smoke through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.library_of_congress as loc
 
     assert loc is not None
 
 
 def test_library_of_congress_helper_edges_and_guard_detection() -> None:
+    """
+    Verify library of congress helper edges and guard detection.
+
+    Example:
+        Exercise test library of congress helper edges and guard detection through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.library_of_congress as loc
 
     class BadString:
+        """
+        Provide the BadString test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test library of congress helper edges and guard detection.BadString through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+        """
         def __str__(self):
+            """
+            Perform the str test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test library of congress helper edges and guard detection.BadString.str through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+            :return: The deterministic value, row, identity or collection described above.
+            """
             raise RuntimeError("bad")
 
     assert loc._as_text(b"hello") == "hello"
@@ -79,6 +221,17 @@ def test_library_of_congress_helper_edges_and_guard_detection() -> None:
 
 
 def test_library_of_congress_get_book_url_id_from_url_and_queries() -> None:
+    """
+    Verify library of congress get book url id from url and queries.
+
+    Example:
+        Exercise test library of congress get book url id from url and queries through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.library_of_congress import LibraryOfCongress
 
     plugin = LibraryOfCongress()
@@ -107,6 +260,17 @@ def test_library_of_congress_get_book_url_id_from_url_and_queries() -> None:
 
 
 def test_library_of_congress_build_urls_and_retry_helpers() -> None:
+    """
+    Verify library of congress build urls and retry helpers.
+
+    Example:
+        Exercise test library of congress build urls and retry helpers through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.library_of_congress import LibraryOfCongress
 
     plugin = LibraryOfCongress()
@@ -129,6 +293,19 @@ def test_library_of_congress_build_urls_and_retry_helpers() -> None:
 
 
 def test_library_of_congress_metadata_from_search_record(monkeypatch) -> None:
+    """
+    Verify library of congress metadata from search record.
+
+    Example:
+        Exercise test library of congress metadata from search record through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.library_of_congress as loc
 
     plugin = loc.LibraryOfCongress()
@@ -153,6 +330,19 @@ def test_library_of_congress_metadata_from_search_record(monkeypatch) -> None:
 
 
 def test_library_of_congress_metadata_fallbacks_and_item_payload(monkeypatch) -> None:
+    """
+    Verify library of congress metadata fallbacks and item payload.
+
+    Example:
+        Exercise test library of congress metadata fallbacks and item payload through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.library_of_congress as loc
 
     plugin = loc.LibraryOfCongress()
@@ -184,6 +374,17 @@ def test_library_of_congress_metadata_fallbacks_and_item_payload(monkeypatch) ->
 
 
 def test_library_of_congress_postprocess_caches_identifiers() -> None:
+    """
+    Verify library of congress postprocess caches identifiers.
+
+    Example:
+        Exercise test library of congress postprocess caches identifiers through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.library_of_congress import LibraryOfCongress
 
     plugin = LibraryOfCongress()
@@ -200,6 +401,19 @@ def test_library_of_congress_postprocess_caches_identifiers() -> None:
 
 
 def test_library_of_congress_request_json_guard_is_logged(monkeypatch) -> None:
+    """
+    Verify library of congress request json guard remains logged.
+
+    Example:
+        Exercise test library of congress request json guard is logged through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.library_of_congress import LibraryOfCongress
 
     plugin = LibraryOfCongress()
@@ -214,12 +428,41 @@ def test_library_of_congress_request_json_guard_is_logged(monkeypatch) -> None:
 
 
 def test_library_of_congress_identify_search_and_item_paths(monkeypatch) -> None:
+    """
+    Verify library of congress identify search and item paths.
+
+    Example:
+        Exercise test library of congress identify search and item paths through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.library_of_congress import LibraryOfCongress
 
     plugin = LibraryOfCongress()
     calls = []
 
     def _request(log, abort, url, timeout, context):
+        """
+        Perform the request test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test library of congress identify search and item paths.request through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+        :param log: Value supplied for log in the focused test operation.
+        :param abort: Value supplied for abort in the focused test operation.
+        :param url: Value supplied for url in the focused test operation.
+        :param timeout: Value supplied for timeout in the focused test operation.
+        :param context: Value supplied for context in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         calls.append((url, context))
         return {"results": [_sample_record()]}
 
@@ -251,6 +494,19 @@ def test_library_of_congress_identify_search_and_item_paths(monkeypatch) -> None
 
 
 def test_library_of_congress_identify_empty_abort_and_parse_failure(monkeypatch) -> None:
+    """
+    Verify library of congress identify empty abort and parse failure.
+
+    Example:
+        Exercise test library of congress identify empty abort and parse failure through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.library_of_congress import LibraryOfCongress
 
     plugin = LibraryOfCongress()
@@ -279,6 +535,19 @@ def test_library_of_congress_identify_empty_abort_and_parse_failure(monkeypatch)
 
 
 def test_library_of_congress_download_cover_uses_cached_url(monkeypatch) -> None:
+    """
+    Verify library of congress download cover uses cached url.
+
+    Example:
+        Exercise test library of congress download cover uses cached url through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.library_of_congress import LibraryOfCongress
 
     plugin = LibraryOfCongress()
@@ -303,6 +572,17 @@ def test_library_of_congress_download_cover_uses_cached_url(monkeypatch) -> None
 
 
 def test_library_of_congress_imports_from_known_modules() -> None:
+    """
+    Verify library of congress imports from known modules.
+
+    Example:
+        Exercise test library of congress imports from known modules through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_library_of_congress.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources import import_web_source_module, iter_known_web_source_modules
 
     assert "library_of_congress" in iter_known_web_source_modules()

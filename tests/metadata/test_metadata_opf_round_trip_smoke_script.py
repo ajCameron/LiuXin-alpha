@@ -1,3 +1,14 @@
+"""
+Exercise the standalone OPF round-trip smoke script and its failure reporting.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test metadata opf round trip smoke script through its owning regression module::
+
+        python -m pytest -q tests/metadata/test_metadata_opf_round_trip_smoke_script.py
+"""
 from __future__ import annotations
 
 import importlib.util
@@ -15,6 +26,17 @@ _SCRIPT_MODULE: Any | None = None
 
 
 def _load_script_module() -> Any:
+    """
+    Perform the load script module test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise load script module through its owning regression module::
+
+            python -m pytest -q tests/metadata/test_metadata_opf_round_trip_smoke_script.py
+
+
+    :return: The deterministic value, row, identity or collection described above.
+    """
     global _SCRIPT_MODULE
     if _SCRIPT_MODULE is not None:
         return _SCRIPT_MODULE
@@ -30,18 +52,69 @@ def _load_script_module() -> Any:
 
 
 class _FakeRow:
+    """
+    Provide the FakeRow test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise FakeRow through its owning regression module::
+
+            python -m pytest -q tests/metadata/test_metadata_opf_round_trip_smoke_script.py
+    """
     def __init__(self, item_id: int) -> None:
+        """
+        Initialize the FakeRow test double.
+
+        Example:
+            Exercise FakeRow.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/test_metadata_opf_round_trip_smoke_script.py
+
+
+        :param item_id: Value supplied for item id in the focused test operation.
+        :return: None; the function records state or raises through its assertions.
+        """
         self.row_id = item_id
         self.row_dict = {"item_id": item_id}
 
 
 class _FakeItemDatabase:
+    """
+    Provide the FakeItemDatabase test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise FakeItemDatabase through its owning regression module::
+
+            python -m pytest -q tests/metadata/test_metadata_opf_round_trip_smoke_script.py
+    """
     def get_all_rows(self, table: str):
+        """
+        Return copied rows from the requested in-memory table.
+
+        Example:
+            Exercise FakeItemDatabase.get all rows through its owning regression module::
+
+                python -m pytest -q tests/metadata/test_metadata_opf_round_trip_smoke_script.py
+
+
+        :param table: Table name addressed by the test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         assert table == "items"
         return iter([_FakeRow(4), _FakeRow(5), _FakeRow(6)])
 
 
 def test_metadata_opf_round_trip_smoke_selects_item_ids() -> None:
+    """
+    Verify metadata opf round trip smoke selects item ids.
+
+    Example:
+        Exercise test metadata opf round trip smoke selects item ids through its owning regression module::
+
+            python -m pytest -q tests/metadata/test_metadata_opf_round_trip_smoke_script.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     module = _load_script_module()
 
     assert module.select_item_ids(_FakeItemDatabase(), (), limit=2) == (4, 5)
@@ -49,6 +122,17 @@ def test_metadata_opf_round_trip_smoke_selects_item_ids() -> None:
 
 
 def test_metadata_opf_round_trip_smoke_compares_snapshots() -> None:
+    """
+    Verify metadata opf round trip smoke compares snapshots.
+
+    Example:
+        Exercise test metadata opf round trip smoke compares snapshots through its owning regression module::
+
+            python -m pytest -q tests/metadata/test_metadata_opf_round_trip_smoke_script.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     module = _load_script_module()
 
     before = {
@@ -76,6 +160,18 @@ def test_metadata_opf_round_trip_smoke_compares_snapshots() -> None:
 
 
 def test_metadata_opf_round_trip_smoke_runs_against_fake_database(tmp_path: Path) -> None:
+    """
+    Verify metadata opf round trip smoke runs against fake database.
+
+    Example:
+        Exercise test metadata opf round trip smoke runs against fake database through its owning regression module::
+
+            python -m pytest -q tests/metadata/test_metadata_opf_round_trip_smoke_script.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     module = _load_script_module()
     db = _build_fake_database()
 
@@ -91,6 +187,18 @@ def test_metadata_opf_round_trip_smoke_runs_against_fake_database(tmp_path: Path
 
 
 def test_metadata_opf_round_trip_smoke_can_write_back_after_opf(tmp_path: Path) -> None:
+    """
+    Verify metadata opf round trip smoke can write back after opf.
+
+    Example:
+        Exercise test metadata opf round trip smoke can write back after opf through its owning regression module::
+
+            python -m pytest -q tests/metadata/test_metadata_opf_round_trip_smoke_script.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     module = _load_script_module()
     db = _build_fake_database()
 
@@ -111,6 +219,18 @@ def test_metadata_opf_round_trip_smoke_can_write_back_after_opf(tmp_path: Path) 
 
 
 def test_metadata_opf_round_trip_smoke_requires_safe_write_back_target(tmp_path: Path) -> None:
+    """
+    Verify metadata opf round trip smoke requires safe write back target.
+
+    Example:
+        Exercise test metadata opf round trip smoke requires safe write back target through its owning regression module::
+
+            python -m pytest -q tests/metadata/test_metadata_opf_round_trip_smoke_script.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     module = _load_script_module()
     source = tmp_path / "source.test_db"
     source.write_bytes(b"db")

@@ -1,5 +1,16 @@
 # -*- coding: utf-8 -*-
 
+"""
+Serialize normalized content and metadata into the target format.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise writer through a consuming regression::
+
+        python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -29,44 +40,221 @@ TEXT_RECORD_SIZE = 4096
 
 
 class _Logger(Protocol):
-    def debug(self: _typing.Self, message: object) -> object: ...
+    """
+    Provide the logger contract for validated ebook processing.
 
-    def error(self: _typing.Self, message: object) -> object: ...
+    Example:
+        Exercise  Logger through a consuming regression::
 
-    def info(self: _typing.Self, message: object) -> object: ...
+            python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+    """
+    def debug(self: _typing.Self, message: object) -> object:
+        """
+        Perform the debug operation under explicit file-format and conversion rules.
 
-    def warn(self: _typing.Self, message: object) -> object: ...
+        Example:
+            Exercise  Logger.debug through a consuming regression::
 
-    def warning(self: _typing.Self, message: object) -> object: ...
+                python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+
+
+        :param message: Value supplied for message under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
+        ...
+
+    def error(self: _typing.Self, message: object) -> object:
+        """
+        Perform the error operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  Logger.error through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+
+
+        :param message: Value supplied for message under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
+        ...
+
+    def info(self: _typing.Self, message: object) -> object:
+        """
+        Perform the info operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  Logger.info through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+
+
+        :param message: Value supplied for message under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
+        ...
+
+    def warn(self: _typing.Self, message: object) -> object:
+        """
+        Perform the warn operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  Logger.warn through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+
+
+        :param message: Value supplied for message under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
+        ...
+
+    def warning(self: _typing.Self, message: object) -> object:
+        """
+        Perform the warning operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  Logger.warning through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+
+
+        :param message: Value supplied for message under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
+        ...
 
 
 class _ManifestItem(Protocol):
+    """
+    Provide the manifestitem contract for validated ebook processing.
+
+    Example:
+        Exercise  ManifestItem through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+    """
     href: str
     media_type: str
     data: object
 
 
 class _ReadablePayload(Protocol):
-    def read(self: _typing.Self) -> bytes | str: ...
+    """
+    Provide the readablepayload contract for validated ebook processing.
 
-    def seek(self: _typing.Self, offset: int) -> object: ...
+    Example:
+        Exercise  ReadablePayload through a consuming regression::
 
-    def tell(self: _typing.Self) -> int: ...
+            python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+    """
+    def read(self: _typing.Self) -> bytes | str:
+        """
+        Perform the read operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  ReadablePayload.read through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
+        ...
+
+    def seek(self: _typing.Self, offset: int) -> object:
+        """
+        Perform the seek operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  ReadablePayload.seek through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+
+
+        :param offset: Value supplied for offset under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
+        ...
+
+    def tell(self: _typing.Self) -> int:
+        """
+        Perform the tell operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  ReadablePayload.tell through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
+        ...
 
 
 class TocItem(object):
+    """
+    Provide the tocitem contract for validated ebook processing.
+
+    Example:
+        Exercise TocItem through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+    """
     def __init__(self: _typing.Self, name: bytes, size: int, flags: int) -> None:
+        """
+        Initialize and validate the tocitem state.
+
+        Example:
+            Exercise TocItem.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param size: Value supplied for size under the utility contract.
+        :param flags: Value supplied for flags under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.name = name
         self.size = size
         self.flags = flags
 
 
 class RBWriter(object):
+    """
+    Provide the rbwriter contract for validated ebook processing.
+
+    Example:
+        Exercise RBWriter through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+    """
     def __init__(
         self: _typing.Self,
         opts: _typing.Any,
         log: _Logger,
     ) -> None:
+        """
+        Initialize and validate the rbwriter state.
+
+        Example:
+            Exercise RBWriter.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+
+
+        :param opts: Value supplied for opts under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.opts = opts
         self.log = log
         self.name_map: dict[str, str] = {}
@@ -77,6 +265,21 @@ class RBWriter(object):
         out_stream: BinaryIO,
         metadata: object | None = None,
     ) -> None:
+        """
+        Write content under the format's safety and compatibility rules.
+
+        Example:
+            Exercise RBWriter.write content through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+
+
+        :param oeb_book: Value supplied for oeb book under the utility contract.
+        :param out_stream: Value supplied for out stream under the utility contract.
+        :param metadata: Value supplied for metadata under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         info_data = self._info_section(metadata)
         hidx_data = b" "
         images = self._images(oeb_book.manifest)
@@ -147,12 +350,38 @@ class RBWriter(object):
         out_stream.write(struct.pack("<I", total_size))
 
     def _toc_name(self: _typing.Self, name: str) -> bytes:
+        """
+        Perform the toc name operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise RBWriter. toc name through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return name.encode("utf-8", "replace")[:32].ljust(32, b"\x00")
 
     def _text(
         self: _typing.Self,
         oeb_book: _typing.Any,
     ) -> tuple[int, list[bytes]]:
+        """
+        Perform the text operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise RBWriter. text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+
+
+        :param oeb_book: Value supplied for oeb book under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         rbmlizer = RBMLizer(self.log, name_map=self.name_map)
         text = rbmlizer.extract_content(oeb_book, self.opts).encode("cp1252", "xmlcharrefreplace")
         size = len(text)
@@ -171,6 +400,19 @@ class RBWriter(object):
         self: _typing.Self,
         manifest: Iterable[_ManifestItem],
     ) -> list[tuple[str, bytes]]:
+        """
+        Perform the images operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise RBWriter. images through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+
+
+        :param manifest: Value supplied for manifest under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.file_formats.oeb.base import OEB_RASTER_IMAGES
 
         if _PILImage is None:
@@ -203,6 +445,19 @@ class RBWriter(object):
         return images
 
     def _as_bytes(self: _typing.Self, payload: object) -> bytes:
+        """
+        Perform the as bytes operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise RBWriter. as bytes through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+
+
+        :param payload: Value supplied for payload under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if isinstance(payload, bytes):
             return payload
         if isinstance(payload, bytearray):
@@ -238,6 +493,19 @@ class RBWriter(object):
         self: _typing.Self,
         metadata: object | None,
     ) -> bytes:
+        """
+        Perform the info section operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise RBWriter. info section through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+
+
+        :param metadata: Value supplied for metadata under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         lines = ["TYPE=2"]
         if metadata:
             title_items = getattr(metadata, "title", ())

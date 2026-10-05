@@ -10,6 +10,17 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+"""
+Build document sections from RTF section-control tokens.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise sections through a consuming regression::
+
+        python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -23,50 +34,29 @@ from LiuXin_alpha.file_formats.rtf2xml import open_for_read, open_for_write
 
 class Sections:
     """
-    =================
-    Purpose
-    =================
-    Write section tags for a tokenized file. (This module won't be any use to use
-    to you unless you use it as part of the other modules.)
-    ---------------
-    logic
-    ---------------
-    The tags for the first section breaks have already been written.
-    RTF stores section breaks with the \\sect tag. Each time this tag is
-    encountered, add one to the counter.
-    When I encounter the \\sectd tag, I want to collect all the appropriate tokens
-    that describe the section. When I reach a \\pard, I know I an stop collecting
-    tokens and write the section tags.
-    The exception to this method occurs when sections occur in field blocks, such
-    as the index. Normally, two section break occur within the index and other
-    field-blocks. (If less or more section breaks occur, this code may not work.)
-    I want the sections to occur outside of the index. That is, the index
-    should be nested inside one section tag. After the index is complete, a new
-    section should begin.
-    In order to write the sections outside of the field blocks, I have to store
-    all of the field block as a string. When I encounter the \\sect tag, add one to
-    the section counter, but store this number in a list. Likewise, store the
-    information describing the section in another list.
-    When I reach the end of the field block, choose the first item from the
-    numbered list as the section number. Choose the first item in the description
-    list as the values and attributes of the section. Enclose the field string
-    between the section tags.
-    Start a new section outside the field-block strings. Use the second number in
-    the list; use the second item in the description list.
-    CHANGE (2004-04-26) No longer write sections that occur in field-blocks.
-    Instead, ignore all section information in a field-block.
+    Provide the sections contract for validated ebook processing.
+
+    Example:
+        Exercise Sections through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
     """
 
     def __init__(self: _typing.Self, in_file: _typing.Any, bug_handler: _typing.Any, copy: _typing.Any = None, run_level: int = 1) -> None:
         """
-        Required:
-            'file'--file to parse
-        Optional:
-            'copy'-- whether to make a copy of result for debugging
-            'temp_dir' --where to output temporary results (default is
-            directory from which the script is run.)
-        Returns:
-            nothing
+        Required: 'file'--file to parse Optional: 'copy'-- whether to make a copy of result for debugging 'temp_dir' --where to output temporary results (default is directory from which the script is run.) Returns: nothing
+
+        Example:
+            Exercise Sections.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param in_file: Value supplied for in file under the utility contract.
+        :param bug_handler: Value supplied for bug handler under the utility contract.
+        :param copy: Value supplied for copy under the utility contract.
+        :param run_level: Value supplied for run level under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self.__file = in_file
         self.__bug_handler = bug_handler
@@ -77,6 +67,15 @@ class Sections:
     def __initiate_values(self: _typing.Self) -> None:
         """
         Initiate all values.
+
+        Example:
+            Exercise Sections.  initiate values through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__mark_start = "mi<mk<sect-start\n"
         self.__mark_end = "mi<mk<sect-end__\n"
@@ -126,31 +125,35 @@ class Sections:
 
     def __found_section_def_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Required:
-            line -- the line to parse
-        Returns:
-            nothing
-        Logic:
-            I have found a section definition. Change the state to
-            setion_def (so subsequent lines will be processesed as part of
-            the section definition), and clear the section_values dictionary.
+        Required: line -- the line to parse Returns: nothing Logic: I have found a section definition. Change the state to setion_def (so subsequent lines will be processesed as part of the section definition), and clear the section_values dictionary.
+
+        Example:
+            Exercise Sections.  found section def func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__state = "section_def"
         self.__section_values.clear()
 
     def __attribute_func(self: _typing.Self, line: _typing.Any, name: _typing.Any) -> None:
         """
-        Required:
-            line -- the line to be parsed
-            name -- the changed, readable name (as opposed to the
-            abbreviated one)
-        Returns:
-            nothing
-        Logic:
-            I need to add the right data to the section values dictionary so I
-            can retrieve it later. The attribute (or key) is the name; the
-            value is the last part of the text string.
-            ex: cw<tb<columns___<nu<2
+        Required: line -- the line to be parsed name -- the changed, readable name (as opposed to the abbreviated one) Returns: nothing Logic: I need to add the right data to the section values dictionary so I can retrieve it later. The attribute (or key) is the name; the value is the last part of the text string. ex: cw<tb<columns___<nu<2
+
+        Example:
+            Exercise Sections.  attribute func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         attribute = name
         value = line[20:-1]
@@ -158,13 +161,17 @@ class Sections:
 
     def __found_section_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line -- the line to parse
-        Returns:
-            nothing
-        Logic:
-            I have found the beginning of a section, so change the state
-            accordingly. Also add one to the section counter.
+        Requires: line -- the line to parse Returns: nothing Logic: I have found the beginning of a section, so change the state accordingly. Also add one to the section counter.
+
+        Example:
+            Exercise Sections.  found section func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__state = "section"
         self.__write_obj.write(line)
@@ -172,13 +179,17 @@ class Sections:
 
     def __found_section_def_bef_sec_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line -- the line to parse
-        Returns:
-            nothing
-        Logic:
-            I have found the beginning of a section, so change the state
-            accordingly. Also add one to the section counter.
+        Requires: line -- the line to parse Returns: nothing Logic: I have found the beginning of a section, so change the state accordingly. Also add one to the section counter.
+
+        Example:
+            Exercise Sections.  found section def bef sec func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__section_num += 1
         self.__found_section_def_func(line)
@@ -186,11 +197,17 @@ class Sections:
 
     def __section_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line --the line to parse
-        Returns:
-            nothing
-        Logic:
+        Requires: line --the line to parse Returns: nothing Logic:
+
+        Example:
+            Exercise Sections.  section func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.__token_info == "cw<sc<sect-defin":
             self.__found_section_def_func(line)
@@ -198,15 +215,17 @@ class Sections:
 
     def __section_def_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Required:
-            line --line to parse
-        Returns:
-            nothing
-        Logic:
-            I have found a section definition. Check if the line is the end of
-            the defnition (a paragraph definition), or if it contains info that
-            should be added to the values dictionary. If neither of these
-            cases are true, output the line to a file.
+        Required: line --line to parse Returns: nothing Logic: I have found a section definition. Check if the line is the end of the defnition (a paragraph definition), or if it contains info that should be added to the values dictionary. If neither of these cases are true, output the line to a file.
+
+        Example:
+            Exercise Sections.  section def func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         action, name = self.__section_def_dict.get(self.__token_info, (None, None))
         if action:
@@ -220,14 +239,18 @@ class Sections:
 
     def __end_sec_def_func(self: _typing.Self, line: _typing.Any, name: _typing.Any) -> None:
         """
-        Requires:
-            line --the line to parse
-            name --changed, readable name
-        Returns:
-            nothing
-        Logic:
-            The end of the section definition has been found. Reset the state.
-            Call on the write_section method.
+        Requires: line --the line to parse name --changed, readable name Returns: nothing Logic: The end of the section definition has been found. Reset the state. Call on the write_section method.
+
+        Example:
+            Exercise Sections.  end sec def func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if not self.__in_field:
             self.__state = "body"
@@ -237,16 +260,18 @@ class Sections:
 
     def __end_sec_premature_func(self: _typing.Self, line: _typing.Any, name: _typing.Any) -> None:
         """
-        Requires:
-            line --the line to parse
-            name --changed, readable name
-        Returns:
-            nothing
-        Logic:
-            Text or control words indicating text have been found
-            before \\pard. This should indicate older RTF. Reset the state
-            Write the section definition. Insert a paragraph definition.
-            Insert {} to mark the end of a paragraph definition
+        Perform the end sec premature func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Sections.  end sec premature func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if not self.__in_field:
             self.__state = "body"
@@ -259,14 +284,17 @@ class Sections:
 
     def __write_section(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            nothing
-        Returns:
-            nothing
-        Logic:
-            Form a string of attributes and values. If you are not in a field
-            block, write this string to the output file. Otherwise, call on
-            the handle_sec_def method to handle this string.
+        Requires: nothing Returns: nothing Logic: Form a string of attributes and values. If you are not in a field block, write this string to the output file. Otherwise, call on the handle_sec_def method to handle this string.
+
+        Example:
+            Exercise Sections.  write section through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         my_string = self.__mark_start
         if self.__found_first_sec:
@@ -294,26 +322,34 @@ class Sections:
 
     def __handle_sec_def(self: _typing.Self, my_string: _typing.Any) -> None:
         """
-        Requires:
-            my_string -- the string of attributes and values. (Do I need this?)
-        Returns:
-            nothing
-        Logic:
-            I need to append the dictionary of attributes and values to list
-            so I can use it later when I reach the end of the field-block.
+        Requires: my_string -- the string of attributes and values. (Do I need this?) Returns: nothing Logic: I need to append the dictionary of attributes and values to list so I can use it later when I reach the end of the field-block.
+
+        Example:
+            Exercise Sections.  handle sec def through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param my_string: Value supplied for my string under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         values_dict = self.__section_values
         self.__list_of_sec_values.append(values_dict)
 
     def __body_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line --the line to parse
-        Returns:
-            nothing
-        Logic:
-            Look for the beginning of a section. Otherwise, print the line to
-            the output file.
+        Requires: line --the line to parse Returns: nothing Logic: Look for the beginning of a section. Otherwise, print the line to the output file.
+
+        Example:
+            Exercise Sections.  body func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         action = self.__body_dict.get(self.__token_info)
         if action:
@@ -323,12 +359,17 @@ class Sections:
 
     def __before_body_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line --line to parse
-        Returns:
-            nothing
-        Logic:
-            Look for the beginning of the body. Always print out the line.
+        Requires: line --line to parse Returns: nothing Logic: Look for the beginning of the body. Always print out the line.
+
+        Example:
+            Exercise Sections.  before body func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.__token_info == "mi<mk<body-open_":
             self.__state = "before_first_sec"
@@ -336,13 +377,17 @@ class Sections:
 
     def __before_first_sec_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line -- line to parse
-        Returns:
-            nothing
-        Logic:
-            Look for the beginning of the first section. This can be \\sectd,
-            but in older RTF it could mean the any paragraph or row definition
+        Perform the before first sec func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Sections.  before first sec func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.__token_info == "cw<sc<sect-defin":
             self.__state = "section_def"
@@ -373,14 +418,17 @@ class Sections:
 
     def __found_sec_in_field_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line --line to parse
-        Returns:
-            nothing
-        Logic:
-            I have found the beginning of a field that has a section (or
-            really, two) inside of it. Change the state, and start adding to
-            one long string.
+        Requires: line --line to parse Returns: nothing Logic: I have found the beginning of a field that has a section (or really, two) inside of it. Change the state, and start adding to one long string.
+
+        Example:
+            Exercise Sections.  found sec in field func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__state = "sec_in_field"
         self.__sec_in_field_string = line
@@ -388,15 +436,17 @@ class Sections:
 
     def __sec_in_field_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line --the line to parse
-        Returns:
-            nothing
-        Logic:
-            Check for the end of the field, or the beginning of a section
-            definition.
-            CHANGED! Just print out each line. Ignore any sections or
-            section definition info.
+        Requires: line --the line to parse Returns: nothing Logic: Check for the end of the field, or the beginning of a section definition. CHANGED! Just print out each line. Ignore any sections or section definition info.
+
+        Example:
+            Exercise Sections.  sec in field func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         action = self.__sec_in_field_dict.get(self.__token_info)
         if action:
@@ -408,16 +458,17 @@ class Sections:
 
     def __end_sec_in_field_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line --line to parse
-        Returns:
-            nothing
-        Logic:
-            Add the last line to the field string. Call on the method
-            print_field_sec_attributes to write the close and beginning of a
-            section tag. Print out the field string. Call on the same method
-            to again write the close and beginning of a section tag.
-            Change the state.
+        Requires: line --line to parse Returns: nothing Logic: Add the last line to the field string. Call on the method print_field_sec_attributes to write the close and beginning of a section tag. Print out the field string. Call on the same method to again write the close and beginning of a section tag. Change the state.
+
+        Example:
+            Exercise Sections.  end sec in field func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # change this 2004-04-26
         # Don't do anything
@@ -434,23 +485,16 @@ class Sections:
 
     def __print_field_sec_attributes(self: _typing.Self) -> None:
         """
-        Requires:
-            nothing
-        Returns:
-            nothing
-        Logic:
-            Get the number and dictionary of values from the lists. The number
-            and dictionary will be the first item of each list. Write the
-            close tag. Write the start tag. Write the attribute and values in
-            the dictionary. Get rid of the first item in each list.
-        keys = self.__section_values.keys()
-        if len(keys) > 0:
-            my_string += 'mi<tg<open-att__<section-definition'
-            for key in keys:
-                my_string += '<%s>%s' % (key, self.__section_values[key])
-            my_string += '\n'
-        else:
-            my_string += 'mi<tg<open______<section-definition\n'
+        Requires: nothing Returns: nothing Logic: Get the number and dictionary of values from the lists. The number and dictionary will be the first item of each list. Write the close tag. Write the start tag. Write the attribute and values in the dictionary. Get rid of the first item in each list. keys = self.__section_values.keys() if len(keys) > 0: my_string += 'mi<tg<open-att__<section-definition' for key in keys: my_string += '<%s>%s' % (key, self.__section_values[key]) my_string += ' ' else: my_string += 'mi<tg<open______<section-definition '
+
+        Example:
+            Exercise Sections.  print field sec attributes through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         num = self.__field_num[0]
         self.__field_num = self.__field_num[1:]
@@ -468,13 +512,17 @@ class Sections:
 
     def __found_section_in_field_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line --line to parse
-        Returns:
-            nothing
-        Logic:
-            I have found a section in a field block. Add one to section
-            counter, and append this number to a list.
+        Requires: line --line to parse Returns: nothing Logic: I have found a section in a field block. Add one to section counter, and append this number to a list.
+
+        Example:
+            Exercise Sections.  found section in field func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__section_num += 1
         self.__field_num.append(self.__section_num)
@@ -482,28 +530,33 @@ class Sections:
 
     def __found_section_def_in_field_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line --line to parse
-        Returns:
-            nothing
-        Logic:
-            I have found a section definition in a filed block. Change the
-            state and clear the values dictionary.
+        Requires: line --line to parse Returns: nothing Logic: I have found a section definition in a filed block. Change the state and clear the values dictionary.
+
+        Example:
+            Exercise Sections.  found section def in field func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__state = "section_def"
         self.__section_values.clear()
 
     def make_sections(self: _typing.Self) -> None:
         """
-        Requires:
-            nothing
-        Returns:
-            nothing (changes the original file)
-        Logic:
-            Read one line in at a time. Determine what action to take based on
-            the state. If the state is before the body, look for the
-            beginning of the body.
-            If the state is body, send the line to the body method.
+        Requires: nothing Returns: nothing (changes the original file) Logic: Read one line in at a time. Determine what action to take based on the state. If the state is before the body, look for the beginning of the body. If the state is body, send the line to the body method.
+
+        Example:
+            Exercise Sections.make sections through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__initiate_values()
         read_obj = open_for_read(self.__file)

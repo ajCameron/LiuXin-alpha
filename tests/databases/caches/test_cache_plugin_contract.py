@@ -1,3 +1,15 @@
+"""
+Check cache plugin read, write, Unicode, refresh, capability, and lifecycle contracts against in-memory doubles.
+
+Pytest repeats the contracts for the registered test plugin configurations. Each
+fixture builds fresh fake rows, allowing external mutations without a persistent
+database.
+
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/caches/test_cache_plugin_contract.py
+"""
 from __future__ import annotations
 
 import unicodedata
@@ -43,11 +55,37 @@ _LIVE_COVER_PATH = "/covers/live-one.jpg"
 
 @pytest.fixture(params=tuple(CACHE_PLUGIN_KWARGS), ids=tuple(CACHE_PLUGIN_KWARGS))
 def cache_plugin_name(request: pytest.FixtureRequest) -> str:
+    """
+    Return the current cache plugin parameter as a string.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_cache_plugin_contract.py
+
+
+    :param request: Pytest fixture request carrying the current plugin parameter.
+    :return: Plugin name for this parametrized fixture invocation.
+    """
     return str(request.param)
 
 
 @pytest.fixture()
 def unicode_contract_db() -> FakeDB:
+    """
+    Build fresh books, covers, tags, and link rows containing distinct Unicode normalization forms.
+
+    The schema provides owned one-to-one covers and many-to-many tags. Repeated
+    shared_code column names exercise ambiguous field resolution.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_cache_plugin_contract.py
+
+
+    :return: New FakeDB with two books, two covers, three tags, and their links.
+    """
     books = make_table(
         "books",
         ("id", "title", "shared_code"),
@@ -140,10 +178,37 @@ def unicode_contract_db() -> FakeDB:
 
 @pytest.fixture()
 def contract_cache(cache_plugin_name: str, unicode_contract_db: FakeDB):
+    """
+    Create and load the selected storage plugin against the Unicode fixture database.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_cache_plugin_contract.py
+
+
+    :param cache_plugin_name: Plugin name selected from CACHE_PLUGIN_KWARGS.
+    :param unicode_contract_db: Fresh FakeDB with Unicode books, covers, tags, and
+        relation rows; tests may mutate it.
+    :return: Loaded storage cache created by the shared test harness.
+    """
     return create_loaded_test_cache(unicode_contract_db, cache_plugin_name)
 
 
 def test_cache_plugin_unicode_contract_reads_scalar_and_relation_values(contract_cache) -> None:
+    """
+    Check scalar titles, cover paths, and ordered tag values preserve the exact stored Unicode strings.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_cache_plugin_contract.py::test_cache_plugin_unicode_contract_reads_scalar_and_relation_values
+
+
+    :param contract_cache: Loaded storage cache for the current plugin, backed by
+        unicode_contract_db.
+    :return: None; failed expectations raise AssertionError.
+    """
     cache = contract_cache
 
     assert cache.get_cached_value(1, "title") == _BOOK_TITLE_NFD
@@ -168,6 +233,19 @@ def test_cache_plugin_unicode_contract_reads_scalar_and_relation_values(contract
 def test_cache_api_creates_writers_and_reconciles_scalar_writes(
     contract_cache,
 ) -> None:
+    """
+    Check planned, direct, writer-bound, and bulk scalar writes are visible through the cache API.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_cache_plugin_contract.py::test_cache_api_creates_writers_and_reconciles_scalar_writes
+
+
+    :param contract_cache: Loaded storage cache for the current plugin, backed by
+        unicode_contract_db.
+    :return: None; failed expectations raise AssertionError.
+    """
     cache = Cache.from_storage(contract_cache)
     writer = cache.create_writer("books", "title")
 
@@ -192,6 +270,21 @@ def test_cache_bound_writer_rejects_use_after_cache_detach(
     contract_cache,
     unicode_contract_db: FakeDB,
 ) -> None:
+    """
+    Detach the backing database and check a retained writer raises without changing the stored title.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_cache_plugin_contract.py::test_cache_bound_writer_rejects_use_after_cache_detach
+
+
+    :param contract_cache: Loaded storage cache for the current plugin, backed by
+        unicode_contract_db.
+    :param unicode_contract_db: Fresh FakeDB with Unicode books, covers, tags, and
+        relation rows; tests may mutate it.
+    :return: None; failed expectations raise AssertionError.
+    """
     cache = Cache.from_storage(contract_cache)
     writer = cache.create_writer("books", "title")
     before = unicode_contract_db._rows_by_table["books"][0]["title"]
@@ -204,6 +297,19 @@ def test_cache_bound_writer_rejects_use_after_cache_detach(
 
 
 def test_cache_api_reconciles_owned_one_to_one_writes(contract_cache) -> None:
+    """
+    Check cover writes reuse the owned row and unlinking removes the cached relation value.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_cache_plugin_contract.py::test_cache_api_reconciles_owned_one_to_one_writes
+
+
+    :param contract_cache: Loaded storage cache for the current plugin, backed by
+        unicode_contract_db.
+    :return: None; failed expectations raise AssertionError.
+    """
     cache = Cache.from_storage(contract_cache)
     writer = cache.create_writer("books", "path")
 
@@ -228,6 +334,21 @@ def test_cache_api_reconciles_shared_link_bulk_and_single_writes(
     contract_cache,
     unicode_contract_db: FakeDB,
 ) -> None:
+    """
+    Check shared-tag replacement and addition update cached relations, and deleting a missing tag creates no tag row.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_cache_plugin_contract.py::test_cache_api_reconciles_shared_link_bulk_and_single_writes
+
+
+    :param contract_cache: Loaded storage cache for the current plugin, backed by
+        unicode_contract_db.
+    :param unicode_contract_db: Fresh FakeDB with Unicode books, covers, tags, and
+        relation rows; tests may mutate it.
+    :return: None; failed expectations raise AssertionError.
+    """
     cache = Cache.from_storage(contract_cache)
     writer = cache.create_writer("books", "tag_name")
 
@@ -272,6 +393,21 @@ def test_cache_api_reconciles_shared_link_bulk_and_single_writes(
 
 @pytest.fixture()
 def typed_writer_cache(cache_plugin_name: str):
+    """
+    Build a loaded cache and fake database with role-typed tag links and a live allowed-types table.
+
+    Start with one book, no tags or links, and only author permitted as a type. Tests
+    can append allowed types directly to the fake rows.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_cache_plugin_contract.py
+
+
+    :param cache_plugin_name: Plugin name selected from CACHE_PLUGIN_KWARGS.
+    :return: Tuple of (loaded storage cache, FakeDB).
+    """
     books = make_table(
         "typed_books",
         ("id", "title"),
@@ -338,6 +474,19 @@ def typed_writer_cache(cache_plugin_name: str):
 
 
 def test_cache_api_preserves_live_link_type_guards(typed_writer_cache) -> None:
+    """
+    Check a disallowed role writes no rows, then a newly allowed role supports writer and typed bulk updates.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_cache_plugin_contract.py::test_cache_api_preserves_live_link_type_guards
+
+
+    :param typed_writer_cache: Pair of loaded storage cache and its FakeDB, including a
+        live allowed-types table.
+    :return: None; failed expectations raise AssertionError.
+    """
     storage, database = typed_writer_cache
     cache = Cache.from_storage(storage)
     writer = cache.create_writer("typed_books", "tag_name")
@@ -379,6 +528,19 @@ def test_cache_api_preserves_live_link_type_guards(typed_writer_cache) -> None:
 
 
 def test_cache_plugin_preserves_distinct_unicode_normalization_forms(contract_cache) -> None:
+    """
+    Check canonically equivalent NFC and NFD titles retain separate reverse-lookup IDs.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_cache_plugin_contract.py::test_cache_plugin_preserves_distinct_unicode_normalization_forms
+
+
+    :param contract_cache: Loaded storage cache for the current plugin, backed by
+        unicode_contract_db.
+    :return: None; failed expectations raise AssertionError.
+    """
     cache = contract_cache
     title_field = cache.get_field("title")
 
@@ -393,6 +555,19 @@ def test_cache_plugin_preserves_distinct_unicode_normalization_forms(contract_ca
 
 
 def test_cache_plugin_field_resolution_contract(contract_cache) -> None:
+    """
+    Check qualified and unambiguous field resolution, rejection of shared_code ambiguity, and exact field enumeration sets.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_cache_plugin_contract.py::test_cache_plugin_field_resolution_contract
+
+
+    :param contract_cache: Loaded storage cache for the current plugin, backed by
+        unicode_contract_db.
+    :return: None; failed expectations raise AssertionError.
+    """
     cache = contract_cache
 
     assert cache.get_field("title") is cache.get_field("books.title")
@@ -431,6 +606,19 @@ def test_cache_plugin_field_resolution_contract(contract_cache) -> None:
 
 
 def test_cache_plugin_one_to_one_link_table_maps_are_exposed(contract_cache) -> None:
+    """
+    Check one-to-one forward IDs, reverse IDs, and cover-value maps.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_cache_plugin_contract.py::test_cache_plugin_one_to_one_link_table_maps_are_exposed
+
+
+    :param contract_cache: Loaded storage cache for the current plugin, backed by
+        unicode_contract_db.
+    :return: None; failed expectations raise AssertionError.
+    """
     link_table = contract_cache.get_one_one_link_table("books", "covers")
 
     assert link_table.get_primary_id_secondary_value_id_map() == {1: 10, 2: 11}
@@ -442,6 +630,19 @@ def test_cache_plugin_one_to_one_link_table_maps_are_exposed(contract_cache) -> 
 
 
 def test_cache_plugin_link_table_reverse_and_pair_lookups_are_readable(contract_cache) -> None:
+    """
+    Check reverse one-to-one ID lookup and the presence of a many-to-many pair.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_cache_plugin_contract.py::test_cache_plugin_link_table_reverse_and_pair_lookups_are_readable
+
+
+    :param contract_cache: Loaded storage cache for the current plugin, backed by
+        unicode_contract_db.
+    :return: None; failed expectations raise AssertionError.
+    """
     one_one = contract_cache.get_one_one_link_table("books", "covers")
     many_many = contract_cache.get_many_many_link_table("books", "tags")
 
@@ -450,6 +651,19 @@ def test_cache_plugin_link_table_reverse_and_pair_lookups_are_readable(contract_
 
 
 def test_cache_plugin_source_oriented_link_rows_hide_storage_orientation(contract_cache) -> None:
+    """
+    Check ordered forward and reverse source lookups expose the expected link and endpoint IDs.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_cache_plugin_contract.py::test_cache_plugin_source_oriented_link_rows_hide_storage_orientation
+
+
+    :param contract_cache: Loaded storage cache for the current plugin, backed by
+        unicode_contract_db.
+    :return: None; failed expectations raise AssertionError.
+    """
     forward_rows = tuple(
         contract_cache.get_link_rows_for_source(
             "books",
@@ -476,6 +690,19 @@ def test_cache_plugin_source_oriented_link_rows_hide_storage_orientation(contrac
 def test_cache_plugin_one_to_one_relation_fields_are_discovered_and_readable(
     contract_cache,
 ) -> None:
+    """
+    Check cover field aliases, values, endpoint lookups, and the destination-value map.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_cache_plugin_contract.py::test_cache_plugin_one_to_one_relation_fields_are_discovered_and_readable
+
+
+    :param contract_cache: Loaded storage cache for the current plugin, backed by
+        unicode_contract_db.
+    :return: None; failed expectations raise AssertionError.
+    """
     cache = contract_cache
     field = cache.get_field("books.covers.path")
 
@@ -494,6 +721,19 @@ def test_cache_plugin_one_to_one_relation_fields_are_discovered_and_readable(
 
 
 def test_cache_plugin_relation_value_reverse_lookups_are_readable(contract_cache) -> None:
+    """
+    Check destination and source IDs from relation values and the complete tag value set.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_cache_plugin_contract.py::test_cache_plugin_relation_value_reverse_lookups_are_readable
+
+
+    :param contract_cache: Loaded storage cache for the current plugin, backed by
+        unicode_contract_db.
+    :return: None; failed expectations raise AssertionError.
+    """
     cache = contract_cache
     cover_field = cache.get_field("books.covers.path")
     tags_field = cache.get_field("books.tags.tag_name")
@@ -505,6 +745,19 @@ def test_cache_plugin_relation_value_reverse_lookups_are_readable(contract_cache
 
 
 def test_cache_plugin_row_helpers_and_defaults(contract_cache) -> None:
+    """
+    Check scalar row tuples and supplied defaults for a missing row ID.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_cache_plugin_contract.py::test_cache_plugin_row_helpers_and_defaults
+
+
+    :param contract_cache: Loaded storage cache for the current plugin, backed by
+        unicode_contract_db.
+    :return: None; failed expectations raise AssertionError.
+    """
     cache = contract_cache
 
     assert cache.get_cached_row_values(1, ("title", "books.shared_code")) == (
@@ -523,6 +776,21 @@ def test_cache_plugin_fresh_reads_follow_declared_live_read_capability(
     contract_cache,
     unicode_contract_db: FakeDB,
 ) -> None:
+    """
+    Mutate fake rows externally and check fresh lookups follow live_reads, reloading snapshot plugins before expecting changes.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_cache_plugin_contract.py::test_cache_plugin_fresh_reads_follow_declared_live_read_capability
+
+
+    :param contract_cache: Loaded storage cache for the current plugin, backed by
+        unicode_contract_db.
+    :param unicode_contract_db: Fresh FakeDB with Unicode books, covers, tags, and
+        relation rows; tests may mutate it.
+    :return: None; failed expectations raise AssertionError.
+    """
     cache = contract_cache
 
     assert cache.get_cached_value(1, "title") == _BOOK_TITLE_NFD
@@ -552,6 +820,21 @@ def test_cache_plugin_held_objects_follow_declared_live_child_capability(
     contract_cache,
     unicode_contract_db: FakeDB,
 ) -> None:
+    """
+    Mutate rows externally and check retained table and field objects follow live_child_objects without a reload.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_cache_plugin_contract.py::test_cache_plugin_held_objects_follow_declared_live_child_capability
+
+
+    :param contract_cache: Loaded storage cache for the current plugin, backed by
+        unicode_contract_db.
+    :param unicode_contract_db: Fresh FakeDB with Unicode books, covers, tags, and
+        relation rows; tests may mutate it.
+    :return: None; failed expectations raise AssertionError.
+    """
     cache = contract_cache
     books_table = cache.get_main_table("books")
     cover_path_field = cache.get_field("books.covers.path")
@@ -577,6 +860,19 @@ def test_cache_plugin_held_objects_follow_declared_live_child_capability(
 def test_cache_plugin_vectorized_helper_surface_follows_declared_capabilities(
     contract_cache,
 ) -> None:
+    """
+    Check NumPy row IDs, field-owner IDs, and title arrays when vectorized helpers are advertised.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_cache_plugin_contract.py::test_cache_plugin_vectorized_helper_surface_follows_declared_capabilities
+
+
+    :param contract_cache: Loaded storage cache for the current plugin, backed by
+        unicode_contract_db.
+    :return: None; failed expectations raise AssertionError.
+    """
     cache = contract_cache
 
     if cache.capabilities.vectorized_helpers:
@@ -594,6 +890,21 @@ def test_cache_plugin_reload_observes_external_unicode_changes(
     contract_cache,
     unicode_contract_db: FakeDB,
 ) -> None:
+    """
+    Check a full reload observes changed Unicode title/tag values and a newly inserted book.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_cache_plugin_contract.py::test_cache_plugin_reload_observes_external_unicode_changes
+
+
+    :param contract_cache: Loaded storage cache for the current plugin, backed by
+        unicode_contract_db.
+    :param unicode_contract_db: Fresh FakeDB with Unicode books, covers, tags, and
+        relation rows; tests may mutate it.
+    :return: None; failed expectations raise AssertionError.
+    """
     cache = contract_cache
 
     unicode_contract_db.driver_wrapper.update_column("books", 1, "title", _UPDATED_TITLE)
@@ -615,6 +926,21 @@ def test_cache_plugin_reload_main_table_refreshes_relation_projection(
     contract_cache,
     unicode_contract_db: FakeDB,
 ) -> None:
+    """
+    Delete a cover and reload its table, checking the missing projection and the unaffected second cover.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_cache_plugin_contract.py::test_cache_plugin_reload_main_table_refreshes_relation_projection
+
+
+    :param contract_cache: Loaded storage cache for the current plugin, backed by
+        unicode_contract_db.
+    :param unicode_contract_db: Fresh FakeDB with Unicode books, covers, tags, and
+        relation rows; tests may mutate it.
+    :return: None; failed expectations raise AssertionError.
+    """
     cache = contract_cache
 
     assert cache.get_field("books.covers.path").get_value_from_src_id(1) == _COVER_PATH_1
@@ -631,6 +957,21 @@ def test_cache_plugin_invalidations_reload_relation_dependencies(
     contract_cache,
     unicode_contract_db: FakeDB,
 ) -> None:
+    """
+    Delete fake cover and link rows, invalidate their tables, and check dependent relation values refresh.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_cache_plugin_contract.py::test_cache_plugin_invalidations_reload_relation_dependencies
+
+
+    :param contract_cache: Loaded storage cache for the current plugin, backed by
+        unicode_contract_db.
+    :param unicode_contract_db: Fresh FakeDB with Unicode books, covers, tags, and
+        relation rows; tests may mutate it.
+    :return: None; failed expectations raise AssertionError.
+    """
     cache = contract_cache
 
     unicode_contract_db.driver_wrapper.delete_by_id("covers", {10})
@@ -653,6 +994,23 @@ def test_cache_plugin_lifecycle_contract(
     contract_cache,
     unicode_contract_db: FakeDB,
 ) -> None:
+    """
+    Check detach, reattach, clear, reload, and close update catalog references, loaded flags, and cached collections.
+
+    After close, a read without a database raises RuntimeError.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_cache_plugin_contract.py::test_cache_plugin_lifecycle_contract
+
+
+    :param contract_cache: Loaded storage cache for the current plugin, backed by
+        unicode_contract_db.
+    :param unicode_contract_db: Fresh FakeDB with Unicode books, covers, tags, and
+        relation rows; tests may mutate it.
+    :return: None; failed expectations raise AssertionError.
+    """
     cache = contract_cache
 
     assert cache.is_loaded is True

@@ -1,4 +1,11 @@
-"""Read-only ISO driver, Store, registry, and Unicode contract coverage."""
+"""
+Exercise ISO namespace selection, direct/UDF reads, limits, and Store compatibility.
+
+Direct fixtures use a dependency-free image builder. Real bridge fixtures require
+optional pycdlib; injected import/extraction substitutes isolate fallback and spool
+failure behavior. Tests distinguish malformed placeholders from valid images and
+advertised configuration from exercised policy. POSIX byte names have a platform gate.
+"""
 
 from __future__ import annotations
 
@@ -33,6 +40,19 @@ from tests.storage.contracts.unicode_paths import exercise_unicode_path_cases
 
 
 def _basic_image(tmp_path: pathlib.Path) -> pathlib.Path:
+    """
+    Build a real Joliet fixture with two nonempty files and a nested empty file.
+
+    Uses the dependency-free image builder and returns its output path.
+
+    Example:
+        >>> _basic_image(tmp_path).name  # doctest: +SKIP
+        'library.iso'
+
+
+    :param tmp_path: Temporary directory receiving the generated image.
+    :return: Path to the successfully written image fixture.
+    """
     return build_joliet_iso(
         tmp_path / "library.iso",
         {
@@ -44,6 +64,20 @@ def _basic_image(tmp_path: pathlib.Path) -> pathlib.Path:
 
 
 def _udf_bridge_image(tmp_path: pathlib.Path) -> pathlib.Path:
+    """
+    Write a real ISO/UDF 2.60 bridge with a Unicode UDF directory and filename.
+
+    The ISO namespace uses BOOKS/BOOK.EPUB while UDF uses the book emoji and naïve.epub. Missing
+    pycdlib skips the calling test; successful writing is followed by image.close.
+
+    Example:
+        >>> _udf_bridge_image(tmp_path).name  # doctest: +SKIP
+        'udf-bridge.iso'
+
+
+    :param tmp_path: Temporary directory receiving the generated image.
+    :return: Path to the successfully written image fixture.
+    """
     pycdlib = pytest.importorskip("pycdlib")
     path = tmp_path / "udf-bridge.iso"
     payload = io.BytesIO(b"UDF payload")
@@ -62,6 +96,20 @@ def _udf_bridge_image(tmp_path: pathlib.Path) -> pathlib.Path:
 
 
 def _rock_ridge_udf_bridge_image(tmp_path: pathlib.Path) -> pathlib.Path:
+    """
+    Write a real ISO/Rock Ridge/UDF bridge with intentionally different namespace names.
+
+    The Rock Ridge rr-books/rr-book.epub path and UDF emoji/udf-book.epub path refer to the same
+    payload. Missing pycdlib skips the invoking case.
+
+    Example:
+        >>> _rock_ridge_udf_bridge_image(tmp_path).name  # doctest: +SKIP
+        'rock-ridge-udf-bridge.iso'
+
+
+    :param tmp_path: Temporary directory receiving the generated image.
+    :return: Path to the successfully written image fixture.
+    """
     pycdlib = pytest.importorskip("pycdlib")
     path = tmp_path / "rock-ridge-udf-bridge.iso"
     payload = io.BytesIO(b"Rock Ridge payload")
@@ -85,6 +133,20 @@ def _rock_ridge_udf_bridge_image(tmp_path: pathlib.Path) -> pathlib.Path:
 
 
 def test_iso_readonly_status_configuration_and_registry(tmp_path) -> None:
+    """
+    Check real Joliet startup, file count, durable defaults, registry aliases, and advertised
+    limits.
+
+    Configuration/characteristic assertions describe declared policy rather than independently
+    exercising each limit.
+
+    Example:
+        >>> test_iso_readonly_status_configuration_and_registry(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding real or intentionally malformed image fixtures.
+    :return: None after the stated regression assertions pass.
+    """
     image = _basic_image(tmp_path)
     store = IsoReadOnlyStorageBackend(str(image), name="Disc archive")
 
@@ -113,6 +175,17 @@ def test_iso_readonly_status_configuration_and_registry(tmp_path) -> None:
 
 
 def test_iso_readonly_locate_stat_range_digest_and_inventory(tmp_path) -> None:
+    """
+    Exercise real ISO locations, size/time/version hints, complete/prefix inventory,
+    full/ranged/empty reads, and SHA-256 computation.
+
+    Example:
+        >>> test_iso_readonly_locate_stat_range_digest_and_inventory(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding real or intentionally malformed image fixtures.
+    :return: None after the stated regression assertions pass.
+    """
     image = _basic_image(tmp_path)
     store = IsoReadOnlyStorageBackend(str(image))
 
@@ -144,6 +217,16 @@ def test_iso_readonly_locate_stat_range_digest_and_inventory(tmp_path) -> None:
 
 
 def test_iso_readonly_falls_back_to_primary_iso9660_namespace(tmp_path) -> None:
+    """
+    Read a real primary-only ISO fixture and require the iso9660 namespace selection.
+
+    Example:
+        >>> test_iso_readonly_falls_back_to_primary_iso9660_namespace(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding real or intentionally malformed image fixtures.
+    :return: None after the stated regression assertions pass.
+    """
     image = build_iso9660_iso(
         tmp_path / "primary.iso",
         {"BOOKS/NOVEL.EPUB": b"primary-volume"},
@@ -157,6 +240,19 @@ def test_iso_readonly_falls_back_to_primary_iso9660_namespace(tmp_path) -> None:
 
 
 def test_iso_readonly_prefers_and_reads_the_udf_namespace(tmp_path) -> None:
+    """
+    Select UDF over a primary ISO bridge and read a staged range through its Unicode member path.
+
+    Also checks complete selected-namespace inventory, aware modification metadata, and the spooling
+    limitation.
+
+    Example:
+        >>> test_iso_readonly_prefers_and_reads_the_udf_namespace(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding real or intentionally malformed image fixtures.
+    :return: None after the stated regression assertions pass.
+    """
     image = _udf_bridge_image(tmp_path)
     store = IsoReadOnlyStorageBackend(str(image))
 
@@ -174,6 +270,16 @@ def test_iso_readonly_prefers_and_reads_the_udf_namespace(tmp_path) -> None:
 
 
 def test_iso_readonly_keeps_rock_ridge_priority_over_udf(tmp_path) -> None:
+    """
+    Require Rock Ridge selection and payload access when a real bridge also exposes UDF names.
+
+    Example:
+        >>> test_iso_readonly_keeps_rock_ridge_priority_over_udf(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding real or intentionally malformed image fixtures.
+    :return: None after the stated regression assertions pass.
+    """
     image = _rock_ridge_udf_bridge_image(tmp_path)
     store = IsoReadOnlyStorageBackend(str(image))
 
@@ -182,6 +288,17 @@ def test_iso_readonly_keeps_rock_ridge_priority_over_udf(tmp_path) -> None:
 
 
 def test_iso_readonly_can_disable_udf_and_persists_the_policy(tmp_path) -> None:
+    """
+    Disable UDF on a real bridge, read the primary ISO path, and check persisted enable/member-limit
+    options.
+
+    Example:
+        >>> test_iso_readonly_can_disable_udf_and_persists_the_policy(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding real or intentionally malformed image fixtures.
+    :return: None after the stated regression assertions pass.
+    """
     image = _udf_bridge_image(tmp_path)
     store = IsoReadOnlyStorageBackend(
         str(image),
@@ -199,9 +316,32 @@ def test_iso_udf_bridge_falls_back_when_optional_parser_is_absent(
     tmp_path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """
+    Inject a missing pycdlib import after fixture creation and retain readable primary ISO fallback.
+
+    The bridge itself requires pycdlib to construct; the injected import isolates runtime fallback.
+
+    Example:
+        >>> test_iso_udf_bridge_falls_back_when_optional_parser_is_absent(tmp_path, monkeypatch)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding real or intentionally malformed image fixtures.
+    :param monkeypatch: Pytest fixture restoring injected optional-parser seams after the test.
+    :return: None after the stated regression assertions pass.
+    """
     image = _udf_bridge_image(tmp_path)
 
     def unavailable(name: str):
+        """
+        Simulate only the pycdlib import failure and reject unexpected imports.
+
+        Example:
+            >>> unavailable("pycdlib")  # doctest: +SKIP
+
+
+        :param name: Requested module name.
+        :return: Never returns: raises ImportError for pycdlib or AssertionError for any other request.
+        """
         if name == "pycdlib":
             raise ImportError("not installed")
         raise AssertionError(name)
@@ -217,6 +357,19 @@ def test_iso_udf_bridge_falls_back_when_optional_parser_is_absent(
 
 
 def test_iso_names_retain_literal_terminal_version_like_text(tmp_path) -> None:
+    """
+    Read literal semicolon-digit directory/file names from real Joliet and Rock Ridge fixtures.
+
+    The builders encode each namespace appropriately; assertions cover the resulting caller-visible
+    spelling.
+
+    Example:
+        >>> test_iso_names_retain_literal_terminal_version_like_text(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding real or intentionally malformed image fixtures.
+    :return: None after the stated regression assertions pass.
+    """
     joliet = build_joliet_iso(
         tmp_path / "literal-version-joliet.iso",
         {"folder;1/book;1": b"joliet"},
@@ -235,6 +388,19 @@ def test_iso_names_retain_literal_terminal_version_like_text(tmp_path) -> None:
 
 
 def test_iso_readonly_applies_generic_unicode_torture_contract(tmp_path) -> None:
+    """
+    Exercise the shared Unicode inventory/address/full-range-read/hint contract against a real
+    Joliet image.
+
+    URI round-trip checks are not enabled by this call.
+
+    Example:
+        >>> test_iso_readonly_applies_generic_unicode_torture_contract(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding real or intentionally malformed image fixtures.
+    :return: None after the stated regression assertions pass.
+    """
     expected = {case.key: case.payload for case in TORTURED_UNICODE_PATH_CASES}
     image = build_joliet_iso(tmp_path / "unicode.iso", expected)
     store = IsoReadOnlyStorageBackend(str(image))
@@ -246,6 +412,19 @@ def test_iso_readonly_applies_generic_unicode_torture_contract(tmp_path) -> None
 
 @pytest.mark.skipif(os.name != "posix", reason="surrogateescape is a POSIX byte-name contract")
 def test_iso_rock_ridge_reads_undecodable_filename_bytes(tmp_path) -> None:
+    """
+    Preserve undecodable POSIX filename bytes through Rock Ridge inventory, hints, and content
+    reads.
+
+    The platform marker skips this filesystem-encoding contract outside POSIX.
+
+    Example:
+        >>> test_iso_rock_ridge_reads_undecodable_filename_bytes(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding real or intentionally malformed image fixtures.
+    :return: None after the stated regression assertions pass.
+    """
     raw_key = b"legacy/" + POSIX_BAD_BYTES_FILENAME_BYTES
     image = build_rock_ridge_iso(
         tmp_path / "rock-ridge.iso",
@@ -263,6 +442,16 @@ def test_iso_rock_ridge_reads_undecodable_filename_bytes(tmp_path) -> None:
 
 
 def test_iso_readonly_supports_concurrent_reads(tmp_path) -> None:
+    """
+    Read 24 full/ranged requests through one Store using eight threads and compare ordered payloads.
+
+    Example:
+        >>> test_iso_readonly_supports_concurrent_reads(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding real or intentionally malformed image fixtures.
+    :return: None after the stated regression assertions pass.
+    """
     image = _basic_image(tmp_path)
     store = IsoReadOnlyStorageBackend(str(image))
     requests = [
@@ -272,6 +461,18 @@ def test_iso_readonly_supports_concurrent_reads(tmp_path) -> None:
     ] * 8
 
     def read_one(request):
+        """
+        Read the requested key/range through the enclosing shared Store, leaving expected bytes for
+        the final assertion.
+
+        Example:
+            >>> read_one(("book one.txt", 0, None, b"hello"))  # doctest: +SKIP
+            b'hello'
+
+
+        :param request: Tuple of member key, offset, optional length, and expected payload.
+        :return: Bytes returned by the Store for that request.
+        """
         key, offset, length, _expected = request
         return store.read_file(key, offset=offset, length=length)
 
@@ -282,6 +483,16 @@ def test_iso_readonly_supports_concurrent_reads(tmp_path) -> None:
 
 
 def test_iso_readonly_enforces_image_version_on_open(tmp_path) -> None:
+    """
+    Reject an earlier image version after appending a sector changes the real container metadata.
+
+    Example:
+        >>> test_iso_readonly_enforces_image_version_on_open(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding real or intentionally malformed image fixtures.
+    :return: None after the stated regression assertions pass.
+    """
     image = _basic_image(tmp_path)
     store = IsoReadOnlyStorageBackend(str(image))
     info = store.stat_file("book one.txt")
@@ -296,6 +507,17 @@ def test_iso_readonly_enforces_image_version_on_open(tmp_path) -> None:
 
 
 def test_iso_readonly_rejects_mutation_and_noncanonical_paths(tmp_path) -> None:
+    """
+    Reject write/delete calls and representative empty, absolute, parent, duplicate-slash, and
+    backslash keys.
+
+    Example:
+        >>> test_iso_readonly_rejects_mutation_and_noncanonical_paths(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding real or intentionally malformed image fixtures.
+    :return: None after the stated regression assertions pass.
+    """
     image = _basic_image(tmp_path)
     store = IsoReadOnlyStorageBackend(str(image))
 
@@ -309,6 +531,17 @@ def test_iso_readonly_rejects_mutation_and_noncanonical_paths(tmp_path) -> None:
 
 
 def test_iso_readonly_reports_truncated_and_non_iso_images(tmp_path) -> None:
+    """
+    Distinguish a truncated descriptor read from a complete zero-filled non-ISO image using typed
+    failures.
+
+    Example:
+        >>> test_iso_readonly_reports_truncated_and_non_iso_images(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding real or intentionally malformed image fixtures.
+    :return: None after the stated regression assertions pass.
+    """
     truncated = tmp_path / "truncated.iso"
     complete = _basic_image(tmp_path).read_bytes()
     truncated.write_bytes(complete[: 16 * 2048 + 100])
@@ -322,6 +555,20 @@ def test_iso_readonly_reports_truncated_and_non_iso_images(tmp_path) -> None:
 
 
 def test_iso_readonly_reports_udf_only_boundary_explicitly(tmp_path) -> None:
+    """
+    Require an explicit unsupported UDF-only error for synthetic recognition markers without an ISO
+    bridge.
+
+    The placeholder is not a fully valid UDF image; the assertion pins this detected boundary and
+    its advertised limitation.
+
+    Example:
+        >>> test_iso_readonly_reports_udf_only_boundary_explicitly(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding real or intentionally malformed image fixtures.
+    :return: None after the stated regression assertions pass.
+    """
     pytest.importorskip("pycdlib")
     path = tmp_path / "udf-only.iso"
     payload = bytearray(64 * 2048)
@@ -336,6 +583,16 @@ def test_iso_readonly_reports_udf_only_boundary_explicitly(tmp_path) -> None:
 
 
 def test_iso_readonly_rejects_corrupt_both_endian_fields(tmp_path) -> None:
+    """
+    Reject a real image after changing only the big-endian logical-block-size field to disagree.
+
+    Example:
+        >>> test_iso_readonly_rejects_corrupt_both_endian_fields(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding real or intentionally malformed image fixtures.
+    :return: None after the stated regression assertions pass.
+    """
     image = _basic_image(tmp_path)
     payload = bytearray(image.read_bytes())
     descriptor = 16 * 2048
@@ -347,6 +604,17 @@ def test_iso_readonly_rejects_corrupt_both_endian_fields(tmp_path) -> None:
 
 
 def test_iso_readonly_enforces_inventory_and_directory_limits(tmp_path) -> None:
+    """
+    Require distinct typed startup failures for all-entry and per-directory byte caps on a real
+    Joliet image.
+
+    Example:
+        >>> test_iso_readonly_enforces_inventory_and_directory_limits(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding real or intentionally malformed image fixtures.
+    :return: None after the stated regression assertions pass.
+    """
     image = _basic_image(tmp_path)
 
     with pytest.raises(api.StorageUnsupportedOperation, match="inventory limit"):
@@ -356,6 +624,19 @@ def test_iso_readonly_enforces_inventory_and_directory_limits(tmp_path) -> None:
 
 
 def test_iso_readonly_bounds_member_total_and_path_bytes(tmp_path) -> None:
+    """
+    Enforce individual logical size, aggregate size, and whole-key byte limits during direct ISO
+    inventory.
+
+    The member limit named max_udf_member_bytes also applies to this non-UDF fixture.
+
+    Example:
+        >>> test_iso_readonly_bounds_member_total_and_path_bytes(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding real or intentionally malformed image fixtures.
+    :return: None after the stated regression assertions pass.
+    """
     image = _basic_image(tmp_path)
 
     with pytest.raises(api.StorageUnsupportedOperation, match="member size"):
@@ -379,19 +660,72 @@ def test_iso_udf_spool_rejects_output_beyond_indexed_size(
     tmp_path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """
+    Reject a fake extractor offering one byte beyond a real UDF member's indexed size.
+
+    The real bridge supplies metadata; injected extraction isolates the bounded writer failure.
+
+    Example:
+        >>> test_iso_udf_spool_rejects_output_beyond_indexed_size(tmp_path, monkeypatch)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding real or intentionally malformed image fixtures.
+    :param monkeypatch: Pytest fixture restoring injected optional-parser seams after the test.
+    :return: None after the stated regression assertions pass.
+    """
     image = _udf_bridge_image(tmp_path)
     store = IsoReadOnlyStorageBackend(str(image))
     info = store.stat_file("📚/naïve.epub")
 
     class FakeImage:
+        """
+        Substitute a parser that offers oversized output using the enclosing real member size.
+
+        Opening and closing are no-ops; no image is parsed by this double.
+
+        Example:
+            >>> image = FakeImage()  # doctest: +SKIP
+        """
         def open(self, _path):
+            """
+            Accept the requested image path without opening a resource.
+
+            Example:
+                >>> image.open("fixture.iso")  # doctest: +SKIP
+
+
+            :param _path: Ignored image pathname supplied by the driver.
+            :return: None without filesystem access.
+            """
             return None
 
         def get_file_from_iso_fp(self, destination, *, udf_path):
+            """
+            Offer one oversized chunk to the driver's bounded destination.
+
+            The UDF path is ignored; the enclosing indexed size determines the chunk length.
+
+            Example:
+                >>> image.get_file_from_iso_fp(destination, udf_path="/book")  # doctest: +SKIP
+
+
+            :param destination: Bounded sink expected to reject the oversized write.
+            :param udf_path: Ignored extraction path accepted for call compatibility.
+            :return: None only if the destination accepts the write; the test expects StorageIntegrityError to propagate.
+            """
             del udf_path
             destination.write(b"x" * (info.size + 1))
 
         def close(self):
+            """
+            Accept parser cleanup without owning or closing any resource.
+
+            Example:
+                >>> image.close()  # doctest: +SKIP
+
+
+            :return: None without changing state.
+            """
             return None
 
     monkeypatch.setattr(
@@ -404,6 +738,17 @@ def test_iso_udf_spool_rejects_output_beyond_indexed_size(
 
 
 def test_iso_readonly_missing_image_has_actionable_typed_error(tmp_path) -> None:
+    """
+    Require construction to identify a missing image through StorageNotFound with operation and
+    filename context.
+
+    Example:
+        >>> test_iso_readonly_missing_image_has_actionable_typed_error(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding real or intentionally malformed image fixtures.
+    :return: None after the stated regression assertions pass.
+    """
     missing = tmp_path / "missing-library.iso"
 
     with pytest.raises(api.StorageNotFound) as observed:
@@ -415,6 +760,17 @@ def test_iso_readonly_missing_image_has_actionable_typed_error(tmp_path) -> None
 
 
 def test_registry_builds_iso_from_file_uri(tmp_path) -> None:
+    """
+    Build the ISO alias from a file-URI configuration and read a real member through the resulting
+    Store.
+
+    Example:
+        >>> test_registry_builds_iso_from_file_uri(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory holding real or intentionally malformed image fixtures.
+    :return: None after the stated regression assertions pass.
+    """
     image = _basic_image(tmp_path)
     configuration = api.StoreConfiguration(
         store_uuid=uuid4(),

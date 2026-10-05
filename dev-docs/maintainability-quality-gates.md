@@ -1,6 +1,14 @@
 # Maintainability quality gates
 
-Status: enforced for the modern ratchet, 2026-08-31.
+Status: enforced for the modern ratchet; updated 2026-09-07 through the
+internal-contract, workflow-ownership, dependency-direction, failure-visibility,
+incremental-formatting, CLI-composition, terminal-composition, and terminal-owner
+extraction tranches.
+
+The final CI/documentation close-out gives general validation one
+[workflow owner](continuous-integration.md) and provides a
+[developer documentation index](README.md). The bounded improvement programme
+is complete; the excluded legacy work below remains incremental maintenance.
 
 ## Purpose
 
@@ -12,7 +20,7 @@ regressions.
 
 The default gate is therefore a zero-error ratchet. It covers the modern
 storage API, the Core program facade and its endpoint providers, the mixed
-ingest application seam, and the packaged storage CLI. Newly extracted leaf
+ingest application seam, and reviewed packaged CLI and terminal owners. Newly extracted leaf
 protocols are checked strictly. Existing orchestration remains on
 basedpyright's standard mode until its dynamic subsystem boundaries are made
 more precise. Mypy uses strict checking within the selected files while
@@ -24,9 +32,13 @@ Run the same gate locally with:
 bash scripts/run_type_checks.sh
 ```
 
-The command also checks callable annotations in `file_formats`, runs Ruff over
-newly ratcheted modules, and rejects cycles in the protected Catalog writer/API
-and Calibre metadata API seams.
+The command first checks the explicit modern formatting scope, then checks
+callable annotations in `file_formats`, runs Ruff over
+newly ratcheted modules, and rejects cycles in the protected Catalog writer/API,
+Calibre metadata API, cache writer, shared/web surface seams, and complete CLI
+and terminal packages. The dependency
+gate includes import-time, deferred, and type-only imports; see the dependency
+direction section below for its scope and limits.
 The CI quality job additionally guards documentation at the reviewed
 first-party boundaries: every module and top-level public class in `caches`,
 `catalog`, `core`, `databases`, `ingest`, `jobs`, `storage`, and `surfaces`, plus
@@ -67,19 +79,96 @@ Application-surface ownership is enforced by
    the configured complexity ceiling; extract named policy or presentation
    helpers instead of raising the ceiling.
 8. Storage-manager behaviour belongs in the API-shaped implementation mixins;
-   `storage_manager/manager.py` remains a small composition and compatibility
+   `storage_manager/manager.py` remains a small composition
    root. Cross-cutting mechanics belong in explicitly private support mixins,
    not whichever public component happens to call them first.
 9. The documentation ratchet protects architectural and exported boundaries.
    Do not weaken it to accommodate a new public API, and do not widen it by
    generating tautological prose for inherited private helpers. Move legacy
    areas into the ratchet only after a human review can describe them honestly.
+10. Calls between maintained components require named, typed contracts.
+    Storage helpers and Core endpoint providers must not use catch-all
+    `__getattr__`, unrestricted callable signatures, or casts from `object`
+    to bypass implementation conformance. Extend the positive and negative
+    contract examples when adding a new kind of internal call.
+11. Formatted modules stay formatter-clean. Expand the positive formatting
+    scope only after reviewing its diff and running the affected tests; do not
+    add broad formatter exclusions or turn the gate into an automatic rewrite.
+
+## Incremental formatting
+
+`[tool.liuxin.format].paths` in `pyproject.toml` is the single formatting scope.
+Its first tranche covered 109 Python files: the existing modern lint scope,
+Core and storage CLI regression tests, and the static internal-call examples.
+It includes both extracted workflow trees, Core endpoint providers, storage
+implementation mixins, and shared presentation/acquisition leaves. Formatting
+coverage does not imply strict typing or expand the separate lint scope.
+The CLI-composition tranche adds eight reviewed owners/entry modules and its
+contract suite, taking current formatting coverage to 118 files.
+The terminal-composition tranche added nine reviewed terminal sources and its
+contract suite, taking coverage to 128 files. Stage 8 adds both complete terminal
+component directories and two regression suites: stage-8 coverage is 154 files.
+The CI/documentation close-out adds two contract suites, taking the current
+formatter scope to 156 files without expanding production typing coverage.
+The subsequent whole-project documentation migration adds its audit, safe
+normalizer, and regression suite: current formatter coverage is 159 files.
+
+Use the repo-local commands:
+
+```bash
+.venv/bin/python scripts/run_format_checks.py
+.venv/bin/python scripts/run_format_checks.py --write
+.venv/bin/python scripts/run_format_checks.py --dry-run
+bash scripts/run_type_checks.sh
+```
+
+The formatter helper defaults to `ruff format --check`; only `--write` rewrites
+selected files. `--dry-run` validates the scope and prints the exact command
+without requiring Ruff or writing files. It works from any current directory,
+uses the repo-local Ruff executable and root configuration, and disables the
+formatter cache. Normal quality runs and CI always use check mode, including
+when only one type checker is selected. Formatter failures stop the gate.
+
+Each scope entry names a repository-relative Python file or directory. A
+directory includes all nested `*.py` files, including newly added modules.
+Missing entries, empty directories/lists, non-Python file entries, and paths
+escaping the checkout fail before Ruff runs. Overlapping entries are deduplicated.
+The selected files are explicit inputs: Git ignore patterns, nested Ruff
+configuration, and exclusions cannot silently remove them from this scope.
+
+Ruff is pinned to **0.16.5** in the `typing` extra and `required-version` setting.
+The existing Python 3.12 target and 88-column policy remain; formatted line
+endings are explicitly LF. Install the typing extra (or use the quality
+runner's `--install`) if the prepared environment has another Ruff version.
+Upgrade both pins together in a reviewed change, reformat this scope, and
+rerun the full quality gate plus affected tests. Do not silently float the
+formatter version in CI.
+
+To expand coverage, add a bounded owner or package and its regression tests to
+the scope, run the explicit write command, inspect the mechanical diff, and
+verify behavior and the full quality gate. Directory entries need no update
+for new files. Keep inherited/vendored trees outside this tranche; do not
+replace the positive list with a whole-checkout path.
+
+`tests/scripts/test_run_format_checks.py` exercises real Ruff against temporary
+checkouts: read-only success/failure, explicit bounded/idempotent writes, new
+modules, invalid scopes, ignored files, nested config, and version enforcement.
+The quality-runner tests verify actual invocation, failure propagation, checker
+selection, and CI wiring. Neither passing test mocks alone nor a dry-run log is
+treated as evidence that the formatter ran.
 
 ## Current ownership seams
 
 - `core/program_endpoints` owns transport descriptions and registration by
-  command family; `CoreProgramAPI` continues to own handler implementation and
-  public compatibility.
+  command family. `core/program_services` owns execution; `CoreProgramAPI`
+  retains installation and explicit compatibility delegates only.
+- `surfaces/cli/storage_commands` separates administration, Store options and
+  guided setup, parser construction, and ingest process/reporting concerns.
+  Callers import those owners directly.
+- `surfaces/cli/parsers` owns the complete command grammar; `app` owns dispatch.
+  Completion receives the grammar through an explicit registrar contract, and
+  SquashFS parser declarations and execution have separate owners. Historical
+  entry-point shims have been removed; the installed command targets app.main. See [CLI composition](cli-composition.md).
 - `ingest/mixed_application.py` owns database, Store-manager, and mixed-ingest
   coordinator composition. CLI code owns parsing, operator interaction,
   process signals, logs, locks, and report presentation.
@@ -89,6 +178,13 @@ Application-surface ownership is enforced by
 - Mutually-referential metadata-tool protocols are co-located in
   `metadata_tools_api/facades.py`; the historical modules are compatibility
   exports only.
+- `caches/write` assembles and exports writers; its implementations import
+  base classes directly from their defining modules, never through that
+  assembling package.
+- `surfaces/presentation.py` owns shared text, integer-option, and row-display
+  helpers. `surfaces/acquisition_types.py` owns portable delivery targets and
+  the narrow byte-reader contract. Neither imports another LiuXin module;
+  reusable backends and web applications depend on them independently.
 - `storage/storage_manager/mixins` mirrors the ordered `StorageManagerAPI`
   components. Shared mutable state, durable ingest wire types, and
   cross-component mechanics are isolated in private implementation modules.
@@ -97,7 +193,238 @@ The excluded legacy and renderer areas are still valid maintenance work. Their
 absence from the green ratchet is explicit debt, not evidence that they pass
 strict checking.
 
+## Internal callable contracts
+
+The 2026-09-06 tranche makes the storage and Core registration boundaries
+checkable at both the caller and implementation:
+
+- `storage/storage_manager/mixins/_contracts.py` declares the 39 helpers
+  shared between storage components, including Store attachment during
+  construction. The state base inherits these explicit protocols. Abstract
+  declarations reject a composed manager that omits a required support
+  component; helpers used only within their own component remain local.
+- `core/program_endpoints/handlers.py` describes each provider's named
+  handlers and the aggregate surface implemented by `CoreProgramAPI`.
+  Providers receive these contracts directly. Their registrar specifies
+  query versus command handlers, required arguments, and allowed keywords.
+  Handler results retain mapping contracts where the implementation promises
+  a record; the generic schema-column result remains opaque.
+- Core command and query envelopes are explicit targets of both checkers.
+  This matters for mypy: its existing `follow_imports=skip` policy must not
+  erase their distinct types at registration.
+
+`scripts/run_type_checks.sh` now runs
+`scripts/check_internal_type_contracts.py` for each selected checker after its
+production check succeeds. The static-only fixture
+`tests/typing/internal_contracts.py` contains valid calls against real
+implementations and 37 deliberately invalid examples covering names, argument
+types, return types, signatures, provider conformance, and typed evacuation
+plans/limits, acquisition-reader calls, row lookups, and completion registrar
+calls, terminal extension hosts/overrides, and concrete browser/curses component
+calls and structural window/row contracts. Each invalid line
+must report its expected diagnostic rule; all other lines must pass. An
+unrelated import error or checker failure cannot satisfy the test.
+
+Keep each `expect-error` marker on the precise token/definition line reported
+by the checkers when formatting a negative example. If they report different
+lines of a multiline call, use `-` in the non-applicable checker slot and place
+its expectation on its own reported line. This is not a suppression: an
+unmarked diagnostic still fails, and no statement-wide line range is accepted.
+
+Run these checks separately with:
+
+```bash
+.venv/bin/python scripts/check_internal_type_contracts.py --checker basedpyright
+.venv/bin/python scripts/check_internal_type_contracts.py --checker mypy
+```
+
+The fixture is never executed. Production checks still require zero errors;
+the intentionally invalid examples are checked in a separate invocation.
+
+## Workflow implementation ratchet
+
+The 2026-09-06 workflow extraction includes both complete implementation trees
+in typing, Ruff, and the complexity ceiling of 10. Before extraction,
+`core/program_api.py` was outside that complexity gate and had seven violations
+with complexity up to 19. None remain in the extracted implementation.
+
+New evacuation models, planning, execution, and placement-policy helpers are
+strict basedpyright targets. Moved legacy envelope adapters and CLI workflows
+retain their existing standard basedpyright mode; their dynamic subsystem
+boundaries have not become strict merely because their files moved. At this
+tranche's completion, all 145 selected source files passed the existing strict
+mypy configuration; the subsequent shared-leaf extraction expanded that
+scope to 147.
+
+`tests/scripts/test_workflow_ownership.py` prevents implementation from flowing
+back into compatibility facades, rejects cycles within the extracted trees,
+and bounds the reviewed owners to 450 module lines and 160 function lines.
+The two compatibility files stay below 250 lines and contain no workflow
+bodies. These are growth ceilings, not recommended sizes: most functions are
+substantially shorter, and long wire projections/parser declarations remain
+visible debt rather than a reason to raise limits.
+
+See `dev-docs/core-program-workflows.md` for ownership and change guidance.
+
+## Dependency direction and import contexts
+
+The 2026-09-06 dependency tranche expanded
+`scripts/check_modern_import_cycles.py` from 58 to 105 protected modules,
+including the complete cache-writer package, shared surface backends/contracts,
+and the five maintained web/API/OPDS application packages. Previous protected
+Catalog and metadata seams remain protected. The exact scope lives in the
+script's named prefix tuples; the separate workflow-ownership test continues
+to protect the stage-2 implementation trees.
+
+The gate rejects multi-module strongly connected components in the **combined**
+graph. The stage-3 rules also reject three directions even without a cycle:
+
+- cache writer implementations importing through `caches.write`;
+- shared surface backends/contracts importing a web application package;
+- the new presentation/acquisition leaves importing another LiuXin module.
+
+Failure output lists actual dependency edges, source paths, lines, and contexts:
+
+- `import-time`: imports outside function bodies and recognized type-only
+  branches; class bodies execute in their enclosing context;
+- `deferred`: imports in ordinary or async function bodies;
+- `type-only`: imports under recognized `typing.TYPE_CHECKING` guards,
+  including aliases and negated guards' `else` branches.
+
+These labels describe syntax, not a proof of Python's complete initialization
+order. For example, a function can be called during module initialization.
+Guard recognition is syntactic rather than a scope-aware symbol resolver;
+unrecognized conditions are treated conservatively. Both branches remain in
+the combined graph. Dynamic import calls and implicit parent-package execution
+are not modeled, so fresh-process import tests complement the static check.
+No context is silently excluded from the architecture gate. The combined
+`build_graph` API retains its previous semantics for existing callers.
+
+`tests/scripts/test_check_modern_import_cycles.py` tests context classification,
+relative imports, combined-graph rejection, acyclic direction violations, and
+missing-source failure. CI runs it alongside
+`tests/surfaces/test_shared_surface_dependencies.py` and
+`tests/databases/caches/test_writer_dependencies.py`, which exercise isolated
+imports, compatibility-export identity, helper/byte-reader behavior, and writer
+dispatch. Both new leaf modules enter strict typing, lint, and complexity-10
+checking; strict mypy covered 147 selected source files at stage-3 completion.
+
+The old private names in `surfaces.web_readonly.app` remain compatibility
+aliases, not duplicate implementations. Shared read-model, image, catalogue,
+and OPDS backends import their owners directly. Helper fallback behavior is
+unchanged by the dependency extraction; the subsequent failure-visibility
+tranche narrows missing-column fallback and removes broad query-error catches,
+as described below.
+This is a scoped dependency ratchet, not a whole-project acyclicity claim.
+
+## CLI composition and entry-point boundaries
+
+Stage 6 separates complete parser construction from application dispatch and
+SquashFS command execution. Completion supplies its registrar when requesting
+the grammar; it no longer imports the application to build a parser. A
+standard-library-only protocol checks that registration boundary. See
+[CLI composition](cli-composition.md) for owners, compatibility, and change guidance.
+
+The dependency gate now includes all 47 CLI modules, bringing the protected
+combined graph to 152 modules. CLI implementations may not import the package,
+application, or historical SquashFS entry-point facades. Explicit entry wrappers
+may delegate to the application. Parser composition may not import completion,
+and parser contracts may not import another LiuXin module. All three import
+contexts remain checked, including acyclic violations of these directions.
+
+Eight reviewed CLI sources enter typing, lint, complexity-10, and formatting;
+the new contract leaf enters strict basedpyright. Strict mypy now covers 155
+selected source files. This does not make the entire CLI a strict typing target.
+The static fixture includes valid registrar calls and two new invalid examples,
+bringing the checked total to 27 for each checker.
+
+CI runs `tests/surfaces/test_cli_dependency_contracts.py` for fresh-process
+imports, explicit registration, standalone completion, complete compatibility
+entry points, selector/error behavior, and SquashFS Core receipt contracts.
+The import-scanner tests additionally protect recursive CLI scope and direction
+rules in every import context. The separate terminal UI cycle was repaired by
+the subsequent tranche below; no whole-project acyclicity claim is made.
+
+## Terminal composition and extension boundaries
+
+Stage 7 separates terminal startup/database creation from browser execution and
+shared presentation. The curses adapter imports the browser owner, while startup
+loads curses only on selection. Command and lifecycle APIs are generic over
+their host instead of importing the concrete browser under `TYPE_CHECKING`.
+Terminal callers import app, browser, database_creation and presentation directly;
+the package initializer is a namespace and __main__ invokes app.main. See [terminal composition](terminal-composition.md).
+
+Stage 8 splits the two large terminal owners into complete `browser_components`
+and `windowed_components` trees. The browser root is now 128 lines and the curses
+composition/adapter 178 lines; each component is bounded by the ownership tests.
+Command dispatch, legacy grammar, history/completion, browsing/rows, input keys,
+and pane presentation have named owners and helpers. Explicit shared-state and
+cross-owner contracts keep mixin composition checked; concrete extension hosts
+and structural browser/window/row capabilities do not require backward imports.
+
+All 69 terminal modules enter the combined graph, bringing its current scope to
+221 modules. Implementations cannot import terminal entry-point facades, browser
+execution cannot import its curses adapter, and the presentation/extension leaves
+cannot import another LiuXin module. Entry wrappers retain explicit exceptions;
+no deferred or type-only context is omitted.
+Component implementations additionally cannot import their concrete composition
+roots, browser components cannot import curses components, and contract modules
+cannot import implementation mixins.
+
+All 33 reviewed terminal sources enter typing/lint (188 strict-mypy files total).
+Both complete component trees, both roots, and the shared rendering helpers are
+held to complexity 10; all 18 original violations are resolved without a raised
+ceiling. Five terminal leaves enter strict basedpyright; orchestration retains
+standard mode and explicit dynamic Core payload boundaries. The Core row view's
+overloads now describe its existing list-versus-iterator result without a runtime
+change. Stage 7 added five host/override examples; stage 8 adds five internal
+browser, row, driver, and window mistakes, bringing the total to 37 per checker.
+
+CI runs terminal dependency/compatibility, ownership/quality-scope, headless
+component behavior, and existing curses-driver contracts alongside scanner tests
+for every backward direction and import context. Full text-browser regressions
+additionally exercise real Core/database,
+mutation, lifecycle, history, completion, and startup behavior.
+
+## Read-model failure visibility
+
+The stage-4 failure contract distinguishes successful empty/missing results and
+explicit incomplete-query fallbacks from failed reads. Read-model and image
+backends may not reintroduce catch-all handlers. API category routes, OPDS
+related-data collection, home counts, and file/image resolution must not hide
+query failures in an outer adapter. WSGI owns generic HTTP 500 responses and
+server-side traceback logging; public responses do not contain exception detail.
+
+CI runs the read-model failure, surface HTTP error, real direct/RPC error, and
+Core application contracts. The normal quality helper lints the new standalone
+test modules. See [read-model-failures.md](read-model-failures.md) for the exact
+fallback rules, diagnostic ownership, and the count-only Core query repair
+uncovered by removing silent catches.
+
 ## Repository-wide documentation audit
+
+The new 2026-09-08 request covers every named function, class, and module,
+including private helpers, tests, examples, inherited code, and tracked Python
+in the initialized data submodule. This migration is **in progress**; the earlier
+public-boundary documentation gate below does not prove that this wider request
+is complete. See the [active handoff](../working-memory/project-docstrings-2026-09-08.md).
+
+Use `scripts/audit_project_docstrings.py` without positional paths for the whole
+project. `--output` writes a detailed generated JSON report and `--check` fails
+while structural documentation gaps remain. Explicit file arguments are labelled
+as a batch view. The migration requires source-reviewed prose and meaningful
+reST parameter/return descriptions, not just field presence. The AST audit does
+not measure descriptive accuracy or cover native C implementation comments.
+
+`scripts/normalize_docstrings.py` only standardizes existing safe literals. It
+retains unmatched/duplicate parameter descriptions and shared-line/escaped
+literals for manual editing, and compares executable syntax before returning a
+rewrite. CLI and Core code that consumes `__doc__` still needs output testing.
+Both tools and their real-source/Git regression suite enter the maintained
+formatter/lint scope; CI runs the suite without falsely requiring the unfinished
+whole-project audit to pass.
+
+### Earlier public-boundary audit
 
 The 2026-09-01 pass parsed all production and maintained-tooling Python files,
 not only the ratcheted packages. The initial snapshot covered 1,770 files,
@@ -132,3 +459,33 @@ The next useful documentation work is human review of public metadata row and
 container families, followed by format-specific compatibility seams as those
 areas receive functional maintenance. Raw missing-docstring totals must not be
 reduced with generated restatements of symbol names.
+
+## Whole-project baseline and priority order
+
+The 2026-09-02 whole-project review rates readability at 6/10 and
+maintainability at 6.5/10. The modern application spine is materially stronger
+(about 8/10), as is the test system (about 8.5/10), but those areas coexist with
+a very large inherited compatibility tree. The review counted roughly 1,730
+production Python files and 1,005,000 raw lines; about 45% is generated or
+resource-lookup-style code. It also found seven modern import-cycle components
+covering 81 modules, about 1,267 TODO-like markers, and several 2,800–4,300-line
+modern orchestration files.
+
+The numbers are a navigation aid rather than new red gates. The order for
+improving them is:
+
+1. keep built/installable artifacts operational, with package discovery and
+   runtime data verified outside the checkout;
+2. cut modern cycles at leaf protocols and registries;
+3. split the largest modern orchestration modules along existing command and
+   service ownership seams;
+4. widen the zero-error typing, Ruff, and complexity ratchets only after each
+   selected package is green;
+5. consolidate duplicated CI and developer-documentation navigation (completed
+   by the final close-out; see [CI ownership](continuous-integration.md) and the
+   [documentation index](README.md)).
+
+The first item now has an installed-catalogue wheel gate. See
+`dev-docs/packaging.md` and
+`working-memory/maintainability-and-packaging-2026-09-02.md` for the artifact
+contract, evidence, and remaining external-resource limitation.

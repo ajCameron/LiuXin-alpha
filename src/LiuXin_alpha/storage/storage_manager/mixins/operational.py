@@ -1,5 +1,9 @@
 """
-Aggregate health and durable ingest recovery operations.
+Aggregate manager observations into issues and suggested recovery actions.
+
+The default recovery methods model a transient manager without a durable journal.
+Application overrides own publication recovery and retry; inspection remains
+separate from those actions.
 """
 
 from __future__ import annotations
@@ -15,13 +19,14 @@ from LiuXin_alpha.storage.storage_manager.mixins._state import _StorageManagerSt
 
 class StorageOperationalStatusMixin(_StorageManagerState):
     """
-    Aggregate storage health into operator-facing issues and actions.
+    Aggregate Store, journal, Replica, policy, and deferred-recovery findings from shared manager
+    hooks. Inspection does not itself repair publications or replace Replica observations, though
+    delegated Store/profile hooks may perform fresh reads. This base has no durable recovery: its
+    recover method returns empty and retry raises; the application manager overrides those
+    operations.
 
-    Status combines Store availability, durable ingest journals, Replica
-    observations, and policy assessments without mutating manager metadata.
-    ``refresh_stores=True`` may ask Store plugins for fresh status.  Durable
-    recovery and retry operations are no-ops or errors here and are overridden
-    by the database-backed application manager.
+    Example:
+        >>> status = manager.get_operational_status()  # doctest: +SKIP
     """
 
     @override
@@ -31,11 +36,21 @@ class StorageOperationalStatusMixin(_StorageManagerState):
         refresh_stores: bool = False,
     ) -> api.StorageOperationalStatus:
         """
-        Return an attributable, actionable snapshot of storage health.
+        Materialize attributable Store status, then collect Store, ingest, Replica, and policy
+        findings in that order and append deferred-recovery issues. Exact-equal hashable recovery
+        actions are deduplicated in first-seen order; issues are retained. checked_at is UTC time
+        sampled after collection.
+
+        Separate reads do not form one atomic snapshot. Helper/iteration errors propagate except
+        where an individual helper explicitly translates them; this method applies no recovery or
+        verification itself.
+
+        Example:
+            >>> status = manager.get_operational_status(refresh_stores=True)  # doctest: +SKIP
 
 
-        :param refresh_stores:
-        :return:
+        :param refresh_stores: Flag forwarded to Store status enumeration.
+        :return: New aggregate status with ordered issues and deduplicated suggested actions.
         """
 
         store_statuses = tuple(self.iter_store_statuses(refresh=refresh_stores))
@@ -66,11 +81,17 @@ class StorageOperationalStatusMixin(_StorageManagerState):
         list[api.StorageRecoveryAction],
     ]:
         """
-        Translate unavailable Stores and plugin warnings into findings.
+        Turn every plugin warning into an attributed warning issue, then add an unavailable issue
+        and reload suggestion for each false availability flag. Message fallback applies only to
+        false message values. Warning/issue construction failures propagate; writability alone
+        produces no issue here.
+
+        Example:
+            >>> issues, actions = manager._store_operational_findings(())  # doctest: +SKIP
 
 
-        :param store_statuses:
-        :return:
+        :param store_statuses: Ordered observations already collected from configured Stores.
+        :return: Pair of mutable issue/action lists in observation order.
         """
 
         issues: list[api.StorageOperationalIssue] = []
@@ -115,10 +136,16 @@ class StorageOperationalStatusMixin(_StorageManagerState):
         list[api.StorageRecoveryAction],
     ]:
         """
-        Translate unfinished durable journal rows into recovery guidance.
+        Read journal summaries, skip committed state, and classify failed entries as errors with
+        retry suggestions. Other states become pending warnings with recovery suggestions.
+        Missing/false state becomes unknown; operation attribution is retained only for UUID
+        instances. Getter, mapping, and string-conversion failures are not generally suppressed.
+
+        Example:
+            >>> issues, actions = manager._ingest_operational_findings()  # doctest: +SKIP
 
 
-        :return:
+        :return: Pair of journal issue/action lists in supplied journal order.
         """
 
         issues: list[api.StorageOperationalIssue] = []
@@ -175,10 +202,16 @@ class StorageOperationalStatusMixin(_StorageManagerState):
         list[api.StorageRecoveryAction],
     ]:
         """
-        Report Replica observations that cannot currently satisfy reads.
+        Inspect stored Replica state without reading or verifying bytes. MISSING and CORRUPT produce
+        error severity; UNAVAILABLE produces warning severity. Corruption has its own issue code,
+        while missing/unavailable share replica_unavailable. Each receives a replication suggestion;
+        other states are ignored.
+
+        Example:
+            >>> issues, actions = manager._replica_operational_findings()  # doctest: +SKIP
 
 
-        :return:
+        :return: Pair of attributed Replica issue/action lists in repository iteration order.
         """
 
         issues: list[api.StorageOperationalIssue] = []
@@ -224,10 +257,17 @@ class StorageOperationalStatusMixin(_StorageManagerState):
         list[api.StorageRecoveryAction],
     ]:
         """
-        Report Assets whose replication or backup policy is unsatisfied.
+        Assess each Asset and report unsatisfied replication/backup policy with planning
+        suggestions. An Exception from the assessment call becomes a policy_assessment_failed error
+        and skips that Asset. Unsatisfied policies are errors when the assessment says unavailable,
+        otherwise warnings. Asset iteration and later assessment-property errors are outside that
+        catch.
+
+        Example:
+            >>> issues, actions = manager._policy_operational_findings()  # doctest: +SKIP
 
 
-        :return:
+        :return: Pair of policy issue/action lists; failed assessments contribute an issue without a suggested action.
         """
 
         issues: list[api.StorageOperationalIssue] = []
@@ -284,10 +324,15 @@ class StorageOperationalStatusMixin(_StorageManagerState):
 
     def _deferred_recovery_issues(self) -> list[api.StorageOperationalIssue]:
         """
-        Expose startup recovery failures retained by the application manager.
+        Snapshot an optional ingest_recovery_issues attribute and stringify every message into a
+        warning. Missing attributes yield no warnings. No messages are cleared and no recovery runs;
+        iteration/string/blank-message validation errors propagate.
+
+        Example:
+            >>> issues = manager._deferred_recovery_issues()  # doctest: +SKIP
 
 
-        :return:
+        :return: New list of deferred-ingest recovery warning issues.
         """
 
         return [
@@ -301,10 +346,15 @@ class StorageOperationalStatusMixin(_StorageManagerState):
 
     def list_ingest_operations(self) -> tuple[Mapping[str, object], ...]:
         """
-        Return operator-safe durable ingest summaries when available.
+        Return the journal-status hook result unchanged. The transient hook supplies an empty tuple;
+        application overrides can expose durable summaries. This wrapper adds no filtering, copying,
+        or redaction.
+
+        Example:
+            >>> operations = manager.list_ingest_operations()  # doctest: +SKIP
 
 
-        :return:
+        :return: Tuple of mappings returned by _ingest_journal_statuses.
         """
 
         return self._ingest_journal_statuses()
@@ -314,11 +364,16 @@ class StorageOperationalStatusMixin(_StorageManagerState):
         operation_id: UUID | None = None,
     ) -> tuple[str, ...]:
         """
-        Recover durable publication gaps; transient managers have none.
+        Return an empty result because this base implements no durable journal recovery. The
+        operation UUID is ignored without validation; no issue state is cleared or publication
+        inspected here.
+
+        Example:
+            >>> messages = manager.recover_pending_ingests()  # doctest: +SKIP
 
 
-        :param operation_id:
-        :return:
+        :param operation_id: Unused optional UUID accepted for interface conformance.
+        :return: Empty tuple for every call to this base implementation.
         """
 
         del operation_id
@@ -329,11 +384,15 @@ class StorageOperationalStatusMixin(_StorageManagerState):
         operation_id: UUID,
     ) -> api.DigitalAssetIngestResult:
         """
-        Retry one durable ingest when its original source is replayable.
+        Reject retry because this base has no durable ingest journal. The supplied UUID is discarded
+        without lookup or replay; the application manager can override this behavior.
+
+        Example:
+            >>> result = manager.retry_ingest_operation(operation_id)  # doctest: +SKIP
 
 
-        :param operation_id:
-        :return:
+        :param operation_id: Unused UUID accepted for interface conformance.
+        :return: Never returns; raises StoragePreconditionFailed explaining the absent durable journal.
         """
 
         del operation_id

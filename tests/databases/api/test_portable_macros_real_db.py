@@ -1,3 +1,11 @@
+"""
+Exercise portable macro wiring, transactions, and link metadata through provisioned Database fixtures.
+
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/api/test_portable_macros_real_db.py
+"""
 from __future__ import annotations
 
 import uuid
@@ -9,6 +17,19 @@ from LiuXin_alpha.databases.schema_specs import StorageColumnSpec, StorageLinkSp
 
 
 def _column(name: str, ordinal: int, *, primary: bool = False) -> StorageColumnSpec:
+    """
+    Build a test column using INTEGER for _id names or priority, and TEXT otherwise.
+
+    Example:
+        >>> _column('priority', 2).declared_type
+        'INTEGER'
+
+
+    :param name: Resource or schema object name, as described above.
+    :param ordinal: Zero-based column position.
+    :param primary: Primary-key flag; defaults to False.
+    :return: New StorageColumnSpec with the supplied ordinal and primary-key flag.
+    """
     return StorageColumnSpec(
         name=name,
         ordinal=ordinal,
@@ -18,6 +39,19 @@ def _column(name: str, ordinal: int, *, primary: bool = False) -> StorageColumnS
 
 
 def test_portable_macros_through_real_database_wiring(db):
+    """
+    Check linked-row replacement and extras, bulk empty results, stable fingerprints, temporary IDs, and case-insensitive tag reuse through Database.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/api/test_portable_macros_real_db.py::test_portable_macros_through_real_database_wiring
+
+
+    :param db: Open provisioned Database supplied and closed by the fixture; tests may
+        create tables and mutate rows.
+    :return: None; failed expectations raise AssertionError.
+    """
     db.driver_wrapper.executescript(
         """
         CREATE TABLE macro_test_left (
@@ -124,6 +158,19 @@ def test_portable_macros_through_real_database_wiring(db):
 
 
 def test_portable_row_crud_and_nested_transaction_rollback(db):
+    """
+    Check nested successful writes commit, forced outer failure rolls back updates and deletes, and a later delete persists.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/api/test_portable_macros_real_db.py::test_portable_row_crud_and_nested_transaction_rollback
+
+
+    :param db: Open provisioned Database supplied and closed by the fixture; tests may
+        create tables and mutate rows.
+    :return: None; failed expectations raise AssertionError.
+    """
     db.driver_wrapper.executescript(
         """
         CREATE TABLE macro_row_crud (
@@ -190,6 +237,19 @@ def test_portable_row_crud_and_nested_transaction_rollback(db):
 
 
 def test_real_link_spec_detects_type_as_part_of_nonexclusive_identity(db):
+    """
+    Refresh schema metadata and check that at least one link specification includes type in a nonexclusive identity.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/api/test_portable_macros_real_db.py::test_real_link_spec_detects_type_as_part_of_nonexclusive_identity
+
+
+    :param db: Open provisioned Database supplied and closed by the fixture; tests may
+        create tables and mutate rows.
+    :return: None; failed expectations raise AssertionError.
+    """
     candidates = [
         spec
         for spec in db.driver_wrapper.iter_link_specs(force_refresh=True)
@@ -199,6 +259,19 @@ def test_real_link_spec_detects_type_as_part_of_nonexclusive_identity(db):
 
 
 def test_unique_group_introspection_ignores_partial_indexes(db):
+    """
+    Check that partial and expression indexes do not produce the tested ordinary column unique groups.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/api/test_portable_macros_real_db.py::test_unique_group_introspection_ignores_partial_indexes
+
+
+    :param db: Open provisioned Database supplied and closed by the fixture; tests may
+        create tables and mutate rows.
+    :return: None; failed expectations raise AssertionError.
+    """
     db.driver_wrapper.executescript(
         """
         CREATE TABLE macro_partial_unique (

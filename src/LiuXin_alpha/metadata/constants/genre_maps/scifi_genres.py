@@ -2,6 +2,22 @@
 # Run this ONLY if you've already classified the work as "Science Fiction".
 # Most-specific-first.
 
+"""
+Provide leaf-label patterns for works already classified as Science Fiction.
+
+Specific aesthetics, space settings, encounters, time-travel themes and other
+subgenres precede the broad Science Fiction fallback. Several expressions overlap
+other genres and rely on branch context.
+
+Map canonical labels to tuples of uncompiled regular-expression strings. Consumers
+choose regex flags, normalization, and first-match or multi-match policy; importing
+the module performs no classification.
+
+Example:
+    >>> import re
+    >>> any(re.search(pattern, 'space opera', re.IGNORECASE) for pattern in SCI_FI_LEAF_MAPPING['Space Opera']) is not False
+    True
+"""
 SCI_FI_LEAF_MAPPING = {
     # --- Punk families (very specific) ---
     "Solarpunk": (

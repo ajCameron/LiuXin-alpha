@@ -1,3 +1,11 @@
+"""
+Verify Store registration reuse and protected presence metadata in miniature SQLite.
+
+Opaque local image bytes stand in for SquashFS. Tests inspect persisted identity/link
+behavior and database trigger rejection, without starting a reader or verifying archive
+members. A failed-result case rejects before physical-path registration checks.
+"""
+
 from __future__ import annotations
 
 import sqlite3
@@ -13,6 +21,22 @@ from LiuXin_alpha.storage.backup import BackupArtifactRegistry, BackupWorkflowRe
 
 
 def test_registry_creates_stable_store_and_idempotent_protected_links(tmp_path: Path) -> None:
+    """
+    Verify repeated registration reuses Store identity and SQLite enforces link protection.
+
+    Write opaque local image bytes, persist synthetic two-member backup intent and a COMPLETE
+    checkpoint/result, then register twice. Assert equal registration values, one canonical-URI
+    SquashFS Store row, two presence links, and iterator reconstruction. Direct SQL updates/deletes
+    must be rejected by immutable/protected-link triggers. No manager is attached, member content is
+    read, or genuine SquashFS image validated; close the connection in finally.
+
+    Example:
+        >>> test_registry_creates_stable_store_and_idempotent_protected_links(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real SQLite catalogue and local source/image paths.
+    :return: None after the stated regression assertions pass.
+    """
     db = build_mini_db(tmp_path / "registry.sqlite")
     try:
         artifact = tmp_path / "packs/nightly.sqsh"
@@ -99,6 +123,21 @@ def test_registry_creates_stable_store_and_idempotent_protected_links(tmp_path: 
 
 
 def test_registry_rejects_failed_or_missing_artifacts(tmp_path: Path) -> None:
+    """
+    Verify a FAILED result rejects before artifact registration.
+
+    Persist intent naming an absent local image and construct a FAILED outcome with error text.
+    Registration must raise StoreIntegrityError requiring success. The absent pathname supplies
+    context, but this case does not reach the missing-file check for a successful result. Close the
+    miniature SQLite connection in finally.
+
+    Example:
+        >>> test_registry_rejects_failed_or_missing_artifacts(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real SQLite catalogue and local source/image paths.
+    :return: None after the stated regression assertions pass.
+    """
     db = build_mini_db(tmp_path / "registry-errors.sqlite")
     try:
         declaration = api.BackupWorkflowDeclaration(

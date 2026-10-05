@@ -1,24 +1,32 @@
-from __future__ import with_statement
-from __future__ import annotations
+"""
+Convert HTML content from the normalized ebook conversion pipeline.
 
-import typing as _typing
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise html output through a consuming regression::
+
+        python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+"""
+from __future__ import annotations, with_statement
 
 import os
 import re
 import shutil
-
+import typing as _typing
 from functools import partial
-from os.path import dirname, abspath, relpath as _relpath, exists, basename
+from os.path import abspath, basename, dirname, exists
+from os.path import relpath as _relpath
 from urllib.parse import unquote
 
-from LiuXin_alpha.customize.conversion import OutputFormatPlugin, OptionRecommendation
-
+from LiuXin_alpha.customize.conversion import OptionRecommendation, OutputFormatPlugin
 from LiuXin_alpha.utils.calibre import CurrentDir
 from LiuXin_alpha.utils.libraries.liuxin_etree import etree
+from LiuXin_alpha.utils.libraries.liuxin_templite import Templite
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.ptempfiles import PersistentTemporaryDirectory
 from LiuXin_alpha.utils.resources import P
-from LiuXin_alpha.utils.liuxin_templite import Templite
 
 __license__ = "GPL 3"
 __copyright__ = "2010, Fabian Grassl <fg@jusmeum.de>"
@@ -26,11 +34,32 @@ __docformat__ = "restructuredtext en"
 
 
 def relpath(*args: _typing.Any) -> _typing.Any:
+    """
+    Perform the relpath operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise relpath through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+    :param args: Positional values forwarded to the compatibility implementation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return _relpath(*args).replace(os.sep, "/")
 
 
 class HTMLOutput(OutputFormatPlugin):
 
+    """
+    Provide the htmloutput contract for validated ebook processing.
+
+    Example:
+        Exercise HTMLOutput through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+    """
     name = "HTML Output"
     author = "Fabian Grassl"
     file_type = "zip"
@@ -65,16 +94,38 @@ class HTMLOutput(OutputFormatPlugin):
     def generate_toc(self: _typing.Self, oeb_book: _typing.Any, ref_url: _typing.Any, output_dir: _typing.Any) -> _typing.Any:
         """
         Generate table of contents
-        :param oeb_book:
-        :param ref_url:
-        :param output_dir:
-        :return:
+
+        Example:
+            Exercise HTMLOutput.generate toc through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param oeb_book: Value supplied for oeb book under the utility contract.
+        :param ref_url: Value supplied for ref url under the utility contract.
+        :param output_dir: Value supplied for output dir under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         from LiuXin_alpha.file_formats.oeb.base import element
 
         with CurrentDir(output_dir):
 
             def build_node(current_node: _typing.Any, parent: _typing.Any = None) -> _typing.Any:
+                """
+                Perform the build node operation under explicit file-format and conversion rules.
+
+                Example:
+                    Exercise HTMLOutput.generate toc.build node through a consuming regression::
+
+                        python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+                :param current_node: Value supplied for current node under the utility contract.
+                :param parent: Value supplied for parent under the utility contract.
+                :return: The normalized value, metadata record, path, stream result or collection
+                    described above.
+                """
                 if parent is None:
                     parent = etree.Element("ul")
                 elif len(current_node.nodes):
@@ -95,6 +146,21 @@ class HTMLOutput(OutputFormatPlugin):
             return wrap
 
     def generate_html_toc(self: _typing.Self, oeb_book: _typing.Any, ref_url: _typing.Any, output_dir: _typing.Any) -> _typing.Any:
+        """
+        Perform the generate html toc operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HTMLOutput.generate html toc through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param oeb_book: Value supplied for oeb book under the utility contract.
+        :param ref_url: Value supplied for ref url under the utility contract.
+        :param output_dir: Value supplied for output dir under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         root = self.generate_toc(oeb_book, ref_url, output_dir)
         data = etree.tostring(root, pretty_print=True, encoding="utf-8", xml_declaration=False)
         return data.decode("utf-8", "replace") if isinstance(data, bytes) else data
@@ -102,12 +168,20 @@ class HTMLOutput(OutputFormatPlugin):
     def convert(self: _typing.Self, oeb_book: _typing.Any, output_path: _typing.Any, input_plugin: _typing.Any, opts: _typing.Any, log: _typing.Any) -> None:
         """
         Takes an OEB book and converts it to an HTML file.
-        :param oeb_book:
-        :param output_path:
-        :param input_plugin:
-        :param opts:
-        :param log:
-        :return:
+
+        Example:
+            Exercise HTMLOutput.convert through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param oeb_book: Value supplied for oeb book under the utility contract.
+        :param output_path: Value supplied for output path under the utility contract.
+        :param input_plugin: Value supplied for input plugin under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         from LiuXin_alpha.file_formats.html.meta import EasyMeta
         from LiuXin_alpha.utils.libraries import calibre_zipfile

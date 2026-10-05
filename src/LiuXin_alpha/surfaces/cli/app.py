@@ -1,91 +1,56 @@
-"""Top-level packaged LiuXin command-line application."""
+"""
+Normalize operator shortcuts and dispatch the separately owned CLI grammar.
+
+Parser construction registers handlers but does not execute a Core operation.
+Global profile selectors are moved ahead of commands, then concise ingest forms
+are expanded. Argparse errors retain SystemExit; ordinary handler or result-int
+conversion failures print an ERROR line to stderr and return status two.
+"""
 
 from __future__ import annotations
 
 import argparse
 import sys
 
-from LiuXin_alpha.constants import __version__
-from LiuXin_alpha.surfaces.cli.capabilities import build_plugins_parser
-from LiuXin_alpha.surfaces.cli.catalogue import (
-    build_acquisition_parser,
-    build_catalog_parser,
-)
-from LiuXin_alpha.surfaces.cli.config_cli import (
-    build_config_parser,
-    build_connection_parsers,
-)
 from LiuXin_alpha.surfaces.cli.completion import build_completion_parser
-from LiuXin_alpha.surfaces.cli.core_cli import build_core_parser
-from LiuXin_alpha.surfaces.cli.diagnostics import build_diagnostics_parsers
-from LiuXin_alpha.surfaces.cli.initialize import build_init_parser
-from LiuXin_alpha.surfaces.cli.jobs import build_jobs_parser
-from LiuXin_alpha.surfaces.cli.metadata import build_metadata_parser
-from LiuXin_alpha.surfaces.cli.postgres import build_postgres_parser
-from LiuXin_alpha.surfaces.cli.serve import build_serve_parser
-from LiuXin_alpha.surfaces.cli.squashfs import build_squashfs_parser
-from LiuXin_alpha.surfaces.cli.storage import build_storage_parser
-from LiuXin_alpha.surfaces.cli.workflows import (
-    build_backup_parser,
-    build_conversion_parser,
-    build_database_parser,
-    build_ingest_parser,
-    build_maintenance_parser,
-)
+from LiuXin_alpha.surfaces.cli.parsers import create_parser
 
 
 def build_parser() -> argparse.ArgumentParser:
     """
-    Build the top-level ``liuxin`` command-line parser.
+    Build the complete command grammar with the standalone completion registrar.
+
+    Example:
+        >>> args = build_parser().parse_args(['completion', 'fish'])
+        >>> (args.surface, args.shell, args.output)
+        ('completion', 'fish', '-')
 
 
-    :return:
+    :return: A fresh argparse parser; no command handler has run.
     """
-    parser = argparse.ArgumentParser(
-        prog="liuxin",
-        description="LiuXin operational command-line surfaces",
-    )
-    parser.add_argument(
-        "--version",
-        action="version",
-        version=f"LiuXin {__version__}",
-    )
-    parser.add_argument(
-        "--system-root",
-        dest="global_system_root",
-        help="Use SYSTEM_ROOT/liuxin-system.json for every supported command.",
-    )
-    parser.add_argument(
-        "--profile",
-        dest="global_profile",
-        help="Use a named or path-based LiuXin deployment profile.",
-    )
-    subparsers = parser.add_subparsers(dest="surface", required=True)
-    build_init_parser(subparsers)
-    build_connection_parsers(subparsers)
-    build_config_parser(subparsers)
-    build_diagnostics_parsers(subparsers)
-    build_completion_parser(subparsers)
-    build_core_parser(subparsers)
-    build_jobs_parser(subparsers)
-    build_catalog_parser(subparsers)
-    build_acquisition_parser(subparsers)
-    build_metadata_parser(subparsers)
-    build_storage_parser(subparsers)
-    build_ingest_parser(subparsers)
-    build_conversion_parser(subparsers)
-    build_backup_parser(subparsers)
-    build_database_parser(subparsers)
-    build_maintenance_parser(subparsers)
-    build_serve_parser(subparsers)
-    build_squashfs_parser(subparsers)
-    build_postgres_parser(subparsers)
-    build_plugins_parser(subparsers)
-    return parser
+    return create_parser(register_completion=build_completion_parser)
 
 
 def _normalise_shortcuts(argv: list[str]) -> list[str]:
-    """Expand concise operator forms before argparse sees subcommands."""
+    """
+    Expand a nonreserved ingest shortcut into the storage-ingest command path.
+
+    Recognized ingest subcommands and help remain unchanged. Otherwise the
+    first exact --source token and its next token take precedence over a
+    positional source. An absent source value or an unrecognized option-first
+    form is left for argparse. Equals-form --source and option terminators are
+    not interpreted specially. The input list is never mutated.
+
+    Example:
+        >>> _normalise_shortcuts(['ingest', '/media/books', '--detach'])
+        ['storage', 'ingest', '--source-root', '/media/books', '--detach']
+        >>> _normalise_shortcuts(['ingest', 'formats'])
+        ['ingest', 'formats']
+
+
+    :param argv: Command tokens without the executable name, matched case-sensitively.
+    :return: Expanded token list, or the original list object when no rewrite applies.
+    """
 
     if len(argv) < 2 or argv[0] != "ingest":
         return argv
@@ -116,7 +81,23 @@ def _normalise_shortcuts(argv: list[str]) -> list[str]:
 
 
 def _hoist_global_selectors(argv: list[str]) -> list[str]:
-    """Allow global profile selectors before or after a subcommand."""
+    """
+    Move profile/system-root selectors ahead of shortcut-normalized command tokens.
+
+    Recognize separate and equals-form values anywhere in the list, preserving
+    selector order and repetitions. This scan does not respect an option
+    terminator or know which tokens are other options' values. A final bare
+    selector without a value returns the original list immediately, without
+    shortcut expansion. Mutual-exclusion checks belong to main, not this helper.
+
+    Example:
+        >>> _hoist_global_selectors(['completion', 'bash', '--profile=home'])
+        ['--profile=home', 'completion', 'bash']
+
+
+    :param argv: Argument tokens to scan without mutating the input list.
+    :return: Hoisted and normalized tokens, or the original list for a missing value.
+    """
 
     selected: list[str] = []
     remainder: list[str] = []
@@ -148,11 +129,23 @@ def _hoist_global_selectors(argv: list[str]) -> list[str]:
 
 def main(argv: list[str] | None = None) -> int:
     """
-    Run the cli command-line entry point.
+    Normalize selectors/shortcuts, parse arguments, and invoke the selected handler.
+
+    Truthy global root/profile selectors are mutually exclusive and are copied
+    to the command namespace unless that same destination is already truthy.
+    Repeated global options ordinarily retain argparse's last-value behavior;
+    this is not a general duplicate-token detector. A missing handler prints
+    help and returns two. Ordinary handler and integer-result conversion errors
+    print ERROR to stderr and return two. Parser/construction errors and
+    BaseException subclasses such as SystemExit or KeyboardInterrupt propagate.
+
+    Example:
+        >>> main(['completion', 'fish', '--output', 'liuxin.fish'])  # doctest: +SKIP
 
 
-    :param argv:
-    :return:
+    :param argv: Explicit tokens copied before normalization, or None for sys.argv[1:].
+    :return: Integer-coerced handler status, or two for a missing/failed handler.
+    :raises SystemExit: Argparse handles help/version or rejects arguments/selectors.
     """
     parser = build_parser()
     selected = sys.argv[1:] if argv is None else argv

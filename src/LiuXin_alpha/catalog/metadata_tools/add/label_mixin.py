@@ -1,6 +1,6 @@
 
 """
-Enables adding label rows to the database.
+Retain the standalone legacy Label insertion mixin and tag-named alias.
 """
 
 
@@ -55,19 +55,24 @@ from typing import Optional
 
 class LabelMixin:
     """
-    Enables adding labels to the system.
+    Supply Label insertion outside the current Add composition.
+
+    This retained mixin is not inherited by Add, whose tag method creates Tags.
+
+    Example:
+        A custom host inheriting LabelMixin can call label(text) or its tag alias.
     """
     def label(self, tag: str, tag_phash: Optional[str] = None) -> RowAPI:
         """
-        Make a tag and return the row of the new tag.
+        Insert a Label with a supplied or generated tag-style search hash.
 
-        This method includes no checking to see if collisions are going to occur. Use ensure_tag to run collision
-        checking.
-        In almost all circumstances you should be using ensure_tag, not this method.
-        :param tag:
-        :param tag_phash:
+        Example:
+            A label is persisted in label columns even when invoked through this mixin's tag alias.
 
-        :return:
+
+        :param tag: Label text stored unchanged; parameter retains the legacy tag spelling.
+        :param tag_phash: Hash override; None calls make_tag_search_term.
+        :return: Created database Row; synchronization and schema errors propagate.
         """
         tag_row = Row(database=self.db)
 
@@ -79,11 +84,15 @@ class LabelMixin:
 
     def tag(self, tag: str, tag_phash: Optional[str] = None) -> RowAPI:
         """
-        In the future, will return a specialized tag row.
+        Forward the historical tag method to Label insertion.
 
-        :param tag:
-        :param tag_phash:
-        :return:
+        Example:
+            A label is persisted in label columns even when invoked through this mixin's tag alias.
+
+
+        :param tag: Label text stored unchanged; parameter retains the legacy tag spelling.
+        :param tag_phash: Hash override; None calls make_tag_search_term.
+        :return: Created database Row; synchronization and schema errors propagate.
         """
         return self.label(tag, tag_phash=tag_phash)
 

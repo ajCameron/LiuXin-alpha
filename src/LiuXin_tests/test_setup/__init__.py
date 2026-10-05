@@ -1,6 +1,12 @@
 
 """
-Setup method to prepare for a testing run.
+Expose the supported test setup compatibility surface.
 
-Generates or downloads all the resources needed for the tests to run.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
 """

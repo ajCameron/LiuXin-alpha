@@ -1,7 +1,8 @@
 """
-Manager-bound factories for resolving catalogue identities to Locations.
+Resolve Asset and Replica identities through a retained live manager.
 
-Locations contain all the information we have as to the
+Factories forward current selection requirements without caching locations or
+reconstructing physical addresses from catalogue identifiers.
 """
 
 from __future__ import annotations
@@ -16,13 +17,15 @@ from LiuXin_alpha.storage.api.storage_manager_api.models import (
 )
 
 
+# Todo: This could be public.
 class _AssetLocator(Protocol):
     """
-    Location-resolution subset required by ``LocationFactory``.
+    Describe the manager selection methods needed by LocationFactory. This structural typing seam
+    avoids importing the full facade and supplies no runtime checking, selection algorithm, or
+    resource ownership.
 
     Example:
-        >>> def accepts_locator(locator: _AssetLocator) -> None:
-        ...     pass
+        >>> locator: _AssetLocator = manager  # doctest: +SKIP
     """
 
     def locate_digital_asset(
@@ -33,31 +36,33 @@ class _AssetLocator(Protocol):
         require_verified: bool = False,
     ) -> Location:
         """
-        Select a readable Location for one Digital Asset.
+        Select an eligible Location for one Digital Asset under the requested preference and
+        verification requirement. Availability checks and failure categories belong to the concrete
+        manager; several Replicas may represent the same Asset.
 
         Example:
-            >>> location = locator.locate_digital_asset(  # doctest: +SKIP
-            ...     DigitalAssetID(7),
-            ... )
+            >>> location = locator.locate_digital_asset(asset_id, require_verified=True)  # doctest: +SKIP
 
 
-        :param digital_asset_id:
-        :param preferred_store_ref:
-        :param require_verified:
-        :return:
+        :param digital_asset_id: Catalogue Digital Asset identity whose eligible Replica is selected by the manager.
+        :param preferred_store_ref: Optional configured Store UUID forwarded as a selection preference.
+        :param require_verified: Whether the manager must select a Replica satisfying its verified-selection contract.
+        :return: Location of the Replica selected by the manager.
         """
         ...
 
     def locate_replica(self, replica_id: ReplicaID) -> Location:
         """
-        Resolve one exact Replica Location.
+        Resolve one registered Replica to its concrete Location. This contract selects by exact
+        Replica identity rather than searching among an Asset's alternative copies; the manager owns
+        lookup and availability policy.
 
         Example:
-            >>> location = locator.locate_replica(ReplicaID(12))  # doctest: +SKIP
+            >>> location = locator.locate_replica(replica_id)  # doctest: +SKIP
 
 
-        :param replica_id:
-        :return:
+        :param replica_id: Exact catalogue Replica identity to resolve through the manager.
+        :return: Location resolved for the requested Replica.
         """
         ...
 
@@ -65,18 +70,21 @@ class _AssetLocator(Protocol):
 @dataclass(slots=True, frozen=True, eq=False)
 class LocationFactory:
     """
-    Resolve database identities through one storage manager.
+    Retain a live manager for resolving catalogue identities to concrete Locations. Asset lookup
+    performs current Replica selection; it does not reconstruct a unique permanent address from an
+    ID. Replica lookup forwards an exact identity. Results and errors come directly from the
+    manager.
 
-    A Digital Asset may have several Replicas, so ``from_id`` performs a
-    current manager selection rather than reconstructing a unique address.
-    Selection policy, availability errors, and verification failures remain
-    the manager's responsibility and propagate unchanged.
+    The frozen wrapper performs no constructor validation, owns no manager lifetime, and caches no
+    selection. eq=False retains identity equality; the manager is omitted from the generated
+    representation.
 
     Example:
         >>> factory = manager.location_factory  # doctest: +SKIP
-        >>> location = factory.from_id(  # doctest: +SKIP
-        ...     DigitalAssetID(7), require_verified=True,
-        ... )
+        >>> location = factory.from_id(asset_id, require_verified=True)  # doctest: +SKIP
+
+
+    :ivar _manager: Live object implementing the two location-selection methods.
     """
 
     _manager: _AssetLocator = field(repr=False)
@@ -89,23 +97,18 @@ class LocationFactory:
         require_verified: bool = False,
     ) -> Location:
         """
-        Select one readable Location for a Digital Asset identity.
-
-        ``preferred_store_ref`` is a Store UUID, not a row ID or display name.
-        The returned Location may change as Replica health or placement
-        changes; persist it when the concrete address itself is significant.
+        Delegate current Asset-to-Replica selection with both preference arguments unchanged. The
+        selected address can change as manager metadata or Replica availability changes. This
+        wrapper adds no ID validation, availability probe, or verification work.
 
         Example:
-            >>> location = factory.from_id(  # doctest: +SKIP
-            ...     DigitalAssetID(7), preferred_store_ref=UUID(int=1),
-            ...     require_verified=True,
-            ... )
+            >>> location = factory.from_id(asset_id, preferred_store_ref=store_uuid)  # doctest: +SKIP
 
 
-        :param digital_asset_id:
-        :param preferred_store_ref:
-        :param require_verified:
-        :return:
+        :param digital_asset_id: Catalogue Digital Asset identity whose eligible Replica is selected by the manager.
+        :param preferred_store_ref: Optional configured Store UUID forwarded as a selection preference.
+        :param require_verified: Whether the manager must select a Replica satisfying its verified-selection contract.
+        :return: Location returned by the manager for the selected Asset Replica.
         """
 
         return self._manager.locate_digital_asset(
@@ -122,18 +125,18 @@ class LocationFactory:
         require_verified: bool = False,
     ) -> Location:
         """
-        Explicitly named alias for :meth:`from_id`.
+        Forward the explicit Asset-named entry point through from_id. Dynamic dispatch and all
+        supplied selection arguments are retained, so an override of from_id also controls this
+        convenience.
 
         Example:
-            >>> location = factory.from_digital_asset_id(  # doctest: +SKIP
-            ...     DigitalAssetID(7),
-            ... )
+            >>> location = factory.from_digital_asset_id(asset_id)  # doctest: +SKIP
 
 
-        :param digital_asset_id:
-        :param preferred_store_ref:
-        :param require_verified:
-        :return:
+        :param digital_asset_id: Catalogue Digital Asset identity whose eligible Replica is selected by the manager.
+        :param preferred_store_ref: Optional configured Store UUID forwarded as a selection preference.
+        :param require_verified: Whether the manager must select a Replica satisfying its verified-selection contract.
+        :return: Location returned by from_id under the requested selection preferences.
         """
 
         return self.from_id(
@@ -144,17 +147,16 @@ class LocationFactory:
 
     def from_replica_id(self, replica_id: ReplicaID) -> Location:
         """
-        Resolve one exact Replica identity to its Location.
-
-        Unlike ``from_id``, this performs no choice among a Digital Asset's
-        Replicas because the Replica ID already identifies one concrete copy.
+        Delegate resolution of one exact Replica identity without choosing among alternative IDs.
+        The manager owns lookup, eligibility, and errors; this wrapper neither validates the
+        identifier nor probes bytes.
 
         Example:
-            >>> location = factory.from_replica_id(ReplicaID(12))  # doctest: +SKIP
+            >>> location = factory.from_replica_id(replica_id)  # doctest: +SKIP
 
 
-        :param replica_id:
-        :return:
+        :param replica_id: Exact catalogue Replica identity to resolve through the manager.
+        :return: Location returned by the manager for that Replica.
         """
 
         return self._manager.locate_replica(replica_id)

@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Build MOBI EXTH metadata records.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise exth through a consuming regression::
+
+        python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -76,20 +87,34 @@ def build_exth(
 ) -> _typing.Any:
     """
     Construct an EXTH header for a mobi file
-    :param metadata: Metadata object to render to EXTH - must be calibreMetadata
-    :param prefer_author_sort:
-    :param is_periodical:
-    :param share_not_sync:
-    :param cover_offset:
-    :param thumbnail_offset:
-    :param start_offset:
-    :param mobi_doctype:
-    :param num_of_resources:
-    :param kf8_unknown_count:
-    :param be_kindlegen2:
-    :param kf8_header_index:
-    :param page_progression_direction:
-    :return:
+
+    Example:
+        Exercise build exth through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+    :param metadata: Value supplied for metadata under the utility contract.
+    :param prefer_author_sort: Value supplied for prefer author sort under the utility
+        contract.
+    :param is_periodical: Value supplied for is periodical under the utility contract.
+    :param share_not_sync: Value supplied for share not sync under the utility contract.
+    :param cover_offset: Value supplied for cover offset under the utility contract.
+    :param thumbnail_offset: Value supplied for thumbnail offset under the utility
+        contract.
+    :param start_offset: Value supplied for start offset under the utility contract.
+    :param mobi_doctype: Value supplied for mobi doctype under the utility contract.
+    :param num_of_resources: Value supplied for num of resources under the utility
+        contract.
+    :param kf8_unknown_count: Value supplied for kf8 unknown count under the utility
+        contract.
+    :param be_kindlegen2: Value supplied for be kindlegen2 under the utility contract.
+    :param kf8_header_index: Value supplied for kf8 header index under the utility
+        contract.
+    :param page_progression_direction: Value supplied for page progression direction
+        under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     exth = BytesIO()
     nrecs = 0

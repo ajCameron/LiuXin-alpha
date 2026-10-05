@@ -1,7 +1,15 @@
 # -*- coding: utf-8 -*-
 
 """
-Transform OEB content into plain text
+Convert plain text and paragraph structure into OEB markup.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise txtml through a consuming regression::
+
+        python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
 """
 from __future__ import annotations
 
@@ -54,9 +62,26 @@ SPACE_TAGS = [
 class TXTMLizer(object):
     """
     Converts XHTML to text.
+
+    Example:
+        Exercise TXTMLizer through a consuming regression::
+
+            python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
     """
 
     def __init__(self: _typing.Self, log: _typing.Any) -> None:
+        """
+        Initialize and validate the txtmlizer state.
+
+        Example:
+            Exercise TXTMLizer.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+        :param log: Value supplied for log under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.log = log
 
         self.oeb_book = None
@@ -66,6 +91,20 @@ class TXTMLizer(object):
         self.last_was_heading = None
 
     def extract_content(self: _typing.Self, oeb_book: _typing.Any, opts: _typing.Any) -> _typing.Any:
+        """
+        Extract content under the format's safety and compatibility rules.
+
+        Example:
+            Exercise TXTMLizer.extract content through a consuming regression::
+
+                python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+        :param oeb_book: Value supplied for oeb book under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.log.info("Converting XHTML to TXT...")
         self.oeb_book = oeb_book
         self.opts = opts
@@ -78,6 +117,18 @@ class TXTMLizer(object):
         return self.mlize_spine()
 
     def mlize_spine(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the mlize spine operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TXTMLizer.mlize spine through a consuming regression::
+
+                python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.file_formats.oeb.base import XHTML
         from LiuXin_alpha.file_formats.oeb.stylizer import Stylizer
 
@@ -98,6 +149,19 @@ class TXTMLizer(object):
         return output
 
     def remove_newlines(self: _typing.Self, text: _typing.Any) -> _typing.Any:
+        """
+        Perform the remove newlines operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TXTMLizer.remove newlines through a consuming regression::
+
+                python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.log.debug("\tRemove newlines for processing...")
         text = text.replace("\r\n", " ")
         text = text.replace("\n", " ")
@@ -108,6 +172,18 @@ class TXTMLizer(object):
         return text
 
     def get_toc(self: _typing.Self) -> _typing.Any:
+        """
+        Return toc under the format's safety and compatibility rules.
+
+        Example:
+            Exercise TXTMLizer.get toc through a consuming regression::
+
+                python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         toc = [""]
         if getattr(self.opts, "inline_toc", None):
             self.log.debug("Generating table of contents...")
@@ -119,7 +195,16 @@ class TXTMLizer(object):
     def create_flat_toc(self: _typing.Self, nodes: _typing.Any) -> None:
         """
         Turns a hierarchical list of TOC href's into a flat list.
-        :param nodes:
+
+        Example:
+            Exercise TXTMLizer.create flat toc through a consuming regression::
+
+                python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+        :param nodes: Value supplied for nodes under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         for item in nodes:
             self.toc_titles.append(item.title)
@@ -127,6 +212,19 @@ class TXTMLizer(object):
             self.create_flat_toc(item.nodes)
 
     def cleanup_text(self: _typing.Self, text: _typing.Any) -> _typing.Any:
+        """
+        Perform the cleanup text operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TXTMLizer.cleanup text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.log.debug("\tClean up text...")
         # Replace bad characters.
         text = text.replace("\xc2", "")
@@ -204,10 +302,18 @@ class TXTMLizer(object):
     def dump_text(self: _typing.Self, elem: _typing.Any, stylizer: _typing.Any, page: _typing.Any) -> _typing.Any:
         """
         Dump the processed text.
-        :param elem:
-        :param stylizer:
-        :param page:
-        :return:
+
+        Example:
+            Exercise TXTMLizer.dump text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+        :param elem: Value supplied for elem under the utility contract.
+        :param stylizer: Value supplied for stylizer under the utility contract.
+        :param page: Value supplied for page under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         from LiuXin_alpha.file_formats.oeb.base import XHTML_NS, barename, namespace
 

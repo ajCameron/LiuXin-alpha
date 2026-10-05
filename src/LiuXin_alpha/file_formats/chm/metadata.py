@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Read and normalize metadata from the package's ebook container.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise metadata through a consuming regression::
+
+        python -m pytest -q tests/file_formats/chm/test_chm_modernized.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -11,9 +22,9 @@ import codecs
 import io
 import re
 
-from LiuXin_alpha.file_formats.chardet import xml_to_unicode
 from LiuXin_alpha.metadata.utils import calibreMetaInformation, string_to_authors
 from LiuXin_alpha.utils.calibre import force_unicode
+from LiuXin_alpha.utils.libraries.calibre_chardet import xml_to_unicode
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.logging import default_log
 from LiuXin_alpha.utils.ptempfiles import TemporaryFile
@@ -24,14 +35,54 @@ __docformat__ = "restructuredtext en"
 
 
 def _clean(s: _typing.Any) -> _typing.Any:
+    """
+    Perform the clean operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  clean through a consuming regression::
+
+            python -m pytest -q tests/file_formats/chm/test_chm_modernized.py
+
+
+    :param s: Value supplied for s under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return s.replace("\u00a0", " ")
 
 
 def _text_content(elem: _typing.Any) -> _typing.Any:
+    """
+    Perform the text content operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  text content through a consuming regression::
+
+            python -m pytest -q tests/file_formats/chm/test_chm_modernized.py
+
+
+    :param elem: Value supplied for elem under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return "".join(elem.itertext()).strip() if elem is not None else ""
 
 
 def _metadata_from_table(soup: _typing.Any, searchfor: _typing.Any) -> _typing.Any:
+    """
+    Perform the metadata from table operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  metadata from table through a consuming regression::
+
+            python -m pytest -q tests/file_formats/chm/test_chm_modernized.py
+
+
+    :param soup: Value supplied for soup under the utility contract.
+    :param searchfor: Value supplied for searchfor under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     for td in soup.xpath("//td"):
         td_text = _clean(_text_content(td))
         if not re.search(searchfor, td_text, flags=re.I):
@@ -51,6 +102,20 @@ def _metadata_from_table(soup: _typing.Any, searchfor: _typing.Any) -> _typing.A
 
 
 def _metadata_from_span(soup: _typing.Any, searchfor: _typing.Any) -> _typing.Any:
+    """
+    Perform the metadata from span operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  metadata from span through a consuming regression::
+
+            python -m pytest -q tests/file_formats/chm/test_chm_modernized.py
+
+
+    :param soup: Value supplied for soup under the utility contract.
+    :param searchfor: Value supplied for searchfor under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     for span in soup.xpath("//span[@class]"):
         klass = span.attrib.get("class", "")
         if re.search(searchfor, klass, flags=re.I):
@@ -59,6 +124,19 @@ def _metadata_from_span(soup: _typing.Any, searchfor: _typing.Any) -> _typing.An
 
 
 def _get_authors(soup: _typing.Any) -> _typing.Any:
+    """
+    Perform the get authors operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  get authors through a consuming regression::
+
+            python -m pytest -q tests/file_formats/chm/test_chm_modernized.py
+
+
+    :param soup: Value supplied for soup under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     aut = _metadata_from_span(soup, r"author") or _metadata_from_table(soup, r"^\s*by\s*:?\s+")
     ans = [_("Unknown")]
     if aut is not None:
@@ -67,14 +145,53 @@ def _get_authors(soup: _typing.Any) -> _typing.Any:
 
 
 def _get_publisher(soup: _typing.Any) -> bool:
+    """
+    Perform the get publisher operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  get publisher through a consuming regression::
+
+            python -m pytest -q tests/file_formats/chm/test_chm_modernized.py
+
+
+    :param soup: Value supplied for soup under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return _metadata_from_span(soup, "imprint") or _metadata_from_table(soup, "publisher")
 
 
 def _get_isbn(soup: _typing.Any) -> bool:
+    """
+    Perform the get isbn operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  get isbn through a consuming regression::
+
+            python -m pytest -q tests/file_formats/chm/test_chm_modernized.py
+
+
+    :param soup: Value supplied for soup under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return _metadata_from_span(soup, "isbn") or _metadata_from_table(soup, "isbn")
 
 
 def _get_comments(soup: _typing.Any) -> str | None:
+    """
+    Perform the get comments operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  get comments through a consuming regression::
+
+            python -m pytest -q tests/file_formats/chm/test_chm_modernized.py
+
+
+    :param soup: Value supplied for soup under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     date = _metadata_from_span(soup, "cwdate") or _metadata_from_table(soup, "pub date")
     pages = _metadata_from_span(soup, "pages") or _metadata_from_table(soup, "pages")
     try:
@@ -89,6 +206,20 @@ def _get_comments(soup: _typing.Any) -> str | None:
 
 
 def _get_cover(soup: _typing.Any, rdr: _typing.Any) -> _typing.Any:
+    """
+    Perform the get cover operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  get cover through a consuming regression::
+
+            python -m pytest -q tests/file_formats/chm/test_chm_modernized.py
+
+
+    :param soup: Value supplied for soup under the utility contract.
+    :param rdr: Value supplied for rdr under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     ans = None
     try:
         for img in soup.xpath("//img[@alt][@src]"):
@@ -138,7 +269,20 @@ def _get_cover(soup: _typing.Any, rdr: _typing.Any) -> _typing.Any:
 
 
 def get_metadata_from_reader(rdr: _typing.Any, calibre: bool = False) -> _typing.Any:
-    """Get metadata from a CHM reader instance."""
+    """
+    Get metadata from a CHM reader instance.
+
+    Example:
+        Exercise get metadata from reader through a consuming regression::
+
+            python -m pytest -q tests/file_formats/chm/test_chm_modernized.py
+
+
+    :param rdr: Value supplied for rdr under the utility contract.
+    :param calibre: Value supplied for calibre under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         raw = rdr.get_home()
     except Exception:
@@ -183,6 +327,20 @@ def get_metadata_from_reader(rdr: _typing.Any, calibre: bool = False) -> _typing
 
 
 def get_metadata(stream: _typing.Any) -> _typing.Any:
+    """
+    Return metadata under the format's safety and compatibility rules.
+
+    Example:
+        Exercise get metadata through a consuming regression::
+
+            python -m pytest -q tests/file_formats/chm/test_chm_modernized.py
+
+
+    :param stream: Input or output stream wrapped by the terminal or compatibility
+        layer.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     with TemporaryFile("_chm_metadata.chm") as fname:
         with open(fname, "wb") as f:
             f.write(stream.read())

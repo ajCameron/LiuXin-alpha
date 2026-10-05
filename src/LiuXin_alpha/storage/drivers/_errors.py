@@ -1,5 +1,11 @@
 """
-Internal helpers for safe, actionable storage-driver failures.
+Translate selected OS and SQLite failures into contextual storage exceptions.
+
+Message helpers remove URL user information, replace URL queries, and redact a
+fixed set of assignment-shaped secret labels. They are selective transformations,
+not general secret or SQL filtering. Local/fallback detail is flattened and
+length-limited; recognized URL paths and caller-supplied operation labels retain
+their own content. Translators return exceptions for callers to raise and chain.
 """
 
 from __future__ import annotations
@@ -38,18 +44,23 @@ def driver_failure_message(
     reason: str | None = None,
 ) -> str:
     """
-    Build one-line context without reproducing credentials or huge stderr.
+    Combine backend, operation, optional target, and a filtered reason into an error message.
+
+    Backend and operation are stringified and stripped, without additional redaction or newline
+    filtering. Target handling follows _safe_target; reason handling follows _safe_detail. A final
+    period is always appended. Callers must supply suitable labels and should not treat the result
+    as exhaustive secret filtering.
 
     Example:
         >>> driver_failure_message("HTTP", "read", target="https://user:secret@example.test/a")
         "HTTP read failed for 'https://example.test/a'."
 
 
-    :param backend:
-    :param operation:
-    :param target:
-    :param reason:
-    :return:
+    :param backend: Caller-supplied backend label, stripped at its edges.
+    :param operation: Caller-supplied operation label, stripped at its edges.
+    :param target: Optional path or URL rendered through the target filter and repr.
+    :param reason: Optional backend detail, flattened and selectively redacted before inclusion.
+    :return: Contextual message ending in a period, omitting target or detail when absent.
     """
 
     message = f"{str(backend).strip()} {str(operation).strip()} failed"
@@ -69,18 +80,22 @@ def translate_os_error(
     target: str | os.PathLike[str] | None = None,
 ) -> StorageError:
     """
-    Translate common OS failures while retaining operation-level context.
+    Classify selected OS errors and return a storage exception with operation context.
+
+    Match missing/existing objects, permissions, space/quota exhaustion, read-only filesystems, and
+    timeouts in that order. Unmatched OS failures become StorageUnavailable. Detail comes from
+    strerror or the exception class name; this function does not raise or attach an exception cause.
 
     Example:
         >>> type(translate_os_error(FileNotFoundError(), backend="filesystem", operation="read"))
         <class 'LiuXin_alpha.storage.api.errors.StorageNotFound'>
 
 
-    :param error:
-    :param backend:
-    :param operation:
-    :param target:
-    :return:
+    :param error: OS exception classified by selected subclasses and errno values.
+    :param backend: Backend label passed to the shared contextual message builder.
+    :param operation: Operation label describing the failed filesystem or transport action.
+    :param target: Optional path or endpoint rendered through the shared target filter.
+    :return: New StorageError subclass instance for the caller to raise, usually chained from error.
     """
 
     error_number = getattr(error, "errno", None)
@@ -113,7 +128,12 @@ def translate_sqlite_error(
     target: str | os.PathLike[str],
 ) -> StorageError:
     """
-    Classify useful SQLite failures without exposing SQL or parameters.
+    Classify SQLite error names and message fragments into storage failure categories.
+
+    Match full, read-only, corrupt/not-a-database, denied, and busy/open/I/O failures in order;
+    unknown cases use StorageError. A mapped human reason is preferred, but fallback exception text
+    can survive selective detail filtering, including SQL or values not matched by the
+    assignment-redaction pattern.
 
     Example:
         >>> error = sqlite3.OperationalError("database is locked")
@@ -121,10 +141,10 @@ def translate_sqlite_error(
         <class 'LiuXin_alpha.storage.api.errors.StorageUnavailable'>
 
 
-    :param error:
-    :param operation:
-    :param target:
-    :return:
+    :param error: SQLite exception providing optional sqlite_errorname plus message text.
+    :param operation: Failed database operation label, independent of its SQL statement.
+    :param target: Database path or diagnostic URL supplied to the shared target filter.
+    :return: New storage exception with SQLite context; raising and cause chaining remain with the caller.
     """
 
     error_name = str(getattr(error, "sqlite_errorname", "") or "").upper()
@@ -157,16 +177,20 @@ def translate_sqlite_error(
 
 def _sqlite_reason(error_name: str, normalized: str) -> str:
     """
-    Convert SQLite's machine-oriented error text into a safe explanation.
+    Map recognized SQLite name/text patterns to short explanations, otherwise retain fallback text.
+
+    Inputs are expected to be uppercase error-name and lowercase message text. Mapping order is
+    full, read-only, corruption, busy/locked, then authorization. This helper performs no redaction;
+    the message builder filters its result later.
 
     Example:
         >>> _sqlite_reason("SQLITE_FULL", "database or disk is full")
         'the database or containing disk is full'
 
 
-    :param error_name:
-    :param normalized:
-    :return:
+    :param error_name: Uppercase sqlite_errorname, or empty text when the attribute is absent.
+    :param normalized: Lowercase exception message used for matching and as the first fallback.
+    :return: Mapped explanation, normalized message, error name, or the generic SQLite backend error text.
     """
 
     if "FULL" in error_name or "database or disk is full" in normalized:
@@ -186,15 +210,23 @@ def _sqlite_reason(error_name: str, normalized: str) -> str:
 
 def _safe_target(value: str | os.PathLike[str]) -> str:
     """
-    Remove credentials, query values, and fragments from an error target.
+    Remove selected URL credential components or filter fallback path/detail text.
+
+    For a parsed scheme and authority, reconstruct using hostname and valid port, keep the path,
+    replace a nonempty query with <redacted>, and drop the fragment. Invalid ports are omitted. URL
+    paths are not assignment-redacted or truncated, and reconstructed targets are diagnostic text
+    rather than round-trip URI contracts.
+
+    Parse failures and values without both scheme and authority use _safe_detail with a
+    300-character budget, falling back to <unknown> when it returns empty.
 
     Example:
         >>> _safe_target("https://user:pass@example.test/a?token=secret#part")
         'https://example.test/a?<redacted>'
 
 
-    :param value:
-    :return:
+    :param value: Path-like or URL target converted with os.fspath before inspection.
+    :return: Diagnostic target with the stated filtering; it is not a general secret scrubber.
     """
 
     text = os.fspath(value)
@@ -216,16 +248,26 @@ def _safe_target(value: str | os.PathLike[str]) -> str:
 
 def _safe_detail(value: str | None, *, limit: int = 500) -> str:
     """
-    Flatten, redact, and length-limit backend detail for one-line errors.
+    Flatten text, redact selected assignment-shaped labels, and trim its length and final periods.
+
+    Remove NULs and collapse whitespace. The regex recognizes specific secret labels followed by =
+    or : and a nonempty token ending at whitespace, comma, or semicolon. It does not discover
+    unlabeled secrets or all authorization formats.
+
+    Overlong text is sliced to limit minus three and given an ellipsis, but the final rstrip removes
+    those periods again. No truncation marker survives; sufficiently small limits can produce empty
+    text. Limits are not independently validated.
 
     Example:
         >>> _safe_detail("token=secret" + chr(10) + "request failed.")
         'token=<redacted> request failed'
+        >>> _safe_detail("abcdefgh", limit=6)
+        'abc'
 
 
-    :param value:
-    :param limit:
-    :return:
+    :param value: Optional detail converted to str; None returns empty text immediately.
+    :param limit: Character budget used before stripping final periods; defaults to 500.
+    :return: Flattened, selectively redacted text with trailing periods removed, possibly empty.
     """
 
     if value is None:

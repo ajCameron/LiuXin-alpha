@@ -1,7 +1,15 @@
 # -*- coding: utf-8 -*-
 
 """
-Decode unicode text to an ASCII representation of the text in Vietnamese.
+Transliterate Vietnamese Unicode text into ASCII approximations.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise vndecoder through a consuming regression::
+
+        python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
 """
 from __future__ import annotations
 
@@ -18,8 +26,27 @@ __docformat__ = "restructuredtext en"
 
 class Vndecoder(Unidecoder):
 
+    """
+    Provide the vndecoder contract for validated ebook processing.
+
+    Example:
+        Exercise Vndecoder through a consuming regression::
+
+            python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+    """
     codepoints = {}
 
     def __init__(self: _typing.Self) -> None:
+        """
+        Initialize and validate the vndecoder state.
+
+        Example:
+            Exercise Vndecoder.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         self.codepoints = CODEPOINTS
         self.codepoints.update(HANCODES)

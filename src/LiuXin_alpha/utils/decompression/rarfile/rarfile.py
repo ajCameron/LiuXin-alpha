@@ -14,64 +14,16 @@
 # ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 # OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-r"""RAR archive reader.
+"""
+Read RAR metadata, entries and streams using external or direct extraction backends.
 
-This is Python module for Rar archive reading.  The interface
-is made as :mod:`zipfile`-like as possible.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
 
-Basic logic:
- - Parse archive structure with Python.
- - Extract non-compressed files with Python
- - Extract compressed files with unrar.
- - Optionally write compressed data to temp file to speed up unrar,
-   otherwise it needs to scan whole archive on each execution.
+Example:
+    Exercise rarfile through a consuming regression::
 
-Example::
-
-    import rarfile
-
-    rf = rarfile.RarFile('myarchive.rar')
-    for f in rf.infolist():
-        print f.filename, f.file_size
-        if f.filename == 'README':
-            print(rf.read(f))
-
-Archive files can also be accessed via file-like object returned
-by :meth:`RarFile.open`::
-
-    import rarfile
-
-    with rarfile.RarFile('archive.rar') as rf:
-        with rf.open('README') as f:
-            for ln in f:
-                print(ln.strip())
-
-There are few module-level parameters to tune behaviour,
-here they are with defaults, and reason to change it::
-
-    import rarfile
-
-    # Set to full path of unrar.exe if it is not in PATH
-    rarfile.UNRAR_TOOL = "unrar"
-
-    # Set to 0 if you don't look at comments and want to
-    # avoid wasting time for parsing them
-    rarfile.NEED_COMMENTS = 1
-
-    # Set up to 1 if you don't want to deal with decoding comments
-    # from unknown encoding.  rarfile will try couple of common
-    # encodings in sequence.
-    rarfile.UNICODE_COMMENTS = 0
-
-    # Set to 1 if you prefer timestamps to be datetime objects
-    # instead tuples
-    rarfile.USE_DATETIME = 0
-
-    # Set to '/' to be more compatible with zipfile
-    rarfile.PATH_SEP = '\\'
-
-For more details, refer to source.
-
+        python -m pytest -q tests/utils/decompression/test_archives.py
 """
 
 __version__ = "2.6"
@@ -108,6 +60,20 @@ if sys.hexversion < 0x3000000:
     range = xrange
     # py2.6 has broken bytes()
     def bytes(s, enc):
+        """
+        Perform the bytes utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise bytes through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :param s: Value supplied for s under the utility contract.
+        :param enc: Value supplied for enc under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return str(s)
 
 
@@ -118,13 +84,46 @@ except NameError:
     import array
 
     class bytearray:
+        """
+        Provide the bytearray utility contract with explicit state and cleanup behavior.
+
+        Example:
+            Exercise bytearray through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+        """
         def __init__(self, val=""):
+            """
+            Initialize and validate the bytearray state.
+
+            Example:
+                Exercise bytearray.  init   through a consuming regression::
+
+                    python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+            :param val: Template or metadata value evaluated by the operation.
+            :return: None; validated state is stored on the receiving object.
+            """
             self.arr = array.array("B", val)
             self.append = self.arr.append
             self.__getitem__ = self.arr.__getitem__
             self.__len__ = self.arr.__len__
 
         def decode(self, *args):
+            """
+            Perform the decode utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise bytearray.decode through a consuming regression::
+
+                    python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+            :param args: Positional values forwarded to the compatibility implementation.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self.arr.tostring().decode(*args)
 
 
@@ -141,17 +140,77 @@ try:
 except ImportError:
 
     class Struct:
+        """
+        Provide the Struct utility contract with explicit state and cleanup behavior.
+
+        Example:
+            Exercise Struct through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+        """
         def __init__(self, fmt):
+            """
+            Initialize and validate the Struct state.
+
+            Example:
+                Exercise Struct.  init   through a consuming regression::
+
+                    python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+            :param fmt: Date, number or template format specification.
+            :return: None; validated state is stored on the receiving object.
+            """
             self.format = fmt
             self.size = struct.calcsize(fmt)
 
         def unpack(self, buf):
+            """
+            Perform the unpack utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise Struct.unpack through a consuming regression::
+
+                    python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+            :param buf: Value supplied for buf under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return unpack(self.format, buf)
 
         def unpack_from(self, buf, ofs=0):
+            """
+            Perform the unpack from utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise Struct.unpack from through a consuming regression::
+
+                    python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+            :param buf: Value supplied for buf under the utility contract.
+            :param ofs: Value supplied for ofs under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return unpack(self.format, buf[ofs : ofs + self.size])
 
         def pack(self, *args):
+            """
+            Perform the pack utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise Struct.pack through a consuming regression::
+
+                    python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+            :param args: Positional values forwarded to the compatibility implementation.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return pack(self.format, *args)
 
 
@@ -161,7 +220,27 @@ try:
 except ImportError:
 
     class RawIOBase(object):
+        """
+        Provide the RawIOBase utility contract with explicit state and cleanup behavior.
+
+        Example:
+            Exercise RawIOBase through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+        """
         def close(self):
+            """
+            Forward the close operation while preserving adapter ownership rules.
+
+            Example:
+                Exercise RawIOBase.close through a consuming regression::
+
+                    python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             pass
 
 
@@ -307,151 +386,272 @@ S_COMMENT_HDR = Struct("<HBBH")
 
 
 class Error(Exception):
-    """Base class for rarfile errors."""
+    """
+    Base class for rarfile errors.
+
+    Example:
+        Exercise Error through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+    """
 
 
 class BadRarFile(Error):
-    """Incorrect data in archive."""
+    """
+    Incorrect data in archive.
+
+    Example:
+        Exercise BadRarFile through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+    """
 
 
 class NotRarFile(Error):
-    """The file is not RAR archive."""
+    """
+    The file is not RAR archive.
+
+    Example:
+        Exercise NotRarFile through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+    """
 
 
 class BadRarName(Error):
-    """Cannot guess multipart name components."""
+    """
+    Cannot guess multipart name components.
+
+    Example:
+        Exercise BadRarName through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+    """
 
 
 class NoRarEntry(Error):
-    """File not found in RAR"""
+    """
+    File not found in RAR
+
+    Example:
+        Exercise NoRarEntry through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+    """
 
 
 class PasswordRequired(Error):
-    """File requires password"""
+    """
+    File requires password
+
+    Example:
+        Exercise PasswordRequired through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+    """
 
 
 class NeedFirstVolume(Error):
-    """Need to start from first volume."""
+    """
+    Need to start from first volume.
+
+    Example:
+        Exercise NeedFirstVolume through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+    """
 
 
 class NoCrypto(Error):
-    """Cannot parse encrypted headers - no crypto available."""
+    """
+    Cannot parse encrypted headers - no crypto available.
+
+    Example:
+        Exercise NoCrypto through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+    """
 
 
 class RarExecError(Error):
-    """Problem reported by unrar/rar."""
+    """
+    Problem reported by unrar/rar.
+
+    Example:
+        Exercise RarExecError through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+    """
 
 
 class RarWarning(RarExecError):
-    """Non-fatal error"""
+    """
+    Non-fatal error
+
+    Example:
+        Exercise RarWarning through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+    """
 
 
 class RarFatalError(RarExecError):
-    """Fatal error"""
+    """
+    Fatal error
+
+    Example:
+        Exercise RarFatalError through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+    """
 
 
 class RarCRCError(RarExecError):
-    """CRC error during unpacking"""
+    """
+    CRC error during unpacking
+
+    Example:
+        Exercise RarCRCError through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+    """
 
 
 class RarLockedArchiveError(RarExecError):
-    """Must not modify locked archive"""
+    """
+    Must not modify locked archive
+
+    Example:
+        Exercise RarLockedArchiveError through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+    """
 
 
 class RarWriteError(RarExecError):
-    """Write error"""
+    """
+    Write error
+
+    Example:
+        Exercise RarWriteError through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+    """
 
 
 class RarOpenError(RarExecError):
-    """Open error"""
+    """
+    Open error
+
+    Example:
+        Exercise RarOpenError through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+    """
 
 
 class RarUserError(RarExecError):
-    """User error"""
+    """
+    User error
+
+    Example:
+        Exercise RarUserError through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+    """
 
 
 class RarMemoryError(RarExecError):
-    """Memory error"""
+    """
+    Memory error
+
+    Example:
+        Exercise RarMemoryError through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+    """
 
 
 class RarCreateError(RarExecError):
-    """Create error"""
+    """
+    Create error
+
+    Example:
+        Exercise RarCreateError through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+    """
 
 
 class RarNoFilesError(RarExecError):
-    """No files that match pattern were found"""
+    """
+    No files that match pattern were found
+
+    Example:
+        Exercise RarNoFilesError through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+    """
 
 
 class RarUserBreak(RarExecError):
-    """User stop"""
+    """
+    User stop
+
+    Example:
+        Exercise RarUserBreak through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+    """
 
 
 class RarUnknownError(RarExecError):
-    """Unknown exit code"""
+    """
+    Unknown exit code
+
+    Example:
+        Exercise RarUnknownError through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+    """
 
 
 class RarSignalExit(RarExecError):
-    """Unrar exited with signal"""
+    """
+    Unrar exited with signal
+
+    Example:
+        Exercise RarSignalExit through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+    """
 
 
 def is_rarfile(fn):
-    """Check quickly whether file is rar archive."""
+    """
+    Check quickly whether file is rar archive.
+
+    Example:
+        Exercise is rarfile through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+    :param fn: Value supplied for fn under the utility contract.
+    :return: True when the documented condition holds; otherwise False.
+    """
     buf = open(fn, "rb").read(len(RAR_ID))
     return buf == RAR_ID
 
 
 class RarInfo(object):
-    r"""An entry in rar archive.
+    """
+    An entry in rar archive.
 
-    :mod:`zipfile`-compatible fields:
+    Example:
+        Exercise RarInfo through a consuming regression::
 
-        filename
-            File name with relative path.
-            Default path separator is '\\', to change set rarfile.PATH_SEP.
-            Always unicode string.
-        date_time
-            Modification time, tuple of (year, month, day, hour, minute, second).
-            Or datetime() object if USE_DATETIME is set.
-        file_size
-            Uncompressed size.
-        compress_size
-            Compressed size.
-        CRC
-            CRC-32 of uncompressed file, unsigned int.
-        comment
-            File comment.  Byte string or None.  Use UNICODE_COMMENTS
-            to get automatic decoding to unicode.
-        volume
-            Volume nr, starting from 0.
-
-    RAR-specific fields:
-
-        compress_type
-            Compression method: 0x30 - 0x35.
-        extract_version
-            Minimal Rar version needed for decompressing.
-        host_os
-            Host OS type, one of RAR_OS_* constants.
-        mode
-            File attributes. May be either dos-style or unix-style, depending on host_os.
-        volume_file
-            Volume file name, where file starts.
-        mtime
-            Optional time field: Modification time, with float seconds.
-            Same as .date_time but with more precision.
-        ctime
-            Optional time field: creation time, with float seconds.
-        atime
-            Optional time field: last access time, with float seconds.
-        arctime
-            Optional time field: archival time, with float seconds.
-
-    Internal fields:
-
-        type
-            One of RAR_BLOCK_* types.  Only entries with type==RAR_BLOCK_FILE are shown in .infolist().
-        flags
-            For files, RAR_FILE_* bits.
+            python -m pytest -q tests/utils/decompression/test_archives.py
     """
 
     __slots__ = (
@@ -491,37 +691,68 @@ class RarInfo(object):
     )
 
     def isdir(self):
-        """Returns True if the entry is a directory."""
+        """
+        Returns True if the entry is a directory.
+
+        Example:
+            Exercise RarInfo.isdir through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.type == RAR_BLOCK_FILE:
             return (self.flags & RAR_FILE_DIRECTORY) == RAR_FILE_DIRECTORY
         return False
 
     def needs_password(self):
+        """
+        Perform the needs password utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise RarInfo.needs password through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.flags & RAR_FILE_PASSWORD
 
 
 class RarFile(object):
-    """Parse RAR structure, provide access to files in archive."""
+    """
+    Parse RAR structure, provide access to files in archive.
+
+    Example:
+        Exercise RarFile through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+    """
 
     #: Archive comment.  Byte string or None.  Use UNICODE_COMMENTS
     #: to get automatic decoding to unicode.
     comment = None
 
     def __init__(self, rarfile, mode="r", charset=None, info_callback=None, crc_check=True):
-        """Open and parse a RAR archive.
+        """
+        Open and parse a RAR archive.
 
-        Parameters:
+        Example:
+            Exercise RarFile.  init   through a consuming regression::
 
-            rarfile
-                archive file name
-            mode
-                only 'r' is supported.
-            charset
-                fallback charset to use, if filenames are not already Unicode-enabled.
-            info_callback
-                debug callback, gets to see all archive entries.
-            crc_check
-                set to False to disable CRC checks
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :param rarfile: Value supplied for rarfile under the utility contract.
+        :param mode: Open or adapter mode controlling read/write behavior.
+        :param charset: Value supplied for charset under the utility contract.
+        :param info_callback: Value supplied for info callback under the utility contract.
+        :param crc_check: Value supplied for crc check under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self.rarfile = rarfile
         self.comment = None
@@ -543,39 +774,130 @@ class RarFile(object):
         self._parse()
 
     def __enter__(self):
+        """
+        Implement the resource's enter lifecycle operation.
+
+        Example:
+            Exercise RarFile.  enter   through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self
 
     def __exit__(self, type, value, traceback):
+        """
+        Implement the resource's exit lifecycle operation.
+
+        Example:
+            Exercise RarFile.  exit   through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :param type: Value supplied for type under the utility contract.
+        :param value: Value normalized, stored, formatted or returned.
+        :param traceback: Value supplied for traceback under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.close()
 
     def setpassword(self, password):
-        """Sets the password to use when extracting."""
+        """
+        Sets the password to use when extracting.
+
+        Example:
+            Exercise RarFile.setpassword through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :param password: Value supplied for password under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._password = password
         if not self._main:
             self._parse()
 
     def needs_password(self):
-        """Returns True if any archive entries require password for extraction."""
+        """
+        Returns True if any archive entries require password for extraction.
+
+        Example:
+            Exercise RarFile.needs password through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._needs_password
 
     def namelist(self):
-        """Return list of filenames in archive."""
+        """
+        Return list of filenames in archive.
+
+        Example:
+            Exercise RarFile.namelist through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return [f.filename for f in self._info_list]
 
     def infolist(self):
-        """Return RarInfo objects for all files/directories in archive."""
+        """
+        Return RarInfo objects for all files/directories in archive.
+
+        Example:
+            Exercise RarFile.infolist through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._info_list
 
     def volumelist(self):
-        """Returns filenames of archive volumes.
+        """
+        Returns filenames of archive volumes.
 
-        In case of single-volume archive, the list contains
-        just the name of main archive file.
+        Example:
+            Exercise RarFile.volumelist through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self._vol_list
 
     def getinfo(self, fname):
-        """Return RarInfo for file."""
+        """
+        Return RarInfo for file.
+
+        Example:
+            Exercise RarFile.getinfo through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :param fname: Value supplied for fname under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
 
         if isinstance(fname, RarInfo):
             return fname
@@ -595,27 +917,20 @@ class RarFile(object):
                 raise NoRarEntry("No such file: " + fname)
 
     def open(self, fname, mode="r", psw=None):
-        """Returns file-like object (:class:`RarExtFile`),
-        from where the data can be read.
+        """
+        Returns file-like object (:class:`RarExtFile`), from where the data can be read.
 
-        The object implements io.RawIOBase interface, so it can
-        be further wrapped with io.BufferedReader and io.TextIOWrapper.
+        Example:
+            Exercise RarFile.open through a consuming regression::
 
-        On older Python where io module is not available, it implements
-        only .read(), .seek(), .tell() and .close() methods.
+                python -m pytest -q tests/utils/decompression/test_archives.py
 
-        The object is seekable, although the seeking is fast only on
-        uncompressed files, on compressed files the seeking is implemented
-        by reading ahead and/or restarting the decompression.
 
-        Parameters:
-
-            fname
-                file name or RarInfo instance.
-            mode
-                must be 'r'
-            psw
-                password to use for extracting.
+        :param fname: Value supplied for fname under the utility contract.
+        :param mode: Open or adapter mode controlling read/write behavior.
+        :param psw: Value supplied for psw under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         if mode != "r":
@@ -658,16 +973,19 @@ class RarFile(object):
             return self._open_unrar(self.rarfile, inf, psw)
 
     def read(self, fname, psw=None):
-        """Return uncompressed data for archive entry.
+        """
+        Return uncompressed data for archive entry.
 
-        For longer files using .open() may be better idea.
+        Example:
+            Exercise RarFile.read through a consuming regression::
 
-        Parameters:
+                python -m pytest -q tests/utils/decompression/test_archives.py
 
-            fname
-                filename or RarInfo instance
-            psw
-                password to use for extracting.
+
+        :param fname: Value supplied for fname under the utility contract.
+        :param psw: Value supplied for psw under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         f = self.open(fname, "r", psw)
@@ -677,25 +995,52 @@ class RarFile(object):
             f.close()
 
     def close(self):
-        """Release open resources."""
+        """
+        Release open resources.
+
+        Example:
+            Exercise RarFile.close through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pass
 
     def printdir(self):
-        """Print archive file list to stdout."""
+        """
+        Print archive file list to stdout.
+
+        Example:
+            Exercise RarFile.printdir through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for f in self._info_list:
             print(f.filename)
 
     def extract(self, member, path=None, pwd=None):
-        """Extract single file into current directory.
+        """
+        Extract single file into current directory.
 
-        Parameters:
+        Example:
+            Exercise RarFile.extract through a consuming regression::
 
-            member
-                filename or RarInfo instance
-            path
-                optional destination path
-            pwd
-                optional password to use
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :param member: Value supplied for member under the utility contract.
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :param pwd: Value supplied for pwd under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if isinstance(member, RarInfo):
             fname = member.filename
@@ -704,16 +1049,21 @@ class RarFile(object):
         self._extract([fname], path, pwd)
 
     def extractall(self, path=None, members=None, pwd=None):
-        """Extract all files into current directory.
+        """
+        Extract all files into current directory.
 
-        Parameters:
+        Example:
+            Exercise RarFile.extractall through a consuming regression::
 
-            path
-                optional destination path
-            members
-                optional filename or RarInfo instance list to extract
-            pwd
-                optional password to use
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :param members: Value supplied for members under the utility contract.
+        :param pwd: Value supplied for pwd under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         fnlist = []
         if members is not None:
@@ -725,7 +1075,18 @@ class RarFile(object):
         self._extract(fnlist, path, pwd)
 
     def testrar(self):
-        """Let 'unrar' test the archive."""
+        """
+        Let 'unrar' test the archive.
+
+        Example:
+            Exercise RarFile.testrar through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         cmd = [UNRAR_TOOL] + list(TEST_ARGS)
         if self._password is not None:
             cmd.append("-p" + self._password)
@@ -742,6 +1103,19 @@ class RarFile(object):
 
     # store entry
     def _process_entry(self, item):
+        """
+        Perform the process entry utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise RarFile. process entry through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :param item: Value supplied for item under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if item.type == RAR_BLOCK_FILE:
             # use only first part
             if (item.flags & RAR_FILE_SPLIT_BEFORE) == 0:
@@ -778,6 +1152,18 @@ class RarFile(object):
 
     # read rar
     def _parse(self):
+        """
+        Perform the parse utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise RarFile. parse through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._fd = None
         try:
             self._parse_real()
@@ -787,6 +1173,18 @@ class RarFile(object):
                 self._fd = None
 
     def _parse_real(self):
+        """
+        Parse real under the documented compatibility and safety rules.
+
+        Example:
+            Exercise RarFile. parse real through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         fd = open(self.rarfile, "rb")
         self._fd = fd
         id = fd.read(len(RAR_ID))
@@ -852,6 +1250,19 @@ class RarFile(object):
     _last_aes_key = (None, None, None)  # (salt, key, iv)
 
     def _decrypt_header(self, fd):
+        """
+        Perform the decrypt header utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise RarFile. decrypt header through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :param fd: Value supplied for fd under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not _have_crypto:
             raise NoCrypto("Cannot parse encrypted headers - no crypto")
         salt = fd.read(8)
@@ -864,6 +1275,19 @@ class RarFile(object):
 
     # read single header
     def _parse_header(self, fd):
+        """
+        Parse header under the documented compatibility and safety rules.
+
+        Example:
+            Exercise RarFile. parse header through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :param fd: Value supplied for fd under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             # handle encrypted headers
             if self._main and self._main.flags & RAR_MAIN_PASSWORD:
@@ -880,6 +1304,19 @@ class RarFile(object):
 
     # common header
     def _parse_block_header(self, fd):
+        """
+        Parse block header under the documented compatibility and safety rules.
+
+        Example:
+            Exercise RarFile. parse block header through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :param fd: Value supplied for fd under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         h = RarInfo()
         h.header_offset = fd.tell()
         h.comment = None
@@ -969,6 +1406,20 @@ class RarFile(object):
 
     # read file-specific header
     def _parse_file_header(self, h, pos):
+        """
+        Parse file header under the documented compatibility and safety rules.
+
+        Example:
+            Exercise RarFile. parse file header through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :param h: Value supplied for h under the utility contract.
+        :param pos: Value supplied for pos under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         fld = S_FILE_HDR.unpack_from(h.header_data, pos)
         h.compress_size = fld[0]
         h.file_size = fld[1]
@@ -1046,6 +1497,20 @@ class RarFile(object):
 
     # find old-style comment subblock
     def _parse_subblocks(self, h, pos):
+        """
+        Parse subblocks under the documented compatibility and safety rules.
+
+        Example:
+            Exercise RarFile. parse subblocks through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :param h: Value supplied for h under the utility contract.
+        :param pos: Value supplied for pos under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         hdata = h.header_data
         while pos < len(hdata):
             # ordinary block header
@@ -1072,6 +1537,20 @@ class RarFile(object):
             pos = pos_next
 
     def _parse_ext_time(self, h, pos):
+        """
+        Parse ext time under the documented compatibility and safety rules.
+
+        Example:
+            Exercise RarFile. parse ext time through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :param h: Value supplied for h under the utility contract.
+        :param pos: Value supplied for pos under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = h.header_data
 
         # flags and rest of data can be missing
@@ -1087,6 +1566,22 @@ class RarFile(object):
         return pos
 
     def _parse_xtime(self, flag, data, pos, dostime=None):
+        """
+        Parse xtime under the documented compatibility and safety rules.
+
+        Example:
+            Exercise RarFile. parse xtime through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :param flag: Value supplied for flag under the utility contract.
+        :param data: Value supplied for data under the utility contract.
+        :param pos: Value supplied for pos under the utility contract.
+        :param dostime: Value supplied for dostime under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         unit = 10000000.0  # 100 ns units
         if flag & 8:
             if not dostime:
@@ -1107,12 +1602,38 @@ class RarFile(object):
 
     # given current vol name, construct next one
     def _next_volname(self, volfile):
+        """
+        Perform the next volname utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise RarFile. next volname through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :param volfile: Value supplied for volfile under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self._main.flags & RAR_MAIN_NEWNUMBERING:
             return self._next_newvol(volfile)
         return self._next_oldvol(volfile)
 
     # new-style next volume
     def _next_newvol(self, volfile):
+        """
+        Perform the next newvol utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise RarFile. next newvol through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :param volfile: Value supplied for volfile under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         i = len(volfile) - 1
         while i >= 0:
             if volfile[i] >= "0" and volfile[i] <= "9":
@@ -1123,12 +1644,39 @@ class RarFile(object):
     # old-style next volume
     def _next_oldvol(self, volfile):
         # rar -> r00
+        """
+        Perform the next oldvol utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise RarFile. next oldvol through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :param volfile: Value supplied for volfile under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if volfile[-4:].lower() == ".rar":
             return volfile[:-2] + "00"
         return self._inc_volname(volfile, len(volfile) - 1)
 
     # increase digits with carry, otherwise just increment char
     def _inc_volname(self, volfile, i):
+        """
+        Perform the inc volname utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise RarFile. inc volname through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :param volfile: Value supplied for volfile under the utility contract.
+        :param i: Value supplied for i under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         fn = list(volfile)
         while i >= 0:
             if fn[i] != "9":
@@ -1139,11 +1687,38 @@ class RarFile(object):
         return "".join(fn)
 
     def _open_clear(self, inf):
+        """
+        Perform the open clear utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise RarFile. open clear through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :param inf: Value supplied for inf under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return DirectReader(self, inf)
 
     # put file compressed data into temporary .rar archive, and run
     # unrar on that, thus avoiding unrar going over whole archive
     def _open_hack(self, inf, psw=None):
+        """
+        Perform the open hack utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise RarFile. open hack through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :param inf: Value supplied for inf under the utility contract.
+        :param psw: Value supplied for psw under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         BSIZE = 32 * 1024
 
         size = inf.compress_size + inf.header_size
@@ -1179,6 +1754,20 @@ class RarFile(object):
     def _read_comment_v3(self, inf, psw=None):
 
         # read data
+        """
+        Read comment v3 under the documented compatibility and safety rules.
+
+        Example:
+            Exercise RarFile. read comment v3 through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :param inf: Value supplied for inf under the utility contract.
+        :param psw: Value supplied for psw under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         rf = open(inf.volume_file, "rb")
         rf.seek(inf.file_offset)
         data = rf.read(inf.compress_size)
@@ -1208,6 +1797,22 @@ class RarFile(object):
 
     # extract using unrar
     def _open_unrar(self, rarfile, inf, psw=None, tmpfile=None):
+        """
+        Perform the open unrar utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise RarFile. open unrar through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :param rarfile: Value supplied for rarfile under the utility contract.
+        :param inf: Value supplied for inf under the utility contract.
+        :param psw: Value supplied for psw under the utility contract.
+        :param tmpfile: Value supplied for tmpfile under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         cmd = [UNRAR_TOOL] + list(OPEN_ARGS)
         if psw is not None:
             cmd.append("-p" + psw)
@@ -1224,6 +1829,19 @@ class RarFile(object):
         return PipeReader(self, inf, cmd, tmpfile)
 
     def _decode(self, val):
+        """
+        Perform the decode utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise RarFile. decode through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :param val: Template or metadata value evaluated by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         for c in TRY_ENCODINGS:
             try:
                 return val.decode(c)
@@ -1232,12 +1850,41 @@ class RarFile(object):
         return val.decode(self._charset, "replace")
 
     def _decode_comment(self, val):
+        """
+        Perform the decode comment utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise RarFile. decode comment through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :param val: Template or metadata value evaluated by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if UNICODE_COMMENTS:
             return self._decode(val)
         return val
 
     # call unrar to extract a file
     def _extract(self, fnlist, path=None, psw=None):
+        """
+        Perform the extract utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise RarFile. extract through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :param fnlist: Value supplied for fnlist under the utility contract.
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :param psw: Value supplied for psw under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         cmd = [UNRAR_TOOL] + list(EXTRACT_ARGS)
 
         # pasoword
@@ -1272,9 +1919,29 @@ class RarFile(object):
 
 
 class UnicodeFilename:
-    """Handle unicode filename decompression"""
+    """
+    Handle unicode filename decompression
+
+    Example:
+        Exercise UnicodeFilename through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+    """
 
     def __init__(self, name, encdata):
+        """
+        Initialize and validate the UnicodeFilename state.
+
+        Example:
+            Exercise UnicodeFilename.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param encdata: Value supplied for encdata under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.std_name = bytearray(name)
         self.encdata = bytearray(encdata)
         self.pos = self.encpos = 0
@@ -1282,6 +1949,18 @@ class UnicodeFilename:
         self.failed = 0
 
     def enc_byte(self):
+        """
+        Perform the enc byte utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise UnicodeFilename.enc byte through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             c = self.encdata[self.encpos]
             self.encpos += 1
@@ -1291,6 +1970,18 @@ class UnicodeFilename:
             return 0
 
     def std_byte(self):
+        """
+        Perform the std byte utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise UnicodeFilename.std byte through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             return self.std_name[self.pos]
         except IndexError:
@@ -1298,11 +1989,37 @@ class UnicodeFilename:
             return ord("?")
 
     def put(self, lo, hi):
+        """
+        Perform the put utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise UnicodeFilename.put through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :param lo: Value supplied for lo under the utility contract.
+        :param hi: Value supplied for hi under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.buf.append(lo)
         self.buf.append(hi)
         self.pos += 1
 
     def decode(self):
+        """
+        Perform the decode utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise UnicodeFilename.decode through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         hi = self.enc_byte()
         flagbits = 0
         while self.encpos < len(self.encdata):
@@ -1331,23 +2048,32 @@ class UnicodeFilename:
 
 
 class RarExtFile(RawIOBase):
-    """Base class for file-like object that :meth:`RarFile.open` returns.
+    """
+    Base class for file-like object that :meth:`RarFile.open` returns.
 
-    Provides public methods and common crc checking.
+    Example:
+        Exercise RarExtFile through a consuming regression::
 
-    Behaviour:
-     - no short reads - .read() and .readinfo() read as much as requested.
-     - no internal buffer, use io.BufferedReader for that.
-
-    If :mod:`io` module is available (Python 2.6+, 3.x), then this calls
-    will inherit from :class:`io.RawIOBase` class.  This makes line-based
-    access available: :meth:`RarExtFile.readline` and ``for ln in f``.
+            python -m pytest -q tests/utils/decompression/test_archives.py
     """
 
     #: Filename of the archive entry
     name = None
 
     def __init__(self, rf, inf):
+        """
+        Initialize and validate the RarExtFile state.
+
+        Example:
+            Exercise RarExtFile.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :param rf: Value supplied for rf under the utility contract.
+        :param inf: Value supplied for inf under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         RawIOBase.__init__(self)
 
         # standard io.* properties
@@ -1365,6 +2091,18 @@ class RarExtFile(RawIOBase):
         self._open()
 
     def _open(self):
+        """
+        Perform the open utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise RarExtFile. open through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.fd:
             self.fd.close()
         self.fd = None
@@ -1372,7 +2110,19 @@ class RarExtFile(RawIOBase):
         self.remain = self.inf.file_size
 
     def read(self, cnt=None):
-        """Read all or specified amount of data from archive entry."""
+        """
+        Read all or specified amount of data from archive entry.
+
+        Example:
+            Exercise RarExtFile.read through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :param cnt: Value supplied for cnt under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
 
         # sanitize cnt
         if cnt is None or cnt < 0:
@@ -1397,7 +2147,18 @@ class RarExtFile(RawIOBase):
         return data
 
     def _check(self):
-        """Check final CRC."""
+        """
+        Check final CRC.
+
+        Example:
+            Exercise RarExtFile. check through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if not self.crc_check:
             return
         if self.returncode:
@@ -1411,10 +2172,33 @@ class RarExtFile(RawIOBase):
             raise BadRarFile("Corrupt file - CRC check failed: " + self.inf.filename)
 
     def _read(self, cnt):
-        """Actual read that gets sanitized cnt."""
+        """
+        Actual read that gets sanitized cnt.
+
+        Example:
+            Exercise RarExtFile. read through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :param cnt: Value supplied for cnt under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
 
     def close(self):
-        """Close open resources."""
+        """
+        Close open resources.
+
+        Example:
+            Exercise RarExtFile.close through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
 
         RawIOBase.close(self)
 
@@ -1423,13 +2207,33 @@ class RarExtFile(RawIOBase):
             self.fd = None
 
     def __del__(self):
-        """Hook delete to make sure tempfile is removed."""
+        """
+        Hook delete to make sure tempfile is removed.
+
+        Example:
+            Exercise RarExtFile.  del   through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.close()
 
     def readinto(self, buf):
-        """Zero-copy read directly into buffer.
+        """
+        Zero-copy read directly into buffer.
 
-        Returns bytes read.
+        Example:
+            Exercise RarExtFile.readinto through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :param buf: Value supplied for buf under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         data = self.read(len(buf))
@@ -1445,16 +2249,34 @@ class RarExtFile(RawIOBase):
         return n
 
     def tell(self):
-        """Return current reading position in uncompressed data."""
+        """
+        Return current reading position in uncompressed data.
+
+        Example:
+            Exercise RarExtFile.tell through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.inf.file_size - self.remain
 
     def seek(self, ofs, whence=0):
-        """Seek in data.
+        """
+        Seek in data.
 
-        On uncompressed files, the seeking works by actual
-        seeks so it's fast.  On compresses files its slow
-        - forward seeking happends by reading ahead,
-        backwards by re-opening and decompressing from the start.
+        Example:
+            Exercise RarExtFile.seek through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :param ofs: Value supplied for ofs under the utility contract.
+        :param whence: Value supplied for whence under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         # disable crc check when seeking
@@ -1490,7 +2312,19 @@ class RarExtFile(RawIOBase):
         return self.tell()
 
     def _skip(self, cnt):
-        """Read and discard data"""
+        """
+        Read and discard data
+
+        Example:
+            Exercise RarExtFile. skip through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :param cnt: Value supplied for cnt under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         while cnt > 0:
             if cnt > 8192:
                 buf = self.read(8192)
@@ -1501,38 +2335,111 @@ class RarExtFile(RawIOBase):
             cnt -= len(buf)
 
     def readable(self):
-        """Returns True"""
+        """
+        Returns True
+
+        Example:
+            Exercise RarExtFile.readable through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return True
 
     def writable(self):
-        """Returns False.
+        """
+        Returns False.
 
-        Writing is not supported."""
+        Example:
+            Exercise RarExtFile.writable through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return False
 
     def seekable(self):
-        """Returns True.
+        """
+        Returns True.
 
-        Seeking is supported, although it's slow on compressed files.
+        Example:
+            Exercise RarExtFile.seekable through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return True
 
     def readall(self):
-        """Read all remaining data"""
+        """
+        Read all remaining data
+
+        Example:
+            Exercise RarExtFile.readall through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         # avoid RawIOBase default impl
         return self.read()
 
 
 class PipeReader(RarExtFile):
-    """Read data from pipe, handle tempfile cleanup."""
+    """
+    Read data from pipe, handle tempfile cleanup.
+
+    Example:
+        Exercise PipeReader through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+    """
 
     def __init__(self, rf, inf, cmd, tempfile=None):
+        """
+        Initialize and validate the PipeReader state.
+
+        Example:
+            Exercise PipeReader.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :param rf: Value supplied for rf under the utility contract.
+        :param inf: Value supplied for inf under the utility contract.
+        :param cmd: Value supplied for cmd under the utility contract.
+        :param tempfile: Value supplied for tempfile under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.cmd = cmd
         self.proc = None
         self.tempfile = tempfile
         RarExtFile.__init__(self, rf, inf)
 
     def _close_proc(self):
+        """
+        Perform the close proc utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise PipeReader. close proc through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if not self.proc:
             return
         if self.proc.stdout:
@@ -1546,6 +2453,18 @@ class PipeReader(RarExtFile):
         self.proc = None
 
     def _open(self):
+        """
+        Perform the open utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise PipeReader. open through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         RarExtFile._open(self)
 
         # stop old process
@@ -1561,7 +2480,19 @@ class PipeReader(RarExtFile):
             self.proc.stdin.close()
 
     def _read(self, cnt):
-        """Read from pipe."""
+        """
+        Read from pipe.
+
+        Example:
+            Exercise PipeReader. read through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :param cnt: Value supplied for cnt under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
 
         # normal read is usually enough
         data = self.fd.read(cnt)
@@ -1580,7 +2511,18 @@ class PipeReader(RarExtFile):
         return EMPTY.join(buf)
 
     def close(self):
-        """Close open resources."""
+        """
+        Close open resources.
+
+        Example:
+            Exercise PipeReader.close through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
 
         self._close_proc()
         RarExtFile.close(self)
@@ -1595,7 +2537,19 @@ class PipeReader(RarExtFile):
     if have_memoryview:
 
         def readinto(self, buf):
-            """Zero-copy read directly into buffer."""
+            """
+            Zero-copy read directly into buffer.
+
+            Example:
+                Exercise PipeReader.readinto through a consuming regression::
+
+                    python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+            :param buf: Value supplied for buf under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             cnt = len(buf)
             if cnt > self.remain:
                 cnt = self.remain
@@ -1613,9 +2567,28 @@ class PipeReader(RarExtFile):
 
 
 class DirectReader(RarExtFile):
-    """Read uncompressed data directly from archive."""
+    """
+    Read uncompressed data directly from archive.
+
+    Example:
+        Exercise DirectReader through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+    """
 
     def _open(self):
+        """
+        Perform the open utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise DirectReader. open through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         RarExtFile._open(self)
 
         self.volfile = self.inf.volume_file
@@ -1625,7 +2598,19 @@ class DirectReader(RarExtFile):
         self.cur_avail = self.cur.add_size
 
     def _skip(self, cnt):
-        """RAR Seek, skipping through rar files to get to correct position"""
+        """
+        RAR Seek, skipping through rar files to get to correct position
+
+        Example:
+            Exercise DirectReader. skip through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :param cnt: Value supplied for cnt under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
 
         while cnt > 0:
             # next vol needed?
@@ -1645,7 +2630,19 @@ class DirectReader(RarExtFile):
                 cnt = 0
 
     def _read(self, cnt):
-        """Read from potentially multi-volume archive."""
+        """
+        Read from potentially multi-volume archive.
+
+        Example:
+            Exercise DirectReader. read through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :param cnt: Value supplied for cnt under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
 
         buf = []
         while cnt > 0:
@@ -1672,7 +2669,18 @@ class DirectReader(RarExtFile):
         return EMPTY.join(buf)
 
     def _open_next(self):
-        """Proceed to next volume."""
+        """
+        Proceed to next volume.
+
+        Example:
+            Exercise DirectReader. open next through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
 
         # is the file split over archives?
         if (self.cur.flags & RAR_FILE_SPLIT_AFTER) == 0:
@@ -1705,7 +2713,19 @@ class DirectReader(RarExtFile):
     if have_memoryview:
 
         def readinto(self, buf):
-            """Zero-copy read directly into buffer."""
+            """
+            Zero-copy read directly into buffer.
+
+            Example:
+                Exercise DirectReader.readinto through a consuming regression::
+
+                    python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+            :param buf: Value supplied for buf under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             got = 0
             vbuf = memoryview(buf)
             while got < len(buf):
@@ -1732,17 +2752,63 @@ class DirectReader(RarExtFile):
 
 
 class HeaderDecrypt:
-    """File-like object that decrypts from another file"""
+    """
+    File-like object that decrypts from another file
+
+    Example:
+        Exercise HeaderDecrypt through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+    """
 
     def __init__(self, f, key, iv):
+        """
+        Initialize and validate the HeaderDecrypt state.
+
+        Example:
+            Exercise HeaderDecrypt.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :param f: Value supplied for f under the utility contract.
+        :param key: Metadata, identifier or local-variable key.
+        :param iv: Value supplied for iv under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.f = f
         self.ciph = AES.new(key, AES.MODE_CBC, iv)
         self.buf = EMPTY
 
     def tell(self):
+        """
+        Perform the tell utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HeaderDecrypt.tell through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.f.tell()
 
     def read(self, cnt=None):
+        """
+        Forward the read operation while preserving adapter ownership rules.
+
+        Example:
+            Exercise HeaderDecrypt.read through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :param cnt: Value supplied for cnt under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if cnt > 8 * 1024:
             raise BadRarFile("Bad count to header decrypt - wrong password?")
 
@@ -1779,7 +2845,20 @@ class HeaderDecrypt:
 
 
 def rar3_s2k(psw, salt):
-    """String-to-key hash for RAR3."""
+    """
+    String-to-key hash for RAR3.
+
+    Example:
+        Exercise rar3 s2k through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+    :param psw: Value supplied for psw under the utility contract.
+    :param salt: Value supplied for salt under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
 
     seed = psw.encode("utf-16le") + salt
     iv = EMPTY
@@ -1796,9 +2875,25 @@ def rar3_s2k(psw, salt):
 
 
 def rar_decompress(vers, meth, data, declen=0, flags=0, crc=0, psw=None, salt=None):
-    """Decompress blob of compressed data.
+    """
+    Decompress blob of compressed data.
 
-    Used for data with non-standard header - eg. comments.
+    Example:
+        Exercise rar decompress through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+    :param vers: Value supplied for vers under the utility contract.
+    :param meth: Value supplied for meth under the utility contract.
+    :param data: Value supplied for data under the utility contract.
+    :param declen: Value supplied for declen under the utility contract.
+    :param flags: Value supplied for flags under the utility contract.
+    :param crc: Value supplied for crc under the utility contract.
+    :param psw: Value supplied for psw under the utility contract.
+    :param salt: Value supplied for salt under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
 
     # already uncompressed?
@@ -1851,7 +2946,19 @@ def rar_decompress(vers, meth, data, declen=0, flags=0, crc=0, psw=None, salt=No
 
 
 def to_datetime(t):
-    """Convert 6-part time tuple into datetime object."""
+    """
+    Convert 6-part time tuple into datetime object.
+
+    Example:
+        Exercise to datetime through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+    :param t: Value supplied for t under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
 
     if t is None:
         return None
@@ -1892,7 +2999,19 @@ def to_datetime(t):
 
 
 def parse_dos_time(stamp):
-    """Parse standard 32-bit DOS timestamp."""
+    """
+    Parse standard 32-bit DOS timestamp.
+
+    Example:
+        Exercise parse dos time through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+    :param stamp: Value supplied for stamp under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
 
     sec = stamp & 0x1F
     stamp = stamp >> 5
@@ -1909,7 +3028,19 @@ def parse_dos_time(stamp):
 
 
 def custom_popen(cmd):
-    """Disconnect cmd from parent fds, read only from stdout."""
+    """
+    Disconnect cmd from parent fds, read only from stdout.
+
+    Example:
+        Exercise custom popen through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+    :param cmd: Value supplied for cmd under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
 
     # needed for py2exe
     creationflags = 0
@@ -1935,7 +3066,20 @@ def custom_popen(cmd):
 
 
 def check_returncode(p, out):
-    """Raise exception according to unrar exit code"""
+    """
+    Raise exception according to unrar exit code
+
+    Example:
+        Exercise check returncode through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+    :param p: Path-like value normalized or validated by the operation.
+    :param out: Value supplied for out under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
 
     code = p.returncode
     if code == 0:

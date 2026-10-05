@@ -1,3 +1,11 @@
+"""
+Compare shared read-model payloads with WorkMetadata and item-rooted WEMI metadata on the same persisted graph.
+
+Fixture extraction helpers accept Row, mapping, and legacy attribute shapes for
+assertions only. Their permissive fallback is not production read-model error
+policy. All writes and payload fixtures are confined to pytest temporary storage.
+"""
+
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -25,6 +33,21 @@ from tests.surfaces.test_read_model_api import (
 
 
 def _fixture_row_value(row: Any, column: str) -> Any:
+    """
+    Read fixture values through Row subscription, mapping get, or permissive subscription-to-attribute fallback.
+
+    Only the generic subscription branch catches Exception; Row and mapping
+    failures propagate directly, as do errors from the fallback attribute access.
+
+    Example:
+        >>> _fixture_row_value({"title": "雪"}, "title")
+        '雪'
+
+
+    :param row: Fixture row, mapping, or legacy object supplying a column-like value.
+    :param column: Subscription key or fallback attribute name.
+    :return: Selected value, or None when the applicable mapping/attribute lookup is absent.
+    """
     if isinstance(row, Row):
         return row[column]
     if isinstance(row, Mapping):
@@ -36,6 +59,18 @@ def _fixture_row_value(row: Any, column: str) -> Any:
 
 
 def _first_text(target: Any, *columns: str) -> str:
+    """
+    Return the first non-None fixture value whose string form remains nonempty after stripping.
+
+    Example:
+        >>> _first_text({"first": " ", "second": 0}, "first", "second")
+        '0'
+
+
+    :param target: Fixture object read through _fixture_row_value for each candidate.
+    :param columns: Ordered field names considered until usable text is found.
+    :return: First stripped nonempty text, or empty text if no candidate qualifies.
+    """
     for column in columns:
         value = _fixture_row_value(target, column)
         if value is None:
@@ -47,6 +82,18 @@ def _first_text(target: Any, *columns: str) -> str:
 
 
 def _relation_texts(metadata: WorkMetadata, relation: str, *columns: str) -> list[str]:
+    """
+    Extract nonempty preferred target text from work-level metadata relation links in provider order.
+
+    Example:
+        >>> names = _relation_texts(metadata, "agents", "agent_canonical_name")  # doctest: +SKIP
+
+
+    :param metadata: Work metadata provider exposing get_relation_links.
+    :param relation: Relation selector forwarded unchanged to the provider.
+    :param columns: Preferred target fields passed in order to _first_text.
+    :return: New text list omitting empty target projections without sorting or deduplication.
+    """
     return [
         text
         for text in (
@@ -58,6 +105,19 @@ def _relation_texts(metadata: WorkMetadata, relation: str, *columns: str) -> lis
 
 
 def _wemi_relation_texts(metadata: Any, level: str, relation: str, *columns: str) -> list[str]:
+    """
+    Extract nonempty preferred text from relation targets at a selected WEMI level.
+
+    Example:
+        >>> names = _wemi_relation_texts(metadata, "item", "files", "file_name")  # doctest: +SKIP
+
+
+    :param metadata: Metadata provider exposing get_wemi_relation_links.
+    :param level: WEMI level forwarded unchanged to the relation lookup.
+    :param relation: Relation name requested within that level.
+    :param columns: Ordered target field preferences used to extract display text.
+    :return: New nonempty-text list retaining provider order and duplicates.
+    """
     return [
         text
         for text in (
@@ -75,6 +135,24 @@ def _build_metadata_fixture(
     include_real_tag: bool = True,
     include_legacy_label: bool = True,
 ) -> dict[str, int]:
+    """
+    Persist one work-to-item/file graph with author, series, and independently optional tag/legacy-label relationships.
+
+    The ebook file contains only fixture bytes; helpers record metadata rather
+    than parse or ingest it. Optional tag/label ID keys are omitted when their
+    corresponding relationships were not requested. Existing input database
+    state is not cleared or rolled back by this helper.
+
+    Example:
+        >>> ids = _build_metadata_fixture(database, tmp_path, include_real_tag=False)  # doctest: +SKIP
+
+
+    :param db: Open fixture catalogue receiving all entity rows and relationship links.
+    :param tmp_path: Existing temporary directory receiving alpha-book.epub fixture bytes.
+    :param include_real_tag: Whether to insert and link Canonical Tag to the work.
+    :param include_legacy_label: Whether to insert and link Adventure as a legacy label.
+    :return: Created work/store/agent/series/expression/manifestation/item/file IDs plus requested optional facet IDs.
+    """
     book_path = tmp_path / "alpha-book.epub"
     book_path.write_bytes(b"epub payload")
 
@@ -137,6 +215,17 @@ def _build_metadata_fixture(
 
 
 def test_read_model_payload_matches_work_metadata_relations(driver_spec, tmp_path: Path) -> None:
+    """
+    Compare work identity, title, authors, tags, series, and format filename against WorkMetadata relation projections.
+
+    Example:
+        >>> test_read_model_payload_matches_work_metadata_relations(driver_spec, tmp_path)  # doctest: +SKIP
+
+
+    :param driver_spec: Parametrized backend selected for the temporary catalogue.
+    :param tmp_path: Isolated directory holding database and payload fixtures.
+    :return: None after selected shared-surface and work-metadata fields agree.
+    """
     db_path = tmp_path / "read_model_work_metadata_parity.sqlite"
     with Database(
         metadata={"database_path": str(db_path)},
@@ -176,6 +265,17 @@ def test_read_model_payload_matches_item_wemi_metadata_projection(
     driver_spec,
     tmp_path: Path,
 ) -> None:
+    """
+    Compare work-level shared payloads with item-rooted metadata traversal over the same persisted WEMI graph.
+
+    Example:
+        >>> test_read_model_payload_matches_item_wemi_metadata_projection(driver_spec, tmp_path)  # doctest: +SKIP
+
+
+    :param driver_spec: Parametrized backend used for graph persistence and both metadata readers.
+    :param tmp_path: Temporary catalogue/payload directory.
+    :return: None after work identity/title, canonical tags, first series, and EPUB filename parity assertions.
+    """
     db_path = tmp_path / "read_model_wemi_metadata_parity.sqlite"
     with Database(
         metadata={"database_path": str(db_path)},
@@ -209,6 +309,17 @@ def test_read_model_label_fallback_matches_wemi_labels_when_real_tags_are_empty(
     driver_spec,
     tmp_path: Path,
 ) -> None:
+    """
+    Require shared tag display to use linked legacy labels when the canonical tag table has no values.
+
+    Example:
+        >>> test_read_model_label_fallback_matches_wemi_labels_when_real_tags_are_empty(driver_spec, tmp_path)  # doctest: +SKIP
+
+
+    :param driver_spec: Parametrized database backend used by both fixture readers.
+    :param tmp_path: Isolated directory for the graph and byte fixture.
+    :return: None after labels selection, empty canonical metadata tags, and displayed label parity are checked.
+    """
     db_path = tmp_path / "read_model_wemi_label_fallback_parity.sqlite"
     with Database(
         metadata={"database_path": str(db_path)},

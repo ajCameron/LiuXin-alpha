@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
-"""Run the read-only JSON API using the repo-local virtualenv."""
+"""
+Launch the read-only JSON API with the repository's existing virtualenv interpreter.
+
+An explicit database or Core endpoint is required. The child receives selected
+service/cache options, a copied environment with src prepended to PYTHONPATH,
+and the repository root as cwd. Standard streams are inherited and the child
+return code is preserved. This wrapper does not install dependencies or expose
+the application's page-size options.
+"""
 
 from __future__ import annotations
 
@@ -11,16 +19,59 @@ from pathlib import Path
 
 
 def venv_python_path(venv_dir: Path) -> Path:
+    """
+    Select the conventional interpreter path beneath a virtual-environment root.
+
+    Existence and executability are not checked by this path-only helper.
+
+    Example:
+        >>> venv_python_path(Path(".venv")).name in {"python", "python.exe"}
+        True
+
+
+    :param venv_dir: Environment root to retain without resolving or creating it.
+    :return: Scripts/python.exe on Windows, otherwise bin/python beneath the root.
+    """
     if os.name == "nt":
         return venv_dir / "Scripts" / "python.exe"
     return venv_dir / "bin" / "python"
 
 
 def shell_join(parts: list[str]) -> str:
+    """
+    Render command tokens with POSIX shell quoting for the progress message.
+
+    The subprocess receives the original token list, not this string or a shell.
+
+    Example:
+        >>> shell_join(["python", "a b"])
+        "python 'a b'"
+
+
+    :param parts: Ordered argument strings to display without mutation.
+    :return: Shell-quoted, space-separated display command.
+    """
     return shlex.join(parts)
 
 
 def main(argv: list[str] | None = None) -> int:
+    """
+    Parse wrapper flags, check interpreter existence, and wait for the API child.
+
+    Exactly one database/endpoint is required. Optional nondefault cache choices
+    and download-disable flags are forwarded. Core timeout is forwarded only
+    for an endpoint and does not impose a subprocess timeout. PYTHONPATH is
+    changed only in a copied environment; no shell is used. Startup errors
+    propagate, and an existing interpreter need not have been executable-checked.
+
+    Example:
+        >>> main(["--database", "library.sqlite", "--no-file-downloads"])  # doctest: +SKIP
+
+
+    :param argv: Wrapper argument tokens, or None for process arguments.
+    :return: Child process return code, including nonzero termination outcomes.
+    :raises SystemExit: Help, invalid options, or missing interpreter invokes argparse.
+    """
     parser = argparse.ArgumentParser(
         description="Run the LiuXin read-only JSON API from the repo-local virtualenv.",
         formatter_class=argparse.RawDescriptionHelpFormatter,

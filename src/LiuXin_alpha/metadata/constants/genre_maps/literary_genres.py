@@ -2,6 +2,22 @@
 # Run this ONLY if you've already classified the work as Literary/General Fiction.
 # Most-specific-first.
 
+"""
+Provide leaf-label patterns for works already assigned to Literary / General Fiction.
+
+Specific traditions, shelf labels and forms precede broad Literary Fiction and
+Fiction fallbacks. Apply within the branch because patterns such as marriage and
+collection also occur outside it.
+
+Map canonical labels to tuples of uncompiled regular-expression strings. Consumers
+choose regex flags, normalization, and first-match or multi-match policy; importing
+the module performs no classification.
+
+Example:
+    >>> import re
+    >>> any(re.search(pattern, 'magical realism', re.IGNORECASE) for pattern in LITERARY_LEAF_MAPPING['Magical Realism']) is not False
+    True
+"""
 LITERARY_LEAF_MAPPING = {
     # --- Distinct traditions / labels ---
     "Magical Realism": (

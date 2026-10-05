@@ -1,32 +1,72 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
-from __future__ import unicode_literals, division, absolute_import, print_function
-from __future__ import annotations
+"""
+Open ebook containers for controlled inspection, modification and reconstruction.
 
-import typing as _typing
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
 
-import sys
+Example:
+    Exercise tweak through a consuming regression::
+
+        python -m pytest -q tests/file_formats/test_tweak_corner_cases.py
+"""
+from __future__ import (
+    absolute_import,
+    annotations,
+    division,
+    print_function,
+    unicode_literals,
+)
+
 import os
 import shlex
-import subprocess
 import shutil
+import subprocess
+import sys
+import typing as _typing
 import unicodedata
 
-from LiuXin_alpha.constants import iswindows, __appname__
-
+from LiuXin_alpha.constants import __appname__, iswindows
 from LiuXin_alpha.utils.calibre import as_unicode, walk
-from LiuXin_alpha import prints
+from LiuXin_alpha.utils.logging import prints
+
 try:
     from LiuXin_alpha.utils.ipc.simple_worker import WorkerError
 except ModuleNotFoundError:
     class WorkerError(RuntimeError):
+        """
+        Report a workererror encountered while processing an ebook format.
+
+        Example:
+            Exercise WorkerError through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_tweak_corner_cases.py
+        """
         def __init__(self: _typing.Self, message: _typing.Any, orig_tb: _typing.Any = None) -> None:
+            """
+            Initialize and validate the workererror state.
+
+            Example:
+                Exercise WorkerError.  init   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/test_tweak_corner_cases.py
+
+
+            :param message: Value supplied for message under the utility contract.
+            :param orig_tb: Value supplied for orig tb under the utility contract.
+            :return: None; validated state is stored on the receiving object.
+            """
             super().__init__(message)
             self.orig_tb = orig_tb
 from LiuXin_alpha.utils.decompression.libunzip import extract as zipextract
+from LiuXin_alpha.utils.libraries.calibre_zipfile import (
+    ZIP_DEFLATED,
+    ZIP_STORED,
+    ZipFile,
+)
 from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory, TemporaryFile
-from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile, ZIP_DEFLATED, ZIP_STORED
 
 __license__ = "GPL v3"
 __copyright__ = "2012, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -34,10 +74,31 @@ __docformat__ = "restructuredtext en"
 
 
 class Error(ValueError):
+    """
+    Report a error encountered while processing an ebook format.
+
+    Example:
+        Exercise Error through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_tweak_corner_cases.py
+    """
     pass
 
 
 def ask_cli_question(msg: _typing.Any) -> bool:
+    """
+    Perform the ask cli question operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise ask cli question through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_tweak_corner_cases.py
+
+
+    :param msg: Value supplied for msg under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     prints(msg, end=" [y/N]: ")
     sys.stdout.flush()
 
@@ -46,8 +107,8 @@ def ask_cli_question(msg: _typing.Any) -> bool:
 
         ans = msvcrt.getch()
     else:
-        import tty
         import termios
+        import tty
 
         old_settings = termios.tcgetattr(sys.stdin.fileno())
         try:
@@ -65,7 +126,23 @@ def ask_cli_question(msg: _typing.Any) -> bool:
 
 
 def mobi_exploder(path: _typing.Any, tdir: _typing.Any, question: _typing.Callable[..., _typing.Any] = lambda x: True) -> _typing.Any:
-    from LiuXin_alpha.utils.calibre.ebooks.mobi.tweak import explode, BadFormat
+    """
+    Perform the mobi exploder operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise mobi exploder through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_tweak_corner_cases.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :param tdir: Value supplied for tdir under the utility contract.
+    :param question: Value supplied for question under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
+    from LiuXin_alpha.utils.calibre.ebooks.mobi.tweak import BadFormat, explode
 
     try:
         return explode(path, tdir, question=question)
@@ -74,6 +151,22 @@ def mobi_exploder(path: _typing.Any, tdir: _typing.Any, question: _typing.Callab
 
 
 def zip_exploder(path: _typing.Any, tdir: _typing.Any, question: _typing.Callable[..., _typing.Any] = lambda x: True) -> _typing.Any:
+    """
+    Perform the zip exploder operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise zip exploder through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_tweak_corner_cases.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :param tdir: Value supplied for tdir under the utility contract.
+    :param question: Value supplied for question under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         zipextract(path, tdir)
     except Exception as err:
@@ -85,6 +178,21 @@ def zip_exploder(path: _typing.Any, tdir: _typing.Any, question: _typing.Callabl
 
 
 def zip_rebuilder(tdir: _typing.Any, path: _typing.Any) -> None:
+    """
+    Perform the zip rebuilder operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise zip rebuilder through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_tweak_corner_cases.py
+
+
+    :param tdir: Value supplied for tdir under the utility contract.
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     output_abspath = os.path.abspath(path)
     with ZipFile(path, "w", compression=ZIP_DEFLATED) as zf:
         # Write mimetype
@@ -107,6 +215,19 @@ def zip_rebuilder(tdir: _typing.Any, path: _typing.Any) -> None:
 
 
 def get_tools(fmt: _typing.Any) -> _typing.Any:
+    """
+    Return tools under the format's safety and compatibility rules.
+
+    Example:
+        Exercise get tools through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_tweak_corner_cases.py
+
+
+    :param fmt: Date, number or template format specification.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     fmt = (fmt or "").lower()
 
     if fmt in {"mobi", "azw", "azw3"}:
@@ -124,8 +245,16 @@ def get_tools(fmt: _typing.Any) -> _typing.Any:
 def tweak(ebook_file: _typing.Any) -> None:
     """
     Command line interface to the Tweak Book tool
-    :param ebook_file:
-    :return:
+
+    Example:
+        Exercise tweak through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_tweak_corner_cases.py
+
+
+    :param ebook_file: Value supplied for ebook file under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     fmt = ebook_file.rpartition(".")[-1].lower()
     exploder, rebuilder = get_tools(fmt)

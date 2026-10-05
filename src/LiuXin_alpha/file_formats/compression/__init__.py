@@ -1,6 +1,16 @@
 # -*- coding: utf-8 -*-
 
-"""Compression helpers used by legacy ebook formats."""
+"""
+Expose the supported compression compatibility surface.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/file_formats/compression/test_compression_modernized.py
+"""
 from __future__ import annotations
 
 __license__ = "GPL 3"

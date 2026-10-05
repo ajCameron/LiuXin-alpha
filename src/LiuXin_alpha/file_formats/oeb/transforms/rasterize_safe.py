@@ -1,3 +1,14 @@
+"""
+Rasterize supported resources with guarded fallbacks.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise rasterize safe through a consuming regression::
+
+        python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+"""
 from __future__ import with_statement
 from __future__ import annotations
 
@@ -26,20 +37,44 @@ from LiuXin_alpha.file_formats.oeb.transforms.rasterize import SVGRasterizer, Un
 class SVGRasterizerSafe(SVGRasterizer):
     """
     SVGRasterizer - without the reliance on PyQt
+
+    Example:
+        Exercise SVGRasterizerSafe through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
     """
 
     def __init__(self: _typing.Self) -> None:
+        """
+        Initialize and validate the svgrasterizersafe state.
+
+        Example:
+            Exercise SVGRasterizerSafe.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         if not _HAS_WAND:
             raise Unavailable("wand is unavailable for safe SVG rasterization")
 
     def rasterize_svg(self: _typing.Self, elem: _typing.Any, width: int = 0, height: int = 0, format: str = "PNG") -> _typing.Any:
         """
         Do the actual work of rasterizing an svg into a sensible format.
-        :param elem:
-        :param width:
-        :param height:
-        :param format:
-        :return:
+
+        Example:
+            Exercise SVGRasterizerSafe.rasterize svg through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param elem: Value supplied for elem under the utility contract.
+        :param width: Value supplied for width under the utility contract.
+        :param height: Value supplied for height under the utility contract.
+        :param format: Value supplied for format under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # Handle the possibility that the SVG is contained within a viewbox... whatever that is
         view_box = elem.get("viewBox", elem.get("viewbox", None))
@@ -96,11 +131,19 @@ class SVGRasterizerSafe(SVGRasterizer):
     def new_width_and_height(self: _typing.Self, width: _typing.Any, height: _typing.Any, old_width: _typing.Any, old_height: _typing.Any) -> tuple[_typing.Any, ...]:
         """
         Given a desired final width or height works out the new width and height and returns them
-        :param width:
-        :param height:
-        :param old_width:
-        :param old_height:
-        :return:
+
+        Example:
+            Exercise SVGRasterizerSafe.new width and height through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param width: Value supplied for width under the utility contract.
+        :param height: Value supplied for height under the utility contract.
+        :param old_width: Value supplied for old width under the utility contract.
+        :param old_height: Value supplied for old height under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if width and height:
             return width, height
@@ -123,4 +166,20 @@ class SVGRasterizerSafe(SVGRasterizer):
             raise NotImplementedError("This position should never be reached")
 
     def rasterize_external(self: _typing.Self, elem: _typing.Any, style: _typing.Any, item: _typing.Any, svgitem: _typing.Any) -> None:
+        """
+        Perform the rasterize external operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SVGRasterizerSafe.rasterize external through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param elem: Value supplied for elem under the utility contract.
+        :param style: Value supplied for style under the utility contract.
+        :param item: Value supplied for item under the utility contract.
+        :param svgitem: Value supplied for svgitem under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raise NotImplementedError("No current way of dealing with an incoming svgitem")

@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
-"""Benchmark scalar and relationship reads through the cache facade."""
+"""
+Benchmark library cache access paths.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise benchmark cache paths through a consuming regression::
+
+        python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+"""
 
 from __future__ import annotations
 
@@ -57,7 +67,14 @@ DEFAULT_SCENARIOS = (
 
 @dataclass(frozen=True)
 class ScalarProbe:
-    """One scalar field and representative owner IDs selected for timing."""
+    """
+    One scalar field and representative owner IDs selected for timing.
+
+    Example:
+        Exercise ScalarProbe through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+    """
 
     field_key: str
     table_name: str
@@ -68,7 +85,14 @@ class ScalarProbe:
 
 @dataclass(frozen=True)
 class RelationProbe:
-    """One relationship field and representative owners selected for timing."""
+    """
+    One relationship field and representative owners selected for timing.
+
+    Example:
+        Exercise RelationProbe through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+    """
 
     field_key: str
     owner_ids: tuple[int, ...]
@@ -77,7 +101,14 @@ class RelationProbe:
 
 @dataclass(frozen=True)
 class CacheProbeSet:
-    """Available scalar and relationship probes for one cache backend."""
+    """
+    Available scalar and relationship probes for one cache backend.
+
+    Example:
+        Exercise CacheProbeSet through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+    """
 
     scalar: Optional[ScalarProbe]
     relation_single: Optional[RelationProbe]
@@ -85,6 +116,18 @@ class CacheProbeSet:
 
 
 def parse_args() -> argparse.Namespace:
+    """
+    Parse args under the format's safety and compatibility rules.
+
+    Example:
+        Exercise parse args through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     parser = argparse.ArgumentParser(description="Benchmark storage-cache backends on a LiuXin database.")
     parser.add_argument("--db-name", default="benchmark_db_medium", help="Named test DB to provision.")
     parser.add_argument("--database", default="", help="Existing database path to benchmark instead of provisioning.")
@@ -115,14 +158,54 @@ def parse_args() -> argparse.Namespace:
 
 
 def _open_benchmark_database(database_path: Path):
+    """
+    Perform the open benchmark database operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  open benchmark database through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param database_path: Value supplied for database path under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return _open_database(database_path=str(database_path), db_type="sqlite")
 
 
 def _parse_csv(raw: str) -> list[str]:
+    """
+    Parse csv under the format's safety and compatibility rules.
+
+    Example:
+        Exercise  parse csv through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return [one.strip() for one in str(raw or "").split(",") if one.strip()]
 
 
 def _expanded_ids(ids: Sequence[int], sample_size: int) -> tuple[int, ...]:
+    """
+    Perform the expanded ids operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  expanded ids through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param ids: Value supplied for ids under the utility contract.
+    :param sample_size: Value supplied for sample size under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     ordered = tuple(int(value) for value in ids)
     if not ordered:
         return ()
@@ -131,6 +214,20 @@ def _expanded_ids(ids: Sequence[int], sample_size: int) -> tuple[int, ...]:
 
 
 def _field_score(field_key: str, column_name: str) -> tuple[int, int, str]:
+    """
+    Perform the field score operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  field score through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param field_key: Value supplied for field key under the utility contract.
+    :param column_name: Value supplied for column name under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     full = str(field_key).lower()
     column = str(column_name).lower()
     preferred = (
@@ -153,6 +250,19 @@ def _field_score(field_key: str, column_name: str) -> tuple[int, int, str]:
 
 
 def _src_table_score(field: Any) -> tuple[int, str]:
+    """
+    Perform the src table score operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  src table score through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param field: Metadata or template field addressed by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     src_table = str(
         getattr(
             field,
@@ -172,11 +282,38 @@ def _src_table_score(field: Any) -> tuple[int, str]:
 
 
 def _collect_ids(field: Any) -> tuple[int, ...]:
+    """
+    Perform the collect ids operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  collect ids through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param field: Metadata or template field addressed by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     raw_ids = getattr(field, "ids", set()) or ()
     return tuple(sorted(int(value) for value in raw_ids))
 
 
 def _sample_scalar_value(field: Any, owner_ids: Sequence[int]) -> Any:
+    """
+    Perform the sample scalar value operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  sample scalar value through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param field: Metadata or template field addressed by the operation.
+    :param owner_ids: Value supplied for owner ids under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     getter = getattr(field, "get_value_from_id", None)
     if not callable(getter):
         return None
@@ -188,6 +325,20 @@ def _sample_scalar_value(field: Any, owner_ids: Sequence[int]) -> Any:
 
 
 def _sample_relation_single_value(field: Any, owner_ids: Sequence[int]) -> Any:
+    """
+    Perform the sample relation single value operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  sample relation single value through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param field: Metadata or template field addressed by the operation.
+    :param owner_ids: Value supplied for owner ids under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     getter = getattr(field, "get_value_from_src_id", None)
     if not callable(getter):
         return None
@@ -199,6 +350,20 @@ def _sample_relation_single_value(field: Any, owner_ids: Sequence[int]) -> Any:
 
 
 def _sample_relation_multi_values(field: Any, owner_ids: Sequence[int]) -> tuple[Any, ...]:
+    """
+    Perform the sample relation multi values operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  sample relation multi values through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param field: Metadata or template field addressed by the operation.
+    :param owner_ids: Value supplied for owner ids under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     getter = getattr(field, "get_values_from_src_id", None)
     if not callable(getter):
         return ()
@@ -210,6 +375,20 @@ def _sample_relation_multi_values(field: Any, owner_ids: Sequence[int]) -> tuple
 
 
 def _prepare_scalar_probe(cache: Any, *, sample_size: int) -> Optional[ScalarProbe]:
+    """
+    Perform the prepare scalar probe operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  prepare scalar probe through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param cache: Value supplied for cache under the utility contract.
+    :param sample_size: Value supplied for sample size under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     candidates: list[tuple[tuple[int, int, str], str, str, tuple[int, ...]]] = []
     for field in cache.iter_fields():
         if getattr(field, "dst_table_name", None) is not None:
@@ -262,6 +441,21 @@ def _prepare_relation_probe(
     sample_size: int,
     multi: bool,
 ) -> Optional[RelationProbe]:
+    """
+    Perform the prepare relation probe operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  prepare relation probe through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param cache: Value supplied for cache under the utility contract.
+    :param sample_size: Value supplied for sample size under the utility contract.
+    :param multi: Value supplied for multi under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     candidates: list[tuple[tuple[int, int, int, str], str, tuple[int, ...]]] = []
     for field in cache.iter_fields():
         if getattr(field, "dst_table_name", None) is None:
@@ -307,6 +501,20 @@ def _prepare_relation_probe(
 
 
 def _prepare_probes(cache: Any, *, sample_size: int) -> CacheProbeSet:
+    """
+    Perform the prepare probes operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  prepare probes through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param cache: Value supplied for cache under the utility contract.
+    :param sample_size: Value supplied for sample size under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return CacheProbeSet(
         scalar=_prepare_scalar_probe(cache, sample_size=sample_size),
         relation_single=_prepare_relation_probe(cache, sample_size=sample_size, multi=False),
@@ -315,10 +523,38 @@ def _prepare_probes(cache: Any, *, sample_size: int) -> CacheProbeSet:
 
 
 def _create_cache(db: Any, cache_type: str) -> Any:
+    """
+    Create cache under the format's safety and compatibility rules.
+
+    Example:
+        Exercise  create cache through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param db: Value supplied for db under the utility contract.
+    :param cache_type: Value supplied for cache type under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return create_storage_cache(db, cache_type)
 
 
 def _scenario_load_cache(database_path: Path, cache_type: str) -> dict[str, object]:
+    """
+    Perform the scenario load cache operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  scenario load cache through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param database_path: Value supplied for database path under the utility contract.
+    :param cache_type: Value supplied for cache type under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     with _open_benchmark_database(database_path) as db:
         tracemalloc.start()
         try:
@@ -338,6 +574,20 @@ def _scenario_load_cache(database_path: Path, cache_type: str) -> dict[str, obje
 
 
 def _scenario_reload_cache(cache: Any, cache_type: str) -> dict[str, object]:
+    """
+    Perform the scenario reload cache operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  scenario reload cache through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param cache: Value supplied for cache under the utility contract.
+    :param cache_type: Value supplied for cache type under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     cache.reload()
     return {
         "cache_type": cache_type,
@@ -347,6 +597,21 @@ def _scenario_reload_cache(cache: Any, cache_type: str) -> dict[str, object]:
 
 
 def _scenario_scalar_get_cached_value_loop(cache: Any, probe: ScalarProbe, cache_type: str) -> dict[str, object]:
+    """
+    Perform the scenario scalar get cached value loop operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  scenario scalar get cached value loop through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param cache: Value supplied for cache under the utility contract.
+    :param probe: Value supplied for probe under the utility contract.
+    :param cache_type: Value supplied for cache type under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     total_length = 0
     non_null = 0
     for owner_id in probe.owner_ids:
@@ -364,6 +629,21 @@ def _scenario_scalar_get_cached_value_loop(cache: Any, probe: ScalarProbe, cache
 
 
 def _scenario_scalar_get_cached_row_values_loop(cache: Any, probe: ScalarProbe, cache_type: str) -> dict[str, object]:
+    """
+    Perform the scenario scalar get cached row values loop operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  scenario scalar get cached row values loop through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param cache: Value supplied for cache under the utility contract.
+    :param probe: Value supplied for probe under the utility contract.
+    :param cache_type: Value supplied for cache type under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     total_values = 0
     total_length = 0
     for owner_id in probe.owner_ids:
@@ -380,6 +660,21 @@ def _scenario_scalar_get_cached_row_values_loop(cache: Any, probe: ScalarProbe, 
 
 
 def _scenario_scalar_field_get_value_loop(cache: Any, probe: ScalarProbe, cache_type: str) -> dict[str, object]:
+    """
+    Perform the scenario scalar field get value loop operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  scenario scalar field get value loop through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param cache: Value supplied for cache under the utility contract.
+    :param probe: Value supplied for probe under the utility contract.
+    :param cache_type: Value supplied for cache type under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     field = cache.get_field(probe.field_key)
     total_length = 0
     non_null = 0
@@ -398,6 +693,21 @@ def _scenario_scalar_field_get_value_loop(cache: Any, probe: ScalarProbe, cache_
 
 
 def _scenario_main_table_row_snapshot_loop(cache: Any, probe: ScalarProbe, cache_type: str) -> dict[str, object]:
+    """
+    Perform the scenario main table row snapshot loop operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  scenario main table row snapshot loop through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param cache: Value supplied for cache under the utility contract.
+    :param probe: Value supplied for probe under the utility contract.
+    :param cache_type: Value supplied for cache type under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     table = cache.get_main_table(probe.table_name)
     total_columns = 0
     total_length = 0
@@ -415,6 +725,21 @@ def _scenario_main_table_row_snapshot_loop(cache: Any, probe: ScalarProbe, cache
 
 
 def _scenario_relation_single_get_value_loop(cache: Any, probe: RelationProbe, cache_type: str) -> dict[str, object]:
+    """
+    Perform the scenario relation single get value loop operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  scenario relation single get value loop through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param cache: Value supplied for cache under the utility contract.
+    :param probe: Value supplied for probe under the utility contract.
+    :param cache_type: Value supplied for cache type under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     field = cache.get_field(probe.field_key)
     total_length = 0
     non_null = 0
@@ -433,6 +758,21 @@ def _scenario_relation_single_get_value_loop(cache: Any, probe: RelationProbe, c
 
 
 def _scenario_relation_multi_get_values_loop(cache: Any, probe: RelationProbe, cache_type: str) -> dict[str, object]:
+    """
+    Perform the scenario relation multi get values loop operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  scenario relation multi get values loop through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param cache: Value supplied for cache under the utility contract.
+    :param probe: Value supplied for probe under the utility contract.
+    :param cache_type: Value supplied for cache type under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     field = cache.get_field(probe.field_key)
     total_values = 0
     total_length = 0
@@ -450,6 +790,21 @@ def _scenario_relation_multi_get_values_loop(cache: Any, probe: RelationProbe, c
 
 
 def _scenario_reload_main_table(cache: Any, probe: ScalarProbe, cache_type: str) -> dict[str, object]:
+    """
+    Perform the scenario reload main table operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  scenario reload main table through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param cache: Value supplied for cache under the utility contract.
+    :param probe: Value supplied for probe under the utility contract.
+    :param cache_type: Value supplied for cache type under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     cache.reload_main_table(probe.table_name)
     table = cache.get_main_table(probe.table_name)
     return {
@@ -460,6 +815,21 @@ def _scenario_reload_main_table(cache: Any, probe: ScalarProbe, cache_type: str)
 
 
 def _scenario_reload_scalar_field(cache: Any, probe: ScalarProbe, cache_type: str) -> dict[str, object]:
+    """
+    Perform the scenario reload scalar field operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  scenario reload scalar field through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param cache: Value supplied for cache under the utility contract.
+    :param probe: Value supplied for probe under the utility contract.
+    :param cache_type: Value supplied for cache type under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     cache.reload_field(probe.field_key)
     field = cache.get_field(probe.field_key)
     return {
@@ -470,6 +840,21 @@ def _scenario_reload_scalar_field(cache: Any, probe: ScalarProbe, cache_type: st
 
 
 def _scenario_reload_relation_field(cache: Any, probe: RelationProbe, cache_type: str) -> dict[str, object]:
+    """
+    Perform the scenario reload relation field operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  scenario reload relation field through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param cache: Value supplied for cache under the utility contract.
+    :param probe: Value supplied for probe under the utility contract.
+    :param cache_type: Value supplied for cache type under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     cache.reload_field(probe.field_key)
     field = cache.get_field(probe.field_key)
     return {
@@ -480,6 +865,21 @@ def _scenario_reload_relation_field(cache: Any, probe: RelationProbe, cache_type
 
 
 def _scenario_numpy_scalar_arrays(cache: Any, probe: ScalarProbe, cache_type: str) -> dict[str, object]:
+    """
+    Perform the scenario numpy scalar arrays operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  scenario numpy scalar arrays through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param cache: Value supplied for cache under the utility contract.
+    :param probe: Value supplied for probe under the utility contract.
+    :param cache_type: Value supplied for cache type under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     row_ids = cache.get_numpy_row_id_array(probe.table_name)
     owner_ids = cache.get_numpy_field_owner_ids(probe.field_key)
     values = cache.get_numpy_field_array(probe.field_key)
@@ -493,6 +893,21 @@ def _scenario_numpy_scalar_arrays(cache: Any, probe: ScalarProbe, cache_type: st
 
 
 def _scenario_numpy_relation_arrays(cache: Any, probe: RelationProbe, cache_type: str) -> dict[str, object]:
+    """
+    Perform the scenario numpy relation arrays operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  scenario numpy relation arrays through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param cache: Value supplied for cache under the utility contract.
+    :param probe: Value supplied for probe under the utility contract.
+    :param cache_type: Value supplied for cache type under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     owner_ids = cache.get_numpy_field_owner_ids(probe.field_key)
     values = cache.get_numpy_field_array(probe.field_key)
     return {
@@ -508,6 +923,21 @@ def _scenario_facade_exact_lookup_loop(
     probe: ScalarProbe,
     cache_type: str,
 ) -> dict[str, object]:
+    """
+    Perform the scenario facade exact lookup loop operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  scenario facade exact lookup loop through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param facade: Value supplied for facade under the utility contract.
+    :param probe: Value supplied for probe under the utility contract.
+    :param cache_type: Value supplied for cache type under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     hits = 0
     for owner_id in probe.owner_ids:
         if facade.get(probe.table_name, owner_id).is_hit:
@@ -525,6 +955,21 @@ def _scenario_facade_sorted_page(
     probe: ScalarProbe,
     cache_type: str,
 ) -> dict[str, object]:
+    """
+    Perform the scenario facade sorted page operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  scenario facade sorted page through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param facade: Value supplied for facade under the utility contract.
+    :param probe: Value supplied for probe under the utility contract.
+    :param cache_type: Value supplied for cache type under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     result = facade.query(
         CacheQuery(
             table=probe.table_name,
@@ -546,6 +991,22 @@ def _scenario_facade_text_search(
     probe: ScalarProbe,
     cache_type: str,
 ) -> dict[str, object]:
+    """
+    Perform the scenario facade text search operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  scenario facade text search through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param facade: Value supplied for facade under the utility contract.
+    :param cache: Value supplied for cache under the utility contract.
+    :param probe: Value supplied for probe under the utility contract.
+    :param cache_type: Value supplied for cache type under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     sample_value = cache.get_cached_value(
         probe.owner_ids[0],
         probe.field_key,
@@ -570,6 +1031,21 @@ def _scenario_facade_text_search(
 
 
 def _skip_result(cache_type: str, scenario_name: str, reason: str) -> dict[str, object]:
+    """
+    Perform the skip result operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  skip result through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param cache_type: Value supplied for cache type under the utility contract.
+    :param scenario_name: Value supplied for scenario name under the utility contract.
+    :param reason: Value supplied for reason under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return {
         "name": "{}.{}".format(cache_type, scenario_name),
         "cache_type": cache_type,
@@ -580,6 +1056,20 @@ def _skip_result(cache_type: str, scenario_name: str, reason: str) -> dict[str, 
 
 
 def _result_name(cache_type: str, scenario_name: str) -> str:
+    """
+    Perform the result name operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  result name through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param cache_type: Value supplied for cache type under the utility contract.
+    :param scenario_name: Value supplied for scenario name under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return "{}.{}".format(cache_type, scenario_name)
 
 
@@ -590,6 +1080,22 @@ def _build_scenarios(
     cache: Any,
     probes: CacheProbeSet,
 ) -> dict[str, Callable[[], dict[str, object]]]:
+    """
+    Perform the build scenarios operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  build scenarios through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param database_path: Value supplied for database path under the utility contract.
+    :param cache_type: Value supplied for cache type under the utility contract.
+    :param cache: Value supplied for cache under the utility contract.
+    :param probes: Value supplied for probes under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     facade = Cache.from_storage(cache)
     scenarios: dict[str, Callable[[], dict[str, object]]] = {
         "load_cache": lambda: _scenario_load_cache(database_path, cache_type),
@@ -622,6 +1128,19 @@ def _build_scenarios(
 
 
 def _cache_creation_error(exc: Exception) -> str:
+    """
+    Perform the cache creation error operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  cache creation error through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param exc: Value supplied for exc under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     text = str(exc).strip()
     return text or exc.__class__.__name__
 
@@ -640,6 +1159,30 @@ def run_cache_path_benchmarks(
     scenario_names: list[str],
     progress: Optional[Callable[[str], None]] = None,
 ) -> dict[str, object]:
+    """
+    Perform the run cache path benchmarks operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise run cache path benchmarks through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param db_name: Value supplied for db name under the utility contract.
+    :param database: Value supplied for database under the utility contract.
+    :param cache_dir: Value supplied for cache dir under the utility contract.
+    :param regenerate: Value supplied for regenerate under the utility contract.
+    :param keep_provisioned: Value supplied for keep provisioned under the utility
+        contract.
+    :param iterations: Value supplied for iterations under the utility contract.
+    :param warmups: Value supplied for warmups under the utility contract.
+    :param sample_size: Value supplied for sample size under the utility contract.
+    :param cache_types: Value supplied for cache types under the utility contract.
+    :param scenario_names: Value supplied for scenario names under the utility contract.
+    :param progress: Value supplied for progress under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if progress is not None:
         progress("preparing cache-path benchmark target={}".format(db_name or database))
 
@@ -734,6 +1277,19 @@ def run_cache_path_benchmarks(
 
 
 def main(argv: Optional[list[str]] = None) -> int:
+    """
+    Perform the main operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise main through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param argv: Value supplied for argv under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     args = parse_args()
     cache_types = _parse_csv(str(args.cache_types))
     scenario_names = _parse_csv(str(args.scenarios))

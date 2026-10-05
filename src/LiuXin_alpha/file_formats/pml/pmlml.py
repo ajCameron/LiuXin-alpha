@@ -1,7 +1,15 @@
 # -*- coding: utf-8 -*-
 
 """
-Transform OEB content into PML markup
+Parse and serialize Palm Markup Language tokens and structure.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise pmlml through a consuming regression::
+
+        python -m pytest -q tests/file_formats/pml/test_pml_modernized.py
 """
 from __future__ import annotations
 
@@ -79,7 +87,29 @@ SEPARATE_TAGS = [
 
 
 class PMLMLizer(object):
+    """
+    Provide the pmlmlizer contract for validated ebook processing.
+
+    Example:
+        Exercise PMLMLizer through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pml/test_pml_modernized.py
+    """
     def __init__(self: _typing.Self, log: _typing.Any, conversion_report: _typing.Any = None) -> None:
+        """
+        Initialize and validate the pmlmlizer state.
+
+        Example:
+            Exercise PMLMLizer.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pml/test_pml_modernized.py
+
+
+        :param log: Value supplied for log under the utility contract.
+        :param conversion_report: Value supplied for conversion report under the utility
+            contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.log = log
         self.conversion_report = conversion_report
         self.image_hrefs = {}
@@ -91,6 +121,20 @@ class PMLMLizer(object):
         self.toc = None
 
     def extract_content(self: _typing.Self, oeb_book: _typing.Any, opts: _typing.Any) -> _typing.Any:
+        """
+        Extract content under the format's safety and compatibility rules.
+
+        Example:
+            Exercise PMLMLizer.extract content through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pml/test_pml_modernized.py
+
+
+        :param oeb_book: Value supplied for oeb book under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.log.info("Converting XHTML to PML markup...")
         self.oeb_book = oeb_book
         self.opts = opts
@@ -103,6 +147,20 @@ class PMLMLizer(object):
         return self.pmlmlize_spine()
 
     def create_flat_toc(self: _typing.Self, nodes: _typing.Any, level: int = 0) -> None:
+        """
+        Create flat toc under the format's safety and compatibility rules.
+
+        Example:
+            Exercise PMLMLizer.create flat toc through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pml/test_pml_modernized.py
+
+
+        :param nodes: Value supplied for nodes under the utility contract.
+        :param level: Value supplied for level under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for item in nodes:
             href, mid, local_id = item.href.partition("#")
             self.get_anchor_id(href, local_id)
@@ -112,6 +170,18 @@ class PMLMLizer(object):
             self.create_flat_toc(item.nodes, level + 1)
 
     def pmlmlize_spine(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the pmlmlize spine operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PMLMLizer.pmlmlize spine through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pml/test_pml_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.image_hrefs = {}
         self.link_hrefs = {}
         output = list([""])
@@ -122,6 +192,18 @@ class PMLMLizer(object):
         return output
 
     def get_cover_page(self: _typing.Self) -> _typing.Any:
+        """
+        Return cover page under the format's safety and compatibility rules.
+
+        Example:
+            Exercise PMLMLizer.get cover page through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pml/test_pml_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.file_formats.oeb.stylizer import Stylizer
         from LiuXin_alpha.file_formats.oeb.base import XHTML
 
@@ -145,6 +227,18 @@ class PMLMLizer(object):
         return output
 
     def get_text(self: _typing.Self) -> _typing.Any:
+        """
+        Return text under the format's safety and compatibility rules.
+
+        Example:
+            Exercise PMLMLizer.get text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pml/test_pml_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.file_formats.oeb.stylizer import Stylizer
         from LiuXin_alpha.file_formats.oeb.base import XHTML
 
@@ -160,9 +254,36 @@ class PMLMLizer(object):
         return "".join(text)
 
     def add_page_anchor(self: _typing.Self, page: _typing.Any) -> _typing.Any:
+        """
+        Perform the add page anchor operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PMLMLizer.add page anchor through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pml/test_pml_modernized.py
+
+
+        :param page: Value supplied for page under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.get_anchor(page, "")
 
     def get_anchor_id(self: _typing.Self, href: _typing.Any, aid: _typing.Any) -> _typing.Any:
+        """
+        Return anchor id under the format's safety and compatibility rules.
+
+        Example:
+            Exercise PMLMLizer.get anchor id through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pml/test_pml_modernized.py
+
+
+        :param href: Value supplied for href under the utility contract.
+        :param aid: Value supplied for aid under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         aid = "%s#%s" % (href, aid)
         if aid not in self.link_hrefs.keys():
             self.link_hrefs[aid] = "calibre_link-%s" % len(self.link_hrefs.keys())
@@ -170,16 +291,56 @@ class PMLMLizer(object):
         return aid
 
     def get_anchor(self: _typing.Self, page: _typing.Any, aid: _typing.Any) -> _typing.Any:
+        """
+        Return anchor under the format's safety and compatibility rules.
+
+        Example:
+            Exercise PMLMLizer.get anchor through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pml/test_pml_modernized.py
+
+
+        :param page: Value supplied for page under the utility contract.
+        :param aid: Value supplied for aid under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         aid = self.get_anchor_id(page.href, aid)
         return '\\Q="%s"' % aid
 
     def remove_newlines(self: _typing.Self, text: _typing.Any) -> _typing.Any:
+        """
+        Perform the remove newlines operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PMLMLizer.remove newlines through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pml/test_pml_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         text = text.replace("\r\n", " ")
         text = text.replace("\n", " ")
         text = text.replace("\r", " ")
         return text
 
     def prepare_string_for_pml(self: _typing.Self, text: _typing.Any) -> _typing.Any:
+        """
+        Perform the prepare string for pml operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PMLMLizer.prepare string for pml through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pml/test_pml_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         text = self.remove_newlines(text)
         # Replace \ with \\ so \ in the text is not interperted as
         # a pml code.
@@ -191,6 +352,19 @@ class PMLMLizer(object):
 
     def prepare_text(self: _typing.Self, text: _typing.Any) -> _typing.Any:
         # Replace empty paragraphs with \c pml codes used to denote emtpy lines.
+        """
+        Perform the prepare text operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PMLMLizer.prepare text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pml/test_pml_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         prepare_pat = r"(?<=</p>)\s*<p[^>]*>[\xc2\xa0\s]*</p>"
         try:
             # Python 2 - transform the string into unicode
@@ -202,6 +376,20 @@ class PMLMLizer(object):
         return text
 
     def _report_unsupported_pml_characters(self: _typing.Self, unsupported_counts: _typing.Any) -> None:
+        """
+        Perform the report unsupported pml characters operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PMLMLizer. report unsupported pml characters through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pml/test_pml_modernized.py
+
+
+        :param unsupported_counts: Value supplied for unsupported counts under the utility
+            contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         report = self.conversion_report
         if report is None or not unsupported_counts:
             return
@@ -229,6 +417,21 @@ class PMLMLizer(object):
             warn(message)
 
     def _pml_code_for_character(self: _typing.Self, unsupported_counts: _typing.Any, char: _typing.Any) -> _typing.Any:
+        """
+        Perform the pml code for character operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PMLMLizer. pml code for character through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pml/test_pml_modernized.py
+
+
+        :param unsupported_counts: Value supplied for unsupported counts under the utility
+            contract.
+        :param char: Value supplied for char under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         code = unipmlcode(char)
         if code == "?":
             unsupported_counts[char] = unsupported_counts.get(char, 0) + 1
@@ -236,6 +439,19 @@ class PMLMLizer(object):
 
     def clean_text(self: _typing.Self, text: _typing.Any) -> _typing.Any:
         # Remove excessive \p tags
+        """
+        Perform the clean text operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PMLMLizer.clean text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pml/test_pml_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         text = re.sub(r"\\p\s*\\p", "", text)
 
         # Remove anchors that do not have links
@@ -297,6 +513,22 @@ class PMLMLizer(object):
         return text
 
     def dump_text(self: _typing.Self, elem: _typing.Any, stylizer: _typing.Any, page: _typing.Any, tag_stack: _typing.Any = None) -> _typing.Any:
+        """
+        Perform the dump text operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PMLMLizer.dump text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pml/test_pml_modernized.py
+
+
+        :param elem: Value supplied for elem under the utility contract.
+        :param stylizer: Value supplied for stylizer under the utility contract.
+        :param page: Value supplied for page under the utility contract.
+        :param tag_stack: Value supplied for tag stack under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.file_formats.oeb.base import XHTML_NS, barename, namespace
 
         if tag_stack is None:
@@ -453,6 +685,19 @@ class PMLMLizer(object):
         return text
 
     def close_tags(self: _typing.Self, tags: _typing.Any) -> _typing.Any:
+        """
+        Perform the close tags operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PMLMLizer.close tags through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pml/test_pml_modernized.py
+
+
+        :param tags: Value supplied for tags under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         text = []
         for tag in tags:
             # block isn't a real tag we just use

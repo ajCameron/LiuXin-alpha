@@ -1,6 +1,17 @@
 #!/usr/bin/env python2
 # vim:fileencoding=utf-8
 
+"""
+Translate normalized HTML tables into DOCX grids, cells, spans and borders.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise tables through a consuming regression::
+
+        python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -23,6 +34,14 @@ __copyright__ = "2015, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
 class Dummy(object):
+    """
+    Provide the dummy contract for validated ebook processing.
+
+    Example:
+        Exercise Dummy through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+    """
     pass
 
 
@@ -33,15 +52,62 @@ border_style_weight = {
 
 
 class SpannedCell(object):
+    """
+    Provide the spannedcell contract for validated ebook processing.
+
+    Example:
+        Exercise SpannedCell through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+    """
     def __init__(self: _typing.Self, spanning_cell: _typing.Any, horizontal: bool = True) -> None:
+        """
+        Initialize and validate the spannedcell state.
+
+        Example:
+            Exercise SpannedCell.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param spanning_cell: Value supplied for spanning cell under the utility contract.
+        :param horizontal: Value supplied for horizontal under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.spanning_cell = spanning_cell
         self.horizontal = horizontal
         self.row_span = self.col_span = 1
 
     def resolve_borders(self: _typing.Self) -> None:
+        """
+        Perform the resolve borders operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SpannedCell.resolve borders through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pass
 
     def serialize(self: _typing.Self, tr: _typing.Any, makeelement: _typing.Any) -> None:
+        """
+        Perform the serialize operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SpannedCell.serialize through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param tr: Value supplied for tr under the utility contract.
+        :param makeelement: Value supplied for makeelement under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         tc = makeelement(tr, "w:tc")
         tc_pr = makeelement(tc, "w:tcPr")
         makeelement(tc_pr, "w:%sMerge" % ("h" if self.horizontal else "v"), w_val="continue")
@@ -49,6 +115,20 @@ class SpannedCell(object):
 
 
 def read_css_block_borders(self: _typing.Any, css: _typing.Any) -> None:
+    """
+    Read css block borders under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read css block borders through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param self: Value supplied for self under the utility contract.
+    :param css: Value supplied for css under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     obj = Dummy()
     rcbb(obj, css, store_css_style=True)
     for edge in border_edges:
@@ -67,6 +147,19 @@ def read_css_block_borders(self: _typing.Any, css: _typing.Any) -> None:
 
 
 def as_percent(x: _typing.Any) -> _typing.Any:
+    """
+    Perform the as percent operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise as percent through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param x: Value supplied for x under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if x and x.endswith("%"):
         try:
             return float(x.rstrip("%"))
@@ -75,6 +168,19 @@ def as_percent(x: _typing.Any) -> _typing.Any:
 
 
 def convert_width(tag_style: _typing.Any) -> tuple[_typing.Any, ...]:
+    """
+    Convert width under the format's safety and compatibility rules.
+
+    Example:
+        Exercise convert width through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param tag_style: Value supplied for tag style under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if tag_style is not None:
         w = tag_style._get("width")
         wp = as_percent(w)
@@ -92,9 +198,31 @@ def convert_width(tag_style: _typing.Any) -> tuple[_typing.Any, ...]:
 
 class Cell(object):
 
+    """
+    Provide the cell contract for validated ebook processing.
+
+    Example:
+        Exercise Cell through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+    """
     BLEVEL = 2
 
     def __init__(self: _typing.Self, row: _typing.Any, html_tag: _typing.Any, tag_style: _typing.Any) -> None:
+        """
+        Initialize and validate the cell state.
+
+        Example:
+            Exercise Cell.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param row: Value supplied for row under the utility contract.
+        :param html_tag: Value supplied for html tag under the utility contract.
+        :param tag_style: Value supplied for tag style under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.row = row
         self.table = self.row.table
         self.html_tag = html_tag
@@ -113,14 +241,54 @@ class Cell(object):
         read_css_block_borders(self, tag_style)
 
     def add_block(self: _typing.Self, block: _typing.Any) -> None:
+        """
+        Perform the add block operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Cell.add block through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param block: Value supplied for block under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.items.append(block)
         block.parent_items = self.items
 
     def add_table(self: _typing.Self, table: _typing.Any) -> _typing.Any:
+        """
+        Perform the add table operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Cell.add table through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param table: Value supplied for table under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.items.append(table)
         return table
 
     def serialize(self: _typing.Self, parent: _typing.Any, makeelement: _typing.Any) -> None:
+        """
+        Perform the serialize operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Cell.serialize through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :param makeelement: Value supplied for makeelement under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         tc = makeelement(parent, "w:tc")
         tc_pr = makeelement(tc, "w:tcPr")
         makeelement(tc_pr, "w:tcW", w_type=self.width[0], w_w=str(self.width[1]))
@@ -174,6 +342,19 @@ class Cell(object):
             makeelement(tc, "w:p")
 
     def applicable_borders(self: _typing.Self, edge: _typing.Any) -> _typing.Any:
+        """
+        Perform the applicable borders operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Cell.applicable borders through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param edge: Value supplied for edge under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if edge == "left":
             items = {self.table, self.row, self} if self.row.first_cell is self else {self}
         elif edge == "top":
@@ -195,6 +376,19 @@ class Cell(object):
         # borders, so we consolidate all borders as cell borders
         # In HTML the priority is as described here:
         # http://www.w3.org/TR/CSS21/tables.html#border-conflict-resolution
+        """
+        Perform the resolve border operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Cell.resolve border through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param edge: Value supplied for edge under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         neighbor = self.neighbor(edge)
         borders = self.applicable_borders(edge)
         if neighbor is not None:
@@ -211,6 +405,19 @@ class Cell(object):
                 return None
 
         def weight(local_border: _typing.Any) -> tuple[_typing.Any, ...]:
+            """
+            Perform the weight operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Cell.resolve border.weight through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+            :param local_border: Value supplied for local border under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return (
                 0 if local_border.css_style == "none" else 1,
                 local_border.width,
@@ -222,9 +429,34 @@ class Cell(object):
         return border
 
     def resolve_borders(self: _typing.Self) -> None:
+        """
+        Perform the resolve borders operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Cell.resolve borders through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.borders = {edge: self.resolve_border(edge) for edge in border_edges}
 
     def neighbor(self: _typing.Self, edge: _typing.Any) -> _typing.Any:
+        """
+        Perform the neighbor operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Cell.neighbor through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param edge: Value supplied for edge under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         idx = self.row.cells.index(self)
         ans = None
         if edge == "left":
@@ -244,9 +476,31 @@ class Cell(object):
 
 class Row(object):
 
+    """
+    Provide the row contract for validated ebook processing.
+
+    Example:
+        Exercise Row through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+    """
     BLEVEL = 1
 
     def __init__(self: _typing.Self, table: _typing.Any, html_tag: _typing.Any, tag_style: _typing.Any = None) -> None:
+        """
+        Initialize and validate the row state.
+
+        Example:
+            Exercise Row.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param table: Value supplied for table under the utility contract.
+        :param html_tag: Value supplied for html tag under the utility contract.
+        :param tag_style: Value supplied for tag style under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.table = table
         self.html_tag = html_tag
         self.cells = []
@@ -256,28 +510,119 @@ class Row(object):
 
     @property
     def first_cell(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the first cell operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Row.first cell through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.cells[0] if self.cells else None
 
     @property
     def last_cell(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the last cell operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Row.last cell through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.cells[-1] if self.cells else None
 
     def start_new_cell(self: _typing.Self, html_tag: _typing.Any, tag_style: _typing.Any) -> None:
+        """
+        Perform the start new cell operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Row.start new cell through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param html_tag: Value supplied for html tag under the utility contract.
+        :param tag_style: Value supplied for tag style under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.current_cell = Cell(self, html_tag, tag_style)
 
     def finish_tag(self: _typing.Self, html_tag: _typing.Any) -> None:
+        """
+        Perform the finish tag operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Row.finish tag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param html_tag: Value supplied for html tag under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.current_cell is not None:
             if html_tag is self.current_cell.html_tag:
                 self.cells.append(self.current_cell)
                 self.current_cell = None
 
     def add_block(self: _typing.Self, block: _typing.Any) -> None:
+        """
+        Perform the add block operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Row.add block through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param block: Value supplied for block under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.current_cell.add_block(block)
 
     def add_table(self: _typing.Self, table: _typing.Any) -> _typing.Any:
+        """
+        Perform the add table operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Row.add table through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param table: Value supplied for table under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.current_cell.add_table(table)
 
     def serialize(self: _typing.Self, parent: _typing.Any, makeelement: _typing.Any) -> None:
+        """
+        Perform the serialize operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Row.serialize through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :param makeelement: Value supplied for makeelement under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         tr = makeelement(parent, "w:tr")
         for cell in self.cells:
             cell.serialize(tr, makeelement)
@@ -285,9 +630,31 @@ class Row(object):
 
 class Table(object):
 
+    """
+    Provide the table contract for validated ebook processing.
+
+    Example:
+        Exercise Table through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+    """
     BLEVEL = 0
 
     def __init__(self: _typing.Self, namespace: _typing.Any, html_tag: _typing.Any, tag_style: _typing.Any = None) -> None:
+        """
+        Initialize and validate the table state.
+
+        Example:
+            Exercise Table.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param namespace: Value supplied for namespace under the utility contract.
+        :param html_tag: Value supplied for html tag under the utility contract.
+        :param tag_style: Value supplied for tag style under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.namespace = namespace
         self.html_tag = html_tag
         self.rows = []
@@ -308,13 +675,50 @@ class Table(object):
 
     @property
     def first_row(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the first row operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Table.first row through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.rows[0] if self.rows else None
 
     @property
     def last_row(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the last row operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Table.last row through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.rows[-1] if self.rows else None
 
     def finish_tag(self: _typing.Self, html_tag: _typing.Any) -> _typing.Any:
+        """
+        Perform the finish tag operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Table.finish tag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param html_tag: Value supplied for html tag under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.current_row is not None:
             self.current_row.finish_tag(html_tag)
             if self.current_row.html_tag is html_tag:
@@ -330,6 +734,18 @@ class Table(object):
 
     def expand_spanned_cells(self: _typing.Self) -> None:
         # Expand horizontally
+        """
+        Perform the expand spanned cells operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Table.expand spanned cells through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for row in self.rows:
             for cell in tuple(row.cells):
                 idx = row.cells.index(cell)
@@ -364,22 +780,89 @@ class Table(object):
                                 nrow.cells.insert(idx, sc)
 
     def start_new_row(self: _typing.Self, html_tag: _typing.Any, html_style: _typing.Any) -> None:
+        """
+        Perform the start new row operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Table.start new row through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param html_tag: Value supplied for html tag under the utility contract.
+        :param html_style: Value supplied for html style under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.current_row is not None:
             self.rows.append(self.current_row)
         self.current_row = Row(self, html_tag, html_style)
 
     def start_new_cell(self: _typing.Self, html_tag: _typing.Any, html_style: _typing.Any) -> None:
+        """
+        Perform the start new cell operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Table.start new cell through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param html_tag: Value supplied for html tag under the utility contract.
+        :param html_style: Value supplied for html style under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.current_row is None:
             self.start_new_row(html_tag, None)
         self.current_row.start_new_cell(html_tag, html_style)
 
     def add_block(self: _typing.Self, block: _typing.Any) -> None:
+        """
+        Perform the add block operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Table.add block through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param block: Value supplied for block under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.current_row.add_block(block)
 
     def add_table(self: _typing.Self, table: _typing.Any) -> _typing.Any:
+        """
+        Perform the add table operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Table.add table through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param table: Value supplied for table under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.current_row.add_table(table)
 
     def serialize(self: _typing.Self, parent: _typing.Any) -> None:
+        """
+        Perform the serialize operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Table.serialize through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         makeelement = self.namespace.makeelement
         rows = [r for r in self.rows if r.cells]
         if not rows:

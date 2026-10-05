@@ -1,4 +1,11 @@
-"""Read-only 7z driver, Store, registry, and Unicode contracts."""
+"""
+Exercise real 7z Store reads, Unicode paths, registry setup, and metadata policies.
+
+Fixtures use optional py7zr and skip when it is unavailable. The missing-dependency
+case instead patches import handling over a placeholder file. Startup-rejection
+assertions establish metadata policy boundaries; configuration-only assertions
+do not claim extraction or enforcement, and POSIX links have a platform marker.
+"""
 
 from __future__ import annotations
 
@@ -19,6 +26,20 @@ from tests.storage.contracts.unicode_paths import exercise_unicode_path_cases
 
 
 def _write_7z(path: pathlib.Path, members: dict[str, bytes]) -> None:
+    """
+    Write a real 7z fixture from the supplied member mapping using optional py7zr.
+
+    Names and payloads are passed to the archive writer in mapping order. Missing py7zr skips the
+    invoking pytest case; archive creation errors otherwise propagate.
+
+    Example:
+        >>> _write_7z(tmp_path / "books.7z", {"book.epub": b"book"})  # doctest: +SKIP
+
+
+    :param path: Destination archive path inside the test workspace.
+    :param members: Archive member names mapped to their payload bytes.
+    :return: None after the archive writer has closed successfully.
+    """
     py7zr = pytest.importorskip("py7zr")
     with py7zr.SevenZipFile(path, mode="w") as archive:
         for key, payload in members.items():
@@ -26,6 +47,21 @@ def _write_7z(path: pathlib.Path, members: dict[str, bytes]) -> None:
 
 
 def test_sevenzip_readonly_preserves_unicode_ranges_and_metadata(tmp_path) -> None:
+    """
+    Exercise exact Unicode inventory, addressing, full/ranged reads, and metadata through a real 7z
+    Store.
+
+    The shared contract checks filename hints and reads by Location/FileInfo. Additional assertions
+    check startup count/format, durable protocol, complete enumeration, the spooling limitation, and
+    rejection of a write. URI round-trip checking is not enabled.
+
+    Example:
+        >>> test_sevenzip_readonly_preserves_unicode_ranges_and_metadata(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real archive and source fixtures.
+    :return: None after the stated regression assertions pass.
+    """
     path = tmp_path / "unicode.7z"
     members = {case.key: case.payload for case in TORTURED_UNICODE_PATH_CASES}
     _write_7z(path, members)
@@ -46,6 +82,16 @@ def test_sevenzip_readonly_preserves_unicode_ranges_and_metadata(tmp_path) -> No
 
 
 def test_sevenzip_readonly_enforces_inventory_and_member_limits(tmp_path) -> None:
+    """
+    Require startup to reject a real two-member archive under entry-count and individual-size caps.
+
+    Example:
+        >>> test_sevenzip_readonly_enforces_inventory_and_member_limits(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real archive and source fixtures.
+    :return: None after the stated regression assertions pass.
+    """
     path = tmp_path / "bounded.7z"
     _write_7z(path, {"one": b"1", "two": b"22"})
 
@@ -58,6 +104,19 @@ def test_sevenzip_readonly_enforces_inventory_and_member_limits(tmp_path) -> Non
 
 
 def test_sevenzip_bounds_total_ratio_and_header_before_extraction(tmp_path) -> None:
+    """
+    Reject real compressible fixtures under total-byte, expansion-ratio, and header-size policies.
+
+    Each assertion invokes startup rather than a member read. It verifies metadata rejection before
+    extraction, not a bound on parser opening or allocation.
+
+    Example:
+        >>> test_sevenzip_bounds_total_ratio_and_header_before_extraction(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real archive and source fixtures.
+    :return: None after the stated regression assertions pass.
+    """
     path = tmp_path / "expansion.7z"
     _write_7z(
         path,
@@ -98,6 +157,17 @@ def test_sevenzip_rejects_duplicate_and_overwrite_topology(
     tmp_path: pathlib.Path,
     members: tuple[tuple[str, bytes], ...],
 ) -> None:
+    """
+    Reject duplicate names and both orderings of a file/descendant conflict in a real 7z fixture.
+
+    Example:
+        >>> test_sevenzip_rejects_duplicate_and_overwrite_topology(tmp_path, members)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real archive and source fixtures.
+    :param members: Ordered name/payload pairs selecting duplicate or ancestor/file topology conflicts.
+    :return: None after the stated regression assertions pass.
+    """
     py7zr = pytest.importorskip("py7zr")
     path = tmp_path / "ambiguous.7z"
     with py7zr.SevenZipFile(path, mode="w") as archive:
@@ -110,6 +180,19 @@ def test_sevenzip_rejects_duplicate_and_overwrite_topology(
 
 @pytest.mark.skipif(os.name != "posix", reason="symbolic links are a POSIX contract")
 def test_sevenzip_rejects_symbolic_link_members(tmp_path: pathlib.Path) -> None:
+    """
+    Reject a real archived POSIX symbolic link when indexing the Store.
+
+    Creates a relative link and target on disk, then writes both through py7zr. The platform marker
+    skips this contract outside POSIX.
+
+    Example:
+        >>> test_sevenzip_rejects_symbolic_link_members(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real archive and source fixtures.
+    :return: None after the stated regression assertions pass.
+    """
     py7zr = pytest.importorskip("py7zr")
     source = tmp_path / "source"
     source.mkdir()
@@ -125,6 +208,19 @@ def test_sevenzip_rejects_symbolic_link_members(tmp_path: pathlib.Path) -> None:
 
 
 def test_sevenzip_safety_policy_is_durable(tmp_path: pathlib.Path) -> None:
+    """
+    Check persisted expansion options and advertised staging/nested-budget limitations.
+
+    Constructs a Store over a real archive but does not start or extract it; assertions cover
+    configuration and characteristics rather than enforcement of every limit.
+
+    Example:
+        >>> test_sevenzip_safety_policy_is_durable(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real archive and source fixtures.
+    :return: None after the stated regression assertions pass.
+    """
     path = tmp_path / "durable.7z"
     _write_7z(path, {"book": b"book"})
     store = SevenZipReadOnlyStorageBackend(
@@ -150,10 +246,34 @@ def test_sevenzip_missing_optional_dependency_is_actionable(
     tmp_path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """
+    Require an actionable archives-extra error when the parser import raises ImportError.
+
+    The placeholder file satisfies construction; an injected importer isolates dependency handling
+    without requiring a valid archive or an absent installed package.
+
+    Example:
+        >>> test_sevenzip_missing_optional_dependency_is_actionable(tmp_path, monkeypatch)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real archive and source fixtures.
+    :param monkeypatch: Pytest fixture restoring the injected parser-import seam after the test.
+    :return: None after the stated regression assertions pass.
+    """
     path = tmp_path / "dependency.7z"
     path.write_bytes(b"7z\xbc\xaf'\x1c" + bytes(32))
 
     def unavailable(name: str):
+        """
+        Simulate only a missing py7zr import and reject unexpected module requests.
+
+        Example:
+            >>> unavailable("py7zr")  # doctest: +SKIP
+
+
+        :param name: Module name requested through the patched import function.
+        :return: Never returns: raises ImportError for py7zr and AssertionError otherwise.
+        """
         if name == "py7zr":
             raise ImportError("not installed")
         raise AssertionError(name)
@@ -168,6 +288,16 @@ def test_sevenzip_missing_optional_dependency_is_actionable(
 
 
 def test_sevenzip_rejects_corrupt_and_encrypted_archives(tmp_path) -> None:
+    """
+    Classify a malformed header as integrity failure and a real password archive as unsupported.
+
+    Example:
+        >>> test_sevenzip_rejects_corrupt_and_encrypted_archives(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real archive and source fixtures.
+    :return: None after the stated regression assertions pass.
+    """
     py7zr = pytest.importorskip("py7zr")
     corrupt = tmp_path / "corrupt.7z"
     corrupt.write_bytes(b"7z\xbc\xaf'\x1c" + bytes(32))
@@ -182,6 +312,19 @@ def test_sevenzip_rejects_corrupt_and_encrypted_archives(tmp_path) -> None:
 
 
 def test_sevenzip_builds_from_registry_with_durable_policy(tmp_path) -> None:
+    """
+    Build and read a real archive through the registry while retaining the supplied configuration.
+
+    Also verifies the 7z alias resolves to sevenzip_readonly; it does not independently exercise
+    each configured limit.
+
+    Example:
+        >>> test_sevenzip_builds_from_registry_with_durable_policy(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real archive and source fixtures.
+    :return: None after the stated regression assertions pass.
+    """
     path = tmp_path / "registry.7z"
     _write_7z(path, {"books/book.epub": b"book"})
     configuration = api.StoreConfiguration(

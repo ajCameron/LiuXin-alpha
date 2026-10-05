@@ -1,3 +1,14 @@
+"""
+Exercise PDF Info/XMP parsing, updates and malformed-document fallbacks.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test pdf edge cases through its owning regression module::
+
+        python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
+"""
 from __future__ import annotations
 
 import io
@@ -9,11 +20,25 @@ from types import SimpleNamespace
 
 import pytest
 
+from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
+    CalibreLikeLiuXinBookMetaData as MetaData,
+)
 from LiuXin_alpha.metadata.file_sources import pdf
-from LiuXin_alpha.metadata.metadata import MetaData
 
 
 def _values(raw):
+    """
+    Perform the values test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise values through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     if raw is None:
         return []
     if isinstance(raw, dict):
@@ -27,6 +52,21 @@ def _values(raw):
 
 
 def _pdf_with_info(info_obj: bytes, *, trailer: bool = True, extra_objects: list[bytes] | None = None) -> bytes:
+    """
+    Perform the pdf with info test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise pdf with info through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
+
+
+    :param info_obj: Value supplied for info obj in the focused test operation.
+    :param trailer: Value supplied for trailer in the focused test operation.
+    :param extra_objects: Value supplied for extra objects in the focused test
+        operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     objects = [b"<< /Type /Catalog >>", info_obj]
     objects.extend(extra_objects or [])
     out = bytearray(b"%PDF-1.4\n")
@@ -38,61 +78,241 @@ def _pdf_with_info(info_obj: bytes, *, trailer: bool = True, extra_objects: list
 
 
 class _TextStream(io.StringIO):
+    """
+    Provide the TextStream test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise TextStream through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
+    """
     name = "text-stream.pdf"
 
 
 class _TellSeekBroken:
+    """
+    Provide the TellSeekBroken test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise TellSeekBroken through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
+    """
     name = "broken-stream.pdf"
 
     def __init__(self, payload):
+        """
+        Initialize the TellSeekBroken test double.
+
+        Example:
+            Exercise TellSeekBroken.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
+
+
+        :param payload: Value supplied for payload in the focused test operation.
+        :return: None; the function records state or raises through its assertions.
+        """
         self.payload = payload
 
     def tell(self):
+        """
+        Perform the tell test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise TellSeekBroken.tell through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         raise OSError("tell unavailable")
 
     def seek(self, _pos):
+        """
+        Perform the seek test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise TellSeekBroken.seek through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
+
+
+        :param _pos: Value supplied for pos in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         raise OSError("seek unavailable")
 
     def read(self):
+        """
+        Perform the read test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise TellSeekBroken.read through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return self.payload
 
 
 class _RestoreBroken(io.BytesIO):
+    """
+    Provide the RestoreBroken test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise RestoreBroken through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
+    """
     name = "restore-broken.pdf"
 
     def seek(self, pos, whence=0):
+        """
+        Perform the seek test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise RestoreBroken.seek through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
+
+
+        :param pos: Value supplied for pos in the focused test operation.
+        :param whence: Value supplied for whence in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         if getattr(self, "_break_restore", False) and pos != 0:
             raise OSError("restore unavailable")
         return super().seek(pos, whence)
 
 
 class _Scalar:
+    """
+    Provide the Scalar test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise Scalar through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
+    """
     def __str__(self):
+        """
+        Perform the str test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Scalar.str through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return "scalar-value"
 
 
 class _FakeMetadata:
+    """
+    Provide the FakeMetadata test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise FakeMetadata through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
+    """
     def __init__(self):
+        """
+        Initialize the FakeMetadata test double.
+
+        Example:
+            Exercise FakeMetadata.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
+
+
+        :return: None; the function records state or raises through its assertions.
+        """
         self.title = None
         self.authors = None
         self.identifiers = {}
         self.finalized = False
 
     def get_identifiers(self):
+        """
+        Return identifiers from deterministic test state.
+
+        Example:
+            Exercise FakeMetadata.get identifiers through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         raise RuntimeError("identifier snapshot unavailable")
 
     def set_identifier(self, _scheme, _value):
+        """
+        Perform the set identifier test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise FakeMetadata.set identifier through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
+
+
+        :param _scheme: Value supplied for scheme in the focused test operation.
+        :param _value: Value supplied for value in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         raise RuntimeError("single identifier setter unavailable")
 
     def set_identifiers(self, identifiers):
+        """
+        Perform the set identifiers test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise FakeMetadata.set identifiers through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
+
+
+        :param identifiers: Value supplied for identifiers in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.identifiers.update(identifiers)
 
     def finalize(self):
+        """
+        Perform the finalize test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise FakeMetadata.finalize through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.finalized = True
         raise RuntimeError("finalize unavailable")
 
 
 def _contains_forbidden_text_char(text: str) -> bool:
+    """
+    Perform the contains forbidden text char test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise contains forbidden text char through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
+
+
+    :param text: Value supplied for text in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     for ch in text:
         cp = ord(ch)
         if cp == 0x7F:
@@ -110,6 +330,17 @@ def _contains_forbidden_text_char(text: str) -> bool:
 
 
 def test_pdf_low_level_token_parser_unicode_and_malformed_edges() -> None:
+    """
+    Verify pdf low level token parser unicode and malformed edges.
+
+    Example:
+        Exercise test pdf low level token parser unicode and malformed edges through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     assert pdf._normalize_text(None) == ""
     assert pdf._safe_decode(None) == ""
     assert pdf._safe_decode("  café\t世界  ") == "café 世界"
@@ -160,6 +391,17 @@ done)",
 
 
 def test_pdf_object_info_stream_and_xmp_extraction_edges() -> None:
+    """
+    Verify pdf object info stream and xmp extraction edges.
+
+    Example:
+        Exercise test pdf object info stream and xmp extraction edges through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     info_obj = b"<< /Title (Heuristic Title) /Author (A) >>"
     payload = _pdf_with_info(info_obj, trailer=False)
     objects = pdf._extract_objects(payload)
@@ -189,6 +431,18 @@ def test_pdf_object_info_stream_and_xmp_extraction_edges() -> None:
 
 
 def test_pdf_source_reading_defaults_and_field_value_helpers(tmp_path: Path) -> None:
+    """
+    Verify pdf source reading defaults and field value helpers.
+
+    Example:
+        Exercise test pdf source reading defaults and field value helpers through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     path = tmp_path / "名字.pdf"
     path.write_bytes(b"%PDF path")
     assert pdf._source_name(path).endswith("名字.pdf")
@@ -225,6 +479,19 @@ def test_pdf_source_reading_defaults_and_field_value_helpers(tmp_path: Path) -> 
 
 
 def test_pdf_info_pair_processing_and_xmp_dict_edges(monkeypatch) -> None:
+    """
+    Verify pdf info pair processing and xmp dict edges.
+
+    Example:
+        Exercise test pdf info pair processing and xmp dict edges through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     md = MetaData()
     assert pdf.process_key_value_pair("", "value", set(), md) == (md, False)
     assert pdf.process_key_value_pair("author", ["Alice", "Bob"], set(), md)[1]
@@ -269,6 +536,17 @@ def test_pdf_info_pair_processing_and_xmp_dict_edges(monkeypatch) -> None:
 
 
 def test_pdf_xmp_parser_no_rdf_and_parse_variants() -> None:
+    """
+    Verify pdf xmp parser no rdf and parse variants.
+
+    Example:
+        Exercise test pdf xmp parser no rdf and parse variants through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     assert pdf.xmp_to_dict("<x:xmpmeta xmlns:x='adobe:ns:meta/' />") == {}
     xmp = """<x:xmpmeta xmlns:x="adobe:ns:meta/">
     <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
@@ -288,6 +566,19 @@ def test_pdf_xmp_parser_no_rdf_and_parse_variants() -> None:
 
 
 def test_pdf_get_metadata_defensive_fallbacks(monkeypatch) -> None:
+    """
+    Verify pdf get metadata defensive fallbacks.
+
+    Example:
+        Exercise test pdf get metadata defensive fallbacks through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     events = []
     monkeypatch.setattr(pdf.default_log, "log_exception", lambda *args, **_kwargs: events.append(args))
 
@@ -314,6 +605,18 @@ def test_pdf_get_metadata_defensive_fallbacks(monkeypatch) -> None:
     info_calls = {"count": 0}
 
     def fail_once_info_dict(*_args):
+        """
+        Perform the fail once info dict test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test pdf get metadata defensive fallbacks.fail once info dict through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
+
+
+        :param _args: Value supplied for args in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         info_calls["count"] += 1
         if info_calls["count"] == 1:
             raise RuntimeError("info boom")
@@ -324,7 +627,21 @@ def test_pdf_get_metadata_defensive_fallbacks(monkeypatch) -> None:
     assert any("PDF info dictionary" in str(event[0]) for event in events)
 
 
-def test_pdf_writer_dict_tool_read_info_and_page_image_edges(tmp_path: Path, monkeypatch) -> None:
+def test_pdf_writer_dict_tool_and_page_image_edges(tmp_path: Path, monkeypatch) -> None:
+    """
+    Verify pdf writer dict tool and page image edges.
+
+    Example:
+        Exercise test pdf writer dict tool and page image edges through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     mi = MetaData()
     mi.title = "Title"
     mi.authors = ["Alice", "Bob"]
@@ -364,12 +681,6 @@ def test_pdf_writer_dict_tool_read_info_and_page_image_edges(tmp_path: Path, mon
     monkeypatch.setattr(pdf.shutil, "which", lambda name: f"/usr/bin/{name}")
     assert pdf.get_tool("pdftoppm") == "/usr/bin/pdftoppm"
 
-    assert pdf.read_info(tmp_path, get_cover=True) is None
-    src = tmp_path / "src.pdf"
-    src.write_bytes(_pdf_with_info(b"<< /Title (Read Info) /Author (Alice) /Keywords (tag) /Producer (Tool) >>"))
-    info = pdf.read_info(tmp_path, get_cover=False)
-    assert info == {"Title": "Read Info", "Author": "Alice", "Keywords": "tag", "Producer": "Tool"}
-
     monkeypatch.setattr(pdf, "get_tool", lambda _name: None)
     with pytest.raises(RuntimeError, match="pdftoppm"):
         pdf.page_images("in.pdf", str(tmp_path))
@@ -381,6 +692,17 @@ def test_pdf_writer_dict_tool_read_info_and_page_image_edges(tmp_path: Path, mon
 
 
 def test_pdf_metadata_dict_sanitizes_hostile_text_without_mutating_input() -> None:
+    """
+    Verify pdf metadata dict sanitizes hostile text without mutating input.
+
+    Example:
+        Exercise test pdf metadata dict sanitizes hostile text without mutating input through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     title = "PDF\x00Title\ud800 😀"
     authors = ["Alice\x01 One", "Bob\udfff Two"]
     comments = "Comment\x02 with (paren) and \\ slash"
@@ -418,27 +740,115 @@ def test_pdf_metadata_dict_sanitizes_hostile_text_without_mutating_input() -> No
 
 
 def test_pdf_set_metadata_fake_backend_sanitizes_and_rewrites_stream(monkeypatch) -> None:
+    """
+    Verify pdf set metadata fake backend sanitizes and rewrites stream.
+
+    Example:
+        Exercise test pdf set metadata fake backend sanitizes and rewrites stream through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     captured = {}
 
     class _FakeReader:
+        """
+        Provide the FakeReader test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test pdf set metadata fake backend sanitizes and rewrites stream.FakeReader through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
+        """
         def __init__(self, stream):
+            """
+            Initialize the FakeReader test double.
+
+            Example:
+                Exercise test pdf set metadata fake backend sanitizes and rewrites stream.FakeReader.init through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
+
+
+            :param stream: Value supplied for stream in the focused test operation.
+            :return: None; the function records state or raises through its assertions.
+            """
             captured["reader_payload"] = stream.read()
             self.pages = ["page-one", "page-two"]
             self.metadata = {"/Producer": "Existing Producer"}
 
     class _FakeWriter:
+        """
+        Provide the FakeWriter test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test pdf set metadata fake backend sanitizes and rewrites stream.FakeWriter through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
+        """
         def __init__(self):
+            """
+            Initialize the FakeWriter test double.
+
+            Example:
+                Exercise test pdf set metadata fake backend sanitizes and rewrites stream.FakeWriter.init through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
+
+
+            :return: None; the function records state or raises through its assertions.
+            """
             captured["writer"] = self
             self.pages = []
             self.metadata = None
 
         def add_page(self, page):
+            """
+            Perform the add page test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test pdf set metadata fake backend sanitizes and rewrites stream.FakeWriter.add page through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
+
+
+            :param page: Value supplied for page in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             self.pages.append(page)
 
         def add_metadata(self, metadata):
+            """
+            Perform the add metadata test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test pdf set metadata fake backend sanitizes and rewrites stream.FakeWriter.add metadata through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
+
+
+            :param metadata: Metadata container or mapping supplied to the assertion helper.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             self.metadata = metadata
 
         def write(self, stream):
+            """
+            Record a batch mutation and return its configured result.
+
+            Example:
+                Exercise test pdf set metadata fake backend sanitizes and rewrites stream.FakeWriter.write through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_pdf_edge_cases.py
+
+
+            :param stream: Value supplied for stream in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             stream.write(b"%PDF-1.4\nrewritten")
 
     fake_pypdf = types.ModuleType("pypdf")

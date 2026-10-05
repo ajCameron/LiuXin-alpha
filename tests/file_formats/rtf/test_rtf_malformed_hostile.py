@@ -1,3 +1,14 @@
+"""
+Provide test rtf malformed hostile utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test rtf malformed hostile through a consuming regression::
+
+        python -m pytest -q tests/file_formats/rtf/test_rtf_malformed_hostile.py
+"""
 from __future__ import annotations
 
 import importlib
@@ -21,29 +32,139 @@ from tests.support.file_format_unicode import COMMON_TEXT_FRAGMENTS
 
 
 class _Log:
+    """
+    Provide the log contract for validated ebook processing.
+
+    Example:
+        Exercise  Log through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_malformed_hostile.py
+    """
     def __init__(self) -> None:
+        """
+        Initialize and validate the log state.
+
+        Example:
+            Exercise  Log.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_malformed_hostile.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         self.messages: list[str] = []
 
     def __call__(self, *parts) -> None:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  Log.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_malformed_hostile.py
+
+
+        :param parts: Value supplied for parts under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.messages.append(" ".join(str(x) for x in parts))
 
     def debug(self, *parts) -> None:
+        """
+        Perform the debug operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  Log.debug through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_malformed_hostile.py
+
+
+        :param parts: Value supplied for parts under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.messages.append(" ".join(str(x) for x in parts))
 
     def info(self, *parts) -> None:
+        """
+        Perform the info operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  Log.info through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_malformed_hostile.py
+
+
+        :param parts: Value supplied for parts under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.messages.append(" ".join(str(x) for x in parts))
 
     def warn(self, *parts) -> None:
+        """
+        Perform the warn operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  Log.warn through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_malformed_hostile.py
+
+
+        :param parts: Value supplied for parts under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.messages.append(" ".join(str(x) for x in parts))
 
     def warning(self, *parts) -> None:
+        """
+        Perform the warning operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  Log.warning through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_malformed_hostile.py
+
+
+        :param parts: Value supplied for parts under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.messages.append(" ".join(str(x) for x in parts))
 
     def exception(self, *parts) -> None:
+        """
+        Perform the exception operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  Log.exception through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_malformed_hostile.py
+
+
+        :param parts: Value supplied for parts under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.messages.append(" ".join(str(x) for x in parts))
 
 
 def _rtf_escape(text: str) -> str:
+    """
+    Perform the rtf escape operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  rtf escape through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_malformed_hostile.py
+
+
+    :param text: Text parsed, normalized or rendered.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     escaped = []
     for char in text:
         if char == "\\":
@@ -60,11 +181,38 @@ def _rtf_escape(text: str) -> str:
 
 
 def _normalized_contains(text: str, probe: str) -> bool:
+    """
+    Perform the normalized contains operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  normalized contains through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_malformed_hostile.py
+
+
+    :param text: Text parsed, normalized or rendered.
+    :param probe: Value supplied for probe under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return unicodedata.normalize("NFC", probe) in unicodedata.normalize("NFC", text)
 
 
 @contextmanager
 def _chdir(path: Path):
+    """
+    Perform the chdir operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  chdir through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_malformed_hostile.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: An iterator yielding the normalized values described above.
+    """
     old = Path.cwd()
     os.chdir(path)
     try:
@@ -74,6 +222,20 @@ def _chdir(path: Path):
 
 
 def _run_rtf_input_payload(payload: bytes, tmp_path: Path):
+    """
+    Perform the run rtf input payload operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  run rtf input payload through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_malformed_hostile.py
+
+
+    :param payload: Value supplied for payload under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     rtf_input = importlib.import_module("LiuXin_alpha.file_formats.conversion.plugins.rtf_input")
     source = tmp_path / "hostile_multilingual.rtf"
     workdir = tmp_path / "run_hostile_multilingual"
@@ -95,6 +257,18 @@ def _run_rtf_input_payload(payload: bytes, tmp_path: Path):
 
 
 def test_rtf_tokenizer_accepts_signed_unicode_numeric_arguments() -> None:
+    """
+    Perform the test rtf tokenizer accepts signed unicode numeric arguments operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test rtf tokenizer accepts signed unicode numeric arguments through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_malformed_hostile.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     preprocess = importlib.import_module("LiuXin_alpha.file_formats.rtf.preprocess")
 
     tokenizer = preprocess.RtfTokenizer(
@@ -118,6 +292,19 @@ def test_rtf_tokenizer_accepts_signed_unicode_numeric_arguments() -> None:
     ),
 )
 def test_rtf_tokenizer_rejects_malformed_control_words_deterministically(payload: str) -> None:
+    """
+    Perform the test rtf tokenizer rejects malformed control words deterministically operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test rtf tokenizer rejects malformed control words deterministically through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_malformed_hostile.py
+
+
+    :param payload: Value supplied for payload under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     preprocess = importlib.import_module("LiuXin_alpha.file_formats.rtf.preprocess")
 
     with pytest.raises(Exception, match="Error"):
@@ -125,13 +312,43 @@ def test_rtf_tokenizer_rejects_malformed_control_words_deterministically(payload
 
 
 def test_rtf_input_wraps_invalid_rtf_parser_errors(tmp_path: Path, monkeypatch) -> None:
+    """
+    Perform the test rtf input wraps invalid rtf parser errors operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test rtf input wraps invalid rtf parser errors through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     rtf_input = importlib.import_module("LiuXin_alpha.file_formats.conversion.plugins.rtf_input")
     fake_parse = types.ModuleType("LiuXin_alpha.file_formats.rtf2xml.ParseRtf")
 
     class _InvalidRtfException(Exception):
+        """
+        Report a invalidrtfexception encountered while processing an ebook format.
+
+        Example:
+            Exercise test rtf input wraps invalid rtf parser errors. InvalidRtfException through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_malformed_hostile.py
+        """
         pass
 
     class _RtfInvalidCodeException(Exception):
+        """
+        Report a rtfinvalidcodeexception encountered while processing an ebook format.
+
+        Example:
+            Exercise test rtf input wraps invalid rtf parser errors. RtfInvalidCodeException through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_malformed_hostile.py
+        """
         pass
 
     fake_parse.InvalidRtfException = _InvalidRtfException
@@ -141,6 +358,19 @@ def test_rtf_input_wraps_invalid_rtf_parser_errors(tmp_path: Path, monkeypatch) 
     plugin = rtf_input.RTFInput(None)
 
     def _raise_invalid(_stream):
+        """
+        Perform the raise invalid operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise test rtf input wraps invalid rtf parser errors. raise invalid through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_malformed_hostile.py
+
+
+        :param _stream: Value supplied for stream under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raise _InvalidRtfException("unbalanced hostile groups Καλημέρα مرحبا שלום")
 
     plugin.generate_xml = _raise_invalid
@@ -160,6 +390,19 @@ def test_rtf_input_wraps_invalid_rtf_parser_errors(tmp_path: Path, monkeypatch) 
 
 
 def test_rtf_input_preserves_foreign_text_in_noisy_hostile_document(tmp_path: Path) -> None:
+    """
+    Perform the test rtf input preserves foreign text in noisy hostile document operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test rtf input preserves foreign text in noisy hostile document through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     body = (
         "Safe lead Καλημέρα مرحبا שלום नमस्ते 你好，世界 cafe\u0301. "
         r"Escaped braces \{ \} and slash \\ survive. "
@@ -190,6 +433,20 @@ def test_rtf_input_preserves_foreign_text_in_noisy_hostile_document(tmp_path: Pa
 
 
 def test_rtf_input_extract_images_tolerates_corrupt_pict_payloads(tmp_path: Path, monkeypatch) -> None:
+    """
+    Perform the test rtf input extract images tolerates corrupt pict payloads operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test rtf input extract images tolerates corrupt pict payloads through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     rtf_input = importlib.import_module("LiuXin_alpha.file_formats.conversion.plugins.rtf_input")
     monkeypatch.chdir(tmp_path)
     picts = tmp_path / "picts.rtf"
@@ -210,10 +467,36 @@ def test_rtf_input_extract_images_tolerates_corrupt_pict_payloads(tmp_path: Path
 
 
 def test_rtfmlizer_drops_corrupt_images_without_leaking_placeholders(monkeypatch) -> None:
+    """
+    Perform the test rtfmlizer drops corrupt images without leaking placeholders operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test rtfmlizer drops corrupt images without leaking placeholders through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_malformed_hostile.py
+
+
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     install_minimal_stylizers(monkeypatch)
     rtfml = importlib.import_module("LiuXin_alpha.file_formats.rtf.rtfml")
 
     def _raise_corrupt(_data):
+        """
+        Perform the raise corrupt operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise test rtfmlizer drops corrupt images without leaking placeholders. raise corrupt through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_malformed_hostile.py
+
+
+        :param _data: Value supplied for data under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raise ValueError("hostile image payload")
 
     monkeypatch.setattr(rtfml, "_convert_image_to_jpeg_bytes", _raise_corrupt)

@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:fdm=marker:ai
 
+"""
+Create, discover and remove metadata-jacket pages.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise jacket through a consuming regression::
+
+        python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -15,6 +26,20 @@ __docformat__ = "restructuredtext en"
 
 
 def render_jacket(container: _typing.Any, jacket: _typing.Any) -> _typing.Any:
+    """
+    Perform the render jacket operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise render jacket through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :param jacket: Value supplied for jacket under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     from LiuXin_alpha.customize.ui import output_profiles
     from LiuXin_alpha.file_formats.conversion.config import load_defaults
     from LiuXin_alpha.file_formats.oeb.transforms.jacket import (
@@ -42,14 +67,51 @@ def render_jacket(container: _typing.Any, jacket: _typing.Any) -> _typing.Any:
 
 
 def is_legacy_jacket(root: _typing.Any) -> bool:
+    """
+    Return whether is legacy jacket holds for the supplied ebook data.
+
+    Example:
+        Exercise is legacy jacket through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :return: True when the documented condition holds; otherwise False.
+    """
     return len(root.xpath('//*[starts-with(@class,"calibrerescale") and (local-name()="h1" or local-name()="h2")]')) > 0
 
 
 def is_current_jacket(root: _typing.Any) -> bool:
+    """
+    Return whether is current jacket holds for the supplied ebook data.
+
+    Example:
+        Exercise is current jacket through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :return: True when the documented condition holds; otherwise False.
+    """
     return len(XPath('//h:meta[@name="calibre-content" and @content="jacket"]')(root)) > 0
 
 
 def find_existing_jacket(container: _typing.Any) -> _typing.Any:
+    """
+    Find existing jacket under the format's safety and compatibility rules.
+
+    Example:
+        Exercise find existing jacket through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     for item in container.spine_items:
         name = container.abspath_to_name(item)
         if container.book_type == "azw3":
@@ -64,6 +126,20 @@ def find_existing_jacket(container: _typing.Any) -> _typing.Any:
 
 
 def replace_jacket(container: _typing.Any, name: _typing.Any) -> None:
+    """
+    Perform the replace jacket operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise replace jacket through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :param name: Field, file, function or resource name addressed by the operation.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     root = render_jacket(container, name)
     container.parsed_cache[name] = root
     container.dirty(name)
@@ -72,8 +148,16 @@ def replace_jacket(container: _typing.Any, name: _typing.Any) -> None:
 def remove_jacket(container: _typing.Any) -> bool:
     """
     Remove an existing jacket, if any. Returns False if no existing jacket was found.
-    :param container:
-    :return:
+
+    Example:
+        Exercise remove jacket through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     name = find_existing_jacket(container)
     if name is not None:
@@ -84,6 +168,20 @@ def remove_jacket(container: _typing.Any) -> bool:
 
 
 def remove_jacket_images(container: _typing.Any, name: _typing.Any) -> None:
+    """
+    Perform the remove jacket images operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise remove jacket images through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :param name: Field, file, function or resource name addressed by the operation.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     root = container.parsed_cache[name]
     for img in root.xpath('//*[local-name() = "img" and @src]'):
         iname = container.href_to_name(img.get("src"), name)
@@ -93,10 +191,17 @@ def remove_jacket_images(container: _typing.Any, name: _typing.Any) -> None:
 
 def add_or_replace_jacket(container: _typing.Any) -> _typing.Any:
     """
-    Either create a new jacket from the book's metadata or replace an
-    existing jacket. Returns True if an existing jacket was replaced.
-    :param container:
-    :return:
+    Either create a new jacket from the book's metadata or replace an existing jacket. Returns True if an existing jacket was replaced.
+
+    Example:
+        Exercise add or replace jacket through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     name = find_existing_jacket(container)
     found = True

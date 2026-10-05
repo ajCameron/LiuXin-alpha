@@ -6,8 +6,13 @@
 
 
 """
-Base for caches which descend from the original calibre cache - though often with some-to-heavy modification.
+Expose the supported base calibre compatibility surface.
 
-The interface is defined in customize - but there ended up being enough code that it needed its own file.
-Hence, here - where you can find the base classes for the cache and all it's components.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/library/test_unified_library.py
 """

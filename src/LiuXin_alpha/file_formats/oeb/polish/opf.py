@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=utf-8
 
+"""
+Inspect and update OPF metadata, manifests, spines and guide entries.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise opf through a consuming regression::
+
+        python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -17,6 +28,19 @@ __copyright__ = "2014, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
 def get_book_language(container: _typing.Any) -> _typing.Any:
+    """
+    Return book language under the format's safety and compatibility rules.
+
+    Example:
+        Exercise get book language through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     for lang in container.opf_xpath("//dc:language"):
         raw = getattr(lang, "text", None)
         if not raw:
@@ -36,6 +60,23 @@ def get_book_language(container: _typing.Any) -> _typing.Any:
 
 
 def set_guide_item(container: _typing.Any, item_type: _typing.Any, title: _typing.Any, name: _typing.Any, frag: _typing.Any = None) -> None:
+    """
+    Set guide item under the format's safety and compatibility rules.
+
+    Example:
+        Exercise set guide item through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :param item_type: Value supplied for item type under the utility contract.
+    :param title: Value supplied for title under the utility contract.
+    :param name: Field, file, function or resource name addressed by the operation.
+    :param frag: Value supplied for frag under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     ref_tag = "{%s}reference" % OPF_NAMESPACES["opf"]
     item_type = "" if item_type is None else str(item_type)
     href = None
@@ -55,7 +96,9 @@ def set_guide_item(container: _typing.Any, item_type: _typing.Any, title: _typin
 
     for guide in guides:
         matches = []
-        for child in guide.iterchildren(etree.Element):
+        for child in guide.iterchildren():
+            if not isinstance(child.tag, str):
+                continue
             if child.tag == ref_tag and child.get("type", "").lower() == item_type.lower():
                 matches.append(child)
         if not matches and href:

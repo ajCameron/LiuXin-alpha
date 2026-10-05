@@ -1,3 +1,14 @@
+"""
+Expose the supported hashes compatibility surface.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+"""
 from __future__ import annotations
 
 import hashlib
@@ -16,15 +27,19 @@ def sane_hash(
     """
     Hash `data` (bytes-like or str) using a standard algorithm (default: SHA-256).
 
-    Returns:
-        - hex string if hexdigest=True (default)
-        - raw digest bytes if hexdigest=False
+    Example:
+        Exercise sane hash through a consuming regression::
 
-    Examples:
-        sane_hash(b"abc")                       -> '...'
-        sane_hash("abc")                        -> '...'
-        sane_hash("abc", algo="blake2b")        -> '...'
-        sane_hash(b"abc", hexdigest=False)      -> b'...'
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :param algo: Value supplied for algo under the utility contract.
+    :param encoding: Value supplied for encoding under the utility contract.
+    :param errors: Value supplied for errors under the utility contract.
+    :param hexdigest: Value supplied for hexdigest under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if isinstance(data, str):
         b = data.encode(encoding, errors)

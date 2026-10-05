@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """
-Example: call storage.reconcile helper using a database path directly.
+Register an unmanaged disk by passing a catalogue path to the reconciliation helper.
+
+Delegate database ownership and scanning to register_existing_disk_with_database_path,
+then print its diagnostic report. Unlike the Library example, this parser has no
+catalogue-creation flag. Hashing, symlink following, Store links, and manager refresh
+are controlled by the explicit command-line options.
 """
 
 from __future__ import annotations
@@ -21,6 +26,18 @@ from LiuXin_alpha.storage.reconcile import register_existing_disk_with_database_
 
 
 def parse_args() -> argparse.Namespace:
+    """
+    Parse required database/disk paths, database type defaulting to SQLite, and optional Store name.
+    Enable hashing, Store links, and manager refresh by default; their --no-* flags disable them.
+    --follow-symlinks opts into directory-link traversal. Path and registration validation are
+    deferred to main and the helper.
+
+    Example:
+        >>> args = parse_args()  # doctest: +SKIP
+
+
+    :return: Parsed argparse namespace; help and invalid arguments raise SystemExit.
+    """
     parser = argparse.ArgumentParser(description="register_existing_disk_with_database_path example")
     parser.add_argument("--database", required=True, help="Path to LiuXin database file")
     parser.add_argument("--disk-root", required=True, help="Disk root to scan")
@@ -34,6 +51,19 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    """
+    Register the resolved disk against the expanded catalogue path and print the report. Forward all
+    registration flags to register_existing_disk_with_database_path, which owns the opened database
+    and scanning lifecycle. The database path is expanded but not resolved here; the disk path is
+    both expanded and resolved. Use diagnostic JSON rendering after the helper returns, with no
+    extra rollback or cleanup wrapper.
+
+    Example:
+        >>> exit_code = main()  # doctest: +SKIP
+
+
+    :return: Zero when report.errors is empty, otherwise two; helper and rendering errors propagate.
+    """
     args = parse_args()
     report = register_existing_disk_with_database_path(
         database_path=Path(args.database).expanduser(),

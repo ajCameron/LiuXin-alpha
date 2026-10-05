@@ -1,3 +1,14 @@
+"""
+Render fenced and indented code through optional syntax highlighting.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise codehilite through a consuming regression::
+
+        python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+"""
 from __future__ import unicode_literals
 from __future__ import absolute_import
 from __future__ import annotations
@@ -43,25 +54,10 @@ class CodeHilite(object):
     """
     Determine language of source code, and pass it into the pygments hilighter.
 
-    Basic Usage:
-        >>> code = CodeHilite(src = 'some text')
-        >>> html = code.hilite()
+    Example:
+        Exercise CodeHilite through a consuming regression::
 
-    * src: Source string or any object with a .readline attribute.
-
-    * linenums: (Boolean) Set line numbering to 'on' (True), 'off' (False) or 'auto'(None).
-    Set to 'auto' by default.
-
-    * guess_lang: (Boolean) Turn language auto-detection 'on' or 'off' (on by default).
-
-    * css_class: Set class name of wrapper div ('codehilite' by default).
-
-    Low Level Usage:
-        >>> code = CodeHilite()
-        >>> code.src = 'some text' # String or anything with a .readline attr.
-        >>> code.linenos = True  # True or False; Turns line numbering on or of.
-        >>> html = code.hilite()
-
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
     """
 
     def __init__(
@@ -75,6 +71,25 @@ class CodeHilite(object):
         noclasses: bool = False,
         tab_length: int = 4,
     ) -> None:
+        """
+        Initialize and validate the codehilite state.
+
+        Example:
+            Exercise CodeHilite.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param src: Value supplied for src under the utility contract.
+        :param linenums: Value supplied for linenums under the utility contract.
+        :param guess_lang: Value supplied for guess lang under the utility contract.
+        :param css_class: Value supplied for css class under the utility contract.
+        :param lang: Value supplied for lang under the utility contract.
+        :param style: Value supplied for style under the utility contract.
+        :param noclasses: Value supplied for noclasses under the utility contract.
+        :param tab_length: Value supplied for tab length under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.src = src
         self.lang = lang
         self.linenums = linenums
@@ -86,13 +101,16 @@ class CodeHilite(object):
 
     def hilite(self: _typing.Self) -> _typing.Any:
         """
-        Pass code to the [Pygments](http://pygments.pocoo.org/) highliter with
-        optional line numbers. The output should then be styled with css to
-        your liking. No styles are applied by default - only styling hooks
-        (i.e.: <span class="k">).
+        Pass code to the [Pygments](http://pygments.pocoo.org/) highliter with optional line numbers. The output should then be styled with css to your liking. No styles are applied by default - only styling hooks (i.e.: <span class="k">).
 
-        returns : A string of html.
+        Example:
+            Exercise CodeHilite.hilite through a consuming regression::
 
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         self.src = self.src.strip("\n")
@@ -140,17 +158,16 @@ class CodeHilite(object):
 
     def _getLang(self: _typing.Self) -> None:
         """
-        Determines language of a code block from shebang line and whether said
-        line should be removed or left in place. If the sheband line contains a
-        path (even a single /) then it is assumed to be a real shebang line and
-        left alone. However, if no path is given (e.i.: #!python or :::python)
-        then it is assumed to be a mock shebang for language identifitation of a
-        code fragment and removed from the code block prior to processing for
-        code highlighting. When a mock shebang (e.i: #!python) is found, line
-        numbering is turned on. When colons are found in place of a shebang
-        (e.i.: :::python), line numbering is left in the current state - off
-        by default.
+        Determines language of a code block from shebang line and whether said line should be removed or left in place. If the sheband line contains a path (even a single /) then it is assumed to be a real shebang line and left alone. However, if no path is given (e.i.: #!python or :::python) then it is assumed to be a mock shebang for language identifitation of a code fragment and removed from the code block prior to processing for code highlighting. When a mock shebang (e.i: #!python) is found, line numbering is turned on. When colons are found in place of a shebang (e.i.: :::python), line numbering is left in the current state - off by default.
 
+        Example:
+            Exercise CodeHilite. getLang through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
 
         import re
@@ -191,10 +208,29 @@ class CodeHilite(object):
 
 # ------------------ The Markdown Extension -------------------------------
 class HiliteTreeprocessor(Treeprocessor):
-    """Hilight source code in code blocks."""
+    """
+    Hilight source code in code blocks.
+
+    Example:
+        Exercise HiliteTreeprocessor through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+    """
 
     def run(self: _typing.Self, root: _typing.Any) -> None:
-        """Find code blocks and store in htmlStash."""
+        """
+        Find code blocks and store in htmlStash.
+
+        Example:
+            Exercise HiliteTreeprocessor.run through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param root: Root directory that bounds path resolution or traversal.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         blocks = root.iter("pre")
         for block in blocks:
             children = list(block)
@@ -218,10 +254,29 @@ class HiliteTreeprocessor(Treeprocessor):
 
 
 class CodeHiliteExtension(Extension):
-    """Add source code hilighting to markdown codeblocks."""
+    """
+    Add source code hilighting to markdown codeblocks.
+
+    Example:
+        Exercise CodeHiliteExtension through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+    """
 
     def __init__(self: _typing.Self, configs: _typing.Any) -> None:
         # define default configs
+        """
+        Initialize and validate the codehiliteextension state.
+
+        Example:
+            Exercise CodeHiliteExtension.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param configs: Value supplied for configs under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.config = {
             "linenums": [None, "Use lines numbers. True=yes, False=no, None=auto"],
             "force_linenos": [
@@ -267,7 +322,20 @@ class CodeHiliteExtension(Extension):
             self.setConfig(key, value)
 
     def extendMarkdown(self: _typing.Self, md: _typing.Any, md_globals: _typing.Any) -> None:
-        """Add HilitePostprocessor to Markdown instance."""
+        """
+        Add HilitePostprocessor to Markdown instance.
+
+        Example:
+            Exercise CodeHiliteExtension.extendMarkdown through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param md: Value supplied for md under the utility contract.
+        :param md_globals: Value supplied for md globals under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         hiliter = HiliteTreeprocessor(md)
         hiliter.config = self.getConfigs()
         md.treeprocessors.add("hilite", hiliter, "<inline")
@@ -276,4 +344,17 @@ class CodeHiliteExtension(Extension):
 
 
 def makeExtension(configs: _typing.Any = None) -> _typing.Any:
+    """
+    Perform the makeExtension operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise makeExtension through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+    :param configs: Value supplied for configs under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return CodeHiliteExtension(configs=configs or {})

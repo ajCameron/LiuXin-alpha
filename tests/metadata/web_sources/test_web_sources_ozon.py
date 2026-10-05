@@ -1,3 +1,14 @@
+"""
+Verify OZON identifiers, redirect recovery, parsing, retries and covers.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test web sources ozon through its owning regression module::
+
+        python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+"""
 from __future__ import annotations
 
 import queue
@@ -11,26 +22,116 @@ from LiuXin_alpha.metadata.utils import calibreMetaInformation
 
 
 class _Log:
+    """
+    Provide the Log test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise Log through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+    """
     def __init__(self) -> None:
+        """
+        Initialize the Log test double.
+
+        Example:
+            Exercise Log.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+        :return: None; the function records state or raises through its assertions.
+        """
         self.events = []
 
     def __call__(self, *parts):
+        """
+        Perform the call test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.call through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("call", parts))
 
     def info(self, *parts):
+        """
+        Perform the info test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.info through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("info", parts))
 
     def warning(self, *parts):
+        """
+        Perform the warning test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.warning through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("warning", parts))
 
     def error(self, *parts):
+        """
+        Perform the error test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.error through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("error", parts))
 
     def exception(self, *parts):
+        """
+        Perform the exception test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.exception through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("exception", parts))
 
 
 def _sample_search_html() -> str:
+    """
+    Perform the sample search html test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise sample search html through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return """
     <html>
       <body>
@@ -42,6 +143,17 @@ def _sample_search_html() -> str:
 
 
 def _sample_detail_html() -> str:
+    """
+    Perform the sample detail html test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise sample detail html through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return """
     <html>
       <head>
@@ -71,12 +183,34 @@ def _sample_detail_html() -> str:
 
 
 def test_web_sources_ozon_import_smoke() -> None:
+    """
+    Verify web sources ozon import smoke.
+
+    Example:
+        Exercise test web sources ozon import smoke through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.ozon as ozon
 
     assert ozon is not None
 
 
 def test_ozon_get_book_url_and_id_from_url() -> None:
+    """
+    Verify ozon get book url and id from url.
+
+    Example:
+        Exercise test ozon get book url and id from url through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.ozon import Ozon
 
     plugin = Ozon()
@@ -89,6 +223,17 @@ def test_ozon_get_book_url_and_id_from_url() -> None:
 
 
 def test_ozon_create_query_prefers_id_then_isbn_then_title_author() -> None:
+    """
+    Verify ozon create query prefers id then isbn then title author.
+
+    Example:
+        Exercise test ozon create query prefers id then isbn then title author through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.ozon import Ozon
 
     plugin = Ozon()
@@ -106,6 +251,17 @@ def test_ozon_create_query_prefers_id_then_isbn_then_title_author() -> None:
 
 
 def test_ozon_extract_ids_from_search_html() -> None:
+    """
+    Verify ozon extract ids from search html.
+
+    Example:
+        Exercise test ozon extract ids from search html through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.ozon import Ozon
 
     plugin = Ozon()
@@ -113,6 +269,17 @@ def test_ozon_extract_ids_from_search_html() -> None:
 
 
 def test_ozon_metadata_from_detail_html_parses_fields_and_caches() -> None:
+    """
+    Verify ozon metadata from detail html parses fields and caches.
+
+    Example:
+        Exercise test ozon metadata from detail html parses fields and caches through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.ozon import Ozon
 
     plugin = Ozon()
@@ -133,6 +300,19 @@ def test_ozon_metadata_from_detail_html_parses_fields_and_caches() -> None:
 
 
 def test_ozon_identify_by_id(monkeypatch) -> None:
+    """
+    Verify ozon identify by id.
+
+    Example:
+        Exercise test ozon identify by id through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.ozon import Ozon
 
     plugin = Ozon()
@@ -150,11 +330,40 @@ def test_ozon_identify_by_id(monkeypatch) -> None:
 
 
 def test_ozon_identify_search_then_details(monkeypatch) -> None:
+    """
+    Verify ozon identify search then details.
+
+    Example:
+        Exercise test ozon identify search then details through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.ozon import Ozon
 
     plugin = Ozon()
 
     def _open(log, abort, url, timeout, context):
+        """
+        Perform the open test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test ozon identify search then details.open through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+        :param log: Value supplied for log in the focused test operation.
+        :param abort: Value supplied for abort in the focused test operation.
+        :param url: Value supplied for url in the focused test operation.
+        :param timeout: Value supplied for timeout in the focused test operation.
+        :param context: Value supplied for context in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         del log, abort, timeout
         if "search" in context.lower():
             return _sample_search_html()
@@ -178,12 +387,41 @@ def test_ozon_identify_search_then_details(monkeypatch) -> None:
 
 
 def test_ozon_identify_search_failure_can_fall_back_to_title_author(monkeypatch) -> None:
+    """
+    Verify ozon identify search failure can fall back to title author.
+
+    Example:
+        Exercise test ozon identify search failure can fall back to title author through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.ozon import Ozon
 
     plugin = Ozon()
     calls = []
 
     def _open(log, abort, url, timeout, context):
+        """
+        Perform the open test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test ozon identify search failure can fall back to title author.open through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+        :param log: Value supplied for log in the focused test operation.
+        :param abort: Value supplied for abort in the focused test operation.
+        :param url: Value supplied for url in the focused test operation.
+        :param timeout: Value supplied for timeout in the focused test operation.
+        :param context: Value supplied for context in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         del log, abort, url, timeout
         calls.append(context)
         if context == "Ozon search":
@@ -214,6 +452,17 @@ def test_ozon_identify_search_failure_can_fall_back_to_title_author(monkeypatch)
 
 
 def test_ozon_download_cover_uses_cache() -> None:
+    """
+    Verify ozon download cover uses cache.
+
+    Example:
+        Exercise test ozon download cover uses cache through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.ozon import Ozon
 
     plugin = Ozon()
@@ -233,23 +482,106 @@ def test_ozon_download_cover_uses_cache() -> None:
 
 
 def test_ozon_open_bytes_with_backoff_retries_transient(monkeypatch) -> None:
+    """
+    Verify ozon open bytes with backoff retries transient.
+
+    Example:
+        Exercise test ozon open bytes with backoff retries transient through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.ozon import Ozon
 
     class _Transient(Exception):
+        """
+        Provide the Transient test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test ozon open bytes with backoff retries transient.Transient through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+        """
         @staticmethod
         def getcode():
+            """
+            Perform the getcode test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test ozon open bytes with backoff retries transient.Transient.getcode through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+            :return: The deterministic value, row, identity or collection described above.
+            """
             return 503
 
     class _Resp:
+        """
+        Provide the Resp test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test ozon open bytes with backoff retries transient.Resp through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+        """
         @staticmethod
         def read():
+            """
+            Perform the read test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test ozon open bytes with backoff retries transient.Resp.read through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+            :return: The deterministic value, row, identity or collection described above.
+            """
             return b"ok"
 
     class _Browser:
+        """
+        Provide the Browser test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test ozon open bytes with backoff retries transient.Browser through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+        """
         def __init__(self):
+            """
+            Initialize the Browser test double.
+
+            Example:
+                Exercise test ozon open bytes with backoff retries transient.Browser.init through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+            :return: None; the function records state or raises through its assertions.
+            """
             self.calls = 0
 
         def open_novisit(self, url, timeout=30):
+            """
+            Perform the open novisit test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test ozon open bytes with backoff retries transient.Browser.open novisit through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+            :param url: Value supplied for url in the focused test operation.
+            :param timeout: Value supplied for timeout in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             del url, timeout
             self.calls += 1
             if self.calls < 3:
@@ -277,6 +609,17 @@ def test_ozon_open_bytes_with_backoff_retries_transient(monkeypatch) -> None:
 
 
 def test_ozon_import_web_source_module() -> None:
+    """
+    Verify ozon import web source module.
+
+    Example:
+        Exercise test ozon import web source module through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources import import_web_source_module
 
     mod = import_web_source_module("ozon")
@@ -284,10 +627,40 @@ def test_ozon_import_web_source_module() -> None:
 
 
 def test_ozon_low_level_helpers_handle_odd_inputs() -> None:
+    """
+    Verify ozon low level helpers handle odd inputs.
+
+    Example:
+        Exercise test ozon low level helpers handle odd inputs through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.ozon as ozon
 
     class BadText:
+        """
+        Provide the BadText test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test ozon low level helpers handle odd inputs.BadText through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+        """
         def __str__(self):
+            """
+            Perform the str test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test ozon low level helpers handle odd inputs.BadText.str through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+            :return: The deterministic value, row, identity or collection described above.
+            """
             raise RuntimeError("cannot stringify")
 
     assert ozon._as_text(b"\xd0\xa2\xd0\xb5\xd1\x81\xd1\x82") == "Тест"
@@ -328,6 +701,17 @@ def test_ozon_low_level_helpers_handle_odd_inputs() -> None:
 
 
 def test_ozon_url_query_and_search_edge_paths() -> None:
+    """
+    Verify ozon url query and search edge paths.
+
+    Example:
+        Exercise test ozon url query and search edge paths through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.ozon import Ozon
 
     plugin = Ozon()
@@ -346,6 +730,17 @@ def test_ozon_url_query_and_search_edge_paths() -> None:
 
 
 def test_ozon_metadata_parser_uses_fallbacks_and_defaults() -> None:
+    """
+    Verify ozon metadata parser uses fallbacks and defaults.
+
+    Example:
+        Exercise test ozon metadata parser uses fallbacks and defaults through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.ozon import Ozon
 
     plugin = Ozon()
@@ -415,6 +810,17 @@ def test_ozon_metadata_parser_uses_fallbacks_and_defaults() -> None:
 
 
 def test_ozon_metadata_parser_ignores_invalid_optional_fields() -> None:
+    """
+    Verify ozon metadata parser ignores invalid optional fields.
+
+    Example:
+        Exercise test ozon metadata parser ignores invalid optional fields through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.ozon import Ozon
 
     plugin = Ozon()
@@ -445,6 +851,17 @@ def test_ozon_metadata_parser_ignores_invalid_optional_fields() -> None:
 
 
 def test_ozon_identify_retry_filter_skip_and_abort_paths() -> None:
+    """
+    Verify ozon identify retry filter skip and abort paths.
+
+    Example:
+        Exercise test ozon identify retry filter skip and abort paths through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.ozon import Ozon
 
     plugin = Ozon()
@@ -452,6 +869,22 @@ def test_ozon_identify_retry_filter_skip_and_abort_paths() -> None:
     calls = []
 
     def fake_open(log, abort, url, timeout, context):
+        """
+        Perform the fake open test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test ozon identify retry filter skip and abort paths.fake open through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+        :param log: Value supplied for log in the focused test operation.
+        :param abort: Value supplied for abort in the focused test operation.
+        :param url: Value supplied for url in the focused test operation.
+        :param timeout: Value supplied for timeout in the focused test operation.
+        :param context: Value supplied for context in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         del log, abort, timeout
         calls.append((context, url))
         if context == "Ozon search":
@@ -498,12 +931,39 @@ def test_ozon_identify_retry_filter_skip_and_abort_paths() -> None:
 
 
 def test_ozon_identify_stops_search_variants_after_rr_redirect_loop() -> None:
+    """
+    Verify ozon identify stops search variants after rr redirect loop.
+
+    Example:
+        Exercise test ozon identify stops search variants after rr redirect loop through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.ozon import Ozon
 
     plugin = Ozon()
     calls = []
 
     def _raise_redirect(log, abort, url, timeout, context):
+        """
+        Perform the raise redirect test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test ozon identify stops search variants after rr redirect loop.raise redirect through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+        :param log: Value supplied for log in the focused test operation.
+        :param abort: Value supplied for abort in the focused test operation.
+        :param url: Value supplied for url in the focused test operation.
+        :param timeout: Value supplied for timeout in the focused test operation.
+        :param context: Value supplied for context in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         del log, abort, timeout, context
         calls.append(url)
         raise HTTPError(
@@ -529,6 +989,17 @@ def test_ozon_identify_stops_search_variants_after_rr_redirect_loop() -> None:
 
 
 def test_ozon_download_cover_discovers_from_identify_and_handles_failures() -> None:
+    """
+    Verify ozon download cover discovers from identify and handles failures.
+
+    Example:
+        Exercise test ozon download cover discovers from identify and handles failures through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.ozon import Ozon
 
     plugin = Ozon()
@@ -536,6 +1007,24 @@ def test_ozon_download_cover_discovers_from_identify_and_handles_failures() -> N
     out = queue.Queue()
 
     def fake_identify(log, rq, abort, title=None, authors=None, identifiers=None, timeout=30):
+        """
+        Perform the fake identify test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test ozon download cover discovers from identify and handles failures.fake identify through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+        :param log: Value supplied for log in the focused test operation.
+        :param rq: Value supplied for rq in the focused test operation.
+        :param abort: Value supplied for abort in the focused test operation.
+        :param title: Value supplied for title in the focused test operation.
+        :param authors: Value supplied for authors in the focused test operation.
+        :param identifiers: Value supplied for identifiers in the focused test operation.
+        :param timeout: Value supplied for timeout in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         del log, abort, title, authors, identifiers, timeout
         mi = calibreMetaInformation("Cover Book", ["Author"])
         mi.set_identifier("ozon", "1009493080")
@@ -568,6 +1057,18 @@ def test_ozon_download_cover_discovers_from_identify_and_handles_failures() -> N
     assert out.empty()
 
     def raise_download(**kwargs):
+        """
+        Perform the raise download test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test ozon download cover discovers from identify and handles failures.raise download through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+        :param kwargs: Keyword values forwarded by the test double.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         raise OSError("download failed")
 
     plugin._open_bytes_with_backoff = raise_download
@@ -577,6 +1078,17 @@ def test_ozon_download_cover_discovers_from_identify_and_handles_failures() -> N
 
 
 def test_ozon_open_text_decodes_and_abort_backoff_returns_empty() -> None:
+    """
+    Verify ozon open text decodes and abort backoff returns empty.
+
+    Example:
+        Exercise test ozon open text decodes and abort backoff returns empty through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_ozon.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.ozon import Ozon
 
     plugin = Ozon()

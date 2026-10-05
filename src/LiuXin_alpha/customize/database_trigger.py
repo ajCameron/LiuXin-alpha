@@ -1,9 +1,13 @@
 """
-Database_trigger - plugins implemented in python to be run on the database.
+Define customization hooks invoked by database events.
 
-Allows the user to write functions in python which it would be too laborious to code in SQL.
-As a rule, try not to use these.
-They slow everything down significantly.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise database trigger through a consuming regression::
+
+        python -m pytest -q tests/customize/test_customize_base.py
 """
 
 from copy import deepcopy
@@ -14,14 +18,25 @@ from LiuXin_alpha.databases.database import Database
 class Trigger:
     """
     A trigger to be run on the database.
+
+    Example:
+        Exercise Trigger through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     def __init__(self, database=None):
         """
-        Run initialisation tasks for the Trigger.
-        Each instance of the trigger is attatched to a database - this is used to process the trigger_conditions -
-        expanding the table names out into all the columns.
-        :return:
+        Run initialisation tasks for the Trigger. Each instance of the trigger is attatched to a database - this is used to process the trigger_conditions - expanding the table names out into all the columns.
+
+        Example:
+            Exercise Trigger.  init   through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param database: Value supplied for database under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         if database is None:
             self.db = Database()
@@ -46,11 +61,14 @@ class Trigger:
         """
         Which operations will invoke the trigger?
 
-        This is a dictionary keyed by the trigger names and valued by a set of the columns they apply to.
-        If the name of the table is provided in the set then the trigger will run for any column in that tables.
-        E.g. if the key is "after update" and the value set is {'title', 'creator', 'identifiers'} then the trigger will
-        run after an operation of the given type on any column in the table.
-        :return:
+        Example:
+            Exercise Trigger.trigger conditions through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self._trigger_conditions
 
@@ -58,8 +76,14 @@ class Trigger:
         """
         Expands any tables names in any of the sets out into their full complement of columns.
 
-        Also checks the values against the allowed tables and columns on the database.
-        :return:
+        Example:
+            Exercise Trigger.process trigger conditions through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         trigger_cons = deepcopy(self.trigger_conditions)
         new_trigger_cons = dict()
@@ -85,9 +109,16 @@ class Trigger:
         """
         Applies the trigger to the target_id in the target_table.
 
-        :param target_id: The id of the row in the table
-        :param target_table: The table the id is in.
-        :return:
+        Example:
+            Exercise Trigger.pull through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param target_id: Value supplied for target id under the utility contract.
+        :param target_table: Value supplied for target table under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 

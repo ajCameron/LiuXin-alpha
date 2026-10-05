@@ -1,4 +1,11 @@
-"""Portable, SQLite-only command for auditing an unmanaged storage drive."""
+"""
+Scan an unmanaged drive into a local SQLite catalogue through the Library facade.
+
+This standalone command does not select PostgreSQL or a remote Core endpoint.
+It can create/update the audit database and file/Store registrations; 'audit' does
+not mean a read-only database operation. Library setup/scan stdout is redirected
+to stderr so the final successful report can occupy stdout as JSON.
+"""
 
 from __future__ import annotations
 
@@ -13,7 +20,21 @@ from pathlib import Path
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """Build the command-line parser without touching a database or disk."""
+    """
+    Declare required local database/drive selectors and scan-policy flags.
+
+    Defaults permit database creation, hashing, and Store links while disabling
+    symlink traversal and storage-manager refresh. Parsing does not inspect paths
+    or require an existing database when --no-create-db is chosen.
+
+    Example:
+        >>> args = build_parser().parse_args(["--database", "audit.sqlite", "--disk-root", "drive"])
+        >>> args.create_db, args.no_hash, args.refresh_storage_manager
+        (True, False, False)
+
+
+    :return: Fresh ArgumentParser for the standalone local storage audit command.
+    """
     parser = argparse.ArgumentParser(
         description=(
             "Scan ebook files on a storage drive into a local LiuXin SQLite database. "
@@ -54,13 +75,46 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def _open_library(**kwargs: object):
-    """Import the large library surface only after argument validation."""
+    """
+    Lazily import Library and construct it with the caller's unmodified keywords.
+
+    This helper performs no validation itself; main uses it only after path checks.
+    Import/constructor errors propagate to that caller.
+
+    Example:
+        >>> library = _open_library(database_path=path, db_type="SQLite")  # doctest: +SKIP
+
+
+    :param kwargs: Constructor keywords forwarded directly to the Library facade.
+    :return: Newly constructed Library instance, not yet entered as a context manager.
+    """
     library_module = importlib.import_module("LiuXin_alpha.library")
     return library_module.Library(**kwargs)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """Scan a drive into an explicitly local SQLite audit database."""
+    """
+    Validate local paths, register a drive with SQLite, and print its JSON report.
+
+    Resolve both paths before the operation catch. Reject a missing/non-directory
+    drive and an existing non-file database with stderr errors/status two. Open
+    Library with backup disabled and storage startup disabled; enable the storage
+    manager only when refresh is requested. Redirect stdout through library
+    construction, scanning, and context exit, preserving legacy chatter on stderr.
+
+    Operation Exceptions become stderr errors/status two, without undoing writes.
+    Argument parsing, path resolution, final to_dict/JSON/output, and report.errors
+    access lie outside that catch and can raise. A successful operation still emits
+    the complete report before returning two when its errors collection is truthy.
+
+    Example:
+        >>> main(["--database", "audit.sqlite", "--disk-root", "/mnt/books"])  # doctest: +SKIP
+
+
+    :param argv: Explicit CLI token sequence, or None to parse process arguments.
+    :return: Zero after a report with no errors; two for rejected paths, caught
+        operation failures, or reported scan errors.
+    """
     args = build_parser().parse_args(argv)
     database_path = Path(args.database).expanduser().resolve()
     disk_root = Path(args.disk_root).expanduser().resolve()

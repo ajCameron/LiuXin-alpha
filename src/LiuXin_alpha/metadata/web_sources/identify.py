@@ -1,8 +1,13 @@
 """
-Identify/merge helpers for web metadata sources.
+Coordinate concurrent metadata-source identification, deduplication, merging and result ranking.
 
-This is a compatibility-oriented port of the legacy identify pipeline, with
-reduced hard dependencies and safer fallbacks for partially-ported installs.
+The module keeps network, parsing, caching, cancellation and result-order behavior
+explicit for callers.
+
+Example:
+    Exercise identify with the owning regression module::
+
+        python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
 """
 
 from __future__ import annotations
@@ -48,6 +53,19 @@ except Exception:
     _strip_tags = re.compile(r"<[^>]+>")
 
     def html2text(raw: str) -> str:
+        """
+        Perform the identify html2text operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise html2text with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+        :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         return _strip_tags.sub("", raw or "")
 
 
@@ -57,10 +75,36 @@ __docformat__ = "restructuredtext en"
 
 
 def _safe_lower(value: str) -> str:
+    """
+    Return a validated lower or the documented empty fallback.
+
+    Example:
+        Exercise  safe lower with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+    :param value: Input value to normalize, compare, store or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     return str(value or "").lower()
 
 
 def _safe_primary_sort_key(value: str):
+    """
+    Return a validated primary sort key or the documented empty fallback.
+
+    Example:
+        Exercise  safe primary sort key with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+    :param value: Input value to normalize, compare, store or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     try:
         from LiuXin_alpha.utils.text.icu import primary_sort_key
 
@@ -70,6 +114,19 @@ def _safe_primary_sort_key(value: str):
 
 
 def _iter_metadata_plugins(capabilities):
+    """
+    Yield metadata plugins in deterministic source order.
+
+    Example:
+        Exercise  iter metadata plugins with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+    :param capabilities: Value supplied for capabilities.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     try:
         from LiuXin_alpha.customize.ui import metadata_plugins
     except Exception:
@@ -82,6 +139,18 @@ def _iter_metadata_plugins(capabilities):
 
 
 def _iter_all_metadata_plugins():
+    """
+    Yield all metadata plugins in deterministic source order.
+
+    Example:
+        Exercise  iter all metadata plugins with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     try:
         from LiuXin_alpha.customize.ui import all_metadata_plugins
     except Exception:
@@ -94,6 +163,19 @@ def _iter_all_metadata_plugins():
 
 
 def _log(log, *parts):
+    """
+    Forward a structured provider message through the shared logging adapter.
+
+    Example:
+        Exercise  log with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+    :param log: Logger receiving structured provider diagnostics.
+    :param parts: Message fragments and structured context to emit.
+    :return: None.
+    """
     if callable(log):
         log(*parts)
         return
@@ -103,6 +185,19 @@ def _log(log, *parts):
 
 
 def _normalize_identifier_value(value):
+    """
+    Normalize normalize identifier value into the provider's canonical safe representation.
+
+    Example:
+        Exercise  normalize identifier value with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+    :param value: Input value to normalize, compare, store or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     if value is None:
         return None
     if isinstance(value, (set, frozenset, list, tuple)):
@@ -118,6 +213,20 @@ def _normalize_identifier_value(value):
 
 
 def _normalize_identifiers_for_urls(identifiers):
+    """
+    Normalize normalize identifiers for urls into the provider's canonical safe representation.
+
+    Example:
+        Exercise  normalize identifiers for urls with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+    :param identifiers: Metadata identifier mapping used for direct lookup and cache
+        resolution.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     normalized = {}
     for key, value in (identifiers or {}).items():
         if key is None:
@@ -131,7 +240,29 @@ def _normalize_identifiers_for_urls(identifiers):
 
 # Download worker {{{
 class Worker(Thread):
+    """
+    Run one provider operation in a daemon thread and isolate provider failures.
+
+    Example:
+        Exercise Worker with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+    """
     def __init__(self, plugin, kwargs, abort):
+        """
+        Initialize identify state while preserving shared source configuration and caches.
+
+        Example:
+            Exercise Worker.  init   with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+        :param plugin: Metadata or cover source plugin run by the worker.
+        :param kwargs: Keyword arguments forwarded to the shared implementation.
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :return: None.
+        """
         Thread.__init__(self, daemon=True)
         self.plugin = plugin
         self.kwargs = kwargs
@@ -141,6 +272,17 @@ class Worker(Thread):
         self.log = create_log(self.buf)
 
     def run(self):
+        """
+        Perform the identify run operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise Worker.run with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+        :return: None.
+        """
         start = time.time()
         try:
             self.plugin.identify(self.log, self.rq, self.abort, **self.kwargs)
@@ -150,10 +292,34 @@ class Worker(Thread):
 
     @property
     def name(self):
+        """
+        Perform the identify name operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise Worker.name with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         return self.plugin.name
 
 
 def is_worker_alive(workers):
+    """
+    Perform the identify is worker alive operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise is worker alive with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+    :param workers: Provider worker threads to inspect.
+    :return: True when the described condition is satisfied; otherwise False.
+    """
     return any(w.is_alive() for w in workers)
 
 
@@ -162,7 +328,27 @@ def is_worker_alive(workers):
 
 # Merge results from different sources {{{
 class xISBN(Thread):
+    """
+    Implement the identify metadata-source integration and its explicit recovery policy.
+
+    Example:
+        Exercise xISBN with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+    """
     def __init__(self, isbn):
+        """
+        Initialize identify state while preserving shared source configuration and caches.
+
+        Example:
+            Exercise xISBN.  init   with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+        :param isbn: ISBN value used for direct lookup or related-edition resolution.
+        :return: None.
+        """
         Thread.__init__(self, daemon=True)
         self.isbn = isbn
         self.isbns = frozenset()
@@ -170,6 +356,17 @@ class xISBN(Thread):
         self.exception = self.tb = None
 
     def run(self):
+        """
+        Perform the identify run operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise xISBN.run with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+        :return: None.
+        """
         if xisbn is None:
             return
         try:
@@ -182,7 +379,27 @@ class xISBN(Thread):
 
 
 class ISBNMerge:
+    """
+    Implement the identify metadata-source integration and its explicit recovery policy.
+
+    Example:
+        Exercise ISBNMerge with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+    """
     def __init__(self, log):
+        """
+        Initialize identify state while preserving shared source configuration and caches.
+
+        Example:
+            Exercise ISBNMerge.  init   with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+        :param log: Logger receiving structured provider diagnostics.
+        :return: None.
+        """
         self.pools = {}
         self.isbnless_results = []
         self.results = []
@@ -190,6 +407,19 @@ class ISBNMerge:
         self.use_xisbn = bool(xisbn is not None and getattr(xisbn, "service_available", False))
 
     def isbn_in_pool(self, isbn):
+        """
+        Perform the identify isbn in pool operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise ISBNMerge.isbn in pool with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+        :param isbn: ISBN value used for direct lookup or related-edition resolution.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         if isbn:
             for isbns, pool in self.pools.items():
                 if isbn in isbns:
@@ -198,9 +428,36 @@ class ISBNMerge:
 
     @staticmethod
     def pool_has_result_from_same_source(pool, result):
+        """
+        Perform the identify pool has result from same source operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise ISBNMerge.pool has result from same source with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+        :param pool: Value supplied for pool.
+        :param result: Provider result tuple to validate and normalize.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         return any(r.identify_plugin is result.identify_plugin for r in pool[1])
 
     def add_result(self, result):
+        """
+        Perform the identify add result operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise ISBNMerge.add result with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+        :param result: Provider result tuple to validate and normalize.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         isbn = getattr(result, "isbn", None)
         if isbn:
             pool = self.isbn_in_pool(isbn)
@@ -233,6 +490,18 @@ class ISBNMerge:
             self.isbnless_results.append(result)
 
     def finalize(self):
+        """
+        Perform the identify finalize operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise ISBNMerge.finalize with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         has_isbn_result = any(bool(pool) for pool in self.pools.values())
         isbn_sources = frozenset()
         if has_isbn_result:
@@ -257,6 +526,19 @@ class ISBNMerge:
         return self.results
 
     def merge_metadata_results(self, merge_on_identifiers=False):
+        """
+        Perform the identify merge metadata results operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise ISBNMerge.merge metadata results with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+        :param merge_on_identifiers: Value supplied for merge on identifiers.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         groups = {}
         for result in self.results:
             title = _safe_lower(getattr(result, "title", "") or "")
@@ -313,6 +595,18 @@ class ISBNMerge:
         self.results.sort(key=attrgetter("average_source_relevance"))
 
     def merge_isbn_results(self):
+        """
+        Perform the identify merge isbn results operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise ISBNMerge.merge isbn results with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         self.results = []
         sources = set()
         for min_year, results in self.pools.values():
@@ -325,6 +619,22 @@ class ISBNMerge:
 
     @staticmethod
     def length_merge(attr, results, null_value=None, shortest=True):
+        """
+        Perform the identify length merge operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise ISBNMerge.length merge with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+        :param attr: Value supplied for attr.
+        :param results: Queue receiving coordinated provider results.
+        :param null_value: Value supplied for null value.
+        :param shortest: Value supplied for shortest.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         values = [getattr(x, attr) for x in results if not x.is_null(attr)]
         values = [x for x in values if len(x) > 0]
         if not values:
@@ -334,10 +644,40 @@ class ISBNMerge:
 
     @staticmethod
     def random_merge(attr, results, null_value=None):
+        """
+        Perform the identify random merge operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise ISBNMerge.random merge with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+        :param attr: Value supplied for attr.
+        :param results: Queue receiving coordinated provider results.
+        :param null_value: Value supplied for null value.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         values = [getattr(x, attr) for x in results if not x.is_null(attr)]
         return values[0] if values else null_value
 
     def merge(self, results, min_year, do_asr=True):
+        """
+        Perform the identify merge operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise ISBNMerge.merge with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+        :param results: Queue receiving coordinated provider results.
+        :param min_year: Value supplied for min year.
+        :param do_asr: Value supplied for do asr.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         ans = calibreMetaInformation(_("Unknown"), [_("Unknown")])
         ans.title = self.length_merge("title", results, null_value=ans.title)
         ans.authors = self.length_merge("authors", results, null_value=ans.authors, shortest=False)
@@ -413,6 +753,20 @@ class ISBNMerge:
 
 
 def merge_identify_results(result_map, log):
+    """
+    Perform the identify merge identify results operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise merge identify results with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+    :param result_map: Value supplied for result map.
+    :param log: Logger receiving structured provider diagnostics.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     isbn_merge = ISBNMerge(log)
     for _plugin, results in result_map.items():
         for result in results:
@@ -425,6 +779,25 @@ def merge_identify_results(result_map, log):
 
 # {{{
 def identify(log, abort, title=None, authors=None, identifiers=None, timeout=30, allowed_plugins=None):
+    """
+    Run provider lookup, honor cancellation, isolate per-result failures and enqueue normalized metadata.
+
+    Example:
+        Exercise identify with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+    :param log: Logger receiving structured provider diagnostics.
+    :param abort: Event-like cancellation signal checked before and during network work.
+    :param title: Book title used to construct or rank the provider query.
+    :param authors: Author names used to construct or rank the provider query.
+    :param identifiers: Metadata identifier mapping used for direct lookup and cache
+        resolution.
+    :param timeout: Maximum duration in seconds for the network or worker operation.
+    :param allowed_plugins: Value supplied for allowed plugins.
+    :return: None.
+    """
     identifiers = identifiers or {}
 
     if title == _("Unknown"):
@@ -454,6 +827,18 @@ def identify(log, abort, title=None, authors=None, identifiers=None, timeout=30,
     logs = {w.plugin: w.buf for w in workers}
 
     def get_results():
+        """
+        Return results under this provider's cache and fallback policy.
+
+        Example:
+            Exercise identify.get results with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         found = False
         for worker in workers:
             try:
@@ -580,6 +965,19 @@ def identify(log, abort, title=None, authors=None, identifiers=None, timeout=30,
     if msprefs.get("swap_author_names", False):
 
         def swap_to_ln_fn(author):
+            """
+            Perform the identify swap to ln fn operation with explicit ordering and failure behavior.
+
+            Example:
+                Exercise identify.swap to ln fn with the owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+            :param author: Author text used in a provider cover query.
+            :return: The normalized provider value, metadata result or collection described
+                above.
+            """
             if "," in author:
                 return author
             parts = author.split(None)
@@ -597,11 +995,42 @@ def identify(log, abort, title=None, authors=None, identifiers=None, timeout=30,
 
 
 def urls_from_identifiers(identifiers, sort_results=False):  # {{{
+    """
+    Collect canonical provider URLs derived from a metadata identifier mapping.
+
+    Example:
+        Exercise urls from identifiers with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+    :param identifiers: Metadata identifier mapping used for direct lookup and cache
+        resolution.
+    :param sort_results: Value supplied for sort results.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     identifiers = _normalize_identifiers_for_urls(identifiers)
     ans = []
     keys_left = set(identifiers)
 
     def add(name, key, val, url):
+        """
+        Perform the identify add operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise urls from identifiers.add with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_identify.py
+
+
+        :param name: Configuration, header, cookie or field name to inspect.
+        :param key: Value supplied for key.
+        :param val: Value supplied for val.
+        :param url: Provider URL to normalize, request or associate with cached data.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         ans.append((name, key, val, url))
         keys_left.discard(key)
 

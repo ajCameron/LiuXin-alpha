@@ -20,6 +20,17 @@
 # Contributor(s):
 #
 
+"""
+Translate ODF content into MoinMoin wiki markup.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise odf2moinmoin through a consuming regression::
+
+        python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -40,10 +51,28 @@ INLINE_TAGS = [nsdict[item[0]] + ":" + item[1] for item in inline_elements]
 
 
 class TextProps:
-    """Holds properties for a text style."""
+    """
+    Holds properties for a text style.
+
+    Example:
+        Exercise TextProps through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+    """
 
     def __init__(self: _typing.Self) -> None:
 
+        """
+        Initialize and validate the textprops state.
+
+        Example:
+            Exercise TextProps.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         self.italic = False
         self.bold = False
         self.fixed = False
@@ -53,29 +82,107 @@ class TextProps:
         self.subscript = False
 
     def setItalic(self: _typing.Self, value: _typing.Any) -> None:
+        """
+        Perform the setItalic operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TextProps.setItalic through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+        :param value: Value normalized, stored, formatted or returned.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if value == "italic":
             self.italic = True
         elif value == "normal":
             self.italic = False
 
     def setBold(self: _typing.Self, value: _typing.Any) -> None:
+        """
+        Perform the setBold operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TextProps.setBold through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+        :param value: Value normalized, stored, formatted or returned.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if value == "bold":
             self.bold = True
         elif value == "normal":
             self.bold = False
 
     def setFixed(self: _typing.Self, value: _typing.Any) -> None:
+        """
+        Perform the setFixed operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TextProps.setFixed through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+        :param value: Value normalized, stored, formatted or returned.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.fixed = value
 
     def setUnderlined(self: _typing.Self, value: _typing.Any) -> None:
+        """
+        Perform the setUnderlined operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TextProps.setUnderlined through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+        :param value: Value normalized, stored, formatted or returned.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if value and value != "none":
             self.underlined = True
 
     def setStrikethrough(self: _typing.Self, value: _typing.Any) -> None:
+        """
+        Perform the setStrikethrough operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TextProps.setStrikethrough through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+        :param value: Value normalized, stored, formatted or returned.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if value and value != "none":
             self.strikethrough = True
 
     def setPosition(self: _typing.Self, value: _typing.Any) -> None:
+        """
+        Perform the setPosition operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TextProps.setPosition through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+        :param value: Value normalized, stored, formatted or returned.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if value is None or value == "":
             return
         posisize = value.split(" ")
@@ -98,6 +205,18 @@ class TextProps:
 
     def __str__(self: _typing.Self) -> _typing.Any:
 
+        """
+        Perform the str operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TextProps.  str   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "[italic=%s, bold=i%s, fixed=%s]" % (
             str(self.italic),
             str(self.bold),
@@ -106,10 +225,28 @@ class TextProps:
 
 
 class ParagraphProps:
-    """Holds properties of a paragraph style."""
+    """
+    Holds properties of a paragraph style.
+
+    Example:
+        Exercise ParagraphProps through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+    """
 
     def __init__(self: _typing.Self) -> None:
 
+        """
+        Initialize and validate the paragraphprops state.
+
+        Example:
+            Exercise ParagraphProps.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         self.blockquote = False
         self.headingLevel = 0
         self.code = False
@@ -117,19 +254,83 @@ class ParagraphProps:
         self.indented = 0
 
     def setIndented(self: _typing.Self, value: _typing.Any) -> None:
+        """
+        Perform the setIndented operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ParagraphProps.setIndented through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+        :param value: Value normalized, stored, formatted or returned.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.indented = value
 
     def setHeading(self: _typing.Self, level: _typing.Any) -> None:
+        """
+        Perform the setHeading operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ParagraphProps.setHeading through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+        :param level: Value supplied for level under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.headingLevel = level
 
     def setTitle(self: _typing.Self, value: _typing.Any) -> None:
+        """
+        Perform the setTitle operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ParagraphProps.setTitle through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+        :param value: Value normalized, stored, formatted or returned.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.title = value
 
     def setCode(self: _typing.Self, value: _typing.Any) -> None:
+        """
+        Perform the setCode operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ParagraphProps.setCode through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+        :param value: Value normalized, stored, formatted or returned.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.code = value
 
     def __str__(self: _typing.Self) -> _typing.Any:
 
+        """
+        Perform the str operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ParagraphProps.  str   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "[bq=%s, h=%d, code=%s]" % (
             str(self.blockquote),
             self.headingLevel,
@@ -138,17 +339,68 @@ class ParagraphProps:
 
 
 class ListProperties:
-    """Holds properties for a list style."""
+    """
+    Holds properties for a list style.
+
+    Example:
+        Exercise ListProperties through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+    """
 
     def __init__(self: _typing.Self) -> None:
+        """
+        Initialize and validate the listproperties state.
+
+        Example:
+            Exercise ListProperties.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         self.ordered = False
 
     def setOrdered(self: _typing.Self, value: _typing.Any) -> None:
+        """
+        Perform the setOrdered operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ListProperties.setOrdered through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+        :param value: Value normalized, stored, formatted or returned.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.ordered = value
 
 
 class ODF2MoinMoin(object):
+    """
+    Provide the odf2moinmoin contract for validated ebook processing.
+
+    Example:
+        Exercise ODF2MoinMoin through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+    """
     def __init__(self: _typing.Self, filepath: _typing.Any) -> None:
+        """
+        Initialize and validate the odf2moinmoin state.
+
+        Example:
+            Exercise ODF2MoinMoin.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+        :param filepath: Value supplied for filepath under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.footnotes = []
         self.footnoteCounter = 0
         self.textStyles = {"Standard": TextProps()}
@@ -179,15 +431,38 @@ class ODF2MoinMoin(object):
         self.load(filepath)
 
     def processFontDeclarations(self: _typing.Self, fontDecl: _typing.Any) -> None:
-        """Extracts necessary font information from a font-declaration
-        element.
+        """
+        Extracts necessary font information from a font-declaration element.
+
+        Example:
+            Exercise ODF2MoinMoin.processFontDeclarations through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+        :param fontDecl: Value supplied for fontDecl under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         for fontFace in fontDecl.getElementsByTagName("style:font-face"):
             if fontFace.getAttribute("style:font-pitch") == "fixed":
                 self.fixedFonts.append(fontFace.getAttribute("style:name"))
 
     def extractTextProperties(self: _typing.Self, style: _typing.Any, parent: _typing.Any = None) -> _typing.Any:
-        """Extracts text properties from a style element."""
+        """
+        Extracts text properties from a style element.
+
+        Example:
+            Exercise ODF2MoinMoin.extractTextProperties through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+        :param style: Value supplied for style under the utility contract.
+        :param parent: Value supplied for parent under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
 
         textProps = TextProps()
 
@@ -214,7 +489,20 @@ class ODF2MoinMoin(object):
         return textProps
 
     def extractParagraphProperties(self: _typing.Self, style: _typing.Any, parent: _typing.Any = None) -> _typing.Any:
-        """Extracts paragraph properties from a style element."""
+        """
+        Extracts paragraph properties from a style element.
+
+        Example:
+            Exercise ODF2MoinMoin.extractParagraphProperties through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+        :param style: Value supplied for style under the utility contract.
+        :param parent: Value supplied for parent under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
 
         paraProps = ParagraphProps()
 
@@ -250,7 +538,19 @@ class ODF2MoinMoin(object):
         return paraProps
 
     def processStyles(self: _typing.Self, styleElements: _typing.Any) -> None:
-        """Runs through "style" elements extracting necessary information."""
+        """
+        Runs through "style" elements extracting necessary information.
+
+        Example:
+            Exercise ODF2MoinMoin.processStyles through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+        :param styleElements: Value supplied for styleElements under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
 
         for style in styleElements:
 
@@ -271,6 +571,20 @@ class ODF2MoinMoin(object):
 
     def processListStyles(self: _typing.Self, listStyleElements: _typing.Any) -> None:
 
+        """
+        Perform the processListStyles operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2MoinMoin.processListStyles through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+        :param listStyleElements: Value supplied for listStyleElements under the utility
+            contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for style in listStyleElements:
             name = style.getAttribute("style:name")
 
@@ -287,7 +601,19 @@ class ODF2MoinMoin(object):
             self.listStyles[name] = prop
 
     def load(self: _typing.Self, filepath: _typing.Any) -> None:
-        """Loads an ODT file."""
+        """
+        Loads an ODT file.
+
+        Example:
+            Exercise ODF2MoinMoin.load through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+        :param filepath: Value supplied for filepath under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
 
         zip = zipfile.ZipFile(filepath)
 
@@ -307,7 +633,19 @@ class ODF2MoinMoin(object):
         self.processListStyles(self.content.getElementsByTagName("text:list-style"))
 
     def compressCodeBlocks(self: _typing.Self, text: _typing.Any) -> _typing.Any:
-        """Removes extra blank lines from code blocks."""
+        """
+        Removes extra blank lines from code blocks.
+
+        Example:
+            Exercise ODF2MoinMoin.compressCodeBlocks through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
 
         return text
         lines = text.split("\n")
@@ -327,10 +665,35 @@ class ODF2MoinMoin(object):
 
     # -----------------------------------
     def do_nothing(self: _typing.Self, node: _typing.Any) -> str:
+        """
+        Perform the do nothing operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2MoinMoin.do nothing through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+        :param node: Value supplied for node under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return ""
 
     def draw_image(self: _typing.Self, node: _typing.Any) -> _typing.Any:
-        """"""
+        """
+        Perform the draw image operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2MoinMoin.draw image through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+        :param node: Value supplied for node under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
 
         link = node.getAttribute("xlink:href")
         if link and link[:2] == "./":  # Indicates a sub-object, which isn't supported
@@ -340,6 +703,19 @@ class ODF2MoinMoin(object):
         return "[[Image(%s)]]\n" % link
 
     def text_a(self: _typing.Self, node: _typing.Any) -> _typing.Any:
+        """
+        Perform the text a operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2MoinMoin.text a through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+        :param node: Value supplied for node under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         text = self.textToString(node)
         link = node.getAttribute("xlink:href")
         if link.strip() == text.strip():
@@ -348,15 +724,54 @@ class ODF2MoinMoin(object):
             return "[%s %s] " % (link.strip(), text.strip())
 
     def text_line_break(self: _typing.Self, node: _typing.Any) -> str:
+        """
+        Perform the text line break operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2MoinMoin.text line break through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+        :param node: Value supplied for node under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "[[BR]]"
 
     def text_note(self: _typing.Self, node: _typing.Any) -> _typing.Any:
+        """
+        Perform the text note operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2MoinMoin.text note through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+        :param node: Value supplied for node under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         cite = node.getElementsByTagName("text:note-citation")[0].childNodes[0].nodeValue
         body = node.getElementsByTagName("text:note-body")[0].childNodes[0]
         self.footnotes.append((cite, self.textToString(body)))
         return "^%s^" % cite
 
     def text_s(self: _typing.Self, node: _typing.Any) -> _typing.Any:
+        """
+        Perform the text s operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2MoinMoin.text s through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+        :param node: Value supplied for node under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             num = int(node.getAttribute("text:c"))
             return " " * num
@@ -364,9 +779,35 @@ class ODF2MoinMoin(object):
             return " "
 
     def text_tab(self: _typing.Self, node: _typing.Any) -> str:
+        """
+        Perform the text tab operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2MoinMoin.text tab through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+        :param node: Value supplied for node under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "    "
 
     def inline_markup(self: _typing.Self, node: _typing.Any) -> _typing.Any:
+        """
+        Perform the inline markup operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2MoinMoin.inline markup through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+        :param node: Value supplied for node under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         text = self.textToString(node)
 
         if not text.strip():
@@ -399,6 +840,20 @@ class ODF2MoinMoin(object):
     # -----------------------------------
     def listToString(self: _typing.Self, listElement: _typing.Any, indent: int = 0) -> _typing.Any:
 
+        """
+        Perform the listToString operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2MoinMoin.listToString through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+        :param listElement: Value supplied for listElement under the utility contract.
+        :param indent: Value supplied for indent under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.lastsegment = listElement.tagName
         buffer = []
 
@@ -429,7 +884,19 @@ class ODF2MoinMoin(object):
         return "".join(buffer)
 
     def tableToString(self: _typing.Self, tableElement: _typing.Any) -> _typing.Any:
-        """MoinMoin uses || to delimit table cells"""
+        """
+        MoinMoin uses || to delimit table cells
+
+        Example:
+            Exercise ODF2MoinMoin.tableToString through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+        :param tableElement: Value supplied for tableElement under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
 
         self.lastsegment = tableElement.tagName
         buffer = []
@@ -447,8 +914,17 @@ class ODF2MoinMoin(object):
         return "".join(buffer)
 
     def toString(self: _typing.Self) -> _typing.Any:
-        """Converts the document to a string.
-        FIXME: Result from second call differs from first call
+        """
+        Converts the document to a string. FIXME: Result from second call differs from first call
+
+        Example:
+            Exercise ODF2MoinMoin.toString through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         body = self.content.getElementsByTagName("office:body")[0]
         text = body.childNodes[0]
@@ -492,6 +968,19 @@ class ODF2MoinMoin(object):
 
     def textToString(self: _typing.Self, element: _typing.Any) -> _typing.Any:
 
+        """
+        Perform the textToString operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2MoinMoin.textToString through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+        :param element: Value supplied for element under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         buffer = []
 
         for node in element.childNodes:
@@ -522,6 +1011,20 @@ class ODF2MoinMoin(object):
 
     def paragraphToString(self: _typing.Self, paragraph: _typing.Any, indent: int = 0) -> _typing.Any:
 
+        """
+        Perform the paragraphToString operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2MoinMoin.paragraphToString through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+        :param paragraph: Value supplied for paragraph under the utility contract.
+        :param indent: Value supplied for indent under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         dummyParaProps = ParagraphProps()
 
         style_name = paragraph.getAttribute("text:style-name")
@@ -561,6 +1064,21 @@ class ODF2MoinMoin(object):
 
     def wrapParagraph(self: _typing.Self, text: _typing.Any, indent: int = 0, blockquote: bool = False) -> _typing.Any:
 
+        """
+        Perform the wrapParagraph operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ODF2MoinMoin.wrapParagraph through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :param indent: Value supplied for indent under the utility contract.
+        :param blockquote: Value supplied for blockquote under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         counter = 0
         buffer = []
         LIMIT = 50

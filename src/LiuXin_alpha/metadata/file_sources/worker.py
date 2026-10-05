@@ -1,5 +1,16 @@
 #!/usr/bin/env python
 
+"""
+Merge metadata across book formats, run import plugins and expose serial or process job adapters.
+
+The module keeps malformed-input, optional dependency and resource ownership
+behavior explicit for registry callers.
+
+Example:
+    Exercise worker with pytest::
+
+        python -m pytest -q tests/metadata/file_sources/test_worker_metadata_source.py
+"""
 from __future__ import annotations
 
 import io
@@ -52,6 +63,18 @@ _DEFAULT_PRIORITY = -1
 
 
 def _values(raw):
+    """
+    Perform the format-specific values operation used by this metadata source.
+
+    Example:
+        Exercise  values with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_worker_metadata_source.py
+
+
+    :param raw: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or serialized value described above.
+    """
     if raw is None:
         return []
     if isinstance(raw, dict):
@@ -65,6 +88,18 @@ def _values(raw):
 
 
 def _is_unknown_authors(mi) -> bool:
+    """
+    Return whether the supplied state satisfies the is unknown authors condition.
+
+    Example:
+        Exercise  is unknown authors with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_worker_metadata_source.py
+
+
+    :param mi: Metadata object supplying or receiving the supported fields.
+    :return: True when the described condition is satisfied; otherwise False.
+    """
     authors = [str(x).strip() for x in _values(getattr(mi, "authors", None)) if str(x).strip()]
     if not authors:
         return True
@@ -72,6 +107,18 @@ def _is_unknown_authors(mi) -> bool:
 
 
 def _flatten_paths(paths) -> list[str]:
+    """
+    Flatten path values and one nested iterable level into filesystem strings.
+
+    Example:
+        Exercise  flatten paths with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_worker_metadata_source.py
+
+
+    :param paths: Ordered input values processed by this operation.
+    :return: Parsed, normalized or serialized value described above.
+    """
     out: list[str] = []
     for path in paths:
         if isinstance(path, (str, os.PathLike)):
@@ -85,11 +132,36 @@ def _flatten_paths(paths) -> list[str]:
 
 
 def _path_priority(path: str) -> int:
+    """
+    Return the configured metadata merge priority for a format path.
+
+    Example:
+        Exercise  path priority with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_worker_metadata_source.py
+
+
+    :param path: Caller-supplied path, path-like object or stream described by this
+        operation.
+    :return: Parsed, normalized or serialized value described above.
+    """
     ext = os.path.splitext(path)[1].lower().lstrip(".")
     return METADATA_PRIORITIES.get(ext, _DEFAULT_PRIORITY)
 
 
 def _extract_cover_payload(mi) -> bytes | None:
+    """
+    Return raw cover bytes from supported metadata cover_data representations.
+
+    Example:
+        Exercise  extract cover payload with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_worker_metadata_source.py
+
+
+    :param mi: Metadata object supplying or receiving the supported fields.
+    :return: Parsed, normalized or serialized value described above.
+    """
     cover_data = getattr(mi, "cover_data", None)
     if isinstance(cover_data, tuple) and len(cover_data) == 2:
         payload = cover_data[1]
@@ -104,10 +176,17 @@ def _extract_cover_payload(mi) -> bytes | None:
 
 def _metadata_to_opf_bytes(mi, tdir: str) -> bytes:
     """
-    Serialize metadata to OPF bytes.
+    Serialize metadata to OPF bytes, falling back to OPFCreator at compatibility edges.
 
-    Falls back to OPFCreator when legacy metadata_to_opf hits partially-ported
-    compatibility edges.
+    Example:
+        Exercise  metadata to opf bytes with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_worker_metadata_source.py
+
+
+    :param mi: Metadata object supplying or receiving the supported fields.
+    :param tdir: Directory used for temporary or generated output files.
+    :return: Parsed, normalized or serialized value described above.
     """
     try:
         raw = metadata_to_opf(mi, default_lang="und")
@@ -131,7 +210,16 @@ def _metadata_to_opf_bytes(mi, tdir: str) -> bytes:
 
 def metadata_from_formats(paths):
     """
-    Read metadata from a list of format paths and merge into a single object.
+    Read readable format paths in priority order and merge them into one metadata object.
+
+    Example:
+        Exercise metadata from formats with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_worker_metadata_source.py
+
+
+    :param paths: Ordered input values processed by this operation.
+    :return: Parsed, normalized or serialized value described above.
     """
     flattened = [path for path in _flatten_paths(paths) if os.access(path, os.R_OK)]
     if not flattened:
@@ -196,6 +284,20 @@ def metadata_from_formats(paths):
 
 
 def serialize_metadata_for(paths, tdir, group_id):
+    """
+    Return merged metadata and OPF bytes, writing extracted cover bytes to the worker directory.
+
+    Example:
+        Exercise serialize metadata for with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_worker_metadata_source.py
+
+
+    :param paths: Ordered input values processed by this operation.
+    :param tdir: Directory used for temporary or generated output files.
+    :param group_id: Worker, metadata or control value described by the operation.
+    :return: Parsed, normalized or serialized value described above.
+    """
     mi = metadata_from_formats(paths)
     mi.cover = None
     cdata = _extract_cover_payload(mi)
@@ -213,6 +315,20 @@ def serialize_metadata_for(paths, tdir, group_id):
 
 
 def read_metadata_bulk(get_opf, get_cover, paths):
+    """
+    Return only the requested OPF and cover payloads for a group of format paths.
+
+    Example:
+        Exercise read metadata bulk with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_worker_metadata_source.py
+
+
+    :param get_opf: Policy flag controlling the behavior described above.
+    :param get_cover: Request cover discovery or cover payload extraction when true.
+    :param paths: Ordered input values processed by this operation.
+    :return: Parsed, normalized or serialized value described above.
+    """
     mi = metadata_from_formats(paths)
     mi.cover = None
     cdata = _extract_cover_payload(mi)
@@ -228,6 +344,20 @@ def read_metadata_bulk(get_opf, get_cover, paths):
 
 
 def run_import_plugins(paths, group_id, tdir):
+    """
+    Run import plugins for flattened paths and return the resulting readable paths.
+
+    Example:
+        Exercise run import plugins with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_worker_metadata_source.py
+
+
+    :param paths: Ordered input values processed by this operation.
+    :param group_id: Worker, metadata or control value described by the operation.
+    :param tdir: Directory used for temporary or generated output files.
+    :return: Parsed, normalized or serialized value described above.
+    """
     final_paths: list[str] = []
     for path in paths:
         if isinstance(path, (str, os.PathLike)):
@@ -241,7 +371,20 @@ def run_import_plugins(paths, group_id, tdir):
 
 def do_import_plugins_one_book(path, tdir, group_id, final_paths):
     """
-    Run import plugins on a single book path.
+    Run import processing for one book and preserve its source basename when relocating output.
+
+    Example:
+        Exercise do import plugins one book with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_worker_metadata_source.py
+
+
+    :param path: Caller-supplied path, path-like object or stream described by this
+        operation.
+    :param tdir: Directory used for temporary or generated output files.
+    :param group_id: Worker, metadata or control value described by the operation.
+    :param final_paths: Worker, metadata or control value described by the operation.
+    :return: None.
     """
     if not os.access(path, os.R_OK):
         return
@@ -276,10 +419,39 @@ def do_import_plugins_one_book(path, tdir, group_id, final_paths):
 
 
 def has_book(mi, data_for_has_book):
+    """
+    Return whether normalized title text is present in the supplied duplicate-title collection.
+
+    Example:
+        Exercise has book with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_worker_metadata_source.py
+
+
+    :param mi: Metadata object supplying or receiving the supported fields.
+    :param data_for_has_book: Worker, metadata or control value described by the
+        operation.
+    :return: True when the described condition is satisfied; otherwise False.
+    """
     return bool(getattr(mi, "title", None)) and icu_lower(str(mi.title).strip()) in data_for_has_book
 
 
 def read_metadata(paths, group_id, tdir, common_data=None):
+    """
+    Run imports, serialize merged metadata and report optional duplicate-title state.
+
+    Example:
+        Exercise read metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_worker_metadata_source.py
+
+
+    :param paths: Ordered input values processed by this operation.
+    :param group_id: Worker, metadata or control value described by the operation.
+    :param tdir: Directory used for temporary or generated output files.
+    :param common_data: Worker, metadata or control value described by the operation.
+    :return: Parsed, normalized or serialized value described above.
+    """
     paths = run_import_plugins(paths, group_id, tdir)
     mi, opf, has_cover = serialize_metadata_for(paths, tdir, group_id)
     duplicate_info = None
@@ -290,7 +462,22 @@ def read_metadata(paths, group_id, tdir, common_data=None):
 
 def _run_in_job(function_name, args, *, timeout=300, backend=None, no_output=True, heartbeat=None, abort=None):
     """
-    Dispatch a worker function through the IPC/jobs layer.
+    Dispatch a named worker function through the configured IPC backend and return its result.
+
+    Example:
+        Exercise  run in job with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_worker_metadata_source.py
+
+
+    :param function_name: Worker, metadata or control value described by the operation.
+    :param args: Ordered input values processed by this operation.
+    :param timeout: Maximum worker execution time in seconds.
+    :param backend: Worker, metadata or control value described by the operation.
+    :param no_output: Policy flag controlling the behavior described above.
+    :param heartbeat: Worker, metadata or control value described by the operation.
+    :param abort: Worker, metadata or control value described by the operation.
+    :return: Parsed, normalized or serialized value described above.
     """
     from LiuXin_alpha.utils.ipc.simple_worker import fork_job
 
@@ -320,7 +507,24 @@ def read_metadata_in_job(
     abort=None,
 ):
     """
-    Run `read_metadata` in the configured jobs backend (process/serial).
+    Execute read_metadata through the configured serial or process job backend.
+
+    Example:
+        Exercise read metadata in job with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_worker_metadata_source.py
+
+
+    :param paths: Ordered input values processed by this operation.
+    :param group_id: Worker, metadata or control value described by the operation.
+    :param tdir: Directory used for temporary or generated output files.
+    :param common_data: Worker, metadata or control value described by the operation.
+    :param timeout: Maximum worker execution time in seconds.
+    :param backend: Worker, metadata or control value described by the operation.
+    :param no_output: Policy flag controlling the behavior described above.
+    :param heartbeat: Worker, metadata or control value described by the operation.
+    :param abort: Worker, metadata or control value described by the operation.
+    :return: Parsed, normalized or serialized value described above.
     """
     return _run_in_job(
         "read_metadata",
@@ -345,7 +549,23 @@ def read_metadata_bulk_in_job(
     abort=None,
 ):
     """
-    Run `read_metadata_bulk` in the configured jobs backend (process/serial).
+    Execute read_metadata_bulk through the configured serial or process job backend.
+
+    Example:
+        Exercise read metadata bulk in job with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_worker_metadata_source.py
+
+
+    :param get_opf: Policy flag controlling the behavior described above.
+    :param get_cover: Request cover discovery or cover payload extraction when true.
+    :param paths: Ordered input values processed by this operation.
+    :param timeout: Maximum worker execution time in seconds.
+    :param backend: Worker, metadata or control value described by the operation.
+    :param no_output: Policy flag controlling the behavior described above.
+    :param heartbeat: Worker, metadata or control value described by the operation.
+    :param abort: Worker, metadata or control value described by the operation.
+    :return: Parsed, normalized or serialized value described above.
     """
     return _run_in_job(
         "read_metadata_bulk",

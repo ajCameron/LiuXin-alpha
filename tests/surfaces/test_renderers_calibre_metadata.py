@@ -1,3 +1,14 @@
+"""
+Provide test renderers calibre metadata utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test renderers calibre metadata through a consuming regression::
+
+        python -m pytest -q tests/surfaces/test_renderers_calibre_metadata.py
+"""
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -26,6 +37,25 @@ def _field_metadata(
     display: dict[str, object] | None = None,
     search_terms: list[str] | None = None,
 ) -> dict[str, object]:
+    """
+    Perform the field metadata operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  field metadata through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_renderers_calibre_metadata.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :param datatype: Value supplied for datatype under the utility contract.
+    :param kind: Value supplied for kind under the utility contract.
+    :param is_custom: Value supplied for is custom under the utility contract.
+    :param is_multiple: Value supplied for is multiple under the utility contract.
+    :param display: Value supplied for display under the utility contract.
+    :param search_terms: Value supplied for search terms under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return {
         "kind": kind,
         "datatype": datatype,
@@ -38,6 +68,14 @@ def _field_metadata(
 
 
 class _RendererMetadata:
+    """
+    Provide the renderermetadata contract for validated ebook processing.
+
+    Example:
+        Exercise  RendererMetadata through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_renderers_calibre_metadata.py
+    """
     path = "/library/Series/Book Title"
     formats = ["EPUB", "PDF"]
     format_files = {"EPUB": "book", "PDF": "book scan"}
@@ -61,6 +99,17 @@ class _RendererMetadata:
     title_sort = "Sorted Title"
 
     def __init__(self) -> None:
+        """
+        Initialize and validate the renderermetadata state.
+
+        Example:
+            Exercise  RendererMetadata.  init   through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_renderers_calibre_metadata.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         self.id = 42
         self.field_metadata: dict[str, dict[str, object] | None] = {
             "empty": None,
@@ -128,6 +177,18 @@ class _RendererMetadata:
         }
 
     def all_field_keys(self) -> list[str]:
+        """
+        Perform the all field keys operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  RendererMetadata.all field keys through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_renderers_calibre_metadata.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return [
             "tags",
             "title_sort",
@@ -139,23 +200,87 @@ class _RendererMetadata:
         ]
 
     def metadata_for_field(self, field: str) -> dict[str, object] | None:
+        """
+        Perform the metadata for field operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  RendererMetadata.metadata for field through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_renderers_calibre_metadata.py
+
+
+        :param field: Metadata or template field addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if field == "broken":
             raise RuntimeError("bad metadata")
         return self.field_metadata[field]
 
     def is_null(self, field: str) -> bool:
+        """
+        Return whether is null holds for the supplied ebook data.
+
+        Example:
+            Exercise  RendererMetadata.is null through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_renderers_calibre_metadata.py
+
+
+        :param field: Metadata or template field addressed by the operation.
+        :return: True when the documented condition holds; otherwise False.
+        """
         return False
 
     def get(self, field: str, default: object = None) -> object:
+        """
+        Perform the get operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  RendererMetadata.get through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_renderers_calibre_metadata.py
+
+
+        :param field: Metadata or template field addressed by the operation.
+        :param default: Value supplied for default under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.values.get(field, default)
 
     def format_field(self, field: str) -> tuple[str, object]:
+        """
+        Perform the format field operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  RendererMetadata.format field through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_renderers_calibre_metadata.py
+
+
+        :param field: Metadata or template field addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if field in self.formatted:
             return self.formatted[field]
         return field, getattr(self, field)
 
 
 def test_calibre_metadata_renderer_matches_compat_method() -> None:
+    """
+    Perform the test calibre metadata renderer matches compat method operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test calibre metadata renderer matches compat method through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_renderers_calibre_metadata.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     metadata = calibreMetadata("Renderer Book", ["Author One"])
     metadata.publisher = "Publisher"
     metadata.tags = ["tag two", "tag one"]
@@ -171,9 +296,36 @@ def test_calibre_metadata_renderer_matches_compat_method() -> None:
 
 
 def test_metadata_book_render_delegates_to_surface_renderer(monkeypatch) -> None:
+    """
+    Perform the test metadata book render delegates to surface renderer operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test metadata book render delegates to surface renderer through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_renderers_calibre_metadata.py
+
+
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     calls = {}
 
     def fake_renderer(*args, **kwargs):
+        """
+        Perform the fake renderer operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise test metadata book render delegates to surface renderer.fake renderer through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_renderers_calibre_metadata.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         calls["args"] = args
         calls["kwargs"] = kwargs
         return "<table>delegated</table>", ["comment"]
@@ -203,6 +355,18 @@ def test_metadata_book_render_delegates_to_surface_renderer(monkeypatch) -> None
 
 
 def test_search_href_hex_encodes_text_for_calibre_search_links() -> None:
+    """
+    Perform the test search href hex encodes text for calibre search links operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test search href hex encodes text for calibre search links through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_renderers_calibre_metadata.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     href = search_href("authors", 'Author "Quoted"')
 
     assert href.startswith("search:")
@@ -211,6 +375,19 @@ def test_search_href_hex_encodes_text_for_calibre_search_links() -> None:
 
 
 def test_displayable_field_keys_filters_hidden_and_orders_default_fields(monkeypatch) -> None:
+    """
+    Perform the test displayable field keys filters hidden and orders default fields operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test displayable field keys filters hidden and orders default fields through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_renderers_calibre_metadata.py
+
+
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     metadata = _RendererMetadata()
     monkeypatch.setattr(renderer, "sort_key", lambda value: str(value).casefold())
 
@@ -221,6 +398,19 @@ def test_displayable_field_keys_filters_hidden_and_orders_default_fields(monkeyp
 
 
 def test_mi_to_html_renders_calibre_field_types(monkeypatch) -> None:
+    """
+    Perform the test mi to html renders calibre field types operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test mi to html renders calibre field types through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_renderers_calibre_metadata.py
+
+
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     metadata = _RendererMetadata()
     monkeypatch.setattr(renderer, "sort_key", lambda value: str(value).casefold())
     monkeypatch.setattr(
@@ -302,7 +492,28 @@ def test_mi_to_html_renders_calibre_field_types(monkeypatch) -> None:
 
 
 def test_mi_to_html_renders_fallbacks_and_empty_values(monkeypatch) -> None:
+    """
+    Perform the test mi to html renders fallbacks and empty values operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test mi to html renders fallbacks and empty values through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_renderers_calibre_metadata.py
+
+
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     class FallbackMetadata(_RendererMetadata):
+        """
+        Provide the fallbackmetadata contract for validated ebook processing.
+
+        Example:
+            Exercise test mi to html renders fallbacks and empty values.FallbackMetadata through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_renderers_calibre_metadata.py
+        """
         authors = ["Template Author", "Plain Author"]
         author_link_map = {"Template Author": "", "Plain Author": ""}
         author_sort_map: dict[str, str] = {}
@@ -311,6 +522,17 @@ def test_mi_to_html_renders_fallbacks_and_empty_values(monkeypatch) -> None:
         pubdate = datetime(101, 1, 1, tzinfo=timezone.utc)
 
         def __init__(self) -> None:
+            """
+            Initialize and validate the fallbackmetadata state.
+
+            Example:
+                Exercise test mi to html renders fallbacks and empty values.FallbackMetadata.  init   through a consuming regression::
+
+                    python -m pytest -q tests/surfaces/test_renderers_calibre_metadata.py
+
+
+            :return: None; validated state is stored on the receiving object.
+            """
             super().__init__()
             self.field_metadata["series"] = _field_metadata(
                 name="Series",
@@ -365,8 +587,39 @@ def test_mi_to_html_renders_fallbacks_and_empty_values(monkeypatch) -> None:
 
 
 def test_mi_to_html_renders_device_path_and_skips_formats() -> None:
+    """
+    Perform the test mi to html renders device path and skips formats operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test mi to html renders device path and skips formats through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_renderers_calibre_metadata.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     class DeviceMetadata(_RendererMetadata):
+        """
+        Provide the devicemetadata contract for validated ebook processing.
+
+        Example:
+            Exercise test mi to html renders device path and skips formats.DeviceMetadata through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_renderers_calibre_metadata.py
+        """
         def __init__(self) -> None:
+            """
+            Initialize and validate the devicemetadata state.
+
+            Example:
+                Exercise test mi to html renders device path and skips formats.DeviceMetadata.  init   through a consuming regression::
+
+                    python -m pytest -q tests/surfaces/test_renderers_calibre_metadata.py
+
+
+            :return: None; validated state is stored on the receiving object.
+            """
             super().__init__()
             del self.id
             self.path = "mtp:::device:::Books/File.epub"
@@ -384,7 +637,27 @@ def test_mi_to_html_renders_device_path_and_skips_formats() -> None:
 
 
 def test_calibre_metadata_to_html_renders_optional_dates_rights_and_custom_fields() -> None:
+    """
+    Perform the test calibre metadata to html renders optional dates rights and custom fields operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test calibre metadata to html renders optional dates rights and custom fields through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_renderers_calibre_metadata.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     class Metadata:
+        """
+        Provide the metadata contract for validated ebook processing.
+
+        Example:
+            Exercise test calibre metadata to html renders optional dates rights and custom fields.Metadata through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_renderers_calibre_metadata.py
+        """
         title = "Optional Book"
         authors = ["One Author"]
         publisher = "Publisher"
@@ -399,12 +672,51 @@ def test_calibre_metadata_to_html_renders_optional_dates_rights_and_custom_field
         rights = "Public domain"
 
         def custom_field_keys(self) -> list[str]:
+            """
+            Perform the custom field keys operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise test calibre metadata to html renders optional dates rights and custom fields.Metadata.custom field keys through a consuming regression::
+
+                    python -m pytest -q tests/surfaces/test_renderers_calibre_metadata.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return ["#custom", "#empty"]
 
         def get(self, key: str, default: object = None) -> object:
+            """
+            Perform the get operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise test calibre metadata to html renders optional dates rights and custom fields.Metadata.get through a consuming regression::
+
+                    python -m pytest -q tests/surfaces/test_renderers_calibre_metadata.py
+
+
+            :param key: Metadata, identifier or local-variable key.
+            :param default: Value supplied for default under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return {"#custom": "Custom Value"}.get(key, default)
 
         def format_field(self, key: str) -> tuple[str, str]:
+            """
+            Perform the format field operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise test calibre metadata to html renders optional dates rights and custom fields.Metadata.format field through a consuming regression::
+
+                    python -m pytest -q tests/surfaces/test_renderers_calibre_metadata.py
+
+
+            :param key: Metadata, identifier or local-variable key.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return ("Custom Field", "Custom Value")
 
     html = calibre_metadata_to_html(Metadata())

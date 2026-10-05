@@ -1,4 +1,14 @@
-"""Guardrail tests: TOML specs must not reference unknown tables."""
+"""
+Reject FRBR TOML references to missing main tables.
+
+Cases copy generator resources, append one invalid request, redirect resource
+discovery and close their in-memory connections after the expected failure.
+
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/test_frbr_toml_unknown_tables.py
+"""
 
 from __future__ import annotations
 
@@ -12,7 +22,23 @@ from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator_frbr 
 
 
 def _copy_frbr_resources(tmp_root: pathlib.Path) -> pathlib.Path:
-    """Copy FRBR generator resource folder into a temp directory."""
+    """
+    Copy SQL folders and three generator TOML files into a temporary resource tree.
+
+    Uses copytree without merging existing destination folders and copy2 for TOML files.
+    Filesystem errors propagate and may leave a partial copy; cleanup belongs to the
+    caller.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_toml_unknown_tables.py
+
+
+    :param tmp_root: Destination resource root whose table_sql and trigger_sql children
+        must not already exist.
+    :return: Original tmp_root Path after copying.
+    """
     src_root = pathlib.Path(frbr_gen.__file__).resolve().parent
 
     # Copy the folders needed for a full build.
@@ -27,6 +53,23 @@ def _copy_frbr_resources(tmp_root: pathlib.Path) -> pathlib.Path:
 
 
 def test_interlink_unknown_table_fails(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path) -> None:
+    """
+    Reject an interlink whose left endpoint is does_not_exist.
+
+    Requires ValueError identifying an unknown table in an interlinks entry.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_toml_unknown_tables.py::test_interlink_unknown_table_fails
+
+
+    :param monkeypatch: Pytest patch fixture; restores replaced generator or lookup
+        attributes after the test.
+    :param tmp_path: Pytest-provided temporary directory for isolated database or TOML
+        files.
+    :return: None; failed expectations raise AssertionError.
+    """
     root = _copy_frbr_resources(tmp_path / "frbr_specs")
     toml_path = root / "interlink_table_requests.toml"
     toml_text = toml_path.read_text(encoding="utf-8", errors="replace")
@@ -45,6 +88,21 @@ def test_interlink_unknown_table_fails(monkeypatch: pytest.MonkeyPatch, tmp_path
 
 
 def test_intralink_unknown_table_fails(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path) -> None:
+    """
+    Reject an intralink targeting does_not_exist with an intralinks-specific ValueError.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_toml_unknown_tables.py::test_intralink_unknown_table_fails
+
+
+    :param monkeypatch: Pytest patch fixture; restores replaced generator or lookup
+        attributes after the test.
+    :param tmp_path: Pytest-provided temporary directory for isolated database or TOML
+        files.
+    :return: None; failed expectations raise AssertionError.
+    """
     root = _copy_frbr_resources(tmp_path / "frbr_specs2")
     toml_path = root / "intralink_table_requests.toml"
     toml_text = toml_path.read_text(encoding="utf-8", errors="replace")

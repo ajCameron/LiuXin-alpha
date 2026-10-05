@@ -1,12 +1,14 @@
-"""Writable TAR archive Store plugin."""
+"""
+Expose the TAR Store that publishes writes by rebuilding its container.
 
-from LiuXin_alpha.storage.api import Location
+Locations and observed file metadata use the shared storage API values.
+The imported implementation owns backend construction and physical operations.
+"""
+
 from LiuXin_alpha.storage.store_backend_plugins.archive_backends import (
     TarWritableStorageBackend,
 )
 
-
-TarWritableStoreLocation = Location
-
-
-__all__ = ["TarWritableStorageBackend", "TarWritableStoreLocation"]
+__all__ = [
+    "TarWritableStorageBackend",
+]

@@ -1,9 +1,31 @@
+"""
+Verify xISBN normalization, network gating and process-wide caching.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test web sources xisbn through its owning regression module::
+
+        python -m pytest -q tests/metadata/web_sources/test_web_sources_xisbn.py
+"""
 from __future__ import annotations
 
 import json
 
 
 def test_web_sources_xisbn_import_smoke() -> None:
+    """
+    Verify web sources xisbn import smoke.
+
+    Example:
+        Exercise test web sources xisbn import smoke through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_xisbn.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.xisbn as xisbn_mod
 
     assert xisbn_mod is not None
@@ -11,6 +33,17 @@ def test_web_sources_xisbn_import_smoke() -> None:
 
 
 def test_xisbn_purify_strips_non_isbn_chars() -> None:
+    """
+    Verify xisbn purify strips non isbn chars.
+
+    Example:
+        Exercise test xisbn purify strips non isbn chars through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_xisbn.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.xisbn import xISBN
 
     x = xISBN()
@@ -20,6 +53,17 @@ def test_xisbn_purify_strips_non_isbn_chars() -> None:
 
 
 def test_xisbn_fetch_data_disabled_by_default() -> None:
+    """
+    Verify xisbn fetch data disabled by default.
+
+    Example:
+        Exercise test xisbn fetch data disabled by default through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_xisbn.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.xisbn import xISBN
 
     x = xISBN()
@@ -28,6 +72,19 @@ def test_xisbn_fetch_data_disabled_by_default() -> None:
 
 
 def test_xisbn_fetch_data_filters_non_book_forms(monkeypatch) -> None:
+    """
+    Verify xisbn fetch data filters non book forms.
+
+    Example:
+        Exercise test xisbn fetch data filters non book forms through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_xisbn.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.xisbn import xISBN
 
     x = xISBN(enable_network=True)
@@ -47,12 +104,37 @@ def test_xisbn_fetch_data_filters_non_book_forms(monkeypatch) -> None:
 
 
 def test_xisbn_get_data_caches_and_reuses_related_isbn_mapping(monkeypatch) -> None:
+    """
+    Verify xisbn get data caches and reuses related isbn mapping.
+
+    Example:
+        Exercise test xisbn get data caches and reuses related isbn mapping through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_xisbn.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.xisbn import xISBN
 
     x = xISBN(enable_network=True)
     calls = {"count": 0}
 
     def _fetch_data(_isbn):
+        """
+        Perform the fetch data test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test xisbn get data caches and reuses related isbn mapping.fetch data through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_xisbn.py
+
+
+        :param _isbn: Value supplied for isbn in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         calls["count"] += 1
         return [{"isbn": ["9780306406157", "0306406152"], "form": ["BA"], "year": "1980"}]
 
@@ -66,6 +148,17 @@ def test_xisbn_get_data_caches_and_reuses_related_isbn_mapping(monkeypatch) -> N
 
 
 def test_xisbn_pool_and_associated_isbns() -> None:
+    """
+    Verify xisbn pool and associated isbns.
+
+    Example:
+        Exercise test xisbn pool and associated isbns through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_xisbn.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.xisbn import xISBN
 
     x = xISBN()

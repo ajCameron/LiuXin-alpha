@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Decode MOBI navigation indexes into normalized NCX entries.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise ncx through a consuming regression::
+
+        python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -60,6 +71,21 @@ default_entry = {
 
 
 def read_ncx(sections: _typing.Any, index: _typing.Any, codec: _typing.Any) -> _typing.Any:
+    """
+    Read ncx under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read ncx through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param sections: Value supplied for sections under the utility contract.
+    :param index: Value supplied for index under the utility contract.
+    :param codec: Value supplied for codec under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     index_entries = []
 
     if index != NULL_INDEX:
@@ -98,6 +124,19 @@ def read_ncx(sections: _typing.Any, index: _typing.Any, codec: _typing.Any) -> _
 
 
 def build_toc(index_entries: _typing.Any) -> _typing.Any:
+    """
+    Perform the build toc operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise build toc through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param index_entries: Value supplied for index entries under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     ans = TOC(base_path=os.getcwd())
     levels = {x["hlvl"] for x in index_entries}
     num_map = {-1: ans}

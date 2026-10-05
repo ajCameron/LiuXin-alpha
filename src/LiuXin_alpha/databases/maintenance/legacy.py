@@ -1,13 +1,9 @@
-"""Legacy maintenance helpers and calibre-shaped aggregate utilities.
+"""
+Retain title-aggregate, creator-sort, duplicate and view bootstrap helpers.
 
-This module is intentionally a holding pen during the maintenance plugin refactor.
-The functions here are real behaviour that already existed in the old
-``maintenance_bot.py`` module; they are kept together to minimise migration risk.
-
-Longer term, this file should be split into:
-- title/derived-surface rebuild helpers
-- dedupe and merge helpers
-- startup / trigger / view bootstrap helpers
+These routines target legacy creators/titles/books schemas and mutable Row-style
+hosts. Several operations are incomplete and multi-step writes add no shared
+rollback boundary. SQL templates and UDF requirements are preserved exactly.
 """
 
 from __future__ import annotations
@@ -31,11 +27,21 @@ if TYPE_CHECKING:
 
 def run_ta_updates(ta_row_id_list, database):
     """
-    Launches the ta_trigger thread.
+    Start a daemon thread to rebuild aggregates for a copied list of title IDs.
 
-    :param ta_row_id_list:
-    :param database:
-    :return:
+    Deep-copies the IDs before constructing ta_update_thread, emits debug messages and
+    starts ta_trigger. Returns no thread handle and offers no join or completion
+    guarantee; worker exceptions are not forwarded to this caller.
+
+    Example:
+        >>> run_ta_updates([1], database)  # doctest: +SKIP
+
+
+    :param ta_row_id_list: Iterable of title IDs to copy and use as title-aggregate
+        keys.
+    :param database: Legacy database host exposing dictionary search, aggregate writers
+        and tree helpers.
+    :return: None.
     """
     ta_row_id_list = deepcopy(ta_row_id_list)
     ta_trigger_thread = threading.Thread(name="ta_update_thread", target=ta_trigger, args=(ta_row_id_list, database))
@@ -47,10 +53,21 @@ def run_ta_updates(ta_row_id_list, database):
 
 def ta_trigger(ta_row_id_list, database):
     """
-    Takes a list of ta_row_ids. Fills in the derived quantities which have not already been filled in.
-    :param ta_row_id_list:
-    :param database:
-    :return:
+    Run seven legacy aggregate-population passes sequentially.
+
+    Visits creator tags, title tags, series tags, series text, genre text, identifiers
+    and publishers in that order. Does not itself create a thread or transaction. A
+    failing pass prevents later passes; callers should supply a reusable ID collection.
+
+    Example:
+        >>> ta_trigger([1], database)  # doctest: +SKIP
+
+
+    :param ta_row_id_list: Iterable of title IDs to copy and use as title-aggregate
+        keys.
+    :param database: Legacy database host exposing dictionary search, aggregate writers
+        and tree helpers.
+    :return: None.
     """
     if VERBOSE_DEBUG:
         LiuXin_debug_print("ta_trigger_started.")
@@ -69,10 +86,21 @@ def ta_trigger(ta_row_id_list, database):
 # Which should hopefully make it faster/allow it to be done later
 def populate_ta_creators_tags(ta_row_id_list, database):
     """
-    Populates the ta_creators_tags field.
-    Meant to be run in a separate thread, so as to not way the database down further with more triggers.
-    :param ta_row_id_list: A list of title/ta ids
-    :return None: All changes are made internally to the database.
+    Collect unique tag values from creators linked to each title.
+
+    Copies IDs, follows creator_title_links then creator_tag_links, and writes
+    ta_creators_tags as a set, including an empty set. Uses legacy row_dict_return
+    lookup arguments; missing rows and host errors propagate.
+
+    Example:
+        >>> populate_ta_creators_tags([1], database)  # doctest: +SKIP
+
+
+    :param ta_row_id_list: Iterable of title IDs to copy and use as title-aggregate
+        keys.
+    :param database: Legacy database host exposing dictionary search, aggregate writers
+        and tree helpers.
+    :return: None.
     """
 
     ta_row_id_list = deepcopy(ta_row_id_list)
@@ -118,11 +146,20 @@ def populate_ta_creators_tags(ta_row_id_list, database):
 # Populates a list of the tags associated to a title
 def populate_ta_title_tags(ta_row_id_list, database):
     """
-    Takes a list of title_ids - searches the database for tags linked to those titles. Builds a set of all these tags
-    and updates the ta_tags column with them.
-    :param ta_row_id_list:
-    :param database:
-    :return:
+    Collect unique directly linked tag values and write ta_tags for each title.
+
+    Copies IDs and follows tag_title_links to tag rows. Writes an empty set when no
+    links remain, allowing stale tag aggregates to be cleared.
+
+    Example:
+        >>> populate_ta_title_tags([1], database)  # doctest: +SKIP
+
+
+    :param ta_row_id_list: Iterable of title IDs to copy and use as title-aggregate
+        keys.
+    :param database: Legacy database host exposing dictionary search, aggregate writers
+        and tree helpers.
+    :return: None.
     """
 
     ta_row_id_list = deepcopy(ta_row_id_list)
@@ -152,12 +189,21 @@ def populate_ta_title_tags(ta_row_id_list, database):
 
 def populate_ta_series_tags(ta_row_id_list, database):
     """
-    Populates the ta_series_tags column.
-    This is populated by scanning all the series above this one in the series tree - finding all the tags assocated with
-    them and building a set of all of them.
-    :param ta_row_id_list:
-    :param database:
-    :return:
+    Collect tags from linked series and their ancestor chains.
+
+    Copies IDs and relies on legacy get_linear_row_index(). Writes ta_series_tags only
+    when the collected set is nonempty, so removing all tags does not clear an existing
+    aggregate.
+
+    Example:
+        >>> populate_ta_series_tags([1], database)  # doctest: +SKIP
+
+
+    :param ta_row_id_list: Iterable of title IDs to copy and use as title-aggregate
+        keys.
+    :param database: Legacy database host exposing dictionary search, aggregate writers
+        and tree helpers.
+    :return: None.
     """
 
     ta_row_id_list = deepcopy(ta_row_id_list)
@@ -213,10 +259,21 @@ def populate_ta_series_tags(ta_row_id_list, database):
 
 def populate_ta_series_aggregate(ta_row_id_list, database):
     """
-    Builds a series aggregate - a string containing all the series the title row associated with that id is linked to.
-    :param ta_row_id_list: A list of title_ids in the title_aggregate table to update
-    :param database:
-    :return None: Changes are made purely internally to the database
+    Write colon-separated series ancestry paths joined by ampersands.
+
+    Copies IDs, orders linked series by ascending link priority and asks
+    get_linear_index_of_columns() for each path. Writes ta_series_aggregate only for
+    nonempty text; empty results leave old values untouched.
+
+    Example:
+        >>> populate_ta_series_aggregate([1], database)  # doctest: +SKIP
+
+
+    :param ta_row_id_list: Iterable of title IDs to copy and use as title-aggregate
+        keys.
+    :param database: Legacy database host exposing dictionary search, aggregate writers
+        and tree helpers.
+    :return: None.
     """
     ta_row_id_list = deepcopy(ta_row_id_list)
 
@@ -258,10 +315,21 @@ def populate_ta_series_aggregate(ta_row_id_list, database):
 
 def populate_ta_genre_aggregate(ta_row_id_list, database: DatabaseAPI):
     """
-    Builds a genre aggregate - the genre table has a tree like structure with genres and sub genres. Additionally
-    :param ta_row_id_list:
-    :param database:
-    :return:
+    Write colon-separated genre ancestry paths joined by ampersands.
+
+    Copies IDs and orders genre_title_links by ascending priority. Writes
+    ta_genre_aggregate only for a nonempty joined string; empty results do not clear
+    stale values.
+
+    Example:
+        >>> populate_ta_genre_aggregate([1], database)  # doctest: +SKIP
+
+
+    :param ta_row_id_list: Iterable of title IDs to copy and use as title-aggregate
+        keys.
+    :param database: Legacy database host exposing dictionary search, aggregate writers
+        and tree helpers.
+    :return: None.
     """
     ta_row_id_list = deepcopy(ta_row_id_list)
     # Should be a list of the ides in the title table
@@ -301,10 +369,21 @@ def populate_ta_genre_aggregate(ta_row_id_list, database: DatabaseAPI):
 
 def populate_ta_identifiers_aggregate(ta_row_id_list, database):
     """
-    Builds a genre aggregate - the genre table has a tree like structure with genres and sub genres. Additionally
-    :param ta_row_id_list:
-    :param database:
-    :return:
+    Group title identifiers by stripped uppercase identifier type.
+
+    Copies IDs, resolves unique identifier IDs and stores sets of identifier values
+    under each type in ta_identifiers. Writes only a nonempty mapping; empty results
+    leave old data untouched.
+
+    Example:
+        >>> populate_ta_identifiers_aggregate([1], database)  # doctest: +SKIP
+
+
+    :param ta_row_id_list: Iterable of title IDs to copy and use as title-aggregate
+        keys.
+    :param database: Legacy database host exposing dictionary search, aggregate writers
+        and tree helpers.
+    :return: None.
     """
     ta_row_id_list = deepcopy(ta_row_id_list)
 
@@ -345,10 +424,20 @@ def populate_ta_identifiers_aggregate(ta_row_id_list, database):
 
 def populate_ta_publishers_aggregate(ta_row_id_list, database):
     """
-    Builds a genre aggregate - the genre table has a tree like structure with genres and sub genres. Additionally
-    :param ta_row_id_list:
-    :param database:
-    :return:
+    Write colon-separated publisher ancestry paths joined by ampersands.
+
+    Copies IDs, orders publisher links by ascending priority and writes ta_publishers
+    only when the final string is nonempty. Empty results do not clear old values.
+
+    Example:
+        >>> populate_ta_publishers_aggregate([1], database)  # doctest: +SKIP
+
+
+    :param ta_row_id_list: Iterable of title IDs to copy and use as title-aggregate
+        keys.
+    :param database: Legacy database host exposing dictionary search, aggregate writers
+        and tree helpers.
+    :return: None.
     """
     ta_row_id_list = deepcopy(ta_row_id_list)
 
@@ -392,10 +481,29 @@ def populate_ta_publishers_aggregate(ta_row_id_list, database):
 
 def ensure_creators_sort(creator_rows: Iterable[RowAPI]) -> Iterable[RowAPI]:
     """
-    Make sure some sort of creator sort field is set for every row in the given creator_rows itterable.
+    Fill creator_sort only when its string form is the word none.
 
-    :param creator_rows:
-    :return:
+    Comparison strips surrounding whitespace and ignores case; an empty string is
+    retained. Computes the sort from creator and syncs each changed row immediately.
+    Returns the original iterable, which may already be exhausted if it is a generator.
+    The delegated formatter currently references the unavailable remove_bracketed_text
+    helper for nonempty names, so that path can raise NameError before row assignment.
+    Formatter and sync errors propagate without undoing earlier row updates.
+
+    Example:
+        >>> class Row(dict):
+        ...     def sync(self):
+        ...         self["synced"] = True
+        >>> row = Row(creator="", creator_sort=None)
+        >>> rows = [row]
+        >>> ensure_creators_sort(rows) is rows
+        True
+        >>> row["creator_sort"], row["synced"]
+        ('', True)
+
+
+    :param creator_rows: Iterable of mutable creator rows exposing sync().
+    :return: Original creator_rows iterable.
     """
     for row in creator_rows:
         if six_unicode(row["creator_sort"]).lower().strip() == "none":
@@ -406,14 +514,27 @@ def ensure_creators_sort(creator_rows: Iterable[RowAPI]) -> Iterable[RowAPI]:
 
 def clean(db: DatabaseAPI, table: str, item_ids: Iterable[str] = None) -> None:
     """
-    Remove any unused entries from the database.
+    Reject unfinished cleanup modes without deleting unused rows.
 
-    If item_ids are provided only removes items which are in that set and unused.
+    Non-None item_ids raises the NotImplemented singleton, producing TypeError. With
+    item_ids=None, books/titles return immediately; an unknown main table raises
+    KeyError. Other main tables are inspected for possible links before raising
+    NotImplementedError.
 
-    :param db: The database to preform the clean in
-    :param table: The table to attempt to clean of unused ids
-    :param item_ids: If provided restricts the clean to these ids
-    :return:
+    Example:
+        >>> clean(None, "books") is None
+        True
+        >>> try:
+        ...     clean(None, "creators", [1])
+        ... except TypeError:
+        ...     print("unsupported restricted cleanup")
+        unsupported restricted cleanup
+
+
+    :param db: Database whose rows, driver and schema helpers are used.
+    :param table: Table associated with the row or operation.
+    :param item_ids: Optional restricted ID iterable; this legacy mode is unfinished.
+    :return: None for unrestricted books/titles; other described paths raise.
     """
     if item_ids is not None:
         raise NotImplemented
@@ -439,13 +560,22 @@ def clean(db: DatabaseAPI, table: str, item_ids: Iterable[str] = None) -> None:
 
 def direct_merge(db: DatabaseAPI, table: str, main_id: int, target_ids: Iterable[str]) -> None:
     """
-    Merge all the given target_ids into the main_id
+    Reject the unimplemented direct merge operation before any database work.
 
-    :param db:
-    :param table:
-    :param main_id:
-    :param target_ids:
-    :return:
+    Example:
+        >>> try:
+        ...     direct_merge(None, "creators", 1, [2])
+        ... except NotImplementedError:
+        ...     print("not implemented")
+        not implemented
+
+
+    :param db: Database whose rows, driver and schema helpers are used.
+    :param table: Table associated with the row or operation.
+    :param main_id: Surviving row ID requested for the unfinished merge.
+    :param target_ids: IDs requested for merging; unused by the unfinished
+        implementation.
+    :return: No normal return; always raises NotImplementedError.
     """
     raise NotImplementedError
 
@@ -453,13 +583,24 @@ def direct_merge(db: DatabaseAPI, table: str, main_id: int, target_ids: Iterable
 # Todo: Come back and code to deal with large database
 def fix_duplicates(db: DatabaseAPI, table: str, column: str, comparison: str = "nocase") -> bool:
     """
-    Remove all the entries which differ only according to the comparison.
+    Attempt to consolidate each duplicate-value group into its smallest integer ID.
 
-    :param db: The database to fix
-    :param table: The table in the database to fix
-    :param column: The column in the table in the database to fix
-    :param comparison: The comparison method used to identify and remove the duplicated
-    :return:
+    Repoints interlinks, merges or repoints intralinks, rewrites tree-parent references
+    and deletes remaining rows. Each host operation can persist independently. The
+    intralink branch skips the rest of a group if the survivor has no intralinks; it
+    does not guarantee that all duplicates disappear. Link mergers retain their legacy
+    timestamp precedence and do not themselves delete source link rows.
+
+    Example:
+        >>> fix_duplicates(database, "creators", "creator")  # doctest: +SKIP
+
+
+    :param db: Database whose rows, driver and schema helpers are used.
+    :param table: Table associated with the row or operation.
+    :param column: Column whose values form duplicate groups.
+    :param comparison: Callable producing hashable keys, or nocase/false to select ICU
+        lowercasing.
+    :return: True if the loop completes, not a count or proof that no duplicates remain.
     """
     dupe_dictionary = find_duplicates(db, table, column, comparison)
 
@@ -568,13 +709,22 @@ def repoint_intralink_row(
         old_id: int,
         new_id: int) -> None:
     """
-    Repoint an intralink row to reference a new_id instead of an old_id.
+    Replace the first endpoint matching old_id and sync the same row.
 
-    :param db: The database we're working in
-    :param intralink_row: The interlink row to update
-    :param old_id: Any mentions of this id will be changed to the nw_id
-    :param new_id:
-    :return:
+    Compares Unicode forms, trying primary before secondary. If both match, only primary
+    is changed. A row object with sync() is required; no match raises
+    InputIntegrityError.
+
+    Example:
+        >>> repoint_intralink_row(database, "creators", link_row, 1, 1)  # doctest: +SKIP
+
+
+    :param db: Database whose rows, driver and schema helpers are used.
+    :param table: Table associated with the row or operation.
+    :param intralink_row: Mutable row object with sync(), despite the dict annotation.
+    :param old_id: Endpoint identifier to match after Unicode conversion.
+    :param new_id: Replacement endpoint identifier.
+    :return: The mutated intralink row, despite the None annotation.
     """
     # Check to see which of the entries is the one being repointed - either the primary or the secondary must be
     # changed
@@ -615,17 +765,24 @@ def repoint_intralink_row(
 #      other in two different ways. The non-differing kind should be merged into each other.
 def _do_intralink_merge(db: DatabaseAPI, table: str, primary_intralink_row: RowAPI, secondary_intralink_row: RowAPI) -> RowAPI:
     """
-    Two intralink rows will be merged - it is assumed that the two intralink rows both link to the same row in the table
-    in the same way.
+    Merge intralink payload fields while retaining both primary endpoints.
 
-    For example they could both be links indicating that the two title rows being merged are different
-    from a third row.
-    primary and secondary will remain unchanged from the primary_intralink_row.
-    :param db: The database to work with
-    :param table: The table we're working with
-    :param primary_intralink_row: The secondary intralink row will be merged into this primary row
-    :param secondary_intralink_row: This row will be merged into the primary
-    :return:
+    Preserves both endpoint columns, the row ID and datestamp. Failed timestamp
+    conversion or a strictly smaller primary timestamp gives primary values precedence;
+    otherwise non-none secondary values replace them. Missing primary values
+    (case-insensitive text none, without stripping) are always filled. This legacy
+    comparison can favor older values, despite older prose claiming newest-wins. Syncs
+    the surviving row and does not delete the source.
+
+    Example:
+        >>> _do_intralink_merge(database, "creators", primary_row, secondary_row)  # doctest: +SKIP
+
+
+    :param db: Database whose rows, driver and schema helpers are used.
+    :param table: Table associated with the row or operation.
+    :param primary_intralink_row: Surviving intralink row to update and sync.
+    :param secondary_intralink_row: Source intralink row; not deleted by this helper.
+    :return: Mutated and synced primary_intralink_row.
     """
     column_headings = set([r for r in primary_intralink_row.keys()])
 
@@ -673,15 +830,23 @@ def _do_intralink_merge(db: DatabaseAPI, table: str, primary_intralink_row: RowA
 
 def _smart_merge_rows(db: DatabaseAPI, primary_row: RowAPI, secondary_row: RowAPI) -> RowAPI:
     """
-    Smart merge two rows using the following algorith,
+    Merge ordinary row values using the existing timestamp precedence.
 
-    1) If the entry in the primary row is None, and the entry in the secondary is not, then use the entry in the
-       secondary
-    2) If both are non-trivial then use the newest one, as determined by the datestamp
-    :param db:
-    :param primary_row:
-    :param secondary_row:
-    :return:
+    Preserves the ID and datestamp. Failed timestamp conversion or a strictly smaller
+    primary timestamp gives primary values precedence; otherwise non-none secondary
+    values replace them. Missing primary values (case-insensitive text none, without
+    stripping) are always filled. This legacy comparison can favor older values, despite
+    older prose claiming newest-wins. Syncs the surviving row and does not delete the
+    source.
+
+    Example:
+        >>> _smart_merge_rows(database, primary_row, secondary_row)  # doctest: +SKIP
+
+
+    :param db: Database whose rows, driver and schema helpers are used.
+    :param primary_row: Surviving row to mutate and sync.
+    :param secondary_row: Source row whose values can fill or replace surviving values.
+    :return: Mutated and synced primary_row.
     """
     table = primary_row.table
     table_id_column = db.driver_wrapper.get_id_column(table)
@@ -728,13 +893,23 @@ def _smart_merge_rows(db: DatabaseAPI, primary_row: RowAPI, secondary_row: RowAP
 
 def _do_one_table_link_update(db, src_table, dst_table, src_table_id_1, src_table_id_2):
     """
-    Update every link between the given src_table and the given dest table.
-    The row with src_table_id_2 will end up merged with the row with src_table_id_1.
-    :param src_table: The source table - the table containing the rows to merge
-    :param dst_table: The dst_table - the table linked to the table containing the rows
-    :param src_table_id_1: The primary id - the secondary id will end up being changed to the primary id
-    :param src_table_id_2: The secondary_id - will be changed to the primary id.
-    :return:
+    Redirect source-only links and merge payloads for shared destination IDs.
+
+    Fetches link rows for both source IDs. Rows targeting destinations absent from the
+    survivor have their source endpoint changed and synced; shared destinations call
+    _smart_merge_link_rows(). Does not delete the source main row or explicitly remove
+    merged source links.
+
+    Example:
+        >>> _do_one_table_link_update(database, "creators", "titles", 1, 1)  # doctest: +SKIP
+
+
+    :param db: Database whose rows, driver and schema helpers are used.
+    :param src_table: First linked main table.
+    :param dst_table: Other linked main table.
+    :param src_table_id_1: Surviving source-table identifier.
+    :param src_table_id_2: Source identifier whose links are redirected or merged.
+    :return: None.
     """
     # 1) Retrieve all rows which reference either the primary or the secondary id
     # 2) For all the links which don't already exist in the primary links, just update the link
@@ -773,18 +948,25 @@ def _smart_merge_link_rows(
         db: DatabaseAPI, src_table: str, dst_table: str, primary_row, secondary_row
 ) -> None:
     """
-    Smart merge two link rows
+    Merge interlink payload fields while retaining both surviving endpoints.
 
-    Using the following algorithm,
-    1) If the entry in the primary row is None, and the entry in the secondary is not, then use the entry in the
-       secondary
-    2) If both are non trivial then use the newest one, as determined by the datestamp
-    :param db: THe database we'retrying to update
-    :param src_table: The source table
-    :param dst_table: The destination table - SHOULD NOT BE THE SAME AS THE SRC_TABLE - USE MERGE INTRALINK ROWS INSTEAD-
-    :param primary_row:
-    :param secondary_row:
-    :return:
+    Preserves endpoint columns, link-row ID and datestamp. Failed timestamp conversion
+    or a strictly smaller primary timestamp gives primary values precedence; otherwise
+    non-none secondary values replace them. Missing primary values (case-insensitive
+    text none, without stripping) are always filled. This legacy comparison can favor
+    older values, despite older prose claiming newest-wins. Syncs the surviving row and
+    does not delete the source.
+
+    Example:
+        >>> _smart_merge_link_rows(database, "creators", "titles", primary_row, secondary_row)  # doctest: +SKIP
+
+
+    :param db: Database whose rows, driver and schema helpers are used.
+    :param src_table: First linked main table.
+    :param dst_table: Other linked main table.
+    :param primary_row: Surviving row to mutate and sync.
+    :param secondary_row: Source row whose values can fill or replace surviving values.
+    :return: Mutated and synced primary_row, despite the None annotation.
     """
     column_headings = set([r for r in primary_row.keys()])
     table = primary_row.table
@@ -845,16 +1027,25 @@ def _smart_merge_link_rows(
 
 def find_duplicates(db: DatabaseAPI, table: str, column: str, comparison="nocase"):
     """
-    Find duplicates in a given column in a given table in the given database using the given comparison method.
+    Group every row ID by its transformed column value.
 
-    If comparison is "nocase" defaults to icu_lower.
-    :param db: The database to search in
-    :param table: The table in the database to search
-    :param column: The column in the table in the database
-    :param comparison: The comparison method used to match the values - can be a callable which accepts a single string
-                       and returns a single string
-    :return dupe_dict: Keyed with the hashed value and valued with a set of the ids in the table which mapped to that
-                      value.
+    Uses ICU lowercasing for nocase or false comparison values; otherwise calls the
+    provided object. Returns singleton groups as well as duplicates. Keys must be
+    hashable, IDs must convert to int, and column lookup/conversion errors propagate.
+
+    Example:
+        >>> from types import SimpleNamespace
+        >>> wrapper = SimpleNamespace(get_all_rows=lambda **kw: [{"id": 1, "name": "A"}, {"id": 2, "name": "a"}], get_id_column=lambda **kw: "id")
+        >>> dict(find_duplicates(SimpleNamespace(driver_wrapper=wrapper), "items", "name", str.lower))
+        {'a': {1, 2}}
+
+
+    :param db: Database whose rows, driver and schema helpers are used.
+    :param table: Table associated with the row or operation.
+    :param column: Column whose values form duplicate groups.
+    :param comparison: Callable producing hashable keys, or nocase/false to select ICU
+        lowercasing.
+    :return: defaultdict mapping transformed values to sets of integer IDs.
     """
     dupe_dict = defaultdict(set)
 
@@ -882,14 +1073,18 @@ def find_duplicates(db: DatabaseAPI, table: str, column: str, comparison="nocase
 
 def do_pre_view_startup_tasks(db, custom_columns=None):
     """
-    Takes a database - preforms the startup tasks on it.
+    Install creator triggers, fill null sort values and create the news browser view.
 
-    These are all the tasks that have to be completed before creating the meta2 view
-    :param db: Currently assumes it's SQL compatible
-    :param custom_columns: A LiuXin.library.custom_columns object which represents the custom columns on this database
-                           If not provided then no custom columns will be included in the meta2 view (which is the basis
-                           for the main view and searchable parameters of the library).
-    :return:
+    Runs those three operations in order without a combined transaction. custom_columns
+    is accepted but unused; failures stop the remaining steps.
+
+    Example:
+        >>> do_pre_view_startup_tasks(database)  # doctest: +SKIP
+
+
+    :param db: Database whose rows, driver and schema helpers are used.
+    :param custom_columns: Optional custom-column provider; usage is described above.
+    :return: None.
     """
     create_creator_insert_update_trigger(db)
     direct_ensure_creators_sort(db)
@@ -898,27 +1093,37 @@ def do_pre_view_startup_tasks(db, custom_columns=None):
 
 def do_view_startup_tasks(db, view_metadata):
     """
+    Reserve the unfinished view-startup hook without changing the database.
 
-    :param db:
-    :param custom_columns:
-    :param update_field_metadata:
-    :param view_metadata:
-    :return:
+    Both arguments are ignored by the pass body.
+
+    Example:
+        >>> do_view_startup_tasks(None, None) is None
+        True
+
+
+    :param db: Database whose rows, driver and schema helpers are used.
+    :param view_metadata: Reserved view configuration; currently ignored.
+    :return: None.
     """
     pass
 
 
 def create_creator_insert_update_trigger(db: DatabaseAPI) -> None:
     """
-    Creates an author insert trigger on the database.
+    Replace the legacy creator insert and update triggers.
 
-    This ensures that the creator_sort field in the creator table is
-    set to be something after an insert on the creator's table (if a value is already set, then the trigger should
-    ignore it).
-    Likewise after an update checks to see if the sort field has been nullified - if it has replaces it with the auto
-    generated field.
-    :param db:
-    :return:
+    The AFTER INSERT trigger always writes author_to_author_sort(NEW.creator), including
+    when an explicit sort was supplied. The BEFORE UPDATE trigger writes only when the
+    creator name changes; the outer update can overwrite that value. Requires creators
+    and the registered UDF. Executes the entire DROP/CREATE script through the driver.
+
+    Example:
+        >>> create_creator_insert_update_trigger(database)  # doctest: +SKIP
+
+
+    :param db: Database whose rows, driver and schema helpers are used.
+    :return: None.
     """
     # The second trigger works as follows - when a change is made to the creator (creator name) the creator_sort field
     # is set to that value BEFORE the update takes effect. If the new row specifies what the creator_sort should be,
@@ -948,10 +1153,17 @@ def create_creator_insert_update_trigger(db: DatabaseAPI) -> None:
 
 def direct_ensure_creators_sort(db: DatabaseAPI) -> None:
     """
-    Makes sure that every row in the creators table has some sort of creator_sort set.
+    Fill SQL NULL creator_sort cells using the author_to_author_sort UDF.
 
-    :param db:
-    :return:
+    Does not replace empty strings or text none. Executes through the driver and
+    discards its result.
+
+    Example:
+        >>> direct_ensure_creators_sort(database)  # doctest: +SKIP
+
+
+    :param db: Database whose rows, driver and schema helpers are used.
+    :return: None.
     """
     sql = "UPDATE creators SET creator_sort = author_to_author_sort(creator) WHERE creator_sort IS NULL;"
     db.driver.direct_execute(sql)
@@ -959,11 +1171,18 @@ def direct_ensure_creators_sort(db: DatabaseAPI) -> None:
 
 def direct_set_original_one_row_creator_sort(db, creator_row_id):
     """
-    Update the creator sort of particular creator row to set it to the raw value generator from author_to_author_sort.
+    Recompute one creator's sort value regardless of its existing contents.
 
-    :param db:
-    :param creator_row_id:
-    :return:
+    Passes creator_row_id directly as the binding argument to direct_execute(), relying
+    on the driver's scalar binding adaptation.
+
+    Example:
+        >>> direct_set_original_one_row_creator_sort(database, 1)  # doctest: +SKIP
+
+
+    :param db: Database whose rows, driver and schema helpers are used.
+    :param creator_row_id: Creator ID passed as the driver binding argument.
+    :return: None.
     """
     sql = "UPDATE creators SET creator_sort = author_to_author_sort(creator) WHERE creator_id = ?;"
     db.driver.direct_execute(sql, creator_row_id)
@@ -971,10 +1190,19 @@ def direct_set_original_one_row_creator_sort(db, creator_row_id):
 
 def direct_create_tag_browser_news(db: DatabaseAPI) -> None:
     """
-    Creates the tag_browser_news view - which is used for viewing books which have been tagged as news.
+    Create the legacy news-related tag view if it is absent.
 
-    :param db:
-    :return:
+    Selects tags co-occurring with the localized News tag, excluding News itself. Counts
+    all title links for each selected tag, sets avg_rating to zero and uses the tag as
+    sort text. Does not replace an existing view. The translated News string is
+    interpolated into SQL without escaping.
+
+    Example:
+        >>> direct_create_tag_browser_news(database)  # doctest: +SKIP
+
+
+    :param db: Database whose rows, driver and schema helpers are used.
+    :return: None.
     """
     sql = """
     CREATE VIEW IF NOT EXISTS tag_browser_news AS SELECT DISTINCT
@@ -997,12 +1225,25 @@ def direct_create_tag_browser_news(db: DatabaseAPI) -> None:
 # Todo: Add the concept of a file path to the folder store logic
 def direct_create_meta_2_view(db: DatabaseAPI, custom_columns=None, update_field_metadata=False):
     """
-    Creates the meta_2 view - which is used to drive the primary books table from calibre.
+    Drop and rebuild the legacy Calibre-shaped meta2 projection over books.
 
-    :param db:
-    :param custom_columns: A LiuXin.library.custom_columns object to represent the custom columns on the database.
-    :param update_field_metadata: Should the field_metadata object in the custom columns be updated as well?
-    :return:
+    Requires legacy tables/views and aggregation UDFs. Appends custom projection
+    expressions in sorted custom-column ID order, then updates that provider's field map
+    only after script execution succeeds. Preserves historical SQL, including duplicate
+    formats aliases and legacy aggregate syntax. The TypeError logging path references
+    an unimported pprint name and can raise NameError instead. No cross-step rollback is
+    added.
+
+    Example:
+        >>> direct_create_meta_2_view(database)  # doctest: +SKIP
+
+
+    :param db: Database whose rows, driver and schema helpers are used.
+    :param custom_columns: Optional provider of custom_columns_in_meta() and field-map
+        update hooks; None omits custom fields.
+    :param update_field_metadata: Whether the custom-column provider should update its
+        field metadata after view creation.
+    :return: None.
     """
     template = """\
                 (SELECT {query} FROM books_{table}_link AS link INNER JOIN

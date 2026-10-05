@@ -1,3 +1,14 @@
+"""
+Read ODT package metadata, user-defined OPF fields and cover candidates while preserving caller-owned stream positions.
+
+The module keeps malformed-input, optional dependency and resource ownership
+behavior explicit for registry callers.
+
+Example:
+    Exercise odt with pytest::
+
+        python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+"""
 from __future__ import annotations
 
 import io
@@ -20,6 +31,14 @@ __all__ = ["OdtFormatError", "get_metadata", "get_metadata_inplace"]
 
 
 class OdtFormatError(ValueError):
+    """
+    Signal unreadable ODT package metadata or malformed ODT XML.
+
+    Example:
+        Exercise OdtFormatError with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+    """
     pass
 
 
@@ -28,12 +47,37 @@ _SPLIT_TAGS = re.compile(r"[;,]")
 
 
 def _normalize_text(raw: str | None) -> str:
+    """
+    Collapse whitespace and trim a possibly absent metadata text value.
+
+    Example:
+        Exercise  normalize text with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+
+
+    :param raw: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or serialized value described above.
+    """
     if not raw:
         return ""
     return _WHITESPACE.sub(" ", raw).strip()
 
 
 def _read_source_bytes(stream_or_path) -> bytes:
+    """
+    Read the complete source payload from bytes, a path or a stream and restore a caller-owned stream position when available.
+
+    Example:
+        Exercise  read source bytes with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+
+
+    :param stream_or_path: Caller-supplied path, path-like object or stream described by
+        this operation.
+    :return: Parsed, normalized or serialized value described above.
+    """
     if hasattr(stream_or_path, "read"):
         stream = stream_or_path
         pos = None
@@ -71,6 +115,19 @@ def _read_source_bytes(stream_or_path) -> bytes:
 
 
 def _get_source_title(stream_or_path) -> str:
+    """
+    Derive a filename-based title from a path or named stream without reading content.
+
+    Example:
+        Exercise  get source title with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+
+
+    :param stream_or_path: Caller-supplied path, path-like object or stream described by
+        this operation.
+    :return: Parsed, normalized or serialized value described above.
+    """
     name = getattr(stream_or_path, "name", None)
     if isinstance(name, str) and name:
         return os.path.splitext(os.path.basename(name))[0]
@@ -82,6 +139,21 @@ def _get_source_title(stream_or_path) -> str:
 
 
 def _iter_ns_text(root, namespace: str, local_name: str) -> Iterable[str]:
+    """
+    Return ns text in deterministic source or registry order.
+
+    Example:
+        Exercise  iter ns text with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+
+
+    :param root: Parsed XML, PDF or metadata node used as the operation context.
+    :param namespace: Name, type or encoding selector used for lookup or interpretation.
+    :param local_name: Name, type or encoding selector used for lookup or
+        interpretation.
+    :return: Parsed, normalized or serialized value described above.
+    """
     tag = "{%s}%s" % (namespace, local_name)
     for elem in root.iter(tag):
         text = _normalize_text("".join(elem.itertext()))
@@ -90,16 +162,55 @@ def _iter_ns_text(root, namespace: str, local_name: str) -> Iterable[str]:
 
 
 def _first_ns_text(root, namespace: str, local_name: str) -> str | None:
+    """
+    Return the first usable ns text under fallback policy.
+
+    Example:
+        Exercise  first ns text with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+
+
+    :param root: Parsed XML, PDF or metadata node used as the operation context.
+    :param namespace: Name, type or encoding selector used for lookup or interpretation.
+    :param local_name: Name, type or encoding selector used for lookup or
+        interpretation.
+    :return: Parsed, normalized or serialized value described above.
+    """
     for text in _iter_ns_text(root, namespace, local_name):
         return text
     return None
 
 
 def _split_tags(raw: str) -> list[str]:
+    """
+    Perform the format-specific split tags operation used by this metadata source.
+
+    Example:
+        Exercise  split tags with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+
+
+    :param raw: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or serialized value described above.
+    """
     return [x for x in (_normalize_text(p) for p in _SPLIT_TAGS.split(raw)) if x]
 
 
 def _stable_dedupe(items: Iterable[str]) -> list[str]:
+    """
+    Remove duplicate strings while preserving their first-seen order.
+
+    Example:
+        Exercise  stable dedupe with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+
+
+    :param items: Ordered input values processed by this operation.
+    :return: Parsed, normalized or serialized value described above.
+    """
     seen = set()
     ans: list[str] = []
     for item in items:
@@ -110,6 +221,18 @@ def _stable_dedupe(items: Iterable[str]) -> list[str]:
 
 
 def _parse_series_index(raw: str | None) -> float | None:
+    """
+    Parse a decimal series index, accepting locale commas and returning None for invalid input.
+
+    Example:
+        Exercise  parse series index with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+
+
+    :param raw: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or serialized value described above.
+    """
     if not raw:
         return None
     try:
@@ -123,6 +246,19 @@ def _parse_series_index(raw: str | None) -> float | None:
 
 
 def _parse_bool(raw: str | None, default: bool = False) -> bool:
+    """
+    Parse conventional textual Boolean values and retain the supplied default for unknown input.
+
+    Example:
+        Exercise  parse bool with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+
+
+    :param raw: Raw value or payload to normalize, parse or serialize.
+    :param default: Policy flag controlling the behavior described above.
+    :return: Parsed, normalized or serialized value described above.
+    """
     if raw is None:
         return default
     val = raw.strip().lower()
@@ -134,6 +270,18 @@ def _parse_bool(raw: str | None, default: bool = False) -> bool:
 
 
 def _read_user_defined(root) -> dict[str, str]:
+    """
+    Collect named ODT user-defined properties using normalized lowercase keys.
+
+    Example:
+        Exercise  read user defined with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+
+
+    :param root: Parsed XML, PDF or metadata node used as the operation context.
+    :return: Parsed, normalized or serialized value described above.
+    """
     ans: dict[str, str] = {}
     tag = "{%s}%s" % (METANS, "user-defined")
     name_attr = "{%s}%s" % (METANS, "name")
@@ -146,6 +294,18 @@ def _read_user_defined(root) -> dict[str, str]:
 
 
 def _parse_xml_bytes(raw_xml: bytes):
+    """
+    Parse xml bytes without inventing absent metadata values.
+
+    Example:
+        Exercise  parse xml bytes with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+
+
+    :param raw_xml: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or serialized value described above.
+    """
     try:
         return etree.fromstring(raw_xml)
     except Exception:
@@ -158,6 +318,19 @@ def _parse_xml_bytes(raw_xml: bytes):
 
 
 def _default_metadata(source_title: str = ""):
+    """
+    Build minimally usable metadata for missing or explicitly tolerated malformed input.
+
+    Example:
+        Exercise  default metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+
+
+    :param source_title: Source or member label used for lookup, fallback titles or
+        diagnostics.
+    :return: Parsed, normalized or serialized value described above.
+    """
     title = source_title or _("Unknown")
     mi = calibreMetaInformation(title, [_("Unknown")])
     try:
@@ -168,6 +341,18 @@ def _default_metadata(source_title: str = ""):
 
 
 def _read_meta_xml(raw_odt: bytes) -> bytes:
+    """
+    Return the meta.xml member from an ODT payload or raise the format-specific error.
+
+    Example:
+        Exercise  read meta xml with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+
+
+    :param raw_odt: Value supplied for raw odt.
+    :return: Parsed, normalized or serialized value described above.
+    """
     try:
         with zipfile.ZipFile(io.BytesIO(raw_odt), "r") as zin:
             return zin.read("meta.xml")
@@ -176,12 +361,38 @@ def _read_meta_xml(raw_odt: bytes) -> bytes:
 
 
 def _extract_cover(raw_odt: bytes, mi, opf_meta: bool, extract_cover: bool) -> None:
+    """
+    Select an explicit OPF cover frame or a plausible first image and attach its data to metadata.
+
+    Example:
+        Exercise  extract cover with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+
+
+    :param raw_odt: Value supplied for raw odt.
+    :param mi: Metadata object supplying or receiving the supported fields.
+    :param opf_meta: Value supplied for opf meta.
+    :param extract_cover: Request cover discovery or cover payload extraction when true.
+    :return: Parsed, normalized or serialized value described above.
+    """
     try:
         zin = zipfile.ZipFile(io.BytesIO(raw_odt), "r")
     except Exception:
         return
 
     def _iter_frame_images_from_odf():
+        """
+        Return frame images from odf in deterministic source or registry order.
+
+        Example:
+            Exercise  extract cover. iter frame images from odf with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+
+
+        :return: Parsed, normalized or serialized value described above.
+        """
         otext = od_load(io.BytesIO(raw_odt))
         for frame in otext.topnode.getElementsByType(ODFFrame):
             imgs = frame.getElementsByType(ODFImage)
@@ -194,6 +405,17 @@ def _extract_cover(raw_odt: bytes, mi, opf_meta: bool, extract_cover: bool) -> N
             yield frame_name, href
 
     def _iter_frame_images_from_content_xml():
+        """
+        Return frame images from content xml in deterministic source or registry order.
+
+        Example:
+            Exercise  extract cover. iter frame images from content xml with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+
+
+        :return: Parsed, normalized or serialized value described above.
+        """
         try:
             content_xml = zin.read("content.xml")
         except Exception:
@@ -276,6 +498,19 @@ def _extract_cover(raw_odt: bytes, mi, opf_meta: bool, extract_cover: bool) -> N
 
 
 def _set_language(mi, lang: str) -> None:
+    """
+    Canonicalize and assign a non-empty metadata language without failing on optional helpers.
+
+    Example:
+        Exercise  set language with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+
+
+    :param mi: Metadata object supplying or receiving the supported fields.
+    :param lang: Value supplied for lang.
+    :return: None.
+    """
     try:
         from LiuXin_alpha.utils.localization import canonicalize_lang
 
@@ -287,6 +522,22 @@ def _set_language(mi, lang: str) -> None:
 
 
 def get_metadata(stream, extract_cover: bool = True, *, fallback_on_parse_error: bool = False):
+    """
+    Read metadata from the supported path, bytes or stream input while applying module ownership and fallback policy.
+
+    Example:
+        Exercise get metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+
+
+    :param stream: Caller-supplied path, path-like object or stream described by this
+        operation.
+    :param extract_cover: Request cover discovery or cover payload extraction when true.
+    :param fallback_on_parse_error: Return safe default metadata after parse errors when
+        true; otherwise raise the format error.
+    :return: Parsed, normalized or serialized value described above.
+    """
     raw_odt = _read_source_bytes(stream)
 
     try:
@@ -412,5 +663,21 @@ def get_metadata(stream, extract_cover: bool = True, *, fallback_on_parse_error:
 
 
 def get_metadata_inplace(path, extract_cover: bool = True, *, fallback_on_parse_error: bool = False):
+    """
+    Read metadata through the path-oriented adapter exposed to registry plugins.
+
+    Example:
+        Exercise get metadata inplace with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+
+
+    :param path: Caller-supplied path, path-like object or stream described by this
+        operation.
+    :param extract_cover: Request cover discovery or cover payload extraction when true.
+    :param fallback_on_parse_error: Return safe default metadata after parse errors when
+        true; otherwise raise the format error.
+    :return: Parsed, normalized or serialized value described above.
+    """
     with open(path, "rb") as stream:
         return get_metadata(stream, extract_cover=extract_cover, fallback_on_parse_error=fallback_on_parse_error)

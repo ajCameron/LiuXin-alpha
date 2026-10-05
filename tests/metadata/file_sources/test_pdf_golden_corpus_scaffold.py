@@ -1,3 +1,14 @@
+"""
+Verify the optional PDF golden-corpus scaffold and fixture discovery policy.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test pdf golden corpus scaffold through its owning regression module::
+
+        python -m pytest -q tests/metadata/file_sources/test_pdf_golden_corpus_scaffold.py
+"""
 from __future__ import annotations
 
 import hashlib
@@ -14,10 +25,33 @@ _MANIFEST_PATH = _GOLDEN_DIR / "manifest.json"
 
 
 def _load_manifest() -> dict[str, Any]:
+    """
+    Perform the load manifest test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise load manifest through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_golden_corpus_scaffold.py
+
+
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return json.loads(_MANIFEST_PATH.read_text(encoding="utf-8"))
 
 
 def _sha256_file(path: Path) -> str:
+    """
+    Perform the sha256 file test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise sha256 file through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_golden_corpus_scaffold.py
+
+
+    :param path: Value supplied for path in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     h = hashlib.sha256()
     with path.open("rb") as stream:
         while True:
@@ -29,10 +63,34 @@ def _sha256_file(path: Path) -> str:
 
 
 def _normalize_text(raw: Any) -> str:
+    """
+    Normalize text for stable comparison.
+
+    Example:
+        Exercise normalize text through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_golden_corpus_scaffold.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return " ".join(str(raw or "").split()).strip()
 
 
 def _values(raw: Any) -> list[str]:
+    """
+    Perform the values test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise values through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_golden_corpus_scaffold.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     if raw is None:
         return []
     if isinstance(raw, dict):
@@ -46,6 +104,18 @@ def _values(raw: Any) -> list[str]:
 
 
 def _normalized_list(raw: Any) -> list[str]:
+    """
+    Normalize normalized list for stable comparison.
+
+    Example:
+        Exercise normalized list through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_golden_corpus_scaffold.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     vals: list[str] = []
     for value in _values(raw):
         item = _normalize_text(value)
@@ -55,11 +125,36 @@ def _normalized_list(raw: Any) -> list[str]:
 
 
 def _first_normalized(raw: Any) -> str | None:
+    """
+    Perform the first normalized test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise first normalized through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_golden_corpus_scaffold.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     vals = _normalized_list(raw)
     return vals[0] if vals else None
 
 
 def _identifier_value(md: Any, scheme: str) -> str | None:
+    """
+    Perform the identifier value test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise identifier value through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_golden_corpus_scaffold.py
+
+
+    :param md: Value supplied for md in the focused test operation.
+    :param scheme: Value supplied for scheme in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     try:
         ids = md.get_identifiers()
     except Exception:
@@ -78,6 +173,19 @@ def _identifier_value(md: Any, scheme: str) -> str | None:
 
 
 def _extract_expected(pdf_mod, pdf_path: Path) -> dict[str, Any]:
+    """
+    Perform the extract expected test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise extract expected through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_golden_corpus_scaffold.py
+
+
+    :param pdf_mod: Value supplied for pdf mod in the focused test operation.
+    :param pdf_path: Value supplied for pdf path in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     md = pdf_mod.get_metadata_inplace(pdf_path)
     return {
         "title": _normalize_text(getattr(md, "title", "") or ""),
@@ -95,17 +203,52 @@ def _extract_expected(pdf_mod, pdf_path: Path) -> dict[str, Any]:
 
 
 def _case_ids() -> list[str]:
+    """
+    Perform the case ids test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise case ids through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_golden_corpus_scaffold.py
+
+
+    :return: The deterministic value, row, identity or collection described above.
+    """
     manifest = _load_manifest()
     return [str(case["name"]) for case in manifest.get("cases", [])]
 
 
 @pytest.fixture()
 def pdf_md_mod():
+    """
+    Perform the pdf md mod test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise pdf md mod through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_golden_corpus_scaffold.py
+
+
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return importlib.import_module("LiuXin_alpha.metadata.file_sources.pdf")
 
 
 @pytest.mark.parametrize("case_name", _case_ids())
 def test_golden_pdf_corpus_scaffold(case_name: str, pdf_md_mod) -> None:
+    """
+    Verify golden pdf corpus scaffold.
+
+    Example:
+        Exercise test golden pdf corpus scaffold through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_golden_corpus_scaffold.py
+
+
+    :param case_name: Value supplied for case name in the focused test operation.
+    :param pdf_md_mod: Value supplied for pdf md mod in the focused test operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     manifest = _load_manifest()
     cases = {str(case["name"]): case for case in manifest.get("cases", [])}
     case = cases[case_name]
@@ -122,6 +265,17 @@ def test_golden_pdf_corpus_scaffold(case_name: str, pdf_md_mod) -> None:
 
 
 def test_pdf_golden_manifest_has_unique_names_and_paths() -> None:
+    """
+    Verify pdf golden manifest has unique names and paths.
+
+    Example:
+        Exercise test pdf golden manifest has unique names and paths through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_golden_corpus_scaffold.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     manifest = _load_manifest()
     cases = manifest.get("cases", [])
     names = [str(case["name"]) for case in cases]

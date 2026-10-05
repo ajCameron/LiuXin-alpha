@@ -1,6 +1,17 @@
 #!/usr/bin/env python2
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Provide the library persistence backend and transaction helpers.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise backend through a consuming regression::
+
+        python -m pytest -q tests/library/test_unified_library.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 
 # Slightly higher level than the database - some useful classes to access information on the database
@@ -79,6 +90,21 @@ __docformat__ = "restructuredtext en"
 
 # Extra collators {{{
 def pynocase(one, two, encoding="utf-8"):
+    """
+    Perform the pynocase operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise pynocase through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+
+
+    :param one: Value supplied for one under the utility contract.
+    :param two: Value supplied for two under the utility contract.
+    :param encoding: Value supplied for encoding under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if isbytestring(one):
         try:
             one = one.decode(encoding, "replace")
@@ -93,12 +119,39 @@ def pynocase(one, two, encoding="utf-8"):
 
 
 def _author_to_author_sort(x):
+    """
+    Perform the author to author sort operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  author to author sort through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+
+
+    :param x: Value supplied for x under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if not x:
         return ""
     return author_to_author_sort(x.replace("|", ","))
 
 
 def icu_collator(s1, s2):
+    """
+    Perform the icu collator operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise icu collator through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+
+
+    :param s1: Value supplied for s1 under the utility contract.
+    :param s2: Value supplied for s2 under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return force_cmp(sort_key(force_unicode(s1, "utf-8")), sort_key(force_unicode(s2, "utf-8")))
 
 
@@ -108,10 +161,12 @@ def icu_collator(s1, s2):
 # Todo: Start this from a regular database - so we can upgrade to a backend if needed
 class DB(Database):
     """
-    Adds a layer of functions around the database.
-    Also has an in memory cache.
-    The databases.database class contains the basic operations. The databases.backend.DB class contains a few more
-    functions. It's intended to act as a calibre compatibility layer, while also provided useful functionality.
+    Adds a layer of functions around the database. Also has an in memory cache. The databases.database class contains the basic operations. The databases.backend.DB class contains a few more functions. It's intended to act as a calibre compatibility layer, while also provided useful functionality.
+
+    Example:
+        Exercise DB through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
 
     PATH_LIMIT = 40 if iswindows else 100
@@ -131,20 +186,26 @@ class DB(Database):
     ):
         """
         Initialize the database.
-        :param library_path: If a string, assumed that there is an SQLite database at the end of it. If a Location
-                             parses that into metadata and initializes with that. If None, uses the default metadata
-        :param default_prefs:
-        :param read_only:
-        :param restore_all_prefs:
-        :param progress_callback:
-        :param load_user_formatter_functions:
-        :param create: Should a new database be created? False by default.
-        :param with_cache: If True then will bootstrap a cache - which provides stored copies of the data on the
-                           database - for access speed and efficiency.
-        :param existing_fsm: Allows you to pass in an existing fsm if one has already been created.
-                             NOTE - YOU MUST BE ABSOLUTELY SURE THAT THE FSM HAS BEEN STARTED ON THE SAME DATABASE AS
-                             THE LIBRARY PATH. UTTER DISASTER WILL RESULT IF THIS IS NOT TRUE.
-        :return:
+
+        Example:
+            Exercise DB.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param library_path: Value supplied for library path under the utility contract.
+        :param default_prefs: Value supplied for default prefs under the utility contract.
+        :param read_only: Value supplied for read only under the utility contract.
+        :param restore_all_prefs: Value supplied for restore all prefs under the utility
+            contract.
+        :param progress_callback: Value supplied for progress callback under the utility
+            contract.
+        :param load_user_formatter_functions: Value supplied for load user formatter
+            functions under the utility contract.
+        :param create: Value supplied for create under the utility contract.
+        :param with_cache: Value supplied for with cache under the utility contract.
+        :param existing_fsm: Value supplied for existing fsm under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         if library_path is None:
             Database.__init__(self, create=create)
@@ -254,11 +315,20 @@ class DB(Database):
     def initialize_prefs(self, default_prefs, restore_all_prefs, progress_callback=lambda x, y: True):
         """
         Initialize the database preferences (the preferences stored on the database).
-        :param default_prefs:
-        :param restore_all_prefs:
-        :param progress_callback: First called with None, len(default_prefs). Then called with the position, name of the
-                                  pref
-        :return:
+
+        Example:
+            Exercise DB.initialize prefs through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param default_prefs: Value supplied for default prefs under the utility contract.
+        :param restore_all_prefs: Value supplied for restore all prefs under the utility
+            contract.
+        :param progress_callback: Value supplied for progress callback under the utility
+            contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # Only apply the default prefs to a new database
         # Todo: Test for a new database
@@ -353,6 +423,20 @@ class DB(Database):
 
         # Migrate saved search and user categories to db preference scheme
         def migrate_preference(key, default):
+            """
+            Perform the migrate preference operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise DB.initialize prefs.migrate preference through a consuming regression::
+
+                    python -m pytest -q tests/library/test_unified_library.py
+
+
+            :param key: Metadata, identifier or local-variable key.
+            :param default: Value supplied for default under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             old_val = prefs[key]
             if old_val != default:
                 self.prefs[key] = old_val
@@ -423,7 +507,15 @@ class DB(Database):
     def last_modified(self):
         """
         Return last modified time as a UTC datetime object
-        :return:
+
+        Example:
+            Exercise DB.last modified through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.driver.direct_last_modified()
 
@@ -432,6 +524,20 @@ class DB(Database):
     # - ADDITIONAL DATABASE METHODS START HERE
 
     def get(self, *args, **kw):
+        """
+        Perform the get operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DB.get through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kw: Value supplied for kw under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = self.driver_wrapper.execute(*args)
         if kw.get("all", True):
             return ans.fetchall()
@@ -441,16 +547,50 @@ class DB(Database):
             return None
 
     def last_insert_rowid(self):
+        """
+        Perform the last insert rowid operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DB.last insert rowid through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.conn.last_insert_rowid()
 
     def dump_and_restore(self, callback=None, sql=None):
+        """
+        Perform the dump and restore operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DB.dump and restore through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param callback: Value supplied for callback under the utility contract.
+        :param sql: Value supplied for sql under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.driver.dump_and_restore(self, callback=None, sql=None)
 
     @property
     def user_version(self):
         """
         The user version of the database.
-        :return:
+
+        Example:
+            Exercise DB.user version through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         for row in self.driver_wrapper.execute("PRAGMA user_version;"):
             return row[0]
@@ -459,12 +599,32 @@ class DB(Database):
     def user_version(self, val):
         """
         Set the user version of the database.
-        :param val:
-        :return:
+
+        Example:
+            Exercise DB.user version through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.driver_wrapper.execute("pragma user_version=%d" % int(val))
 
     def vacuum(self):
+        """
+        Perform the vacuum operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DB.vacuum through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.driver_wrapper.execute("VACUUM")
 
     def copy_cover_to(
@@ -477,13 +637,23 @@ class DB(Database):
     ):
         """
         Copy the primary cover in the folder at path to the given destination path.
-        :param path: A LiuXin location object pointing to the cover or a path pointing to the cover
-        :param dest: The place to copy the cover to
-        :param windows_atomic_move: A class which provides atomic movement of files - file moves are completed in one
-                                    pass. Provides a copy_path_to methods which does the copying.
-        :param use_hardlink:
-        :param report_file_size: Callback to report the file size copied
-        :return:
+
+        Example:
+            Exercise DB.copy cover to through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :param dest: Value supplied for dest under the utility contract.
+        :param windows_atomic_move: Value supplied for windows atomic move under the utility
+            contract.
+        :param use_hardlink: Value supplied for use hardlink under the utility contract.
+        :param report_file_size: Value supplied for report file size under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if path is None:
             return
@@ -568,16 +738,19 @@ class DB(Database):
 
     def cover_or_cache(self, path, timestamp):
         """
-        Checks to see if the cover should be read from the cache or read from the given path.
-        Calls stat for the given path. If the stat is the same as the
-        :param path: A LiuXin Location object pointing to the cover, or a path.
-        :param timestamp: Unix timestamp object
-        :return (read_status, cover_data, file_timestamp):
-                If there has to be a new read then all data will be provided
-                If there doesnt have to be a new read, the first element will be True and the other two None
-                If the file can't be read the first element will be False and the other two None
-                file_timestamp is when the file was last modified - this will be used to update the timestamp in the
-                cache
+        Checks to see if the cover should be read from the cache or read from the given path. Calls stat for the given path. If the stat is the same as the
+
+        Example:
+            Exercise DB.cover or cache through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :param timestamp: Value supplied for timestamp under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if isinstance(path, basestring):
             try:
@@ -611,13 +784,22 @@ class DB(Database):
     def set_cover(self, book_id, path, data, no_processing=False, add_to_cover_cache=True):
         """
         Set a cover for a book.
-        :param book_id: The book to set the cover for
-        :param path: The place to put the cover - might or might not be into the book.
-        :type path: LiuXin Location object
-        :param data: The cover data
-        :param no_processing:
-        :param add_to_cover_cache: Should the cover be added to the local cover cache in LiuXin_data
-        :return:
+
+        Example:
+            Exercise DB.set cover through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :param data: Value supplied for data under the utility contract.
+        :param no_processing: Value supplied for no processing under the utility contract.
+        :param add_to_cover_cache: Value supplied for add to cover cache under the utility
+            contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # If data is a string, assume it's a path to a file - read the original name of the cover from this
         cover_o_name = None
@@ -678,10 +860,17 @@ class DB(Database):
     def cover_last_modified(self, path):
         """
         When was the cover physically last modified on disk (used to determine if the cover needs to be reloaded).
-        :param path: Path to the cover object. Note this is different from calibre - where the path provided is the
-                     path to the folder containing the cover.
-        :type path: LiuXin Location object
-        :return:
+
+        Example:
+            Exercise DB.cover last modified through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.fsm.path.last_modified(path=path, utc=True)
 
@@ -703,20 +892,29 @@ class DB(Database):
         allow_overwrite=False,
     ):
         """
-        Copy a format to a given dest.
-        If the dst is a Location, then the format will be moved to that location.
-        :param book_id: The id of the book to work with
-        :param fmt: The format in the book to copy
-        :param fname: Name of the file to copy (not all this information should be actually required)
-        :param path: A path or Location - if this is a Location then the fmt and fname are ignored
-        :param dest: The place to copy the format to - can be a file object, Location or path
-        :type dst: file_object, Location or path
-        :param windows_atomic_move:
-        :param use_hardlink: Should a hardlink be used during the copy operation (seems to make a hardlink, then copy
-                             the files to where they go - no clue).
-        :param report_file_size:
-        :param allow_overwrite: True if files can be overwritten with other files, False if not
-        :return:
+        Copy a format to a given dest. If the dst is a Location, then the format will be moved to that location.
+
+        Example:
+            Exercise DB.copy format to through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :param fname: Value supplied for fname under the utility contract.
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :param dest: Value supplied for dest under the utility contract.
+        :param windows_atomic_move: Value supplied for windows atomic move under the utility
+            contract.
+        :param use_hardlink: Value supplied for use hardlink under the utility contract.
+        :param report_file_size: Value supplied for report file size under the utility
+            contract.
+        :param allow_overwrite: Value supplied for allow overwrite under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if isinstance(path, Location):
             src_loc = path
@@ -770,12 +968,20 @@ class DB(Database):
     def format_abspath(self, book_id, fmt, fname, path):
         """
         Returns the absolute location of a fmt, using the book_id and the fmt.
-        :param book_id: The id of the book containing the format
-        :param fmt: The format to get the path to - if not a LiuXin style format (i.e. EPUB_1) will default to the first
-                    format - thus EPUB becomes EPUB_1
-        :param fname: Ignored by LiuXin - here for calibre compatibility
-        :param path: Ignored by LiuXin - here for calibre compatibility
-        :return:
+
+        Example:
+            Exercise DB.format abspath through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :param fname: Value supplied for fname under the utility contract.
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if "_" not in fmt:
             fmt = deepcopy(fmt) + "_1"
@@ -798,15 +1004,25 @@ class DB(Database):
     def add_format(self, book_id, fmt, stream, title, author, path, current_name, mtime=None):
         """
         Add a format to the database - front end for the methods in folder store manager.
-        :param book_id:
-        :param fmt:
-        :param stream:
-        :param title:
-        :param author:
-        :param path:
-        :param current_name:
-        :param mtime:
-        :return:
+
+        Example:
+            Exercise DB.add format through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param title: Value supplied for title under the utility contract.
+        :param author: Value supplied for author under the utility contract.
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :param current_name: Value supplied for current name under the utility contract.
+        :param mtime: Value supplied for mtime under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.fsm.add.format(
             book_id=book_id,
@@ -823,10 +1039,18 @@ class DB(Database):
     def write_backup(self, path, raw):
         """
         Write a backup for an objects metadata to the given path.
-        :param path: Should be a path to the location of the folder in which the metadata is to be written.
-        :type path: LiuXin Location object
-        :param raw: The metadata as a binary string.
-        :return:
+
+        Example:
+            Exercise DB.write backup through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :param raw: Value supplied for raw under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         md_path = self.fsm.path.join(path, "metadata.opf")
         self.fsm.stores.write(target_location=md_path, string=raw, mode="wb")
@@ -834,8 +1058,17 @@ class DB(Database):
     def read_backup(self, path):
         """
         Read the metadata.opf file from a location and return it as a string.
-        :param path: The Location object specifying where the metadata folder is
-        :return metadata_string: The OPF file as a binary string
+
+        Example:
+            Exercise DB.read backup through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         metadata_loc = self.fsm.path.join(path, "metadata.opf")
         return self.fsm.stores.read(target_location=metadata_loc, mode="rb")
@@ -843,9 +1076,17 @@ class DB(Database):
     def remove_books(self, book_ids, permanent=False):
         """
         Remove books from the database.
-        :param book_ids: A list of the book ids to remove
-        :param permanent: If True, remove the files permanently - if False, put them in the recycle bin
-        :return:
+
+        Example:
+            Exercise DB.remove books through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_ids: Book identities included in the batched read operation.
+        :param permanent: Value supplied for permanent under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # Register books for the delete service
         book_rows = [self.db.get_row_from_id("books", b_id) for b_id in book_ids]
@@ -857,9 +1098,16 @@ class DB(Database):
     def remove_formats(self, remove_map):
         """
         Remove formats from books in the database.
-        :param remove_map: Keyed with the id of the book and valued with the format to remove.
-        :type remove_map: dict
-        :return:
+
+        Example:
+            Exercise DB.remove formats through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param remove_map: Value supplied for remove map under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         paths = []
         for book_id, removals in iteritems(remove_map):
@@ -886,10 +1134,18 @@ class DB(Database):
     def add_custom_data(self, name, val_map, delete_first):
         """
         Record custom data in the books_plugin_data table - allows plugins to store data for books.
-        :param name: The name of the plugin
-        :param val_map: Keyed with the book_id and valued with the value to
-        :param delete_first:
-        :return:
+
+        Example:
+            Exercise DB.add custom data through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param val_map: Value supplied for val map under the utility contract.
+        :param delete_first: Value supplied for delete first under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if delete_first:
             self.driver_wrapper.execute("DELETE FROM books_plugin_data WHERE book_plugin_data_name=?", (name,))
@@ -903,14 +1159,35 @@ class DB(Database):
     def get_custom_book_data(self, name, book_ids, default=None):
         """
         Get data from the book_plugin_data for the book_ids.
-        :param name: The name of the plugin
-        :param book_ids: An iterable of the book_ids
-        :param default: Default value to return if the value can't be retrieved
-        :return:
+
+        Example:
+            Exercise DB.get custom book data through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param book_ids: Book identities included in the batched read operation.
+        :param default: Value supplied for default under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         book_ids = frozenset(book_ids)
 
         def safe_load(val):
+            """
+            Perform the safe load operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise DB.get custom book data.safe load through a consuming regression::
+
+                    python -m pytest -q tests/library/test_unified_library.py
+
+
+            :param val: Template or metadata value evaluated by the operation.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             try:
                 return json.loads(val, object_hook=from_json)
             except:
@@ -944,9 +1221,17 @@ class DB(Database):
     def delete_custom_book_data(self, name, book_ids):
         """
         Delete from the books_plugin_data table.
-        :param name: The name of the plugin to delete data for
-        :param book_ids: An iterable of the book_ids
-        :return:
+
+        Example:
+            Exercise DB.delete custom book data through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param book_ids: Book identities included in the batched read operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if book_ids:
             self.driver_wrapper.executemany(
@@ -964,6 +1249,19 @@ class DB(Database):
 
     # Todo: These all need to be moved to macros
     def get_ids_for_custom_book_data(self, name):
+        """
+        Return ids for custom book data under the format's safety and compatibility rules.
+
+        Example:
+            Exercise DB.get ids for custom book data through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return frozenset(
             r[0]
             for r in self.driver_wrapper.execute(
@@ -975,9 +1273,17 @@ class DB(Database):
     def conversion_options(self, book_id, fmt):
         """
         Returns conversion option data for the given book_id and fmt from the database.
-        :param book_id:
-        :param fmt:
-        :return:
+
+        Example:
+            Exercise DB.conversion options through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         conn = self.driver.get_connection()
         c = conn.cursor()
@@ -994,9 +1300,16 @@ class DB(Database):
     def has_conversion_options(self, ids, fmt="PIPE"):
         """
         Checks to see if any of the given ids have conversion option data for the specified format.
-        :param ids:
-        :param fmt:
-        :return:
+
+        Example:
+            Exercise DB.has conversion options through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param ids: Value supplied for ids under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :return: True when the documented condition holds; otherwise False.
         """
         ids = frozenset(ids)
         conn = self.driver.get_connection()
@@ -1018,9 +1331,17 @@ class DB(Database):
     def delete_conversion_options(self, book_ids, fmt):
         """
         Remove conversion options for the given formats for all book_ids.
-        :param book_ids:
-        :param fmt:
-        :return:
+
+        Example:
+            Exercise DB.delete conversion options through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_ids: Book identities included in the batched read operation.
+        :param fmt: Date, number or template format specification.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.driver_wrapper.executemany(
             "DELETE FROM conversion_options " "WHERE conversion_option_book=? AND conversion_option_format=?",
@@ -1030,9 +1351,17 @@ class DB(Database):
     def set_conversion_options(self, options, fmt):
         """
         Stores data in the conversion options table for the specified format.
-        :param options:
-        :param fmt:
-        :return:
+
+        Example:
+            Exercise DB.set conversion options through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param options: Value supplied for options under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         options = [
             (book_id, fmt.upper(), six_buffer(six_pickle.dumps(data, -1))) for book_id, data in iteritems(options)
@@ -1050,6 +1379,19 @@ class DB(Database):
 
     # No real ways to implement these properly
     def get_top_level_move_items(self, all_paths):
+        """
+        Return top level move items under the format's safety and compatibility rules.
+
+        Example:
+            Exercise DB.get top level move items through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param all_paths: Value supplied for all paths under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raise NotImplementedError
 
     def move_library_to(
@@ -1059,16 +1401,57 @@ class DB(Database):
         progress=(lambda item_name, item_count, total: None),
         abort=None,
     ):
+        """
+        Perform the move library to operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DB.move library to through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param all_paths: Value supplied for all paths under the utility contract.
+        :param newloc: Value supplied for newloc under the utility contract.
+        :param progress: Value supplied for progress under the utility contract.
+        :param abort: Value supplied for abort under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raise NotImplementedError
 
     def restore_book(self, book_id, path, formats="all"):
+        """
+        Perform the restore book operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DB.restore book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :param formats: Value supplied for formats under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raise NotImplementedError
 
     def backup_database(self, path=None):
         """
         Backs up the database using the method in the database driver.
-        :param path: The path to backup to
-        :return:
+
+        Example:
+            Exercise DB.backup database through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.driver.direct_backup(path=path)
 
@@ -1078,12 +1461,20 @@ class DB(Database):
     def update_path(self, book_id, title, author, path_field, formats_field):
         """
         Runs the updates for a book folder - updates the paths to the book and all the assets in it.
-        :param book_id: id of the book to run the update for.
-        :param title:
-        :param author:
-        :param path_field:
-        :param formats_field:
-        :return:
+
+        Example:
+            Exercise DB.update path through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param title: Value supplied for title under the utility contract.
+        :param author: Value supplied for author under the utility contract.
+        :param path_field: Value supplied for path field under the utility contract.
+        :param formats_field: Value supplied for formats field under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         book_row = self.db.get_row_from_id("books", book_id)
 
@@ -1093,8 +1484,16 @@ class DB(Database):
     def windows_check_if_files_in_use(self, paths):
         """
         Raises an EACCES IOError if any of the files in the folder of book_id are opened in another program on windows.
-        :param paths:
-        :return:
+
+        Example:
+            Exercise DB.windows check if files in use through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param paths: Value supplied for paths under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if iswindows:
             for path in paths:
@@ -1102,13 +1501,37 @@ class DB(Database):
 
     # Tood: As format_abspath has changed in function this will not work. At all.
     def has_format(self, book_id, fmt, fname, path):
+        """
+        Return whether has format holds for the supplied ebook data.
+
+        Example:
+            Exercise DB.has format through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :param fname: Value supplied for fname under the utility contract.
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :return: True when the documented condition holds; otherwise False.
+        """
         return self.format_abspath(book_id, fmt, fname, path) is not None
 
     def format_metadata_from_loc(self, loc):
         """
         Returns the metadata for the file located at the given location.
-        :param loc: format location
-        :return:
+
+        Example:
+            Exercise DB.format metadata from loc through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param loc: Value supplied for loc under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         ans = {}
         if self.fsm.path.exists(loc):
@@ -1120,12 +1543,20 @@ class DB(Database):
     def format_metadata(self, book_id, fmt, fname, path):
         """
         Return metadata for a format
-        :param book_id: The id of the book to examine
-        :param fmt: The format to return the metadata for
-        :param fname: Not used in LiuXin
-        :param path: Not used in LiuXin
-        :return: Keyed with path, size and mtime
-        :rtype dict:
+
+        Example:
+            Exercise DB.format metadata through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :param fname: Value supplied for fname under the utility contract.
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         path = self.format_abspath(book_id, fmt, fname, path)
         ans = {}
@@ -1138,11 +1569,20 @@ class DB(Database):
     def format_hash(self, book_id, fmt, fname, path):
         """
         Return the hash for a format of a book.
-        :param book_id: The id of the book to examine
-        :param fmt: The format in that book
-        :param fname: Not used in LiuXin
-        :param path: Not used in LiuXin
-        :return:
+
+        Example:
+            Exercise DB.format hash through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :param fname: Value supplied for fname under the utility contract.
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         path = self.format_abspath(book_id, fmt, fname, path)
         if path is None:
@@ -1153,15 +1593,23 @@ class DB(Database):
     # Current working for on disk - but mostly by accident.
     def apply_to_format(self, book_id, path, fname, fmt, func, missing_value=None):
         """
-        Apply a given function to a format and return the result (note that the format stream is closed after the
-        function is applied).
-        :param book_id:
-        :param path:
-        :param fname:
-        :param fmt:
-        :param func:
-        :param missing_value:
-        :return:
+        Apply a given function to a format and return the result (note that the format stream is closed after the function is applied).
+
+        Example:
+            Exercise DB.apply to format through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :param fname: Value supplied for fname under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :param func: Value supplied for func under the utility contract.
+        :param missing_value: Value supplied for missing value under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         path = self.format_abspath(book_id, fmt, fname, path)
         if path is None:
@@ -1172,10 +1620,18 @@ class DB(Database):
     def cover_abspath(self, book_id, path):
         """
         Return an absolute path to the cover.
-        :param book_id:
-        :param path: Location of the object.
-        :type path: LiuXin location object.
-        :return:
+
+        Example:
+            Exercise DB.cover abspath through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return path
 
@@ -1189,12 +1645,36 @@ class DB(Database):
     def exists_at(cls, path, db_name="metadata.db"):
         """
         Checks to see if the database exists at the given path.
-        :param path:
-        :return:
+
+        Example:
+            Exercise DB.exists at through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :param db_name: Value supplied for db name under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return path and os.path.exists(os.path.join(path, db_name))
 
     def normpath(self, path):
+        """
+        Perform the normpath operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DB.normpath through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         path = os.path.abspath(os.path.realpath(path))
         if not self.is_case_sensitive:
             path = os.path.normcase(path).lower()
@@ -1202,17 +1682,49 @@ class DB(Database):
 
     def is_deletable(self, path):
         """
+        Return whether is deletable holds for the supplied ebook data.
 
-        :param path:
-        :return:
+        Example:
+            Exercise DB.is deletable through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :return: True when the documented condition holds; otherwise False.
         """
         return path and not self.normpath(self.library_path).startswith(self.normpath(path))
 
     @property
     def library_path(self):
+        """
+        Perform the library path operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DB.library path through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.metadata
 
     def reopen(self):
+        """
+        Perform the reopen operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DB.reopen through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raise NotImplementedError("Not currently in use")
 
 

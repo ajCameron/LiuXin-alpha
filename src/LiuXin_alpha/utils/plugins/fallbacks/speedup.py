@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
 """
-Pure-python fallback for the compiled ``speedup`` extension.
+Provide speedup utility behavior.
 
-This module is intended to be API-compatible with calibre/LiuXin's C extension:
-- parse_date(raw) -> (year, month, day, hour, minute, second, tzsecs) | None
-- pdf_float(f) -> str
-- detach(devnull_path) -> None
-- create_texture(...) -> bytes (PPM P6)
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise speedup through a consuming regression::
+
+        python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
 """
 
 from __future__ import annotations
@@ -22,6 +24,19 @@ O_CLOEXEC: int = getattr(os, "O_CLOEXEC", 0)
 
 
 def parse_date(raw: object) -> Optional[Tuple[int, int, int, int, int, int, int]]:
+    """
+    Parse date under the documented compatibility and safety rules.
+
+    Example:
+        Exercise parse date through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if raw is None:
         return None
     if isinstance(raw, bytes):
@@ -63,6 +78,19 @@ def parse_date(raw: object) -> Optional[Tuple[int, int, int, int, int, int, int]
 
 
 def pdf_float(f: float) -> str:
+    """
+    Perform the pdf float utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise pdf float through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param f: Value supplied for f under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         f = float(f)
     except Exception as e:
@@ -91,6 +119,19 @@ def pdf_float(f: float) -> str:
 
 
 def detach(devnull: str) -> None:
+    """
+    Perform the detach utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise detach through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param devnull: Value supplied for devnull under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if not isinstance(devnull, str):
         devnull = str(devnull)
 
@@ -135,6 +176,30 @@ def create_texture(
     weight: int = 3,
     radius: float = 1.0,
 ) -> bytes:
+    """
+    Perform the create texture utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise create texture through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param width: Value supplied for width under the utility contract.
+    :param height: Value supplied for height under the utility contract.
+    :param red: Value supplied for red under the utility contract.
+    :param green: Value supplied for green under the utility contract.
+    :param blue: Value supplied for blue under the utility contract.
+    :param blend_red: Value supplied for blend red under the utility contract.
+    :param blend_green: Value supplied for blend green under the utility contract.
+    :param blend_blue: Value supplied for blend blue under the utility contract.
+    :param blend_alpha: Value supplied for blend alpha under the utility contract.
+    :param density: Value supplied for density under the utility contract.
+    :param weight: Value supplied for weight under the utility contract.
+    :param radius: Value supplied for radius under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if weight % 2 != 1 or weight < 1:
         raise ValueError("The weight must be an odd positive number")
     if radius <= 0:
@@ -145,6 +210,19 @@ def create_texture(
         raise ValueError("The width or height is too small")
 
     def _uc(x: int) -> int:
+        """
+        Perform the uc utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise create texture. uc through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+        :param x: Value supplied for x under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return 0 if x < 0 else 255 if x > 255 else int(x)
 
     base_r, base_g, base_b = _uc(red), _uc(green), _uc(blue)
@@ -177,6 +255,21 @@ def create_texture(
     src = mask[:]
 
     def clamp(v: int, lo: int, hi: int) -> int:
+        """
+        Perform the clamp utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise create texture.clamp through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+        :param v: Value supplied for v under the utility contract.
+        :param lo: Value supplied for lo under the utility contract.
+        :param hi: Value supplied for hi under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return lo if v < lo else hi if v > hi else v
 
     for rr in range(height):

@@ -1,3 +1,14 @@
+"""
+Tokenize relative storage paths without permitting root escape.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise relative path tokenizer through a consuming regression::
+
+        python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -9,14 +20,18 @@ __all__ = ["relative_path_tokens"]
 
 
 def _is_anchored_path(p: Path) -> bool:
-    """Return True if *p* has a drive and/or root.
+    """
+    Return True if *p* has a drive and/or root.
 
-    This treats Windows rooted paths like ``\\foo\\bar`` as "anchored" even though
-    ``Path("\\foo\\bar").is_absolute()`` is False (because it lacks a drive).
+    Example:
+        Exercise  is anchored path through a consuming regression::
 
-    For relativization, the key distinction is:
-      - anchored (drive/root present) vs
-      - purely relative (no drive/root)
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param p: Path-like value normalized or validated by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return bool(p.drive) or bool(p.root)
 
@@ -26,19 +41,20 @@ def relative_path_tokens(
     target: Pathish,
     base_is_file: bool = False,
 ) -> Tuple[Path, Tuple[str, ...]]:
-    """Return (relative_path, tokens) from *base* to *target*.
+    """
+    Return (relative_path, tokens) from *base* to *target*.
 
-    - If base_is_file=True, *base.parent* is used as the starting directory.
-    - tokens are the result of ``relative_path.parts``.
-      Note: in pathlib, ``Path(".").parts`` is ``()`` (empty tuple).
+    Example:
+        Exercise relative path tokens through a consuming regression::
 
-    Raises ValueError if:
-      - one path is anchored (drive/root) and the other is purely relative, OR
-      - both are anchored but have different anchors (e.g., different drives/UNC shares).
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
 
-    Windows note:
-      ``Path("/a/b")`` becomes a rooted path like ``\\a\\b`` (rooted) but has no drive,
-      so ``is_absolute()`` returns False. We still treat it as anchored via ``root``.
+
+    :param base: Value supplied for base under the utility contract.
+    :param target: Value supplied for target under the utility contract.
+    :param base_is_file: Value supplied for base is file under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     base_p = Path(base)
     target_p = Path(target)

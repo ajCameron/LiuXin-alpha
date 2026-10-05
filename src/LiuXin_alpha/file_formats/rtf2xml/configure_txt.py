@@ -1,3 +1,14 @@
+"""
+Read retained RTF-to-XML configuration text.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise configure txt through a consuming regression::
+
+        python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -7,6 +18,14 @@ from LiuXin_alpha.file_formats.rtf2xml import open_for_read
 
 
 class Configure:
+    """
+    Provide the configure contract for validated ebook processing.
+
+    Example:
+        Exercise Configure through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+    """
     def __init__(
         self: _typing.Self,
         configuration_file: _typing.Any,
@@ -15,12 +34,21 @@ class Configure:
         show_config_file: _typing.Any = None,
     ) -> None:
         """
-        Requires:
-            file --file to be read
-            output --file to output to
-        Returns:
-            Nothing. Outputs a file
-        Logic:
+        Requires: file --file to be read output --file to output to Returns: Nothing. Outputs a file Logic:
+
+        Example:
+            Exercise Configure.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param configuration_file: Value supplied for configuration file under the utility
+            contract.
+        :param bug_handler: Value supplied for bug handler under the utility contract.
+        :param debug_dir: Value supplied for debug dir under the utility contract.
+        :param show_config_file: Value supplied for show config file under the utility
+            contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self.__configuration_file = configuration_file
         self.__debug_dir = debug_dir
@@ -28,6 +56,19 @@ class Configure:
         self.__show_config_file = show_config_file
 
     def get_configuration(self: _typing.Self, type: _typing.Any) -> _typing.Any:
+        """
+        Return configuration under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Configure.get configuration through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param type: Value supplied for type under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.__configuration_file = self.__get_file_name()
         return_dict = {}
         return_dict["config-location"] = self.__configuration_file
@@ -67,6 +108,18 @@ class Configure:
         return return_dict
 
     def __get_file_name(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the get file name operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Configure.  get file name through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         home_var = os.environ.get("HOME")
         if home_var:
             home_config = os.path.join(home_var, ".rtf2xml")
@@ -83,6 +136,19 @@ class Configure:
         return self.__configuration_file
 
     def __parse_dict(self: _typing.Self, return_dict: _typing.Any) -> _typing.Any:
+        """
+        Perform the parse dict operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Configure.  parse dict through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param return_dict: Value supplied for return dict under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         allowable = [
             "configuration-directory",
             "smart-output",  # = false

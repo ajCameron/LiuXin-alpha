@@ -1,6 +1,13 @@
 
 """
-Search inside a date field.
+Evaluate date fields with normalized comparisons and relative query values.
+
+The module keeps validation, normalization and host mutation boundaries explicit.
+
+Example:
+    Exercise date search through its owning regression module::
+
+        python -m pytest -q tests/catalog/test_field_search_operators.py
 """
 
 from __future__ import division, absolute_import, print_function, unicode_literals, annotations
@@ -21,6 +28,11 @@ from LiuXin_alpha.utils.text.icu import lower as icu_lower
 class DateSearch:
     """
     Preform a search in a date type column.
+
+    Example:
+        Exercise DateSearch through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_field_search_operators.py
     """
 
     local_today: set[str]
@@ -32,6 +44,14 @@ class DateSearch:
     def __init__(self) -> None:
         """
         Startup a date search.
+
+        Example:
+            Exercise DateSearch.init through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_field_search_operators.py
+
+
+        :return: None; the function records state or raises through its assertions.
         """
         self.operators = {
             "=": (1, self.eq),
@@ -50,11 +70,16 @@ class DateSearch:
         """
         Equality check.
 
-        :param dbdate:
-        :param query:
-        :param field_count:
+        Example:
+            Exercise DateSearch.eq through its owning regression module::
 
-        :return:
+                python -m pytest -q tests/catalog/test_field_search_operators.py
+
+
+        :param dbdate: Value supplied for dbdate under the catalog contract.
+        :param query: Parsed or textual catalog query to evaluate.
+        :param field_count: Value supplied for field count under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
         """
         if dbdate.year == query.year:
             if field_count == 1:
@@ -69,11 +94,16 @@ class DateSearch:
         """
         Not equal check.
 
-        :param dbdate:
-        :param query:
-        :param field_count:
+        Example:
+            Exercise DateSearch.ne through its owning regression module::
 
-        :return:
+                python -m pytest -q tests/catalog/test_field_search_operators.py
+
+
+        :param dbdate: Value supplied for dbdate under the catalog contract.
+        :param query: Parsed or textual catalog query to evaluate.
+        :param field_count: Value supplied for field count under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
         """
         return not self.eq(dbdate, query, field_count)
 
@@ -81,10 +111,16 @@ class DateSearch:
         """
         Greater than check.
 
-        :param dbdate:
-        :param query:
-        :param field_count:
-        :return:
+        Example:
+            Exercise DateSearch.gt through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_field_search_operators.py
+
+
+        :param dbdate: Value supplied for dbdate under the catalog contract.
+        :param query: Parsed or textual catalog query to evaluate.
+        :param field_count: Value supplied for field count under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
         """
         if dbdate.year > query.year:
             return True
@@ -98,8 +134,16 @@ class DateSearch:
         """
         Less than, equals to check.
 
-        :param args:
-        :return:
+        Example:
+            Exercise DateSearch.le through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_field_search_operators.py
+
+
+        :param dbdate: Value supplied for dbdate under the catalog contract.
+        :param query: Parsed or textual catalog query to evaluate.
+        :param field_count: Value supplied for field count under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
         """
         return not self.gt(dbdate, query, field_count)
 
@@ -107,10 +151,16 @@ class DateSearch:
         """
         Less than check.
 
-        :param dbdate:
-        :param query:
-        :param field_count:
-        :return:
+        Example:
+            Exercise DateSearch.lt through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_field_search_operators.py
+
+
+        :param dbdate: Value supplied for dbdate under the catalog contract.
+        :param query: Parsed or textual catalog query to evaluate.
+        :param field_count: Value supplied for field count under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
         """
         if dbdate.year < query.year:
             return True
@@ -124,8 +174,16 @@ class DateSearch:
         """
         Greater than or equal check.
 
-        :param args:
-        :return:
+        Example:
+            Exercise DateSearch.ge through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_field_search_operators.py
+
+
+        :param dbdate: Value supplied for dbdate under the catalog contract.
+        :param query: Parsed or textual catalog query to evaluate.
+        :param field_count: Value supplied for field count under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
         """
         return not self.lt(dbdate, query, field_count)
 
@@ -133,6 +191,19 @@ class DateSearch:
             self,
             query: str,
             field_iter: Callable[[], Iterable[tuple[Any, Iterable[int]]]]) -> set[int]:
+        """
+        Evaluate or build the DateSearch operation.
+
+        Example:
+            Exercise DateSearch.call through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_field_search_operators.py
+
+
+        :param query: Parsed or textual catalog query to evaluate.
+        :param field_iter: Value supplied for field iter under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         matches = set()
         if len(query) < 2:
             return matches

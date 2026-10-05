@@ -1,17 +1,39 @@
 
 """
-Macros allow direct changes to the database.
+Provide metadata SQL operations for clear unused.
+
+These helpers target the stored schema named in their SQL. The host supplies db
+and/or execution methods. Per-method notes distinguish explicit live-connection
+commits from delegated transaction handling; filesystem assets are never moved by
+these helpers.
 """
 
 
 class CMClearMixin:
     """
-    Macros for clearing various tables under various circumstances.
+    Implement the clear unused operations used by MetadataSQL.
+
+    Requires a compatible owner database or host query methods. Backend/schema errors
+    propagate except where a method explicitly documents suppression.
+
+    Example:
+        >>> metadata_sql.publisher_clear_unused()  # doctest: +SKIP
     """
     def publisher_clear_unused(self):
         """
-        Clear publishers which don't have any active entries in publisher_title_links.
-        :return:
+        Delete publishers absent from publisher_title_links.
+
+        Uses NOT IN; NULL values in the subquery can prevent expected deletions. No special
+        sentinel-row exclusion is added.
+
+        Transaction and cache behavior for delegated SQL follows the host
+        execute/executemany implementation; this method adds no separate transaction guard.
+
+        Example:
+            >>> metadata_sql.publisher_clear_unused()  # doctest: +SKIP
+
+
+        :return: None.
         """
         del_stmt = (
             "DELETE FROM publishers WHERE publisher_id NOT IN "
@@ -21,8 +43,19 @@ class CMClearMixin:
 
     def creator_clear_unused(self):
         """
-        Clear creators which don't have any active entries in publisher_title_links.
-        :return:
+        Delete creators absent from creator_title_links.
+
+        Uses NOT IN, including its NULL semantics, and does not protect a sentinel row
+        explicitly.
+
+        Transaction and cache behavior for delegated SQL follows the host
+        execute/executemany implementation; this method adds no separate transaction guard.
+
+        Example:
+            >>> metadata_sql.creator_clear_unused()  # doctest: +SKIP
+
+
+        :return: None.
         """
         del_stmt = (
             "DELETE FROM creators WHERE creator_id NOT IN "
@@ -33,9 +66,20 @@ class CMClearMixin:
 
     def break_lang_title_primary_link(self, title_id):
         """
-        Remove links of primary type between titles and languages.
-        :param title_id:
-        :return:
+        Delete only primary language links for one title or supplied batch bindings.
+
+        Integer input uses execute with a scalar; other inputs go unchanged to executemany.
+
+        Transaction and cache behavior for delegated SQL follows the host
+        execute/executemany implementation; this method adds no separate transaction guard.
+
+        Example:
+            >>> metadata_sql.break_lang_title_primary_link(1)  # doctest: +SKIP
+
+
+        :param title_id: Title identifier bound to the operation; batch handling, where
+            supported, is described above.
+        :return: None.
         """
         del_stmt = (
             "DELETE FROM language_title_links "

@@ -1,5 +1,11 @@
 """
-Public domain values for the LiuXin-aware storage manager facade.
+Expose the storage manager's public identities, declarations, records, and operational values.
+
+Imports retain the defining classes from the Asset, Replica, Composite, derivation,
+policy, Store, resolution, and operational model modules. This module creates no
+manager or repository and performs no storage operations. Nominal IDs, configuration,
+observations, assessments, plans, and reports remain distinct kinds of values;
+their defining modules document validation and evidence limits.
 """
 
 from LiuXin_alpha.storage.api.storage_manager_api.models.asset_identity import (

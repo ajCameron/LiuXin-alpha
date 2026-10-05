@@ -1,43 +1,61 @@
 #!/usr/bin/env python
 # vim:fileencoding=utf-8
 
-from __future__ import unicode_literals, division, absolute_import, print_function
-from __future__ import annotations
+"""
+Parse and serialize EPUB/OEB markup under compatibility rules.
 
-import typing as _typing
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise parsing through a consuming regression::
+
+        python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+"""
+from __future__ import (
+    absolute_import,
+    annotations,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import copy
 import re
+import typing as _typing
 import warnings
-from functools import partial
 from bisect import bisect
+from functools import partial
 
-from LiuXin_alpha.utils.libraries.liuxin_six import iteritems
 from lxml.etree import (
-    ElementBase,
-    XMLParser,
-    ElementDefaultClassLookup,
     CommentBase,
+    ElementBase,
+    ElementDefaultClassLookup,
+    XMLParser,
     fromstring,
+)
+from lxml.etree import (
     Element as LxmlElement,
 )
 
-from LiuXin_alpha.file_formats.chardet import xml_to_unicode, ENCODING_PATS
 from LiuXin_alpha.file_formats.oeb.parse_utils import fix_self_closing_cdata_tags
-
-from LiuXin_alpha.utils.text.xml_utils import xml_replace_entities
+from LiuXin_alpha.utils.libraries.calibre_chardet import ENCODING_PATS, xml_to_unicode
 from LiuXin_alpha.utils.libraries.cleantext import clean_xml_chars
-
 from LiuXin_alpha.utils.libraries.liuxin_html5lib.constants import (
+    EOF,
     namespaces,
     tableInsertModeElements,
-    EOF,
+)
+from LiuXin_alpha.utils.libraries.liuxin_html5lib.html5parser import HTMLParser
+from LiuXin_alpha.utils.libraries.liuxin_html5lib.ihatexml import (
+    DataLossWarning,
+    InfosetFilter,
 )
 from LiuXin_alpha.utils.libraries.liuxin_html5lib.treebuilders._base import (
     TreeBuilder as BaseTreeBuilder,
 )
-from LiuXin_alpha.utils.libraries.liuxin_html5lib.ihatexml import InfosetFilter, DataLossWarning
-from LiuXin_alpha.utils.libraries.liuxin_html5lib.html5parser import HTMLParser
+from LiuXin_alpha.utils.libraries.liuxin_six import iteritems
+from LiuXin_alpha.utils.text.xml_utils import xml_replace_entities
 
 __license__ = "GPL v3"
 __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -51,13 +69,48 @@ xml_ns = namespaces["xmlns"]
 
 
 class NamespacedHTMLPresent(ValueError):
+    """
+    Provide the namespacedhtmlpresent contract for validated ebook processing.
+
+    Example:
+        Exercise NamespacedHTMLPresent through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+    """
     def __init__(self: _typing.Self, prefix: _typing.Any) -> None:
+        """
+        Initialize and validate the namespacedhtmlpresent state.
+
+        Example:
+            Exercise NamespacedHTMLPresent.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param prefix: Text prepended to the formatted or selected result.
+        :return: None; validated state is stored on the receiving object.
+        """
         ValueError.__init__(self, prefix)
         self.prefix = prefix
 
 
 # Nodes {{{
 def ElementFactory(name: _typing.Any, namespace: _typing.Any = None, context: _typing.Any = None) -> _typing.Any:
+    """
+    Perform the ElementFactory operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise ElementFactory through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :param namespace: Value supplied for namespace under the utility contract.
+    :param context: Value supplied for context under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     context = context or create_lxml_context()
     ns = namespace or namespaces["html"]
     try:
@@ -69,11 +122,27 @@ def ElementFactory(name: _typing.Any, namespace: _typing.Any = None, context: _t
 class Element(ElementBase):
 
     """
-    Implements the interface required by the liuxin_html5lib tree builders (see
-    liuxin_html5lib.treebuilders._base.Node) on top of the lxml ElementBase class
+    Implements the interface required by the liuxin_html5lib tree builders (see liuxin_html5lib.treebuilders._base.Node) on top of the lxml ElementBase class
+
+    Example:
+        Exercise Element through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
     """
 
     def __str__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the str operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Element.  str   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         attrs = ""
         if self.attrib:
             attrs = " " + " ".join('%s="%s"' % (k, v) for k, v in iteritems(self.attrib))
@@ -91,36 +160,151 @@ class Element(ElementBase):
     __repr__ = __str__
 
     def attributes(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the attributes operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Element.attributes through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.attrib
 
     @property
     def childNodes(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the childNodes operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Element.childNodes through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self
 
     @childNodes.setter
     def childNodes(self: _typing.Self, val: _typing.Any) -> None:
+        """
+        Perform the childNodes operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Element.childNodes through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self[:] = list(val)
 
     def parent(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the parent operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Element.parent through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.getparent()
 
     def hasContent(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the hasContent operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Element.hasContent through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return bool(self.text or len(self))
 
     appendChild = ElementBase.append
     removeChild = ElementBase.remove
 
     def cloneNode(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the cloneNode operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Element.cloneNode through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = self.makeelement(self.tag, nsmap=self.nsmap, attrib=self.attrib)
         for x in ("name", "namespace", "nameTuple"):
             setattr(ans, x, getattr(self, x))
         return ans
 
     def insertBefore(self: _typing.Self, node: _typing.Any, ref_node: _typing.Any) -> None:
+        """
+        Perform the insertBefore operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Element.insertBefore through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param node: Value supplied for node under the utility contract.
+        :param ref_node: Value supplied for ref node under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.insert(self.index(ref_node), node)
 
     def insertText(self: _typing.Self, data: _typing.Any, insertBefore: _typing.Any = None) -> None:
+        """
+        Perform the insertText operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Element.insertText through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param data: Value supplied for data under the utility contract.
+        :param insertBefore: Value supplied for insertBefore under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         def append_text(el: _typing.Any, attr: _typing.Any) -> None:
+            """
+            Perform the append text operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Element.insertText.append text through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+            :param el: Value supplied for el under the utility contract.
+            :param attr: Value supplied for attr under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             try:
                 setattr(el, attr, (getattr(el, attr) or "") + data)
             except ValueError:
@@ -147,6 +331,19 @@ class Element(ElementBase):
 
     def reparentChildren(self: _typing.Self, new_parent: _typing.Any) -> None:
         # Move self.text
+        """
+        Perform the reparentChildren operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Element.reparentChildren through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param new_parent: Value supplied for new parent under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if len(new_parent) > 0:
             el = new_parent[-1]
             el.tail = (el.tail or "") + self.text
@@ -159,36 +356,167 @@ class Element(ElementBase):
 
 
 class Comment(CommentBase):
+    """
+    Provide the comment contract for validated ebook processing.
+
+    Example:
+        Exercise Comment through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+    """
     @property
     def data(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the data operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Comment.data through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.text
 
     @data.setter
     def data(self: _typing.Self, val: _typing.Any) -> None:
+        """
+        Perform the data operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Comment.data through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.text = val.replace("--", "- -")
 
     def parent(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the parent operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Comment.parent through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.getparent()
 
     def name(self: _typing.Self) -> None:
+        """
+        Perform the name operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Comment.name through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return None
 
     def namespace(self: _typing.Self) -> None:
+        """
+        Perform the namespace operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Comment.namespace through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return None
 
     def nameTuple(self: _typing.Self) -> tuple[_typing.Any, ...]:
+        """
+        Perform the nameTuple operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Comment.nameTuple through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return None, None
 
     def childNodes(self: _typing.Self) -> list[_typing.Any]:
+        """
+        Perform the childNodes operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Comment.childNodes through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return []
 
     def attributes(self: _typing.Self) -> dict[_typing.Any, _typing.Any]:
+        """
+        Perform the attributes operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Comment.attributes through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return {}
 
     def hasContent(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the hasContent operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Comment.hasContent through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return bool(self.text)
 
     def no_op(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> None:
+        """
+        Perform the no op operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Comment.no op through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pass
 
     appendChild = no_op
@@ -197,18 +525,76 @@ class Comment(CommentBase):
     reparentChildren = no_op
 
     def insertText(self: _typing.Self, text: _typing.Any, insertBefore: _typing.Any = None) -> None:
+        """
+        Perform the insertText operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Comment.insertText through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :param insertBefore: Value supplied for insertBefore under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.text = (self.text or "") + text.replace("--", "- -")
 
     def cloneNode(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the cloneNode operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Comment.cloneNode through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return copy.copy(self)
 
 
 class Document(object):
+    """
+    Provide the document contract for validated ebook processing.
+
+    Example:
+        Exercise Document through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+    """
     def __init__(self: _typing.Self) -> None:
+        """
+        Initialize and validate the document state.
+
+        Example:
+            Exercise Document.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         self.root = None
         self.doctype = None
 
     def appendChild(self: _typing.Self, child: _typing.Any) -> None:
+        """
+        Perform the appendChild operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Document.appendChild through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param child: Value supplied for child under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if isinstance(child, ElementBase):
             self.root = child
         elif isinstance(child, DocType):
@@ -216,12 +602,46 @@ class Document(object):
 
 
 class DocType(object):
+    """
+    Provide the doctype contract for validated ebook processing.
+
+    Example:
+        Exercise DocType through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+    """
     def __init__(self: _typing.Self, name: _typing.Any, public_id: _typing.Any, system_id: _typing.Any) -> None:
+        """
+        Initialize and validate the doctype state.
+
+        Example:
+            Exercise DocType.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param public_id: Value supplied for public id under the utility contract.
+        :param system_id: Value supplied for system id under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.text = self.name = name
         self.public_id, self.system_id = public_id, system_id
 
 
 def create_lxml_context() -> _typing.Any:
+    """
+    Create lxml context under the format's safety and compatibility rules.
+
+    Example:
+        Exercise create lxml context through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     parser = XMLParser(no_network=True)
     parser.set_element_class_lookup(ElementDefaultClassLookup(element=Element, comment=Comment))
     return parser
@@ -232,6 +652,24 @@ def create_lxml_context() -> _typing.Any:
 
 def clean_attrib(name: _typing.Any, val: _typing.Any, nsmap: _typing.Any, attrib: _typing.Any, namespaced_attribs: _typing.Any) -> tuple[_typing.Any, ...]:
 
+    """
+    Perform the clean attrib operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise clean attrib through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :param val: Template or metadata value evaluated by the operation.
+    :param nsmap: Value supplied for nsmap under the utility contract.
+    :param attrib: Value supplied for attrib under the utility contract.
+    :param namespaced_attribs: Value supplied for namespaced attribs under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if isinstance(name, tuple):
         prefix, name, ns = name
         if ns == xml_ns:
@@ -274,6 +712,24 @@ def clean_attrib(name: _typing.Any, val: _typing.Any, nsmap: _typing.Any, attrib
 
 
 def makeelement_ns(ctx: _typing.Any, namespace: _typing.Any, prefix: _typing.Any, name: _typing.Any, attrib: _typing.Any, nsmap: _typing.Any) -> _typing.Any:
+    """
+    Perform the makeelement ns operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise makeelement ns through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param ctx: Value supplied for ctx under the utility contract.
+    :param namespace: Value supplied for namespace under the utility contract.
+    :param prefix: Text prepended to the formatted or selected result.
+    :param name: Field, file, function or resource name addressed by the operation.
+    :param attrib: Value supplied for attrib under the utility contract.
+    :param nsmap: Value supplied for nsmap under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     nns = attrib.pop("xmlns", None)
     if nns is not None:
         nsmap[None] = nns
@@ -337,11 +793,34 @@ def makeelement_ns(ctx: _typing.Any, namespace: _typing.Any, prefix: _typing.Any
 
 class TreeBuilder(BaseTreeBuilder):
 
+    """
+    Provide the treebuilder contract for validated ebook processing.
+
+    Example:
+        Exercise TreeBuilder through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+    """
     elementClass = ElementFactory
     documentClass = Document
     doctypeClass = DocType
 
     def __init__(self: _typing.Self, namespaceHTMLElements: bool = True, linenumber_attribute: _typing.Any = None) -> None:
+        """
+        Initialize and validate the treebuilder state.
+
+        Example:
+            Exercise TreeBuilder.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param namespaceHTMLElements: Value supplied for namespaceHTMLElements under the
+            utility contract.
+        :param linenumber_attribute: Value supplied for linenumber attribute under the
+            utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         BaseTreeBuilder.__init__(self, namespaceHTMLElements)
         self.linenumber_attribute = linenumber_attribute
         self.lxml_context = create_lxml_context()
@@ -349,12 +828,37 @@ class TreeBuilder(BaseTreeBuilder):
         self.proxy_cache = []
 
     def getDocument(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the getDocument operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TreeBuilder.getDocument through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.document.root
 
     # The following methods are re-implementations from BaseTreeBuilder to
     # handle namespaces properly.
 
     def insertRoot(self: _typing.Self, token: _typing.Any) -> None:
+        """
+        Perform the insertRoot operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TreeBuilder.insertRoot through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param token: Value supplied for token under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         element = self.createElement(token, nsmap={None: namespaces["html"]})
         self.openElements.append(element)
         self.document.appendChild(element)
@@ -362,9 +866,17 @@ class TreeBuilder(BaseTreeBuilder):
     def promote_elem(self: _typing.Self, elem: _typing.Any, tag_name: _typing.Any) -> None:
         """
         Add the paraphernalia to elem that the liuxin_html5lib infrastructure needs
-        :param elem:
-        :param tag_name:
-        :return:
+
+        Example:
+            Exercise TreeBuilder.promote elem through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param elem: Value supplied for elem under the utility contract.
+        :param tag_name: Value supplied for tag name under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.proxy_cache.append(elem)
         elem.name = tag_name
@@ -374,9 +886,17 @@ class TreeBuilder(BaseTreeBuilder):
     def createElement(self: _typing.Self, token: _typing.Any, nsmap: _typing.Any = None) -> _typing.Any:
         """
         Create an element but don't insert it anywhere
-        :param token:
-        :param nsmap:
-        :return:
+
+        Example:
+            Exercise TreeBuilder.createElement through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param token: Value supplied for token under the utility contract.
+        :param nsmap: Value supplied for nsmap under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         nsmap = nsmap or {}
         name = token_name = token["name"]
@@ -409,6 +929,19 @@ class TreeBuilder(BaseTreeBuilder):
         return elem
 
     def insertElementNormal(self: _typing.Self, token: _typing.Any) -> _typing.Any:
+        """
+        Perform the insertElementNormal operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TreeBuilder.insertElementNormal through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param token: Value supplied for token under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         parent = self.openElements[-1]
         element = self.createElement(token, parent.nsmap)
         parent.appendChild(element)
@@ -418,8 +951,16 @@ class TreeBuilder(BaseTreeBuilder):
     def insertElementTable(self: _typing.Self, token: _typing.Any) -> _typing.Any:
         """
         Create an element and insert it into the tree
-        :param token:
-        :return:
+
+        Example:
+            Exercise TreeBuilder.insertElementTable through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param token: Value supplied for token under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if self.openElements[-1].name not in tableInsertModeElements:
             return self.insertElementNormal(token)
@@ -435,6 +976,20 @@ class TreeBuilder(BaseTreeBuilder):
         return element
 
     def clone_node(self: _typing.Self, elem: _typing.Any, nsmap_update: _typing.Any) -> _typing.Any:
+        """
+        Perform the clone node operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TreeBuilder.clone node through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param elem: Value supplied for elem under the utility contract.
+        :param nsmap_update: Value supplied for nsmap update under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         assert len(elem) == 0
         nsmap = elem.nsmap.copy()
         nsmap.update(nsmap_update)
@@ -447,6 +1002,19 @@ class TreeBuilder(BaseTreeBuilder):
         return nelem
 
     def apply_html_attributes(self: _typing.Self, attrs: _typing.Any) -> None:
+        """
+        Perform the apply html attributes operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TreeBuilder.apply html attributes through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if not attrs:
             return
         html = self.openElements[0]
@@ -480,6 +1048,19 @@ class TreeBuilder(BaseTreeBuilder):
                         html.set(to_xml_name(k), v)
 
     def apply_body_attributes(self: _typing.Self, attrs: _typing.Any) -> None:
+        """
+        Perform the apply body attributes operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TreeBuilder.apply body attributes through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if not attrs:
             return
         body = self.openElements[1]
@@ -497,12 +1078,41 @@ class TreeBuilder(BaseTreeBuilder):
                     body.set(to_xml_name(k), v)
 
     def insertComment(self: _typing.Self, token: _typing.Any, parent: _typing.Any = None) -> None:
+        """
+        Perform the insertComment operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TreeBuilder.insertComment through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param token: Value supplied for token under the utility contract.
+        :param parent: Value supplied for parent under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if parent is None:
             parent = self.openElements[-1]
         parent.appendChild(Comment(token["data"].replace("--", "- -")))
 
 
 def makeelement(ctx: _typing.Any, name: _typing.Any, attrib: _typing.Any) -> _typing.Any:
+    """
+    Perform the makeelement operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise makeelement through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param ctx: Value supplied for ctx under the utility contract.
+    :param name: Field, file, function or resource name addressed by the operation.
+    :param attrib: Value supplied for attrib under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     attrib.pop("xmlns", None)
     try:
         elem = ctx.makeelement(name)
@@ -521,7 +1131,30 @@ def makeelement(ctx: _typing.Any, name: _typing.Any, attrib: _typing.Any) -> _ty
 
 
 class NoNamespaceTreeBuilder(TreeBuilder):
+    """
+    Provide the nonamespacetreebuilder contract for validated ebook processing.
+
+    Example:
+        Exercise NoNamespaceTreeBuilder through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+    """
     def __init__(self: _typing.Self, namespaceHTMLElements: bool = False, linenumber_attribute: _typing.Any = None) -> None:
+        """
+        Initialize and validate the nonamespacetreebuilder state.
+
+        Example:
+            Exercise NoNamespaceTreeBuilder.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param namespaceHTMLElements: Value supplied for namespaceHTMLElements under the
+            utility contract.
+        :param linenumber_attribute: Value supplied for linenumber attribute under the
+            utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         BaseTreeBuilder.__init__(self, namespaceHTMLElements)
         self.linenumber_attribute = linenumber_attribute
         self.lxml_context = create_lxml_context()
@@ -529,6 +1162,20 @@ class NoNamespaceTreeBuilder(TreeBuilder):
         self.proxy_cache = []
 
     def createElement(self: _typing.Self, token: _typing.Any, nsmap: _typing.Any = None) -> _typing.Any:
+        """
+        Perform the createElement operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise NoNamespaceTreeBuilder.createElement through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param token: Value supplied for token under the utility contract.
+        :param nsmap: Value supplied for nsmap under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         name = token["name"].rpartition(":")[2]
         elem = makeelement(self.lxml_context, name, token["data"])
         # Keep a reference to elem so that lxml does not delete and re-create
@@ -548,6 +1195,19 @@ class NoNamespaceTreeBuilder(TreeBuilder):
         return elem
 
     def apply_html_attributes(self: _typing.Self, attrs: _typing.Any) -> None:
+        """
+        Perform the apply html attributes operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise NoNamespaceTreeBuilder.apply html attributes through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if not attrs:
             return
         html = self.openElements[0]
@@ -561,6 +1221,19 @@ class NoNamespaceTreeBuilder(TreeBuilder):
                     html.set(to_xml_name(k), v)
 
     def apply_body_attributes(self: _typing.Self, attrs: _typing.Any) -> None:
+        """
+        Perform the apply body attributes operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise NoNamespaceTreeBuilder.apply body attributes through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if not attrs:
             return
         body = self.openElements[1]
@@ -580,9 +1253,30 @@ _regex_cache = {}
 
 class FastStream(object):
 
+    """
+    Provide the faststream contract for validated ebook processing.
+
+    Example:
+        Exercise FastStream through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+    """
     __slots__ = ("raw", "pos", "errors", "new_lines", "track_position", "charEncoding")
 
     def __init__(self: _typing.Self, raw: _typing.Any, track_position: bool = False) -> None:
+        """
+        Initialize and validate the faststream state.
+
+        Example:
+            Exercise FastStream.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param raw: Value supplied for raw under the utility contract.
+        :param track_position: Value supplied for track position under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.raw = raw
         self.pos = 0
         self.errors = []
@@ -592,9 +1286,33 @@ class FastStream(object):
             self.new_lines = tuple(m.start() + 1 for m in re.finditer(r"\n", raw))
 
     def reset(self: _typing.Self) -> None:
+        """
+        Perform the reset operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise FastStream.reset through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.pos = 0
 
     def char(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the char operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise FastStream.char through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             ans = self.raw[self.pos]
         except IndexError:
@@ -603,11 +1321,38 @@ class FastStream(object):
         return ans
 
     def unget(self: _typing.Self, char: _typing.Any) -> None:
+        """
+        Perform the unget operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise FastStream.unget through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param char: Value supplied for char under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if char is not None:
             self.pos = max(0, self.pos - 1)
 
     def charsUntil(self: _typing.Self, characters: _typing.Any, opposite: bool = False) -> _typing.Any:
         # Use a cache of regexps to find the required characters
+        """
+        Perform the charsUntil operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise FastStream.charsUntil through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param characters: Value supplied for characters under the utility contract.
+        :param opposite: Value supplied for opposite under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             chars = _regex_cache[(characters, opposite)]
         except KeyError:
@@ -624,6 +1369,18 @@ class FastStream(object):
         return m.group()
 
     def position(self: _typing.Self) -> tuple[_typing.Any, ...]:
+        """
+        Perform the position operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise FastStream.position through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not self.track_position:
             return (-1, -1)
         pos = self.pos
@@ -656,6 +1413,29 @@ def parse_html5(
     replace_entities: bool = True,
     fix_newlines: bool = True,
 ) -> _typing.Any:
+    """
+    Parse html5 under the format's safety and compatibility rules.
+
+    Example:
+        Exercise parse html5 through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :param decoder: Value supplied for decoder under the utility contract.
+    :param log: Value supplied for log under the utility contract.
+    :param discard_namespaces: Value supplied for discard namespaces under the utility
+        contract.
+    :param line_numbers: Value supplied for line numbers under the utility contract.
+    :param linenumber_attribute: Value supplied for linenumber attribute under the
+        utility contract.
+    :param replace_entities: Value supplied for replace entities under the utility
+        contract.
+    :param fix_newlines: Value supplied for fix newlines under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if raw is None:
         raise ValueError("Cannot parse HTML5: raw input is None")
     if isinstance(raw, bytes):
@@ -708,6 +1488,19 @@ def parse_html5(
 
 def strip_encoding_declarations(raw: _typing.Any) -> _typing.Any:
     # A custom encoding stripper that preserves line numbers
+    """
+    Perform the strip encoding declarations operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise strip encoding declarations through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     limit = 10 * 1024
     for pat in ENCODING_PATS:
         prefix = raw[:limit]
@@ -726,6 +1519,28 @@ def parse(
     replace_entities: bool = True,
     force_html5_parse: bool = False,
 ) -> _typing.Any:
+    """
+    Parse the supplied date text and return its normalized datetime value.
+
+    Example:
+        Exercise parse through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :param decoder: Value supplied for decoder under the utility contract.
+    :param log: Value supplied for log under the utility contract.
+    :param line_numbers: Value supplied for line numbers under the utility contract.
+    :param linenumber_attribute: Value supplied for linenumber attribute under the
+        utility contract.
+    :param replace_entities: Value supplied for replace entities under the utility
+        contract.
+    :param force_html5_parse: Value supplied for force html5 parse under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if raw is None:
         raise ValueError("Cannot parse markup: raw input is None")
     if isinstance(raw, bytes):

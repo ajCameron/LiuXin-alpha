@@ -1,3 +1,14 @@
+"""
+Verify DOCX core-property and cover extraction with safe fallbacks.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test docx metadata source through its owning regression module::
+
+        python -m pytest -q tests/metadata/file_sources/test_docx_metadata_source.py
+"""
 from __future__ import annotations
 
 import io
@@ -15,6 +26,18 @@ pytest.importorskip("lxml")
 
 
 def _field_values(raw):
+    """
+    Perform the field values test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise field values through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_docx_metadata_source.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     if raw is None:
         return []
     if isinstance(raw, Mapping):
@@ -25,6 +48,18 @@ def _field_values(raw):
 
 
 def _contains_forbidden_xml_char(text: str) -> bool:
+    """
+    Perform the contains forbidden xml char test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise contains forbidden xml char through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_docx_metadata_source.py
+
+
+    :param text: Value supplied for text in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     for ch in text:
         cp = ord(ch)
         if cp == 0x7F:
@@ -42,12 +77,36 @@ def _contains_forbidden_xml_char(text: str) -> bool:
 
 
 def test_docx_metadata_module_import_smoke() -> None:
+    """
+    Verify docx metadata module import smoke.
+
+    Example:
+        Exercise test docx metadata module import smoke through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_docx_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.docx as docx_md
 
     assert docx_md is not None
 
 
 def test_docx_metadata_reads_known_fixture(md_test_fixture) -> None:
+    """
+    Verify docx metadata reads known fixture.
+
+    Example:
+        Exercise test docx metadata reads known fixture through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_docx_metadata_source.py
+
+
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.docx import get_metadata
 
     fixture = md_test_fixture(file_ext="docx", file_num=1, verify_hash=True)
@@ -59,6 +118,19 @@ def test_docx_metadata_reads_known_fixture(md_test_fixture) -> None:
 
 
 def test_docx_metadata_reads_stream_and_rewinds(md_test_fixture) -> None:
+    """
+    Verify docx metadata reads stream and rewinds.
+
+    Example:
+        Exercise test docx metadata reads stream and rewinds through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_docx_metadata_source.py
+
+
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.docx import get_metadata
 
     fixture = md_test_fixture(file_ext="docx", file_num=1, verify_hash=True)
@@ -70,6 +142,19 @@ def test_docx_metadata_reads_stream_and_rewinds(md_test_fixture) -> None:
 
 
 def test_docx_reader_plugin_is_available(md_test_fixture) -> None:
+    """
+    Verify docx reader plugin remains available.
+
+    Example:
+        Exercise test docx reader plugin is available through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_docx_metadata_source.py
+
+
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.customize.builtins.metadata_readers import get_metadata_reader_plugins
 
     fixture = md_test_fixture(file_ext="docx", file_num=1, verify_hash=True)
@@ -88,6 +173,20 @@ def test_docx_reader_plugin_is_available(md_test_fixture) -> None:
 
 
 def test_docx_set_metadata_roundtrip_path(tmp_path: Path, md_test_fixture) -> None:
+    """
+    Verify docx set metadata roundtrip path.
+
+    Example:
+        Exercise test docx set metadata roundtrip path through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_docx_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.docx import get_metadata, set_metadata
 
     source = md_test_fixture(file_ext="docx", file_num=1, verify_hash=True)
@@ -110,6 +209,20 @@ def test_docx_set_metadata_roundtrip_path(tmp_path: Path, md_test_fixture) -> No
 
 
 def test_docx_set_metadata_roundtrip_stream(tmp_path: Path, md_test_fixture) -> None:
+    """
+    Verify docx set metadata roundtrip stream.
+
+    Example:
+        Exercise test docx set metadata roundtrip stream through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_docx_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.docx import get_metadata, set_metadata
 
     source = md_test_fixture(file_ext="docx", file_num=1, verify_hash=True)
@@ -130,6 +243,20 @@ def test_docx_set_metadata_roundtrip_stream(tmp_path: Path, md_test_fixture) -> 
 
 
 def test_docx_set_metadata_unicode_torture_roundtrip(tmp_path: Path, md_test_fixture) -> None:
+    """
+    Verify docx set metadata unicode torture roundtrip.
+
+    Example:
+        Exercise test docx set metadata unicode torture roundtrip through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_docx_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.docx import get_metadata, set_metadata
 
     source = md_test_fixture(file_ext="docx", file_num=1, verify_hash=True)
@@ -158,6 +285,20 @@ def test_docx_set_metadata_preserves_zip_members_and_sanitizes_hostile_xml(
     tmp_path: Path,
     md_test_fixture,
 ) -> None:
+    """
+    Verify docx set metadata preserves zip members and sanitizes hostile xml.
+
+    Example:
+        Exercise test docx set metadata preserves zip members and sanitizes hostile xml through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_docx_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.docx import get_metadata, set_metadata
 
     source = md_test_fixture(file_ext="docx", file_num=1, verify_hash=True)
@@ -204,6 +345,17 @@ def test_docx_set_metadata_preserves_zip_members_and_sanitizes_hostile_xml(
 
 
 def test_docx_set_metadata_invalid_zip_raises_clean_error() -> None:
+    """
+    Verify docx set metadata invalid zip raises clean error.
+
+    Example:
+        Exercise test docx set metadata invalid zip raises clean error through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_docx_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.file_formats.docx import InvalidDOCX
     from LiuXin_alpha.utils.libraries.calibre_zipfile import BadZipfile
     from zipfile import BadZipFile

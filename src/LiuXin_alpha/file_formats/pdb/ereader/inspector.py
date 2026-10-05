@@ -1,6 +1,14 @@
 # -*- coding: utf-8 -*-
 """
-Inspect the header of ereader files. This is primarily used for debugging.
+Inspect eReader Palm database records and compression metadata.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise inspector through a consuming regression::
+
+        python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
 """
 
 from __future__ import print_function
@@ -22,8 +30,16 @@ __docformat__ = "restructuredtext en"
 def ereader_header_info(header: _typing.Any) -> None:
     """
     Prints some basic info about the provided header of the ebook.
-    :param header: Header block
-    :return None: All info is printed
+
+    Example:
+        Exercise ereader header info through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+    :param header: Value supplied for header under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     h0 = header.section_data(0)
 
@@ -42,6 +58,19 @@ def ereader_header_info(header: _typing.Any) -> None:
 
 
 def pdb_header_info(header: _typing.Any) -> None:
+    """
+    Perform the pdb header info operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise pdb header info through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+    :param header: Value supplied for header under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     print("PDB Header Info:")
     print("")
     print("Identity:        %s" % header.ident)
@@ -51,6 +80,19 @@ def pdb_header_info(header: _typing.Any) -> None:
 
 
 def ereader_header_info132(h0: _typing.Any) -> None:
+    """
+    Perform the ereader header info132 operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise ereader header info132 through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+    :param h0: Value supplied for h0 under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     print("Ereader Record 0 (Header) Info:")
     print("")
     print("0-2 Version:             %i" % struct.unpack(">H", h0[0:2])[0])
@@ -88,6 +130,19 @@ def ereader_header_info132(h0: _typing.Any) -> None:
 
 
 def ereader_header_info202(h0: _typing.Any) -> None:
+    """
+    Perform the ereader header info202 operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise ereader header info202 through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+    :param h0: Value supplied for h0 under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     print("Ereader Record 0 (Header) Info:")
     print("")
     print("0-2 Version:             %i" % struct.unpack(">H", h0[0:2])[0])
@@ -121,6 +176,19 @@ def ereader_header_info202(h0: _typing.Any) -> None:
 
 
 def section_lengths(header: _typing.Any) -> None:
+    """
+    Perform the section lengths operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise section lengths through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+    :param header: Value supplied for header under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     print("Section Sizes")
     print("")
 
@@ -135,6 +203,19 @@ def section_lengths(header: _typing.Any) -> None:
 
 
 def main(args: _typing.Any = sys.argv) -> int:
+    """
+    Perform the main operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise main through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+    :param args: Positional values forwarded to the compatibility implementation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if len(args) < 2:
         print("Error: requires input file.")
         return 1

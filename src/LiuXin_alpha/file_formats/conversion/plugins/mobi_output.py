@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Convert MOBI content from the normalized ebook conversion pipeline.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise mobi output through a consuming regression::
+
+        python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+"""
 from __future__ import with_statement
 from __future__ import annotations
 
@@ -21,9 +32,17 @@ __docformat__ = "restructuredtext en"
 def remove_html_cover(oeb: _typing.Any, log: _typing.Any) -> None:
     """
     Remove the HTML cover form an oeb object
-    :param oeb:
-    :param log:
-    :return:
+
+    Example:
+        Exercise remove html cover through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+    :param oeb: Value supplied for oeb under the utility contract.
+    :param log: Value supplied for log under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     from LiuXin_alpha.file_formats.oeb.base import OEB_DOCS
 
@@ -47,6 +66,20 @@ def remove_html_cover(oeb: _typing.Any, log: _typing.Any) -> None:
 
 
 def extract_mobi(output_path: _typing.Any, opts: _typing.Any) -> None:
+    """
+    Extract mobi under the format's safety and compatibility rules.
+
+    Example:
+        Exercise extract mobi through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+    :param output_path: Value supplied for output path under the utility contract.
+    :param opts: Value supplied for opts under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if opts.extract_to is not None:
         from LiuXin_alpha.file_formats.mobi.debug.main import inspect_mobi
 
@@ -56,6 +89,14 @@ def extract_mobi(output_path: _typing.Any, opts: _typing.Any) -> None:
 
 class MOBIOutput(OutputFormatPlugin):
 
+    """
+    Provide the mobioutput contract for validated ebook processing.
+
+    Example:
+        Exercise MOBIOutput through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+    """
     name = "MOBI Output"
     author = "Kovid Goyal"
     file_type = "mobi"
@@ -161,6 +202,18 @@ class MOBIOutput(OutputFormatPlugin):
     }
 
     def check_for_periodical(self: _typing.Self) -> None:
+        """
+        Perform the check for periodical operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MOBIOutput.check for periodical through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.is_periodical:
             self.periodicalize_toc()
             self.check_for_masthead()
@@ -169,6 +222,18 @@ class MOBIOutput(OutputFormatPlugin):
             self.opts.mobi_periodical = False
 
     def check_for_masthead(self: _typing.Self) -> None:
+        """
+        Perform the check for masthead operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MOBIOutput.check for masthead through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         found = "masthead" in self.oeb.guide
         if not found:
             from LiuXin_alpha.file_formats import generate_masthead
@@ -182,6 +247,18 @@ class MOBIOutput(OutputFormatPlugin):
             self.oeb.log.debug("Using mastheadImage supplied in manifest...")
 
     def periodicalize_toc(self: _typing.Self) -> None:
+        """
+        Perform the periodicalize toc operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MOBIOutput.periodicalize toc through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         from LiuXin_alpha.file_formats.oeb.base import TOC
 
         toc = self.oeb.toc
@@ -246,12 +323,20 @@ class MOBIOutput(OutputFormatPlugin):
     def convert(self: _typing.Self, oeb_book: _typing.Any, output_path: _typing.Any, input_plugin: _typing.Any, opts: _typing.Any, log: _typing.Any) -> None:
         """
         Convert an OEBBook to mobi.
-        :param oeb_book: Has to be a LiuXin.file_formats.oeb.base.OEBBook object
-        :param output_path:
-        :param input_plugin:
-        :param opts: Options to control the conversion process
-        :param log:
-        :return:
+
+        Example:
+            Exercise MOBIOutput.convert through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param oeb_book: Value supplied for oeb book under the utility contract.
+        :param output_path: Value supplied for output path under the utility contract.
+        :param input_plugin: Value supplied for input plugin under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         from LiuXin_alpha.file_formats.mobi.writer2.resources import Resources
 
@@ -282,12 +367,42 @@ class MOBIOutput(OutputFormatPlugin):
         self.write_mobi(input_plugin, output_path, kf8, resources)
 
     def create_kf8(self: _typing.Self, resources: _typing.Any, for_joint: bool = False) -> _typing.Any:
+        """
+        Create kf8 under the format's safety and compatibility rules.
+
+        Example:
+            Exercise MOBIOutput.create kf8 through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param resources: Value supplied for resources under the utility contract.
+        :param for_joint: Value supplied for for joint under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.file_formats.mobi.writer8.main import create_kf8_book
 
         return create_kf8_book(self.oeb, self.opts, resources, for_joint=for_joint)
 
     def write_mobi(self: _typing.Self, input_plugin: _typing.Any, output_path: _typing.Any, kf8: _typing.Any, resources: _typing.Any) -> None:
 
+        """
+        Write mobi under the format's safety and compatibility rules.
+
+        Example:
+            Exercise MOBIOutput.write mobi through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param input_plugin: Value supplied for input plugin under the utility contract.
+        :param output_path: Value supplied for output path under the utility contract.
+        :param kf8: Value supplied for kf8 under the utility contract.
+        :param resources: Value supplied for resources under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         from LiuXin_alpha.customize.ui import plugin_for_input_format
 
         from LiuXin_alpha.file_formats.oeb.transforms.htmltoc import HTMLTOCAdder
@@ -335,6 +450,22 @@ class MOBIOutput(OutputFormatPlugin):
         extract_mobi(output_path, opts)
 
     def specialize_css_for_output(self: _typing.Self, log: _typing.Any, opts: _typing.Any, item: _typing.Any, stylizer: _typing.Any) -> None:
+        """
+        Perform the specialize css for output operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MOBIOutput.specialize css for output through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param log: Value supplied for log under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :param item: Value supplied for item under the utility contract.
+        :param stylizer: Value supplied for stylizer under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         from LiuXin_alpha.file_formats.mobi.writer8.cleanup import CSSCleanup
 
         CSSCleanup(log, opts)(item, stylizer)
@@ -342,6 +473,19 @@ class MOBIOutput(OutputFormatPlugin):
     def workaround_fire_bugs(self: _typing.Self, jacket: _typing.Any) -> None:
         # The idiotic Fire crashes when trying to render the table used to
         # layout the jacket
+        """
+        Perform the workaround fire bugs operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MOBIOutput.workaround fire bugs through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param jacket: Value supplied for jacket under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         from LiuXin_alpha.file_formats.oeb.base import XHTML
 
         for table in jacket.data.xpath('//*[local-name()="table"]'):
@@ -355,6 +499,14 @@ class MOBIOutput(OutputFormatPlugin):
 
 class AZW3Output(OutputFormatPlugin):
 
+    """
+    Provide the azw3output contract for validated ebook processing.
+
+    Example:
+        Exercise AZW3Output through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+    """
     name = "AZW3 Output"
     author = "Kovid Goyal"
     file_type = "azw3"
@@ -415,6 +567,23 @@ class AZW3Output(OutputFormatPlugin):
     }
 
     def convert(self: _typing.Self, oeb: _typing.Any, output_path: _typing.Any, input_plugin: _typing.Any, opts: _typing.Any, log: _typing.Any) -> None:
+        """
+        Convert the supplied source into the stage's normalized output representation.
+
+        Example:
+            Exercise AZW3Output.convert through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param oeb: Value supplied for oeb under the utility contract.
+        :param output_path: Value supplied for output path under the utility contract.
+        :param input_plugin: Value supplied for input plugin under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         from LiuXin_alpha.file_formats.mobi.writer2.resources import Resources
         from LiuXin_alpha.file_formats.mobi.writer8.main import create_kf8_book
 
@@ -443,6 +612,22 @@ class AZW3Output(OutputFormatPlugin):
         extract_mobi(output_path, opts)
 
     def specialize_css_for_output(self: _typing.Self, log: _typing.Any, opts: _typing.Any, item: _typing.Any, stylizer: _typing.Any) -> None:
+        """
+        Perform the specialize css for output operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise AZW3Output.specialize css for output through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param log: Value supplied for log under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :param item: Value supplied for item under the utility contract.
+        :param stylizer: Value supplied for stylizer under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         from LiuXin_alpha.file_formats.mobi.writer8.cleanup import CSSCleanup
 
         CSSCleanup(log, opts)(item, stylizer)

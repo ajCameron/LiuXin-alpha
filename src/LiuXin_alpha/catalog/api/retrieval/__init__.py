@@ -1,8 +1,5 @@
-"""Coherent, display-neutral Catalog read models.
-
-Retrieval differs from repositories: a repository reads one entity family,
-whereas retrieval deliberately combines several repositories into a WEMI slice
-or semantic projection.
+"""
+Export contracts for grouped, display-neutral Catalog retrieval.
 """
 
 from __future__ import annotations
@@ -17,12 +14,15 @@ from .projections import ProjectionAPI
 
 @runtime_checkable
 class CatalogRetrievalAPI(Protocol):
-    """Grouped retrieval API exposed by the Catalog facade.
+    """
+    Describe the four retrieval services exposed by a Catalog.
 
-    Example::
+    This runtime-checkable protocol specifies service attributes; it neither
+    constructs services nor verifies their signatures at runtime.
 
-        bundle = catalog.retrieval.bundles.for_item(item_id)
-        summary = catalog.retrieval.projections.item_summary(item_id)
+    Example:
+        Annotate a consumer with ``CatalogRetrievalAPI`` to access bundles, graph,
+        hierarchy and projections through their respective contracts.
     """
 
     bundles: BundleRetrieverAPI

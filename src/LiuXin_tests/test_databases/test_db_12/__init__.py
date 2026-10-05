@@ -1,5 +1,16 @@
 # Generates test_db_12 - as db 10 - but with an additional book in one of the leaves of the complex series
 
+"""
+Expose the supported test db 12 compatibility surface.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+"""
 import os
 
 from LiuXin_alpha.utils.libraries.liuxin_clint import puts, colored
@@ -14,13 +25,43 @@ __folder__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__
 class TestDB12Builder(TestDatabaseBuilder):
     """
     Build test_db_12 - which has all the complex series data and an additional book with multiple creators.
+
+    Example:
+        Exercise TestDB12Builder through a consuming regression::
+
+            python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
     """
 
     def load_base_database(self):
+        """
+        Perform the load base database operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TestDB12Builder.load base database through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return load_data(folder_path=None, overwrite_db=False, base_data=False, load_from=None)
 
     @staticmethod
     def purge_tables(scratch_db):
+        """
+        Perform the purge tables operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TestDB12Builder.purge tables through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         puts(colored.green("Purging asset rows - all will be removed"))
         scratch_db.driver_wrapper.clear("files")
         scratch_db.driver_wrapper.clear("folders")
@@ -28,6 +69,19 @@ class TestDB12Builder(TestDatabaseBuilder):
 
     @staticmethod
     def detail_databases(scratch_db):
+        """
+        Perform the detail databases operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TestDB12Builder.detail databases through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return add_complex_series_to_db(scratch_db)
 
 
@@ -41,10 +95,21 @@ def build_test_db(
 ):
     """
     test_db_12 - all the complex series data is present - but there's an additional book added as well.
-    :param dst_file_path: Place to copy the database file to after it's been built
-    :param dump: If True then the csv files compromising this database will be written into the folder where this
-                 script is running.
-    :return:
+
+    Example:
+        Exercise build test db through a consuming regression::
+
+            python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+    :param dst_file_path: Value supplied for dst file path under the utility contract.
+    :param dump: Value supplied for dump under the utility contract.
+    :param plugin_name: Value supplied for plugin name under the utility contract.
+    :param new_db_uuid: Value supplied for new db uuid under the utility contract.
+    :param test_asset_version: Value supplied for test asset version under the utility
+        contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     test_db_builder = TestDB12Builder(
         dst_file_path=dst_file_path,
@@ -60,6 +125,19 @@ def build_test_db(
 def add_complex_series_to_db(scratch_db):
     # Add in the complex series - a series in the Star Wars extended universe
     # Write a series tree into the database - it should be as horrible as possible
+    """
+    Perform the add complex series to db operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise add complex series to db through a consuming regression::
+
+            python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+    :param scratch_db: Value supplied for scratch db under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     series_tree_ids = set()
 
     # Make the root of the new tree - the Star Wars Universe

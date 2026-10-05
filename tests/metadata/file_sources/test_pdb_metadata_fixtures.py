@@ -1,3 +1,14 @@
+"""
+Verify PDB fixture integrity across supported subreader families.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test pdb metadata fixtures through its owning regression module::
+
+        python -m pytest -q tests/metadata/file_sources/test_pdb_metadata_fixtures.py
+"""
 from __future__ import annotations
 
 import io
@@ -15,18 +26,67 @@ from LiuXin_alpha.metadata.utils import calibreMetaInformation
 
 
 def _get_reader_plugin_cls():
+    """
+    Return reader plugin cls from deterministic test state.
+
+    Example:
+        Exercise get reader plugin cls through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdb_metadata_fixtures.py
+
+
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return next((plugin for plugin in get_metadata_reader_plugins() if plugin.__name__ == "PDBMetadataReader"), None)
 
 
 def _get_writer_plugin_cls():
+    """
+    Return writer plugin cls from deterministic test state.
+
+    Example:
+        Exercise get writer plugin cls through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdb_metadata_fixtures.py
+
+
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return next((plugin for plugin in get_metadata_set_plugins() if plugin.__name__ == "PDBMetadataWriter"), None)
 
 
 def _pdb_fixture(md_test_fixture, file_num: int) -> Path:
+    """
+    Perform the pdb fixture test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise pdb fixture through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdb_metadata_fixtures.py
+
+
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :param file_num: Value supplied for file num in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return md_test_fixture(file_ext="pdb", file_num=file_num, verify_hash=True)
 
 
 def test_pdb_reader_plugin_loads_and_reads_hashed_fixtures(md_test_fixtures_for_ext) -> None:
+    """
+    Verify pdb reader plugin loads and reads hashed fixtures.
+
+    Example:
+        Exercise test pdb reader plugin loads and reads hashed fixtures through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdb_metadata_fixtures.py
+
+
+    :param md_test_fixtures_for_ext: Value supplied for md test fixtures for ext in the
+        focused test operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     reader_cls = _get_reader_plugin_cls()
     assert reader_cls is not None
     reader = reader_cls(None)
@@ -42,6 +102,19 @@ def test_pdb_reader_plugin_loads_and_reads_hashed_fixtures(md_test_fixtures_for_
 
 
 def test_pdb_titles_match_legacy_expectations(md_test_fixture) -> None:
+    """
+    Verify pdb titles match legacy expectations.
+
+    Example:
+        Exercise test pdb titles match legacy expectations through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdb_metadata_fixtures.py
+
+
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     expected_titles = {
         1: "20_000 Leagues Under the Sea",
         2: "20_000_Leagues_Under_the_Sea",
@@ -55,6 +128,19 @@ def test_pdb_titles_match_legacy_expectations(md_test_fixture) -> None:
 
 
 def test_pdb_authors_default_to_unknown_for_legacy_fixtures(md_test_fixture) -> None:
+    """
+    Verify pdb authors default to unknown for legacy fixtures.
+
+    Example:
+        Exercise test pdb authors default to unknown for legacy fixtures through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdb_metadata_fixtures.py
+
+
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     for file_num in (1, 2, 3, 4):
         fixture = _pdb_fixture(md_test_fixture, file_num)
         md = get_metadata(fixture, extract_cover=False)
@@ -62,6 +148,19 @@ def test_pdb_authors_default_to_unknown_for_legacy_fixtures(md_test_fixture) -> 
 
 
 def test_pdb_tags_are_empty_for_legacy_fixtures(md_test_fixture) -> None:
+    """
+    Verify pdb tags remain empty for legacy fixtures.
+
+    Example:
+        Exercise test pdb tags are empty for legacy fixtures through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdb_metadata_fixtures.py
+
+
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     for file_num in (1, 2, 3, 4):
         fixture = _pdb_fixture(md_test_fixture, file_num)
         md = get_metadata(fixture, extract_cover=False)
@@ -69,6 +168,19 @@ def test_pdb_tags_are_empty_for_legacy_fixtures(md_test_fixture) -> None:
 
 
 def test_pdb_get_pheader_ident_matches_legacy_expectations(md_test_fixture) -> None:
+    """
+    Verify pdb get pheader ident matches legacy expectations.
+
+    Example:
+        Exercise test pdb get pheader ident matches legacy expectations through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdb_metadata_fixtures.py
+
+
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     expected_idents = {
         1: "zTXTGPlm",
         2: "TEXtREAd",
@@ -84,10 +196,35 @@ def test_pdb_get_pheader_ident_matches_legacy_expectations(md_test_fixture) -> N
 
 
 def test_pdb_writer_plugin_loads() -> None:
+    """
+    Verify pdb writer plugin loads.
+
+    Example:
+        Exercise test pdb writer plugin loads through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdb_metadata_fixtures.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     assert _get_writer_plugin_cls() is not None
 
 
 def test_pdb_set_metadata_updates_header_title_for_non_ereader_fixture(md_test_fixture, tmp_path: Path) -> None:
+    """
+    Verify pdb set metadata updates header title for non ereader fixture.
+
+    Example:
+        Exercise test pdb set metadata updates header title for non ereader fixture through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdb_metadata_fixtures.py
+
+
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     source = _pdb_fixture(md_test_fixture, 1)
     target = tmp_path / source.name
     shutil.copy2(source, target)
@@ -101,6 +238,20 @@ def test_pdb_set_metadata_updates_header_title_for_non_ereader_fixture(md_test_f
 
 
 def test_pdb_writer_plugin_updates_title_on_ereader_fixture(md_test_fixture, tmp_path: Path) -> None:
+    """
+    Verify pdb writer plugin updates title on ereader fixture.
+
+    Example:
+        Exercise test pdb writer plugin updates title on ereader fixture through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdb_metadata_fixtures.py
+
+
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     source = _pdb_fixture(md_test_fixture, 4)
     target = tmp_path / source.name
     shutil.copy2(source, target)
@@ -126,6 +277,20 @@ def test_pdb_writer_plugin_updates_title_on_ereader_fixture(md_test_fixture, tmp
 
 
 def test_pdb_writer_sanitizes_header_title_characters(md_test_fixture, tmp_path: Path) -> None:
+    """
+    Verify pdb writer sanitizes header title characters.
+
+    Example:
+        Exercise test pdb writer sanitizes header title characters through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdb_metadata_fixtures.py
+
+
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     source = _pdb_fixture(md_test_fixture, 4)
     target = tmp_path / source.name
     shutil.copy2(source, target)
@@ -142,6 +307,17 @@ def test_pdb_writer_sanitizes_header_title_characters(md_test_fixture, tmp_path:
 
 
 def test_pdb_get_metadata_handles_truncated_stream_sensibly() -> None:
+    """
+    Verify pdb get metadata handles truncated stream sensibly.
+
+    Example:
+        Exercise test pdb get metadata handles truncated stream sensibly through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdb_metadata_fixtures.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     with pytest.raises(PdbFormatError):
         get_metadata(io.BytesIO(b"\x00\x01\x02"), extract_cover=False)
 
@@ -151,6 +327,18 @@ def test_pdb_get_metadata_handles_truncated_stream_sensibly() -> None:
 
 
 def test_pdb_get_metadata_uses_filename_hint_for_corrupt_path(tmp_path: Path) -> None:
+    """
+    Verify pdb get metadata uses filename hint for corrupt path.
+
+    Example:
+        Exercise test pdb get metadata uses filename hint for corrupt path through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdb_metadata_fixtures.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     broken = tmp_path / "broken_fixture.pdb"
     broken.write_bytes(b"\x00\x01")
 
@@ -163,10 +351,32 @@ def test_pdb_get_metadata_uses_filename_hint_for_corrupt_path(tmp_path: Path) ->
 
 
 def test_pdb_get_pheader_ident_raises_clean_value_error_on_corrupt_input() -> None:
+    """
+    Verify pdb get pheader ident raises clean value error on corrupt input.
+
+    Example:
+        Exercise test pdb get pheader ident raises clean value error on corrupt input through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdb_metadata_fixtures.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     with pytest.raises(ValueError, match="Unable to parse PDB header identity"):
         get_pheader_ident(io.BytesIO(b""))
 
 
 def test_pdb_set_metadata_raises_clean_value_error_on_corrupt_input() -> None:
+    """
+    Verify pdb set metadata raises clean value error on corrupt input.
+
+    Example:
+        Exercise test pdb set metadata raises clean value error on corrupt input through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdb_metadata_fixtures.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     with pytest.raises(ValueError, match="invalid or corrupt PDB header"):
         set_metadata(io.BytesIO(b"\x00"), calibreMetaInformation("x", ["y"]))

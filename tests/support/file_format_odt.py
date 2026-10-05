@@ -1,3 +1,14 @@
+"""
+Build deterministic ODT fixtures and test doubles.
+
+The module keeps generated data, ordering and failure modes explicit so consumers
+can assert stable behavior.
+
+Example:
+    Exercise file format odt through a consuming regression::
+
+        python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+"""
 from __future__ import annotations
 
 import binascii
@@ -19,37 +30,158 @@ ODT_IMAGE_BYTES = b"odt-nested-image-\xce\xa9-\xe4\xb8\x96\xe7\x95\x8c"
 
 @dataclass(frozen=True)
 class ODTFixture:
+    """
+    Carry the deterministic ODTFixture inputs and expected values used by format tests.
+
+    Example:
+        Exercise ODTFixture through a consuming regression::
+
+            python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+    """
     path: Path
     text_fragments: tuple[str, ...]
     picture_members: tuple[str, ...]
 
 
 class NullLog:
+    """
+    Record or discard NullLog messages without requiring the production logging stack.
+
+    Example:
+        Exercise NullLog through a consuming regression::
+
+            python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+    """
     def __init__(self) -> None:
+        """
+        Initialize and validate the NullLog test-support state.
+
+        Example:
+            Exercise NullLog.  init   through a consuming regression::
+
+                python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+
+
+        :return: None; completion is expressed through state changes or assertions.
+        """
         self.messages: list[str] = []
 
     def __call__(self, message: str = "", *args) -> None:
+        """
+        Execute the configured fixture builder or test double operation.
+
+        Example:
+            Exercise NullLog.  call   through a consuming regression::
+
+                python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+
+
+        :param message: Diagnostic message recorded or discarded by the test logger.
+        :param args: Positional arguments forwarded to the bounded test double.
+        :return: None; fixture state or the supplied destination is updated in place.
+        """
         self.messages.append(message % args if args else message)
 
     def debug(self, message: str = "", *args) -> None:
+        """
+        Record or discard a debug message for assertions without external logging.
+
+        Example:
+            Exercise NullLog.debug through a consuming regression::
+
+                python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+
+
+        :param message: Diagnostic message recorded or discarded by the test logger.
+        :param args: Positional arguments forwarded to the bounded test double.
+        :return: None; fixture state or the supplied destination is updated in place.
+        """
         self(message, *args)
 
     def info(self, message: str = "", *args) -> None:
+        """
+        Record or discard a info message for assertions without external logging.
+
+        Example:
+            Exercise NullLog.info through a consuming regression::
+
+                python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+
+
+        :param message: Diagnostic message recorded or discarded by the test logger.
+        :param args: Positional arguments forwarded to the bounded test double.
+        :return: None; fixture state or the supplied destination is updated in place.
+        """
         self(message, *args)
 
     def warning(self, message: str = "", *args) -> None:
+        """
+        Record or discard a warning message for assertions without external logging.
+
+        Example:
+            Exercise NullLog.warning through a consuming regression::
+
+                python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+
+
+        :param message: Diagnostic message recorded or discarded by the test logger.
+        :param args: Positional arguments forwarded to the bounded test double.
+        :return: None; fixture state or the supplied destination is updated in place.
+        """
         self(message, *args)
 
     warn = warning
 
     def exception(self, message: str = "", *args) -> None:
+        """
+        Record or discard a exception message for assertions without external logging.
+
+        Example:
+            Exercise NullLog.exception through a consuming regression::
+
+                python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+
+
+        :param message: Diagnostic message recorded or discarded by the test logger.
+        :param args: Positional arguments forwarded to the bounded test double.
+        :return: None; fixture state or the supplied destination is updated in place.
+        """
         self(message, *args)
 
 
 def png_bytes(width: int = 16, height: int = 16, rgb: tuple[int, int, int] = (90, 120, 180)) -> bytes:
+    """
+    Return deterministic PNG bytes for the requested dimensions and colour.
+
+    Example:
+        Exercise png bytes through a consuming regression::
+
+            python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+
+
+    :param width: Image width in pixels.
+    :param height: Image height in pixels.
+    :param rgb: RGB colour embedded in the generated image.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     signature = b"\x89PNG\r\n\x1a\n"
 
     def chunk(tag: bytes, payload: bytes) -> bytes:
+        """
+        Return the encoded binary chunk required by the fixture container.
+
+        Example:
+            Exercise png bytes.chunk through a consuming regression::
+
+                python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+
+
+        :param tag: Value supplied for tag under the deterministic fixture contract.
+        :param payload: Binary or structured payload encoded into the fixture.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         return (
             struct.pack(">I", len(payload))
             + tag
@@ -69,6 +201,22 @@ def build_unicode_odt(
     lines: Sequence[str] | None = None,
     include_image: bool = False,
 ) -> ODTFixture:
+    """
+    Build unicode odt for deterministic fixture consumers.
+
+    Example:
+        Exercise build unicode odt through a consuming regression::
+
+            python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+
+
+    :param path: Filesystem path read, written or validated by the fixture operation.
+    :param lines: Value supplied for lines under the deterministic fixture contract.
+    :param include_image: Value supplied for include image under the deterministic
+        fixture contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     from LiuXin_alpha.file_formats.odf.dc import Creator, Description, Language, Subject, Title
     from LiuXin_alpha.file_formats.odf.meta import Keyword, UserDefined
     from LiuXin_alpha.file_formats.odf.opendocument import OpenDocumentText
@@ -102,6 +250,19 @@ def build_unicode_odt(
 
 
 def zip_members(path: Path) -> tuple[str, ...]:
+    """
+    Return the normalized members stored in the generated archive fixture.
+
+    Example:
+        Exercise zip members through a consuming regression::
+
+            python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+
+
+    :param path: Filesystem path read, written or validated by the fixture operation.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     with zipfile.ZipFile(path, "r") as zf:
         return tuple(info.filename for info in zf.infolist())
 
@@ -115,6 +276,24 @@ def rewrite_odt_zip(
     add: Mapping[str, bytes] | None = None,
     add_compression: int = zipfile.ZIP_STORED,
 ) -> None:
+    """
+    Perform the rewrite odt zip step with deterministic fixture inputs.
+
+    Example:
+        Exercise rewrite odt zip through a consuming regression::
+
+            python -m pytest -q tests/metadata/file_sources/test_odt_metadata_source.py
+
+
+    :param src: Source path or value copied into the fixture.
+    :param dst: Destination path or object receiving generated fixture data.
+    :param remove: Value supplied for remove under the deterministic fixture contract.
+    :param replace: Value supplied for replace under the deterministic fixture contract.
+    :param add: Value supplied for add under the deterministic fixture contract.
+    :param add_compression: Value supplied for add compression under the deterministic
+        fixture contract.
+    :return: None; fixture state or the supplied destination is updated in place.
+    """
     replacements = dict(replace or {})
     additions = dict(add or {})
     removed = set(remove)

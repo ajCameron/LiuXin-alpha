@@ -1,11 +1,13 @@
-"""A collection of modules for iterating through different kinds of
-tree, generating tokens identical to those produced by the tokenizer
-module.
+"""
+Expose the supported treewalkers compatibility surface.
 
-To create a tree walker for a new type of tree, you need to do
-implement a tree walker object (called TreeWalker by convention) that
-implements a 'serialize' method taking a tree as sole argument and
-returning an iterator generating tokens.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/file_formats/html/test_html_modernized.py
 """
 
 from __future__ import absolute_import, division, unicode_literals
@@ -29,22 +31,21 @@ treeWalkerCache = {}
 
 
 def getTreeWalker(treeType, implementation=None, **kwargs):
-    """Get a TreeWalker class for various types of tree with built-in support
+    """
+    Get a TreeWalker class for various types of tree with built-in support
 
-    treeType - the name of the tree type required (case-insensitive). Supported
-               values are:
+    Example:
+        Exercise getTreeWalker through a consuming regression::
 
-                "dom" - The xml.dom.minidom DOM implementation
-                "pulldom" - The xml.dom.pulldom event stream
-                "etree" - A generic walker for tree implementations exposing an
-                          elementtree-like interface (known to work with
-                          ElementTree, cElementTree and lxml.etree).
-                "lxml" - Optimized walker for lxml.etree
-                "genshi" - a Genshi stream
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
 
-    implementation - (Currently applies to the "etree" tree type only). A module
-                      implementing the tree type e.g. xml.etree.ElementTree or
-                      cElementTree."""
+
+    :param treeType: Value supplied for treeType under the utility contract.
+    :param implementation: Value supplied for implementation under the utility contract.
+    :param kwargs: Keyword values forwarded to the compatibility implementation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
 
     treeType = treeType.lower()
     if treeType not in treeWalkerCache:
@@ -72,6 +73,18 @@ def getTreeWalker(treeType, implementation=None, **kwargs):
 
 
 def concatenateCharacterTokens(tokens):
+    """
+    Perform the concatenateCharacterTokens utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise concatenateCharacterTokens through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+    :param tokens: Value supplied for tokens under the utility contract.
+    :return: An iterator yielding the normalized values described above.
+    """
     pendingCharacters = []
     for token in tokens:
         type = token["type"]
@@ -87,7 +100,19 @@ def concatenateCharacterTokens(tokens):
 
 
 def pprint(walker):
-    """Pretty printer for tree walkers"""
+    """
+    Pretty printer for tree walkers
+
+    Example:
+        Exercise pprint through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+    :param walker: Value supplied for walker under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     output = []
     indent = 0
     for token in concatenateCharacterTokens(walker):

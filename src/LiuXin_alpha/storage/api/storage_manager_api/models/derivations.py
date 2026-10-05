@@ -1,5 +1,10 @@
 """
-Asset-derivation provenance and reproducibility values.
+Represent provenance sources, pinned replay recipes, graph inventories, and recreation plans.
+
+These values validate selected local relationships without reading Asset bytes or
+executing recipes. Manager operations own reference/identity checks and traversal;
+availability predicates interpret supplied evidence. Private validators preserve
+original values while checking text, digest algorithms, numbering, paths, and JSON.
 """
 
 from __future__ import annotations
@@ -20,12 +25,19 @@ from LiuXin_alpha.storage.api.storage_manager_api.models.identifiers import (
 
 class DigitalAssetDerivationKind(StrEnum):
     """
-    Broad semantic operation that produced a new Asset.
+    Name the broad operation recorded as an Asset's provenance.
+
+    These labels classify an assertion about how bytes were produced. Choosing a kind neither
+    selects an executor nor establishes replayability or byte identity.
 
     Example:
         >>> DigitalAssetDerivationKind.EXTRACT.value
         'extract'
     """
+
+    # Todo: convert instead of transcode? Or as well?
+    # Todo: compress
+    # Todo: denoise
 
     EXTRACT = "extract"
     CONVERT = "convert"
@@ -40,11 +52,12 @@ class DigitalAssetDerivationKind(StrEnum):
 
 class Reproducibility(StrEnum):
     """
-    Strength of the claim made by a reproduction recipe.
+    State how closely a recipe claims it can reproduce its original output.
 
-    ``EXACT`` means the recipe is expected to recreate the same bytes and may
-    therefore justify recreate-on-loss storage policy. ``BEST_EFFORT`` can
-    rerun the process but does not promise byte-identical output.
+    EXACT claims identical bytes, BEST_EFFORT allows a rerun without that promise, and
+    NOT_REPRODUCIBLE records the absence of replay support. Recipe completeness and current
+    input/tool availability are separate requirements. The claim itself is not an execution or
+    verification result.
 
     Example:
         >>> Reproducibility.EXACT.value
@@ -58,11 +71,12 @@ class Reproducibility(StrEnum):
 
 class DigitalAssetDerivationGraphDirection(StrEnum):
     """
-    Direction in which a derivation graph is traversed from one Asset.
+    Select which provenance edges to follow from a root Asset.
 
-    ``ANCESTORS`` follows results back to their inputs. ``DESCENDANTS``
-    follows inputs forward to results. ``BOTH`` returns the connected
-    provenance neighbourhood in both directions.
+    ANCESTORS follows results to inputs; DESCENDANTS follows inputs to results. The composed manager
+    implements BOTH as an ancestor walk followed by a separate descendant walk from the same root.
+    It does not repeatedly switch direction at every discovered node to find the entire undirected
+    component.
 
     Example:
         >>> DigitalAssetDerivationGraphDirection.ANCESTORS.value
@@ -77,10 +91,12 @@ class DigitalAssetDerivationGraphDirection(StrEnum):
 @dataclasses.dataclass(slots=True, frozen=True)
 class DigitalAssetDerivationSourceReference:
     """
-    One ordered atomic or Composite source of a derivation.
+    Retain one positioned atomic or Composite provenance source.
 
-    Exactly one source identifier is set. ``role`` distinguishes inputs such
-    as the primary document, cover source, stylesheet, or dictionary.
+    Construction requires exactly one positive source ID, a nonnegative sequence number, and a
+    nonblank role when supplied. It does not resolve the source, enforce integer types, or normalize
+    retained text. A Composite reference identifies membership to expand later, rather than pinning
+    each member's bytes.
 
     Example:
         >>> source = DigitalAssetDerivationSourceReference(
@@ -89,6 +105,12 @@ class DigitalAssetDerivationSourceReference:
         ... )
         >>> source.digital_asset_id
         7
+
+
+    :ivar sequence_number: Zero-based provenance position; checked for negativity here and contiguity by the declaration.
+    :ivar digital_asset_id: Atomic source identity, mutually exclusive with composite_digital_asset_id.
+    :ivar composite_digital_asset_id: Composite source identity whose members the manager expands.
+    :ivar role: Optional nonblank source role retained with its original whitespace.
     """
 
     sequence_number: int
@@ -98,7 +120,11 @@ class DigitalAssetDerivationSourceReference:
 
     def __post_init__(self) -> None:
         """
-        Require one positive source identity and a valid ordered position.
+        Reject missing or simultaneous source IDs, nonpositive identities, negative positions, and
+        blank supplied roles.
+
+        Numeric comparisons do not enforce integer types. No Asset lookup, member expansion, or text
+        reassignment occurs.
 
         Example:
             >>> DigitalAssetDerivationSourceReference(0)
@@ -107,7 +133,7 @@ class DigitalAssetDerivationSourceReference:
             ValueError: exactly one derivation source identity is required.
 
 
-        :return:
+        :return: None when these identity/position/text checks pass; ValueError or malformed-input errors otherwise propagate.
         """
 
         identities = (self.digital_asset_id, self.composite_digital_asset_id)
@@ -123,11 +149,12 @@ class DigitalAssetDerivationSourceReference:
 @dataclasses.dataclass(slots=True, frozen=True)
 class ReproductionRecipeInputReference:
     """
-    One exact atomic input required to replay a transformation.
+    Pin an atomic recipe input by registered ID, expected size/digests, and workspace path.
 
-    Recipe inputs are atomic even when provenance names a Composite source:
-    replay requires the Composite's member byte identities and their logical
-    names, not merely the mutable Composite membership record.
+    Even Composite provenance uses atomic recipe inputs so member byte identities can be checked
+    independently. Construction validates local value structure; it does not query the manager, read
+    bytes, or ensure another input uses a different Asset or path. Retained containers are not
+    copied.
 
     Example:
         >>> input_ = ReproductionRecipeInputReference(
@@ -136,6 +163,14 @@ class ReproductionRecipeInputReference:
         ... )
         >>> input_.logical_path
         'book.epub'
+
+
+    :ivar sequence_number: Nonnegative input position; recipe-level validation checks contiguous numbering.
+    :ivar digital_asset_id: Positive atomic Asset identity, resolved only when a manager records the recipe.
+    :ivar size_bytes: Expected input byte count, rejected when it compares below zero.
+    :ivar digests: Nonempty expected digest collection with distinct algorithm attributes.
+    :ivar logical_path: Canonical relative POSIX path for the input in a replay workspace; checked lexically.
+    :ivar role: Optional nonblank input role, retained without stripping.
     """
 
     sequence_number: int
@@ -147,7 +182,11 @@ class ReproductionRecipeInputReference:
 
     def __post_init__(self) -> None:
         """
-        Require a pinned input identity, digest, and logical path.
+        Check position, ID, size, digest-algorithm uniqueness, lexical workspace path, and optional
+        role.
+
+        Numeric types and digest contents are not independently validated. Path checks do not
+        inspect an actual workspace or symlink targets, and no content hash is computed.
 
         Example:
             >>> ReproductionRecipeInputReference(
@@ -158,7 +197,7 @@ class ReproductionRecipeInputReference:
             ValueError: a recipe input requires at least one digest.
 
 
-        :return:
+        :return: None after the selected identity/path constraints pass; validation and malformed-input errors propagate.
         """
 
         if self.sequence_number < 0:
@@ -177,10 +216,12 @@ class ReproductionRecipeInputReference:
 @dataclasses.dataclass(slots=True, frozen=True)
 class ReproductionRecipeArtifactReference:
     """
-    One immutable executable, dependency bundle, or auxiliary artefact.
+    Describe an executor or dependency using a digest and optional retrieval hints.
 
-    A content digest pins what was used even when a package registry or tool
-    name later changes. ``uri`` is a retrieval hint, not the identity.
+    A managed Asset ID and an external URI may coexist or both be absent. Construction checks
+    name/version/URI text and a supplied ID, without validating the digest object, URI scheme, or
+    availability. A frozen reference records evidence and does not make the referenced bytes
+    immutable.
 
     Example:
         >>> artifact_reference = ReproductionRecipeArtifactReference(
@@ -189,6 +230,12 @@ class ReproductionRecipeArtifactReference:
         ... )
         >>> artifact_reference.version
         '7.20.0'
+
+    :ivar name: Nonblank artefact label retained without whitespace normalization.
+    :ivar digest: Expected content digest; this constructor does not compute or independently validate it.
+    :ivar version: Optional nonblank version label, separate from content identity.
+    :ivar uri: Optional nonblank external retrieval hint; URI syntax and reachability are not checked here.
+    :ivar digital_asset_id: Optional positive managed Asset identity; may be supplied together with uri.
     """
 
     name: str
@@ -199,7 +246,10 @@ class ReproductionRecipeArtifactReference:
 
     def __post_init__(self) -> None:
         """
-        Reject missing names and empty optional artefact metadata.
+        Require a nonblank name, nonblank supplied version/URI, and a positive supplied Asset ID.
+
+        The digest and actual retrieval routes remain unchecked. Original text and values are
+        retained.
 
         Example:
             >>> ReproductionRecipeArtifactReference("", Digest("sha256", "abcd"))
@@ -208,7 +258,7 @@ class ReproductionRecipeArtifactReference:
             ValueError: name must not be empty.
 
 
-        :return:
+        :return: None when text and optional-ID comparisons pass; invalid values or malformed inputs raise.
         """
 
         _require_text(self.name, "name")
@@ -220,7 +270,10 @@ class ReproductionRecipeArtifactReference:
     @property
     def has_retrieval_source(self) -> bool:
         """
-        Return whether the pinned artefact has a stated retrieval source.
+        Report whether either a managed Asset ID or external URI is stated.
+
+        This tests presence only. It does not consult a Store, resolver, registry, or the expected
+        digest.
 
         Example:
             >>> ReproductionRecipeArtifactReference(
@@ -229,7 +282,7 @@ class ReproductionRecipeArtifactReference:
             True
 
 
-        :return:
+        :return: True if digital_asset_id or uri is not None; False when both are absent.
         """
 
         return self.digital_asset_id is not None or self.uri is not None
@@ -238,12 +291,12 @@ class ReproductionRecipeArtifactReference:
 @dataclasses.dataclass(slots=True, frozen=True)
 class ReproductionRecipe:
     """
-    Self-contained recipe for recreating one derivation result.
+    Retain replay instructions, pinned inputs/artefacts, and an output-identity claim.
 
-    Canonical JSON strings keep structured parameters and environment data
-    portable without weakening their deterministic serialization contract.
-    An exact, complete recipe pins inputs and executor artefacts and declares
-    the expected output identity.
+    Construction checks document/path structure and stronger evidence requirements for a truthy
+    complete recipe. It neither executes commands nor proves determinism, input/tool availability,
+    or output identity. Canonical JSON follows Python json serialization defaults, and supplied
+    sequences remain shared despite the frozen dataclass.
 
     Example:
         >>> recipe = ReproductionRecipe(
@@ -267,6 +320,25 @@ class ReproductionRecipe:
         ... )
         >>> recipe.can_recreate_exactly
         True
+
+
+    :ivar recipe_type: Nonblank descriptive recipe label; no executor registry lookup occurs.
+    :ivar reproducibility: Replay claim; exact/non-reproducible validation branches use enum identity without coercion.
+    :ivar complete: Declared completeness; truthiness activates required input/executor/command/output checks.
+    :ivar inputs: Pinned atomic inputs with contiguous zero-based positions; supplied sequence order is retained.
+    :ivar executor: Optional pinned executable; a complete recipe requires a stated retrieval source.
+    :ivar dependencies: Pinned dependency artefacts with exactly unique names; complete recipes require retrieval hints.
+    :ivar parameters_json: JSON object text equal to sorted, compact json.dumps output with default escaping.
+    :ivar environment_json: Environment object text checked by the same canonical JSON rule.
+    # Todo: we might want subtyped commands, and a to and from json on that method
+    # Todo: Might also want a class to represent external commands? So we can check what's available.
+    :ivar command: Retained argument sequence; false entries reject, but whitespace-only arguments are allowed.
+    :ivar working_directory: Canonical relative POSIX workspace directory; the literal current directory is allowed.
+    :ivar output_path: Optional canonical relative POSIX output path, required when complete is truthy.
+    :ivar instructions: Optional nonblank explanatory text retained without normalization.
+    :ivar expected_output_size: Optional nonnegative output byte count, required for a complete EXACT enum claim.
+    :ivar expected_output_digests: Expected output digests with distinct algorithms; nonempty for complete EXACT recipes.
+    :ivar recipe_version: Schema/version value rejected when it compares below one, without integer coercion.
     """
 
     recipe_type: str
@@ -282,12 +354,24 @@ class ReproductionRecipe:
     output_path: str | None = None
     instructions: str | None = None
     expected_output_size: int | None = None
+    # Todo: We want normalization digests to check to see if things are "close enough" - e.g. the creation date of an epub does not matter
     expected_output_digests: tuple[Digest, ...] = ()
     recipe_version: int = 1
 
     def __post_init__(self) -> None:
         """
-        Validate replay completeness, ordered inputs, and canonical documents.
+        Validate recipe structure and the additional evidence required by completeness and
+        exactness.
+
+        Checks include contiguous input positions, canonical JSON objects, truthy command entries,
+        lexical paths, optional text/size, digest-algorithm uniqueness, and unique dependency names.
+        Position validation retains an unsorted supplied sequence, and does not require unique Asset
+        IDs or logical paths.
+
+        A complete recipe requires inputs, executor and dependency retrieval hints, a command, and
+        an output path; the NOT_REPRODUCIBLE enum singleton rejects. Complete EXACT enum recipes
+        also require output size and digests. No enum coercion, command execution, URI probing, or
+        comparison with registered Asset identities occurs.
 
         Example:
             >>> ReproductionRecipe(
@@ -298,7 +382,7 @@ class ReproductionRecipe:
             ValueError: a complete recipe requires pinned inputs.
 
 
-        :return:
+        :return: None when the selected structure/completeness checks pass; ValueError and malformed-input errors propagate.
         """
 
         _require_text(self.recipe_type, "recipe_type")
@@ -361,14 +445,17 @@ class ReproductionRecipe:
     @property
     def can_recreate_exactly(self) -> bool:
         """
-        Return whether this recipe claims complete byte-identical recreation.
+        Evaluate the declared completeness and exact-reproducibility flags.
+
+        The reproducibility check uses the EXACT enum singleton; an equal plain string is not
+        coerced. This property does not check current inputs, tools, or actual replay output.
 
         Example:
             >>> recipe.can_recreate_exactly  # doctest: +SKIP
             True
 
 
-        :return:
+        :return: The supplied complete value when false, otherwise whether reproducibility is the EXACT enum singleton.
         """
 
         return self.complete and self.reproducibility is Reproducibility.EXACT
@@ -377,10 +464,12 @@ class ReproductionRecipe:
 @dataclasses.dataclass(slots=True, frozen=True)
 class DigitalAssetDerivationDeclaration:
     """
-    Input for recording how one atomic Asset was produced.
+    Describe how an existing atomic result was produced from positioned provenance sources.
 
-    The result remains an ordinary Digital Asset. This value records its
-    provenance, ordered sources, and optional replay recipe.
+    Construction checks selected IDs, source numbering, direct atomic self-reference, optional text,
+    and timestamp awareness. It does not resolve sources, expand Composites, detect indirect cycles,
+    validate the kind, or compare recipe identities with registered bytes. The manager performs
+    those reference and identity checks when recording the assertion.
 
     Example:
         >>> declaration = DigitalAssetDerivationDeclaration(
@@ -393,6 +482,18 @@ class DigitalAssetDerivationDeclaration:
         ... )
         >>> declaration.kind is DigitalAssetDerivationKind.EXTRACT
         True
+
+
+    :ivar result_digital_asset_id: Positive identity of the atomic result, not a newly allocated identity.
+    :ivar sources: Nonempty source sequence with contiguous positions; original order and repeated source IDs remain.
+    :ivar kind: Semantic operation label, retained without enum validation or coercion.
+    :ivar recipe: Optional replay evidence; an exact claim must expose expected output digest algorithms.
+    :ivar output_role: Optional nonblank role of the result within a broader operation.
+    :ivar created_at: Optional timezone-aware provenance timestamp, retained without timezone conversion.
+    :ivar operator: Optional nonblank operator label; no account lookup is performed.
+    :ivar notes: Optional nonblank provenance explanation, retained verbatim.
+    :ivar workflow_id: Optional workflow identifier rejected when it compares at or below zero.
+    :ivar workflow_reference: Optional nonblank namespaced workflow label; syntax and existence are not checked.
     """
 
     result_digital_asset_id: DigitalAssetID
@@ -408,7 +509,12 @@ class DigitalAssetDerivationDeclaration:
 
     def __post_init__(self) -> None:
         """
-        Require valid result identity, source ordering, and timestamps.
+        Reject invalid result/source structure, direct atomic self-reference, blank optional text,
+        and naive timestamps.
+
+        Sources must have contiguous zero-based positions but are not sorted or deduplicated by
+        identity. Workflow IDs receive a positive comparison. An attached exact recipe must name an
+        expected output digest algorithm; no recursive graph or repository validation occurs.
 
         Example:
             >>> DigitalAssetDerivationDeclaration(
@@ -419,7 +525,7 @@ class DigitalAssetDerivationDeclaration:
             ValueError: an Asset derivation requires at least one source.
 
 
-        :return:
+        :return: None when declaration-level value constraints pass; validation and malformed-input errors propagate.
         """
 
         if self.result_digital_asset_id <= 0:
@@ -455,10 +561,11 @@ class DigitalAssetDerivationDeclaration:
 @dataclasses.dataclass(slots=True, frozen=True)
 class DigitalAssetDerivationRecord:
     """
-    Manager-maintained provenance facts for one Asset derivation.
+    Pair a manager-assigned derivation ID with its provenance declaration and revision.
 
-    The record is a public domain value, not the repository adapter's database
-    row or document representation.
+    Direct construction validates only the positive ID and nonblank supplied revision. It does not
+    revalidate the declaration or prove persistence, replayability, or current byte availability.
+    The declaration and nested values remain retained references.
 
     Example:
         >>> record = DigitalAssetDerivationRecord(  # doctest: +SKIP
@@ -466,6 +573,11 @@ class DigitalAssetDerivationRecord:
         ... )
         >>> record.digital_asset_derivation_id  # doctest: +SKIP
         11
+
+
+    :ivar digital_asset_derivation_id: Positive registered provenance identity, distinct from the result Asset ID.
+    :ivar declaration: Retained provenance and optional recipe, not revalidated by record construction.
+    :ivar revision: Optional nonblank optimistic-lock token, retained with its original whitespace.
     """
 
     digital_asset_derivation_id: DigitalAssetDerivationID
@@ -474,7 +586,8 @@ class DigitalAssetDerivationRecord:
 
     def __post_init__(self) -> None:
         """
-        Require positive identity and a non-empty optional revision.
+        Check a positive derivation ID and a nonblank optional revision without inspecting the
+        declaration.
 
         Example:
             >>> DigitalAssetDerivationRecord(  # doctest: +SKIP
@@ -485,7 +598,7 @@ class DigitalAssetDerivationRecord:
             ValueError: digital_asset_derivation_id must be positive.
 
 
-        :return:
+        :return: None when identity/revision checks pass; invalid comparisons or revision text raise.
         """
 
         if self.digital_asset_derivation_id <= 0:
@@ -495,14 +608,17 @@ class DigitalAssetDerivationRecord:
     @property
     def can_recreate_exactly(self) -> bool:
         """
-        Return whether the attached recipe supports exact recreation.
+        Delegate exactness to the attached recipe when one exists.
+
+        This reports declared replay evidence, without probing sources or executing the recipe. A
+        malformed declaration can fail during attribute access.
 
         Example:
             >>> record.can_recreate_exactly  # doctest: +SKIP
             True
 
 
-        :return:
+        :return: False when no recipe is attached; otherwise the recipe can_recreate_exactly value.
         """
 
         return (
@@ -511,15 +627,17 @@ class DigitalAssetDerivationRecord:
         )
 
 
+# Todo: Increased detail - this includes a derivation graph for a digital asset
+# Todo: Need more and better traversal methods
 @dataclasses.dataclass(slots=True, frozen=True)
 class DigitalAssetDerivationGraph:
     """
-    Immutable provenance neighbourhood rooted at one atomic Digital Asset.
+    Retain a rooted provenance inventory and its ordered derivation records.
 
-    Derivation records retain the actual edges, including ordered source
-    roles. ``digital_asset_ids`` and ``composite_digital_asset_ids`` provide
-    a convenient node inventory. ``truncated`` is true when ``max_depth``
-    prevented the manager from following at least one further edge.
+    The manager supplies traversal order and a depth-truncation flag. Direct construction checks
+    root inclusion and identity uniqueness, without validating direction, positive non-root IDs,
+    connectivity, edge coverage, or the truth of truncation. Frozen fields do not copy supplied
+    sequences.
 
     Example:
         >>> graph = DigitalAssetDerivationGraph(
@@ -529,6 +647,14 @@ class DigitalAssetDerivationGraph:
         ... )
         >>> graph.digital_asset_ids
         (8,)
+
+
+    :ivar root_digital_asset_id: Positive atomic starting identity, required in digital_asset_ids.
+    :ivar direction: Requested traversal direction, retained without constructor-level validation.
+    :ivar digital_asset_ids: Unique atomic node inventory in supplied traversal order.
+    :ivar composite_digital_asset_ids: Unique Composite provenance identities encountered in supplied records.
+    :ivar derivation_records: Ordered records with distinct derivation IDs; graph consistency is not rechecked.
+    :ivar truncated: Supplied indication that a traversal encountered adjacency at its depth limit.
     """
 
     root_digital_asset_id: DigitalAssetID
@@ -540,7 +666,10 @@ class DigitalAssetDerivationGraph:
 
     def __post_init__(self) -> None:
         """
-        Require a positive root and unique node and edge identities.
+        Require a positive included root and unique atomic, Composite, and derivation identities.
+
+        The check does not validate non-root identity positivity, direction, connectivity, or
+        consistency between node inventories and record endpoints.
 
         Example:
             >>> DigitalAssetDerivationGraph(
@@ -553,7 +682,7 @@ class DigitalAssetDerivationGraph:
             ValueError: root_digital_asset_id must be positive.
 
 
-        :return:
+        :return: None if root membership and identity uniqueness hold; invalid values or malformed collections raise.
         """
 
         if self.root_digital_asset_id <= 0:
@@ -574,15 +703,16 @@ class DigitalAssetDerivationGraph:
             raise ValueError("derivation_records must be unique.")
 
 
+# Todo: Tools to get the derivation graph from this, and the recreation plan from the graph
 @dataclasses.dataclass(slots=True, frozen=True)
 class DigitalAssetRecreationPlan:
     """
-    Selected exact replay chain for making one Digital Asset available.
+    Retain a proposed replay route and the availability evidence used to select it.
 
-    ``steps`` are in executable topological order: every managed input or
-    artefact recreation appears before the recipe that consumes it. The
-    manager prefers a viable route requiring fewer replay steps and exposes
-    other viable choices through ``alternative_derivation_ids``.
+    Manager-produced steps place prerequisites before consumers and prefer fewer replay steps.
+    Direct construction only checks selected identity relationships; it does not prove that steps
+    are exact, topologically ordered, sufficient, or still executable. Availability and warnings are
+    supplied evidence, and nothing is executed or reserved.
 
     Example:
         >>> plan = DigitalAssetRecreationPlan(
@@ -591,6 +721,15 @@ class DigitalAssetRecreationPlan:
         ... )
         >>> (plan.already_available, plan.can_recreate_exactly)
         (True, True)
+
+
+    :ivar digital_asset_id: Positive atomic identity requested by the plan.
+    :ivar steps: Proposed derivation records with unique IDs; constructor validation does not establish execution order.
+    :ivar available_digital_asset_ids: Unique supplied available-Asset evidence, disjoint from unavailable IDs.
+    :ivar unavailable_digital_asset_ids: Unique supplied missing-Asset evidence; identities are not resolved here.
+    :ivar selected_derivation_id: Optional selected step ID, required to identify a step producing the requested Asset.
+    :ivar alternative_derivation_ids: Unique alternative IDs excluding the selected ID; other step overlap is allowed.
+    :ivar warnings: Retained diagnostics, not validated or used by the availability predicates.
     """
 
     digital_asset_id: DigitalAssetID
@@ -603,7 +742,12 @@ class DigitalAssetRecreationPlan:
 
     def __post_init__(self) -> None:
         """
-        Require internally consistent replay identities.
+        Check root positivity, disjoint unique availability IDs, unique step/alternative IDs, and
+        the selected result.
+
+        A selected derivation must be present among the steps and produce the requested Asset. Other
+        IDs need not be positive; no graph ordering, recipe exactness, warning consistency, or
+        source availability is checked.
 
         Example:
             >>> DigitalAssetRecreationPlan(DigitalAssetID(0))
@@ -612,7 +756,7 @@ class DigitalAssetRecreationPlan:
             ValueError: digital_asset_id must be positive.
 
 
-        :return:
+        :return: None when these identity relationships hold; ValueError or malformed-record errors otherwise propagate.
         """
 
         if self.digital_asset_id <= 0:
@@ -656,7 +800,9 @@ class DigitalAssetRecreationPlan:
     @property
     def already_available(self) -> bool:
         """
-        Return whether the requested bytes can already be read.
+        Test whether supplied available-ID evidence contains the requested Asset.
+
+        This does not perform a current read, and it does not require an empty replay-step list.
 
         Example:
             >>> DigitalAssetRecreationPlan(
@@ -666,7 +812,7 @@ class DigitalAssetRecreationPlan:
             True
 
 
-        :return:
+        :return: True when digital_asset_id belongs to available_digital_asset_ids; False otherwise.
         """
 
         return self.digital_asset_id in self.available_digital_asset_ids
@@ -674,14 +820,15 @@ class DigitalAssetRecreationPlan:
     @property
     def requires_replay(self) -> bool:
         """
-        Return whether executing at least one recipe is required.
+        Report whether any steps are supplied, independently of availability and selected-route
+        evidence.
 
         Example:
             >>> DigitalAssetRecreationPlan(DigitalAssetID(8)).requires_replay
             False
 
 
-        :return:
+        :return: True for a nonempty steps collection; False otherwise.
         """
 
         return bool(self.steps)
@@ -689,7 +836,11 @@ class DigitalAssetRecreationPlan:
     @property
     def can_recreate_exactly(self) -> bool:
         """
-        Return whether the selected plan can provide the exact bytes.
+        Evaluate availability evidence or a selected route with no reported unavailable Assets.
+
+        Warnings and individual recipe exactness are not inspected. Directly constructed evidence
+        can therefore satisfy this predicate without establishing that replay will produce the
+        expected bytes.
 
         Example:
             >>> DigitalAssetRecreationPlan(
@@ -699,7 +850,7 @@ class DigitalAssetRecreationPlan:
             True
 
 
-        :return:
+        :return: True if already_available, or if a selected derivation exists and unavailable_digital_asset_ids is empty.
         """
 
         return self.already_available or (
@@ -708,9 +859,13 @@ class DigitalAssetRecreationPlan:
         )
 
 
+# Todo: This should not be here
 def _require_text(value: str, field_name: str) -> None:
     """
-    Reject an empty required text value.
+    Require text that remains nonempty after stripping for the check.
+
+    The original value is not stripped, returned, or reassigned. Non-string values can fail when
+    strip is accessed; NUL and other text contents are not rejected here.
 
     Example:
         >>> _require_text("", "name")
@@ -719,9 +874,9 @@ def _require_text(value: str, field_name: str) -> None:
         ValueError: name must not be empty.
 
 
-    :param value:
-    :param field_name:
-    :return:
+    :param value: Required text to check without normalization.
+    :param field_name: Label interpolated into the empty-text ValueError.
+    :return: None for nonblank text; ValueError for blank text or an underlying attribute error for malformed input.
     """
 
     if not value.strip():
@@ -730,15 +885,15 @@ def _require_text(value: str, field_name: str) -> None:
 
 def _require_optional_text(value: str | None, field_name: str) -> None:
     """
-    Reject an empty optional text value when supplied.
+    Accept None or delegate the nonblank-text check without changing supplied text.
 
     Example:
         >>> _require_optional_text(None, "role")
 
 
-    :param value:
-    :param field_name:
-    :return:
+    :param value: Optional text; None bypasses validation.
+    :param field_name: Field label passed to the required-text validator.
+    :return: None when omitted or nonblank; delegated validation errors propagate.
     """
 
     if value is not None:
@@ -747,14 +902,17 @@ def _require_optional_text(value: str | None, field_name: str) -> None:
 
 def _require_unique_digests(digests: tuple[Digest, ...]) -> None:
     """
-    Require no duplicate digest algorithms.
+    Reject repeated algorithm attributes without hashing bytes or validating digest values.
+
+    Empty collections are allowed. Entries are inspected as supplied; ordinary Digest construction
+    performs its own field normalization.
 
     Example:
         >>> _require_unique_digests((Digest("sha256", "abcd"),))
 
 
-    :param digests:
-    :return:
+    :param digests: Digest entries whose algorithm attributes must be unique and hashable.
+    :return: None for unique algorithms, including an empty collection; duplicates raise ValueError.
     """
 
     algorithms = [digest.algorithm for digest in digests]
@@ -764,15 +922,19 @@ def _require_unique_digests(digests: tuple[Digest, ...]) -> None:
 
 def _require_contiguous_positions(positions: tuple[int, ...], label: str) -> None:
     """
-    Require unique, contiguous zero-based sequence numbers.
+    Compare sorted positions with the zero-based range of the same length.
+
+    This accepts an empty or unsorted contiguous collection without reordering it. Numeric equality
+    can admit values such as integral floats; type coercion and non-position identity checks are
+    absent.
 
     Example:
         >>> _require_contiguous_positions((0, 1), "input")
 
 
-    :param positions:
-    :param label:
-    :return:
+    :param positions: Position values checked through sorting and equality without mutation.
+    :param label: Description prefixed to the sequence-number validation error.
+    :return: None for unique contiguous zero-based values; ValueError for a mismatch and comparison errors for malformed values.
     """
 
     if sorted(positions) != list(range(len(positions))):
@@ -786,16 +948,20 @@ def _require_relative_path(
     allow_current_directory: bool = False,
 ) -> None:
     """
-    Require a canonical portable path confined to a recipe workspace.
+    Require canonical relative POSIX spelling with no parent traversal, backslashes, or NUL.
+
+    PurePosixPath normalization must leave the spelling unchanged. The literal current directory is
+    accepted only when requested. This is a lexical rule: it does not resolve symlinks, inspect a
+    workspace, or reject every platform-specific filename such as a drive-like POSIX segment.
 
     Example:
         >>> _require_relative_path("disc-1/track.mp3", "logical_path")
 
 
-    :param value:
-    :param field_name:
-    :param allow_current_directory:
-    :return:
+    :param value: Nonblank path text to check without rewriting.
+    :param field_name: Label included in validation errors.
+    :param allow_current_directory: Whether the canonical literal current directory may stand for a workspace directory.
+    :return: None when the lexical path constraints pass; ValueError or malformed-input errors otherwise propagate.
     """
 
     _require_text(value, field_name)
@@ -812,15 +978,20 @@ def _require_relative_path(
 
 def _require_json_object(document: str, field_name: str) -> None:
     """
-    Require a canonical JSON object string with no insignificant whitespace.
+    Require object text matching sorted, compact Python JSON serialization.
+
+    Parsing must yield a dict and serializing it with sort_keys=True and compact separators must
+    reproduce the supplied document exactly. Default ASCII escaping and Python handling of nonfinite
+    numeric constants apply; this is not a separate strict-JSON schema or standards validator. No
+    parsed value is retained.
 
     Example:
         >>> _require_json_object('{"index":0}', "parameters_json")
 
 
-    :param document:
-    :param field_name:
-    :return:
+    :param document: JSON object text compared exactly with the canonical serialization.
+    :param field_name: Field label included in parse, object-kind, or canonical-spelling errors.
+    :return: None for matching canonical object text; TypeError/JSONDecodeError are wrapped as ValueError and other failures propagate.
     """
 
     import json

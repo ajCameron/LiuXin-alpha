@@ -1,3 +1,14 @@
+"""
+Verify projection views expose stable immutable metadata snapshots.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test metadata projection views through its owning regression module::
+
+        python -m pytest -q tests/metadata/containers/test_metadata_projection_views.py
+"""
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -37,23 +48,93 @@ from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.projec
 
 
 class _RowLike:
+    """
+    Provide the RowLike test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise RowLike through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_projection_views.py
+    """
     def __init__(self, row_dict: Mapping[str, object]) -> None:
+        """
+        Initialize the RowLike test double.
+
+        Example:
+            Exercise RowLike.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_metadata_projection_views.py
+
+
+        :param row_dict: Value supplied for row dict in the focused test operation.
+        :return: None; the function records state or raises through its assertions.
+        """
         self._row_dict = dict(row_dict)
 
     @property
     def row_dict(self) -> Mapping[str, object]:
+        """
+        Perform the row dict test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise RowLike.row dict through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_metadata_projection_views.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return self._row_dict
 
 
 class _MappingTarget:
+    """
+    Provide the MappingTarget test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise MappingTarget through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_projection_views.py
+    """
     def __init__(self, payload: Mapping[str, object]) -> None:
+        """
+        Initialize the MappingTarget test double.
+
+        Example:
+            Exercise MappingTarget.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_metadata_projection_views.py
+
+
+        :param payload: Value supplied for payload in the focused test operation.
+        :return: None; the function records state or raises through its assertions.
+        """
         self._payload = dict(payload)
 
     def to_mapping(self) -> Mapping[str, object]:
+        """
+        Perform the to mapping test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise MappingTarget.to mapping through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_metadata_projection_views.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return dict(self._payload)
 
 
 class _ProjectionMetadata:
+    """
+    Provide the ProjectionMetadata test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise ProjectionMetadata through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_projection_views.py
+    """
     def __init__(
         self,
         relations: Mapping[str, list[object]] | None = None,
@@ -61,25 +142,85 @@ class _ProjectionMetadata:
         known_relations: set[str] | None = None,
         primary_raises: bool = False,
     ) -> None:
+        """
+        Initialize the ProjectionMetadata test double.
+
+        Example:
+            Exercise ProjectionMetadata.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_metadata_projection_views.py
+
+
+        :param relations: Value supplied for relations in the focused test operation.
+        :param known_relations: Value supplied for known relations in the focused test
+            operation.
+        :param primary_raises: Value supplied for primary raises in the focused test
+            operation.
+        :return: None; the function records state or raises through its assertions.
+        """
         self._relations = {key: list(value) for key, value in (relations or {}).items()}
         self._known_relations = known_relations or set(self._relations)
         self._primary_raises = primary_raises
 
     def validate_relation_name(self, relation_key: str) -> str:
+        """
+        Perform the validate relation name test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise ProjectionMetadata.validate relation name through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_metadata_projection_views.py
+
+
+        :param relation_key: Value supplied for relation key in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         if relation_key in self._known_relations:
             return relation_key
         raise KeyError(relation_key)
 
     def get_related(self, relation_key: str) -> list[object]:
+        """
+        Return related from deterministic test state.
+
+        Example:
+            Exercise ProjectionMetadata.get related through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_metadata_projection_views.py
+
+
+        :param relation_key: Value supplied for relation key in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return list(self._relations.get(relation_key, ()))
 
     def primary_related(self, relation_key: str) -> object | None:
+        """
+        Perform the primary related test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise ProjectionMetadata.primary related through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_metadata_projection_views.py
+
+
+        :param relation_key: Value supplied for relation key in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         if self._primary_raises:
             raise KeyError(relation_key)
         return None
 
 
 class _TextValues:
+    """
+    Provide the TextValues test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise TextValues through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_projection_views.py
+    """
     tags = ("tag",)
     labels = ("label",)
     genres = ("genre",)
@@ -92,41 +233,140 @@ class _TextValues:
     agents = ("Agent",)
 
     def relation_values(self, relation_key: str) -> tuple[str, ...]:
+        """
+        Perform the relation values test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise TextValues.relation values through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_metadata_projection_views.py
+
+
+        :param relation_key: Value supplied for relation key in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return (relation_key, "value")
 
 
 class _BundleValues:
+    """
+    Provide the BundleValues test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise BundleValues through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_projection_views.py
+    """
     def __init__(
         self,
         relation_values: Mapping[str, tuple[str, ...]] | None = None,
         identifiers: Mapping[str, tuple[str, ...]] | None = None,
     ) -> None:
+        """
+        Initialize the BundleValues test double.
+
+        Example:
+            Exercise BundleValues.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_metadata_projection_views.py
+
+
+        :param relation_values: Value supplied for relation values in the focused test
+            operation.
+        :param identifiers: Value supplied for identifiers in the focused test operation.
+        :return: None; the function records state or raises through its assertions.
+        """
         self._relation_values = dict(relation_values or {})
         self.identifiers = dict(identifiers or {})
 
     def relation_values(self, relation_key: str) -> tuple[str, ...]:
+        """
+        Perform the relation values test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise BundleValues.relation values through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_metadata_projection_views.py
+
+
+        :param relation_key: Value supplied for relation key in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return self._relation_values.get(relation_key, ())
 
 
 class _Bundle:
+    """
+    Provide the Bundle test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise Bundle through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_projection_views.py
+    """
     def __init__(
         self,
         relation_values: Mapping[str, tuple[str, ...]] | None = None,
         identifiers: Mapping[str, tuple[str, ...]] | None = None,
     ) -> None:
+        """
+        Initialize the Bundle test double.
+
+        Example:
+            Exercise Bundle.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_metadata_projection_views.py
+
+
+        :param relation_values: Value supplied for relation values in the focused test
+            operation.
+        :param identifiers: Value supplied for identifiers in the focused test operation.
+        :return: None; the function records state or raises through its assertions.
+        """
         self._known_relations = set(relation_values or ())
         if identifiers is not None:
             self._known_relations.add("identifiers")
         self.values = _BundleValues(relation_values, identifiers)
 
     def validate_relation_name(self, relation_key: str) -> str:
+        """
+        Perform the validate relation name test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Bundle.validate relation name through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_metadata_projection_views.py
+
+
+        :param relation_key: Value supplied for relation key in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         if relation_key in self._known_relations:
             return relation_key
         raise KeyError(relation_key)
 
 
 class _WemiProjectionMetadata:
+    """
+    Provide the WemiProjectionMetadata test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise WemiProjectionMetadata through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_projection_views.py
+    """
     def __init__(self) -> None:
+        """
+        Initialize the WemiProjectionMetadata test double.
+
+        Example:
+            Exercise WemiProjectionMetadata.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_metadata_projection_views.py
+
+
+        :return: None; the function records state or raises through its assertions.
+        """
         self._data = {
             "labels": ["legacy-label"],
             "genre": "legacy-genre",
@@ -151,33 +391,134 @@ class _WemiProjectionMetadata:
         }
 
     def get_identifiers(self) -> Mapping[str, tuple[str, ...]]:
+        """
+        Return identifiers from deterministic test state.
+
+        Example:
+            Exercise WemiProjectionMetadata.get identifiers through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_metadata_projection_views.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return {"isbn": ("9780306406157",)}
 
     def get_wemi_metadata(self, level: str) -> object | None:
+        """
+        Return wemi metadata from deterministic test state.
+
+        Example:
+            Exercise WemiProjectionMetadata.get wemi metadata through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_metadata_projection_views.py
+
+
+        :param level: Value supplied for level in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return self._bundles.get(level)
 
 
 class _GetOnlyMetadata:
+    """
+    Provide the GetOnlyMetadata test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise GetOnlyMetadata through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_projection_views.py
+    """
     def get(self, field: str, default: object | None = None) -> object | None:
+        """
+        Perform the get test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise GetOnlyMetadata.get through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_metadata_projection_views.py
+
+
+        :param field: Value supplied for field in the focused test operation.
+        :param default: Value supplied for default in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return {"tags": ["get-tag"]}.get(field, default)
 
 
 class _BadMappingTarget:
+    """
+    Provide the BadMappingTarget test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise BadMappingTarget through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_projection_views.py
+    """
     def to_mapping(self) -> object:
+        """
+        Perform the to mapping test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise BadMappingTarget.to mapping through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_metadata_projection_views.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return "not-a-mapping"
 
 
 class _StringOnlyTarget:
+    """
+    Provide the StringOnlyTarget test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise StringOnlyTarget through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_projection_views.py
+    """
     def __str__(self) -> str:
+        """
+        Perform the str test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise StringOnlyTarget.str through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_metadata_projection_views.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return "string-only"
 
 
 class _NonMappingData:
+    """
+    Provide the NonMappingData test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise NonMappingData through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_projection_views.py
+    """
     _data = []
     _lazy_relation_loaders = []
 
 
 def test_work_metadata_projection_values_and_text() -> None:
+    """
+    Verify work metadata projection values and text.
+
+    Example:
+        Exercise test work metadata projection values and text through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_projection_views.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     metadata = WorkMetadata(
         work=WorkIdentity(
             work_id=5,
@@ -272,6 +613,17 @@ def test_work_metadata_projection_values_and_text() -> None:
 
 
 def test_projection_views_are_read_only_and_do_not_mutate_links() -> None:
+    """
+    Verify projection views remain read only and do not mutate links.
+
+    Example:
+        Exercise test projection views are read only and do not mutate links through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_projection_views.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     metadata = WorkMetadata()
     metadata.set_relation_links(
         "tags",
@@ -296,6 +648,17 @@ def test_projection_views_are_read_only_and_do_not_mutate_links() -> None:
 
 
 def test_unsupported_projection_properties_are_empty() -> None:
+    """
+    Verify unsupported projection properties remain empty.
+
+    Example:
+        Exercise test unsupported projection properties are empty through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_projection_views.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     metadata = ManifestationMetadata()
 
     assert metadata.values.tags == ()
@@ -305,6 +668,17 @@ def test_unsupported_projection_properties_are_empty() -> None:
 
 
 def test_title_projection_falls_back_to_identity_display_fields() -> None:
+    """
+    Verify title projection falls back to identity display fields.
+
+    Example:
+        Exercise test title projection falls back to identity display fields through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_projection_views.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     metadata = ItemMetadata(item=ItemIdentity(item_source_name="source-file.epub"))
 
     assert metadata.values.titles == ("source-file.epub",)
@@ -313,6 +687,17 @@ def test_title_projection_falls_back_to_identity_display_fields() -> None:
 
 
 def test_metadata_values_view_covers_fallback_and_skip_paths() -> None:
+    """
+    Verify metadata values view covers fallback and skip paths.
+
+    Example:
+        Exercise test metadata values view covers fallback and skip paths through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_projection_views.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     values = MetadataValuesView(
         _ProjectionMetadata(
             {
@@ -335,6 +720,17 @@ def test_metadata_values_view_covers_fallback_and_skip_paths() -> None:
 
 
 def test_metadata_text_view_exposes_all_relation_text_properties() -> None:
+    """
+    Verify metadata text view exposes all relation text properties.
+
+    Example:
+        Exercise test metadata text view exposes all relation text properties through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_projection_views.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     text = MetadataTextView(_TextValues())
 
     assert text.relation_text("custom", separator="|") == "custom|value"
@@ -348,6 +744,17 @@ def test_metadata_text_view_exposes_all_relation_text_properties() -> None:
 
 
 def test_liuxin_wemi_projection_view_edge_paths() -> None:
+    """
+    Verify liuxin wemi projection view edge paths.
+
+    Example:
+        Exercise test liuxin wemi projection view edge paths through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_projection_views.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     metadata = _WemiProjectionMetadata()
     values = LiuXinWEMIValuesView(metadata)
     text = LiuXinWEMITextView(values)
@@ -377,6 +784,17 @@ def test_liuxin_wemi_projection_view_edge_paths() -> None:
 
 
 def test_liuxin_wemi_projection_reports_unloaded_identifier_and_bundle_dependencies() -> None:
+    """
+    Verify liuxin wemi projection reports unloaded identifier and bundle dependencies.
+
+    Example:
+        Exercise test liuxin wemi projection reports unloaded identifier and bundle dependencies through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_projection_views.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     metadata = _WemiProjectionMetadata()
     metadata._lazy_identifiers_loaded = False
     with pytest.raises(UnloadedMetadataProjectionError) as identifier_error:
@@ -391,11 +809,33 @@ def test_liuxin_wemi_projection_reports_unloaded_identifier_and_bundle_dependenc
 
 
 def test_liuxin_wemi_projection_reads_legacy_values_from_get_fallback() -> None:
+    """
+    Verify liuxin wemi projection reads legacy values from get fallback.
+
+    Example:
+        Exercise test liuxin wemi projection reads legacy values from get fallback through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_projection_views.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     assert LiuXinWEMIValuesView(_GetOnlyMetadata()).tags == ("get-tag",)
     assert LiuXinWEMIValuesView(object()).tags == ()
 
 
 def test_projection_helper_edge_cases() -> None:
+    """
+    Verify projection helper edge cases.
+
+    Example:
+        Exercise test projection helper edge cases through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_projection_views.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     assert _target_text(" text ", "tags") == "text"
     assert _target_text(4.5, "ratings") == "4.5"
     assert _target_text({"unknown": "value"}, "tags") is None

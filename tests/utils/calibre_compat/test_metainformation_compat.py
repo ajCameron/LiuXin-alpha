@@ -1,16 +1,49 @@
+"""
+Provide test metainformation compat utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test metainformation compat through a consuming regression::
+
+        python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+"""
 from __future__ import annotations
 
 
-def test_calibre_metainformation_is_available_after_install() -> None:
-    from LiuXin_alpha.utils.calibre_compat.install import install_calibre_shims as install
+def test_calibre_metainformation_imports_without_namespace_injection() -> None:
 
-    # Idempotent install (should be safe to call multiple times).
-    install()
-    install()
+    """
+    Perform the test calibre metainformation imports without namespace injection utility operation under explicit compatibility rules.
 
-    from calibre.ebooks.metadata import MetaInformation, authors_to_string, string_to_authors
-    from calibre.ebooks.metadata.book.base import MetaInformation as BaseMetaInformation, Metadata
+    Example:
+        Exercise test calibre metainformation imports without namespace injection through a consuming regression::
 
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
+    import sys
+
+    external_before = {
+        name for name in sys.modules if name == "calibre" or name.startswith("calibre.")
+    }
+    from LiuXin_alpha.utils.calibre_compat.ebooks.metadata import (
+        MetaInformation,
+        authors_to_string,
+        string_to_authors,
+    )
+    from LiuXin_alpha.utils.calibre_compat.ebooks.metadata.book.base import Metadata
+    from LiuXin_alpha.utils.calibre_compat.ebooks.metadata.book.base import (
+        MetaInformation as BaseMetaInformation,
+    )
+
+    assert {
+        name for name in sys.modules if name == "calibre" or name.startswith("calibre.")
+    } == external_before
     mi = MetaInformation("Some Title", ["A. Author"])
 
     assert isinstance(mi, Metadata)
@@ -29,12 +62,21 @@ def test_calibre_metainformation_is_available_after_install() -> None:
     assert bool(mi) is True
 
 
-def test_calibre_book_constants_are_exposed_after_install() -> None:
-    from LiuXin_alpha.utils.calibre_compat.install import install_calibre_shims as install
+def test_calibre_book_constants_are_available_from_the_owner() -> None:
 
-    install()
+    """
+    Perform the test calibre book constants are available from the owner utility operation under explicit compatibility rules.
 
-    from calibre.ebooks.metadata.book import (
+    Example:
+        Exercise test calibre book constants are available from the owner through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
+    from LiuXin_alpha.utils.calibre_compat.ebooks.metadata.book import (
         ALL_METADATA_FIELDS,
         SC_COPYABLE_FIELDS,
         SC_FIELDS_COPY_NOT_NULL,
@@ -50,11 +92,20 @@ def test_calibre_book_constants_are_exposed_after_install() -> None:
 
 
 def test_calibre_base_module_exposes_expected_api_surface() -> None:
-    from LiuXin_alpha.utils.calibre_compat.install import install_calibre_shims as install
 
-    install()
+    """
+    Perform the test calibre base module exposes expected api surface utility operation under explicit compatibility rules.
 
-    import calibre.ebooks.metadata.book.base as base
+    Example:
+        Exercise test calibre base module exposes expected api surface through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
+    import LiuXin_alpha.utils.calibre_compat.ebooks.metadata.book.base as base
 
     expected_names = (
         "Metadata",
@@ -76,11 +127,20 @@ def test_calibre_base_module_exposes_expected_api_surface() -> None:
 
 
 def test_calibre_metadata_parity_helper_methods_exist_and_work() -> None:
-    from LiuXin_alpha.utils.calibre_compat.install import install_calibre_shims as install
 
-    install()
+    """
+    Perform the test calibre metadata parity helper methods exist and work utility operation under explicit compatibility rules.
 
-    from calibre.ebooks.metadata.book.base import Metadata
+    Example:
+        Exercise test calibre metadata parity helper methods exist and work through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
+    from LiuXin_alpha.utils.calibre_compat.ebooks.metadata.book.base import Metadata
 
     mi = Metadata("Title", ["Author"])
     mi.set_null("title")
@@ -91,7 +151,9 @@ def test_calibre_metadata_parity_helper_methods_exist_and_work() -> None:
     mi._evaluate_composite("#does_not_exist")
     mi._evaluate_all_composites()
 
-    mi.set_user_metadata("#x", {"name": "x", "datatype": "text", "is_multiple": False, "#value#": "v"})
+    mi.set_user_metadata(
+        "#x", {"name": "x", "datatype": "text", "is_multiple": False, "#value#": "v"}
+    )
     other = Metadata("Other", ["B"])
     # empty user metadata on `other` should prune `mi` custom metadata
     mi.remove_stale_user_metadata(other)

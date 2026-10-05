@@ -1,4 +1,10 @@
-"""Title repository API."""
+"""
+Present embedded WEMI title columns as logical records and route writes to their owners.
+
+The titles relation is a compatibility view. Unqualified CRUD targets Works;
+level-aware operations target Work, Expression, or Manifestation columns. Items
+have no owned title columns. Only replace_for_wemi adds an outer transaction.
+"""
 
 from __future__ import annotations
 
@@ -10,70 +16,83 @@ from .base import BaseRepositoryAPI
 
 @runtime_checkable
 class TitleRepositoryAPI(BaseRepositoryAPI, Protocol):
-    """Logical title access over title-bearing WEMI columns.
+    """
+    Specify logical access to title-bearing Work, Expression, and Manifestation columns.
 
-    The schema's ``titles`` relation is a compatibility view, not a writable
-    entity table. This repository presents logical title records while writing
-    the owning Work, Expression, or Manifestation row:
+    The titles view is not writable. Owner IDs identify logical records within a
+    level. Items can be read but have no title columns to modify. Preference skips
+    only None/empty values; replacement clears and writes transactionally.
 
-    - Work: ``work_title``, then canonical/sort variants;
-    - Expression: title override and subtitle;
-    - Manifestation: subtitle;
-    - Item: no owned title columns, so writes are rejected.
-
-    ``title_id`` in returned logical records is the owning WEMI entity ID.
-
-    Example::
-
-        catalog.titles.add_for_wemi(
-            level="expression",
-            entity_id=expression_id,
-            data={"title": "Frankenstein (revised text)"},
-        )
-        title = catalog.titles.preferred_for_wemi(
-            level="expression",
-            entity_id=expression_id,
-        )
+    Example:
+        >>> title = catalog.titles.preferred_for_wemi(level="expression", entity_id=expression_id)  # doctest: +SKIP
     """
 
     def add_for_wemi(self, *, level: WemiLevel, entity_id: EntityId, data: RowInput) -> EntityId:
-        """Write logical title values onto an existing WEMI entity.
+        """
+        Update accepted title columns on a supported existing WEMI row.
 
-        ``data["title"]`` targets the level's preferred title column. Storage
-        column names for that level may also be supplied.
+        Ignore unrelated keys. A non-None title overrides the first declared storage
+        column; explicit None under a storage column can clear it. Generic title=None
+        alone yields no changes and raises. Downstream repositories own value validation.
 
-        :param level: ``"work"``, ``"expression"``, or ``"manifestation"``.
-        :param entity_id: Existing entity ID at ``level``.
-        :param data: Title value and/or writable level-specific title columns.
-        :return: ``entity_id``, which also identifies the logical title record.
-        :raises CatalogMutationError: For Items or when no writable title value
-            is supplied.
+        Example:
+            On an Expression, title writes expression_title_override while expression_subtitle can be supplied separately.
+
+
+        :param level: WEMI level; Item and unknown levels are rejected.
+        :param entity_id: Existing owner ID validated by its repository update.
+        :param data: Items/get-compatible mapping of logical title and level-specific storage columns.
+        :return: Owner ID identifying the logical title record.
+        :raises CatalogMutationError: If Items are targeted or no writable values remain.
         """
 
     def list_for_wemi(self, *, level: WemiLevel, entity_id: EntityId) -> Sequence[RowMapping]:
         """
-        Return titles linked to a WEMI entity.
+        Require a WEMI row and return its preferred logical title when present.
 
-        :param level: WEMI level containing ``entity_id``.
-        :param entity_id: Existing WEMI entity ID.
-        :return: A zero- or one-element sequence containing ``title``,
-            ``title_values``, owner type, and owner ID.
+        Only None and empty string mean absent; whitespace is retained. The projection
+        uses this row alone, without ancestor fallback. Unknown levels raise ValueError.
+
+        Example:
+            An existing Item returns (), whereas a missing Item raises.
+
+
+        :param level: WEMI level whose embedded columns should be inspected.
+        :param entity_id: Existing owner ID, required even for an Item with no title columns.
+        :return: Empty tuple or one logical title mapping.
         """
 
     def preferred_for_wemi(self, *, level: WemiLevel, entity_id: EntityId) -> RowMapping | None:
         """
-        Return the preferred title for a WEMI entity, if present.
+        Return the single logical title from level-aware listing, if available.
 
-        Preference follows the owning row's declared title-column order.
+        Preference follows declared column order. Whitespace-only strings count as
+        present, unlike display-title projection; no ancestor fallback is performed.
 
-        :param level: WEMI level containing ``entity_id``.
-        :param entity_id: Existing WEMI entity ID.
-        :return: Logical title mapping, or ``None`` when all title-bearing
-            columns are blank.
+        Example:
+            An Expression with only a subtitle returns that subtitle as its logical title.
+
+
+        :param level: WEMI level to inspect.
+        :param entity_id: Existing owner ID required by list_for_wemi.
+        :return: First logical title mapping or None when no owned column has a value.
         """
 
     def clear_for_wemi(self, *, level: WemiLevel, entity_id: EntityId) -> None:
-        """Clear every title-bearing column owned by one WEMI entity."""
+        """
+        Set every declared title column to None through the owner repository.
+
+        No title view rows or owner entities are deleted. Repository validation and
+        additional update behavior propagate; this method adds no outer transaction.
+
+        Example:
+            Clearing a Work also clears work_canonical_title and work_sort_title.
+
+
+        :param level: Work, Expression, or Manifestation; Items and unknown levels are rejected.
+        :param entity_id: Existing owner ID passed to its repository update.
+        :return: None after clearing the owner columns.
+        """
 
     def replace_for_wemi(
         self,
@@ -82,4 +101,19 @@ class TitleRepositoryAPI(BaseRepositoryAPI, Protocol):
         entity_id: EntityId,
         data: RowInput | str | None,
     ) -> EntityId | None:
-        """Replace all logical title values, or clear them with ``None``."""
+        """
+        Clear then optionally write title values in one macro transaction.
+
+        Clear first, before validating data type or replacement content. Invalid data
+        or later update errors roll back the earlier clear through the transaction. A
+        string becomes a title payload; Items are rejected even for clear-only requests.
+
+        Example:
+            >>> catalog.titles.replace_for_wemi(level="work", entity_id=work_id, data=None)  # doctest: +SKIP
+
+
+        :param level: Supported title-owning WEMI level.
+        :param entity_id: Existing owner ID checked during clearing.
+        :param data: String for the preferred column, copied Mapping of values, or None to leave all cleared.
+        :return: Owner ID after replacement, or None after a clear-only request.
+        """

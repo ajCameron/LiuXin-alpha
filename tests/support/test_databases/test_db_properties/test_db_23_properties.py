@@ -1,3 +1,14 @@
+"""
+Declare expected capabilities and contents for test db 23 properties.
+
+The module keeps generated data, ordering and failure modes explicit so consumers
+can assert stable behavior.
+
+Example:
+    Exercise test db 23 properties through a consuming regression::
+
+        python -m pytest -q tests/support/test_databases/test_db_properties/test_db_23_properties.py
+"""
 from .common_db_properties import (
     CommonDBProperties,
 )
@@ -9,6 +20,14 @@ from .test_db_22_properties import (
 
 class TestDB23Properties(TestDB22Properties):
 
+    """
+    Declare the expected schema, content and feature properties for TestDB23Properties.
+
+    Example:
+        Exercise TestDB23Properties through a consuming regression::
+
+            python -m pytest -q tests/support/test_databases/test_db_properties/test_db_23_properties.py
+    """
     alpha_focus_row_counts = {
         "database_version": 1,
         "works": 30,

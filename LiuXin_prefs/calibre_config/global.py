@@ -4,6 +4,17 @@
  
 # database path
 # Path to the database in which books are stored
+"""
+Define retained global Calibre-compatible preference defaults.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise global through a consuming regression::
+
+        python -m pytest -q tests/preferences/test_preferences_regression.py
+"""
 database_path = 'C:\\Users\\Thane-Winterscale/library1.db'
  
 # filename pattern

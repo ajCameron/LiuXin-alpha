@@ -1,4 +1,15 @@
 #!/usr/bin/python
+"""
+Describe the bundled dateutil compatibility package metadata.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise setup through a consuming regression::
+
+        python -m pytest -q tests/scripts/test_docstring_migration.py
+"""
 from os.path import isfile, join
 import glob
 import os

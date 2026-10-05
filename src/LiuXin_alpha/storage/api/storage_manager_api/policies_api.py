@@ -1,5 +1,9 @@
 """
-Storage policy persistence, resolution, assessment, and planning facade.
+Define policy registration, assignment, resolution, observation, and maintenance proposals.
+
+Definitions express intent, assessments report selected evidence, and plans describe
+work without executing it. Persistence and physical execution remain implementation
+responsibilities with separate failure boundaries.
 """
 
 import abc
@@ -15,36 +19,38 @@ from LiuXin_alpha.storage.api.storage_manager_api.models import (
 )
 
 
+# Todo: Need a method to get the currently active replication and backup policy
+# Todo: This is not feeling complete - it can't answer questions such as "currently set policy" e.t.c
+
 class StoragePolicyAPI(abc.ABC):
     """
-    Persistence, resolution, assessment, and planning for storage policy.
+    Define policy registration, Asset assignment, effective resolution, assessment, and planning.
 
-    The planning methods report intended work without executing replication or
-    backup mutations.
+    Implementations own persistence and observation details. Assessment returns evidence and
+    threshold results; planning proposes work without publishing, verifying, recreating, or deleting
+    bytes. Execution must apply its own current retention and concurrency checks.
 
     Example:
-        >>> def needs_replication(
-        ...     manager: StoragePolicyAPI, asset_id: DigitalAssetID,
-        ... ) -> bool:
-        ...     return not manager.assess_replication(asset_id).meets_target
+        >>> assessment = manager.assess_replication(asset_id)  # doctest: +SKIP
     """
 
+    # Todo: Again, we need a convenience method for setting this replication policy
+    # Todo: How do we get what replication policy is currently live?
     @abc.abstractmethod
     def create_replication_policy(
         self,
         policy: ReplicationPolicy,
     ) -> ReplicationPolicyRecord:
         """
-        Persist a new live-replication policy.
+        Register a new replication policy definition without changing existing Asset assignments or
+        creating copies.
 
         Example:
-            >>> record = manager.create_replication_policy(  # doctest: +SKIP
-            ...     ReplicationPolicy(name="durable", min_copies=2),
-            ... )
+            >>> record = manager.create_replication_policy(policy)  # doctest: +SKIP
 
 
-        :param policy:
-        :return:
+        :param policy: Complete replication definition to register.
+        :return: New registered definition with its assigned policy identity and revision.
         """
         ...
 
@@ -54,14 +60,15 @@ class StoragePolicyAPI(abc.ABC):
         replication_policy_id: ReplicationPolicyID,
     ) -> ReplicationPolicyRecord:
         """
-        Return a persisted replication policy by identifier.
+        Resolve one registered replication definition by identity. Unknown identities and repository
+        failures remain errors rather than default-policy selection.
 
         Example:
-            >>> record = manager.get_replication_policy_record(4)  # doctest: +SKIP
+            >>> record = manager.get_replication_policy_record(policy_id)  # doctest: +SKIP
 
 
-        :param replication_policy_id:
-        :return:
+        :param replication_policy_id: Registered policy identity to resolve.
+        :return: Policy record retained for the requested identity.
         """
         ...
 
@@ -74,18 +81,20 @@ class StoragePolicyAPI(abc.ABC):
         if_revision: str | None = None,
     ) -> ReplicationPolicyRecord:
         """
-        Replace the definition of a persisted replication policy.
+        Replace a registered replication definition under an optional revision precondition.
+
+        The implementation validates recreation-policy dependencies before accepting the change.
+        Replacing a definition affects Assets that refer to it without copying new policy IDs onto
+        them, and does not execute resulting maintenance work.
 
         Example:
-            >>> record = manager.update_replication_policy(  # doctest: +SKIP
-            ...     4, ReplicationPolicy(min_copies=2),
-            ... )
+            >>> updated = manager.update_replication_policy(policy_id, policy, if_revision=record.revision)  # doctest: +SKIP
 
 
-        :param replication_policy_id:
-        :param policy:
-        :param if_revision:
-        :return:
+        :param replication_policy_id: Existing policy identity to retain.
+        :param policy: Complete replacement definition.
+        :param if_revision: Expected current revision, or None to omit the optimistic precondition.
+        :return: Updated policy record with its resulting revision; stale or invalid dependent state can raise.
         """
         ...
 
@@ -95,14 +104,17 @@ class StoragePolicyAPI(abc.ABC):
         replication_policy_id: ReplicationPolicyID,
     ) -> bool:
         """
-        Delete a replication policy and report whether it existed.
+        Delete an unassigned replication definition without changing stored bytes.
+
+        Asset assignments and Store default references can prevent deletion. This signature provides
+        no optimistic revision argument or cascading reassignment.
 
         Example:
-            >>> deleted = manager.delete_replication_policy(4)  # doctest: +SKIP
+            >>> removed = manager.delete_replication_policy(policy_id)  # doctest: +SKIP
 
 
-        :param replication_policy_id:
-        :return:
+        :param replication_policy_id: Policy identity to remove if it is unreferenced.
+        :return: True when removed, False if absent; protected references and repository errors can raise.
         """
         ...
 
@@ -111,31 +123,29 @@ class StoragePolicyAPI(abc.ABC):
         self,
     ) -> Iterator[ReplicationPolicyRecord]:
         """
-        Iterate over persisted replication policies.
+        Iterate registered replication definitions without assessing Assets or discovering Store
+        bytes. Ordering and snapshot details belong to the implementation.
 
         Example:
-            >>> records = list(  # doctest: +SKIP
-            ...     manager.iter_replication_policy_records(),
-            ... )
+            >>> records = tuple(manager.iter_replication_policy_records())  # doctest: +SKIP
 
 
-        :return:
+        :return: Iterator of registered policy records.
         """
         ...
 
     @abc.abstractmethod
     def create_backup_policy(self, policy: BackupPolicy) -> BackupPolicyRecord:
         """
-        Persist a new backup or archival policy.
+        Register a new backup/archive policy definition without changing existing Asset assignments
+        or creating copies.
 
         Example:
-            >>> record = manager.create_backup_policy(  # doctest: +SKIP
-            ...     BackupPolicy(name="offsite"),
-            ... )
+            >>> record = manager.create_backup_policy(policy)  # doctest: +SKIP
 
 
-        :param policy:
-        :return:
+        :param policy: Complete backup/archive definition to register.
+        :return: New registered definition with its assigned policy identity and revision.
         """
         ...
 
@@ -145,14 +155,15 @@ class StoragePolicyAPI(abc.ABC):
         backup_policy_id: BackupPolicyID,
     ) -> BackupPolicyRecord:
         """
-        Return a persisted backup policy by identifier.
+        Resolve one registered backup/archive definition by identity. Unknown identities and
+        repository failures remain errors rather than default-policy selection.
 
         Example:
-            >>> record = manager.get_backup_policy_record(5)  # doctest: +SKIP
+            >>> record = manager.get_backup_policy_record(policy_id)  # doctest: +SKIP
 
 
-        :param backup_policy_id:
-        :return:
+        :param backup_policy_id: Registered policy identity to resolve.
+        :return: Policy record retained for the requested identity.
         """
         ...
 
@@ -165,18 +176,20 @@ class StoragePolicyAPI(abc.ABC):
         if_revision: str | None = None,
     ) -> BackupPolicyRecord:
         """
-        Replace the definition of a persisted backup policy.
+        Replace a registered backup/archive definition under an optional revision precondition.
+
+        The implementation validates recreation-policy dependencies before accepting the change.
+        Replacing a definition affects Assets that refer to it without copying new policy IDs onto
+        them, and does not execute resulting maintenance work.
 
         Example:
-            >>> record = manager.update_backup_policy(  # doctest: +SKIP
-            ...     5, BackupPolicy(target_copies=2),
-            ... )
+            >>> updated = manager.update_backup_policy(policy_id, policy, if_revision=record.revision)  # doctest: +SKIP
 
 
-        :param backup_policy_id:
-        :param policy:
-        :param if_revision:
-        :return:
+        :param backup_policy_id: Existing policy identity to retain.
+        :param policy: Complete replacement definition.
+        :param if_revision: Expected current revision, or None to omit the optimistic precondition.
+        :return: Updated policy record with its resulting revision; stale or invalid dependent state can raise.
         """
         ...
 
@@ -186,29 +199,31 @@ class StoragePolicyAPI(abc.ABC):
         backup_policy_id: BackupPolicyID,
     ) -> bool:
         """
-        Delete a backup policy and report whether it existed.
+        Delete an unassigned backup/archive definition without changing stored bytes.
+
+        Asset assignments and Store default references can prevent deletion. This signature provides
+        no optimistic revision argument or cascading reassignment.
 
         Example:
-            >>> deleted = manager.delete_backup_policy(5)  # doctest: +SKIP
+            >>> removed = manager.delete_backup_policy(policy_id)  # doctest: +SKIP
 
 
-        :param backup_policy_id:
-        :return:
+        :param backup_policy_id: Policy identity to remove if it is unreferenced.
+        :return: True when removed, False if absent; protected references and repository errors can raise.
         """
         ...
 
     @abc.abstractmethod
     def iter_backup_policy_records(self) -> Iterator[BackupPolicyRecord]:
         """
-        Iterate over persisted backup policies.
+        Iterate registered backup/archive definitions without assessing Assets or discovering Store
+        bytes. Ordering and snapshot details belong to the implementation.
 
         Example:
-            >>> records = list(  # doctest: +SKIP
-            ...     manager.iter_backup_policy_records(),
-            ... )
+            >>> records = tuple(manager.iter_backup_policy_records())  # doctest: +SKIP
 
 
-        :return:
+        :return: Iterator of registered policy records.
         """
         ...
 
@@ -220,25 +235,23 @@ class StoragePolicyAPI(abc.ABC):
         if_revision: str | None = None,
     ) -> DigitalAssetRecord:
         """
-        Assign explicit replication and backup policies to an asset.
+        Replace both explicit policy references on an Asset, using None to clear a reference.
 
-        A replication policy whose loss action is ``RECREATE`` may only be
-        assigned when the Asset has at least one complete exact recipe and all
-        of that recipe's sources have effective policy that keeps them
-        recoverable. This validation is transitive; a recreation chain must
-        terminate in retained bytes rather than a cycle of disposable Assets.
+        Omitting a parameter therefore requests manager-default resolution for that policy, rather
+        than preserving the old assignment. Referenced policies must exist, and RECREATE assignments
+        require an exact recipe whose pinned prerequisites have retaining or recursively recreating
+        policies. This policy feasibility check is distinct from proof that every prerequisite is
+        readable now.
 
         Example:
-            >>> asset_record = manager.set_digital_asset_policies(  # doctest: +SKIP
-            ...     7, replication_policy_id=4, backup_policy_id=5,
-            ... )
+            >>> asset = manager.set_digital_asset_policies(asset_id, replication_policy_id=policy_id, if_revision=asset.revision)  # doctest: +SKIP
 
 
-        :param digital_asset_id:
-        :param replication_policy_id:
-        :param backup_policy_id:
-        :param if_revision:
-        :return:
+        :param digital_asset_id: Registered atomic Asset identity to inspect or update.
+        :param replication_policy_id: Explicit replication definition to assign, or None to clear it.
+        :param backup_policy_id: Explicit backup definition to assign, or None to clear it.
+        :param if_revision: Expected current revision, or None to omit the optimistic precondition.
+        :return: Asset record with the replacement policy references and resulting revision.
         """
         ...
 
@@ -247,18 +260,18 @@ class StoragePolicyAPI(abc.ABC):
         self, digital_asset_id: DigitalAssetID,
     ) -> ResolvedStoragePolicies:
         """
-        Resolve the policies captured on the Asset, then manager defaults.
+        Resolve each explicit Asset policy reference, otherwise use the manager's default
+        definition.
 
-        Store defaults are placement-time defaults. Implementations copy their
-        identifiers onto a newly declared Asset when placing its first Replica;
-        policy resolution therefore never depends on Replica iteration order.
+        Store defaults are captured during first placement by the owning workflow; this lookup does
+        not choose a policy from current Replica order or a Store's current defaults.
 
         Example:
-            >>> policies = manager.resolve_effective_policies(7)  # doctest: +SKIP
+            >>> policies = manager.resolve_effective_policies(asset_id)  # doctest: +SKIP
 
 
-        :param digital_asset_id:
-        :return:
+        :param digital_asset_id: Registered atomic Asset identity to inspect or update.
+        :return: Effective replication/backup definitions with their reported sources.
         """
         ...
 
@@ -268,14 +281,18 @@ class StoragePolicyAPI(abc.ABC):
         digital_asset_id: DigitalAssetID,
     ) -> StoragePolicyAssessment:
         """
-        Assess live replicas against the effective replication policy.
+        Assess the Asset's effective replication policy using readable claims, recorded
+        verification, and Store constraints.
+
+        Results distinguish present/eligible claims and minimum/target satisfaction. Observation
+        does not itself require fresh hashing or repair the recorded state.
 
         Example:
-            >>> assessment = manager.assess_replication(7)  # doctest: +SKIP
+            >>> assessment = manager.assess_replication(asset_id)  # doctest: +SKIP
 
 
-        :param digital_asset_id:
-        :return:
+        :param digital_asset_id: Registered atomic Asset identity to inspect or update.
+        :return: Policy assessment containing observed claim IDs, threshold flags, and diagnostics.
         """
         ...
 
@@ -285,34 +302,41 @@ class StoragePolicyAPI(abc.ABC):
         digital_asset_id: DigitalAssetID,
     ) -> StoragePolicyAssessment:
         """
-        Assess backup replicas against the effective backup policy.
+        Assess the Asset's effective backup policy using readable claims, recorded verification, and
+        Store constraints.
+
+        Results distinguish present/eligible claims and minimum/target satisfaction. Observation
+        does not itself require fresh hashing or repair the recorded state.
 
         Example:
-            >>> assessment = manager.assess_backup(7)  # doctest: +SKIP
+            >>> assessment = manager.assess_backup(asset_id)  # doctest: +SKIP
 
 
-        :param digital_asset_id:
-        :return:
+        :param digital_asset_id: Registered atomic Asset identity to inspect or update.
+        :return: Policy assessment containing observed claim IDs, threshold flags, and diagnostics.
         """
         ...
 
+    # Todo: asses_composite_digital_asset - to asses every member of a digital asset
     @abc.abstractmethod
     def assess_digital_asset(
         self,
         digital_asset_id: DigitalAssetID,
     ) -> DigitalAssetStorageAssessment:
         """
-        Return readability, replayability, and live/backup policy state.
+        Combine current readability, policy satisfaction, and exact-recreation reachability
+        evidence.
 
-        Exact recreation is reported only when the recipe's pinned inputs and
-        executor artefacts are themselves currently recoverable.
+        Recreation assessment considers recipe prerequisites and resolver-reported artifacts without
+        executing the transformation. Independent observations need not form an atomic snapshot
+        across repositories and Stores.
 
         Example:
-            >>> assessment = manager.assess_digital_asset(7)  # doctest: +SKIP
+            >>> assessment = manager.assess_digital_asset(asset_id)  # doctest: +SKIP
 
 
-        :param digital_asset_id:
-        :return:
+        :param digital_asset_id: Registered atomic Asset identity to inspect or update.
+        :return: Aggregate reported readability, policy results, and currently recoverable exact derivations.
         """
 
         ...
@@ -323,18 +347,19 @@ class StoragePolicyAPI(abc.ABC):
         digital_asset_id: DigitalAssetID,
     ) -> DigitalAssetReplicationPlan:
         """
-        Plan work required to satisfy the effective replication policy.
+        Propose destinations, verification, removal, or an exact recreation route under the
+        effective policy.
 
-        The plan may select an exact derivation when ``loss_action`` is
-        ``RECREATE`` or remove surplus low-priority replicas when the target is
-        zero. Planning never executes the transformation or deletion.
+        Plans may be based on recorded verification and configuration evidence rather than fresh
+        physical checks. They do not reserve destinations, execute transformations, or authorize
+        unconditional deletion; execution must revalidate current conditions.
 
         Example:
-            >>> plan = manager.plan_replication(7)  # doctest: +SKIP
+            >>> plan = manager.plan_replication(asset_id)  # doctest: +SKIP
 
 
-        :param digital_asset_id:
-        :return:
+        :param digital_asset_id: Registered atomic Asset identity to inspect or update.
+        :return: Replication proposal and warnings about unavailable destinations or recreation routes.
         """
         ...
 
@@ -344,17 +369,18 @@ class StoragePolicyAPI(abc.ABC):
         digital_asset_id: DigitalAssetID,
     ) -> DigitalAssetBackupPlan:
         """
-        Plan work required to satisfy the effective backup policy.
+        Propose backup destinations, candidate source claims, verification, and surplus removal.
 
-        A zero-copy policy may plan removal of existing backup Replicas. The
-        manager must still honour retention locks and repository race checks.
+        A zero target can propose removing existing backup claims. The plan itself does not enforce
+        every execution-time retention or repository-race requirement and does not publish or remove
+        bytes.
 
         Example:
-            >>> plan = manager.plan_backup(7)  # doctest: +SKIP
+            >>> plan = manager.plan_backup(asset_id)  # doctest: +SKIP
 
 
-        :param digital_asset_id:
-        :return:
+        :param digital_asset_id: Registered atomic Asset identity to inspect or update.
+        :return: Backup proposal with candidate sources and any destination-shortage diagnostics.
         """
         ...
 

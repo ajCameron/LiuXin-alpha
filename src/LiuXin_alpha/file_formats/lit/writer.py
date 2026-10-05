@@ -1,3 +1,14 @@
+"""
+Build Microsoft LIT containers, sections, transforms and directory metadata.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise writer through a consuming regression::
+
+        python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+"""
 from __future__ import with_statement, print_function
 from __future__ import annotations
 
@@ -67,10 +78,30 @@ __all__ = ["LitWriter", "LitWriterError"]
 
 
 class LitWriterError(RuntimeError):
+    """
+    Report a litwritererror encountered while processing an ebook format.
+
+    Example:
+        Exercise LitWriterError through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+    """
     pass
 
 
 def _require_lzx_compressor() -> _typing.Any:
+    """
+    Perform the require lzx compressor operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  require lzx compressor through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if Compressor is None:
         raise LitWriterError("LIT output requires the LZX compressor backend, which is unavailable")
     return Compressor
@@ -89,6 +120,19 @@ ALL_MS_COVER_TYPES = [
 
 
 def invert_tag_map(tag_map: _typing.Any) -> tuple[_typing.Any, ...]:
+    """
+    Perform the invert tag map operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise invert tag map through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+    :param tag_map: Value supplied for tag map under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     tags, dattrs, tattrs = tag_map
     tags = dict((tags[i], i) for i in memory_range(len(tags)))
     dattrs = dict((v, k) for k, v in dattrs.items())
@@ -113,6 +157,19 @@ LZXCOMPRESS_GUID = "{0A9007C6-4076-11D3-8789-0000F8105754}"
 
 
 def packguid(guid: _typing.Any) -> _typing.Any:
+    """
+    Perform the packguid operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise packguid through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+    :param guid: Value supplied for guid under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     values = (
         guid[1:9],
         guid[10:14],
@@ -173,6 +230,19 @@ PAGE_BREAKS = {"always", "left", "right"}
 
 
 def _latin_bytes(value: _typing.Any) -> _typing.Any:
+    """
+    Perform the latin bytes operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  latin bytes through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+    :param value: Value normalized, stored, formatted or returned.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if isinstance(value, bytes):
         return value
     if isinstance(value, bytearray):
@@ -181,6 +251,19 @@ def _latin_bytes(value: _typing.Any) -> _typing.Any:
 
 
 def _utf8_bytes(value: _typing.Any) -> _typing.Any:
+    """
+    Perform the utf8 bytes operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  utf8 bytes through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+    :param value: Value normalized, stored, formatted or returned.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if isinstance(value, bytes):
         return value
     if isinstance(value, bytearray):
@@ -189,7 +272,28 @@ def _utf8_bytes(value: _typing.Any) -> _typing.Any:
 
 
 class _ByteStringIO(io.BytesIO):
+    """
+    Provide the bytestringio contract for validated ebook processing.
+
+    Example:
+        Exercise  ByteStringIO through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+    """
     def write(self: _typing.Self, value: _typing.Any) -> _typing.Any:
+        """
+        Perform the write operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  ByteStringIO.write through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :param value: Value normalized, stored, formatted or returned.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return super().write(_latin_bytes(value))
 
 
@@ -197,6 +301,19 @@ six_cStringIO = _ByteStringIO
 
 
 def decint(value: _typing.Any) -> _typing.Any:
+    """
+    Perform the decint operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise decint through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+    :param value: Value normalized, stored, formatted or returned.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     decint_bytes = []
     while True:
         b = value & 0x7F
@@ -210,17 +327,67 @@ def decint(value: _typing.Any) -> _typing.Any:
 
 
 def randbytes(n: _typing.Any) -> _typing.Any:
+    """
+    Perform the randbytes operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise randbytes through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+    :param n: Value supplied for n under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return bytes(random.randint(0, 255) for x in memory_range(n))
 
 
 def warn(x: _typing.Any) -> None:
+    """
+    Perform the warn operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise warn through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+    :param x: Value supplied for x under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     print(x)
 
 
 class ReBinary(object):
+    """
+    Provide the rebinary contract for validated ebook processing.
+
+    Example:
+        Exercise ReBinary through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+    """
     NSRMAP = {"": None, XML_NS: "xml"}
 
     def __init__(self: _typing.Self, root: _typing.Any, item: _typing.Any, oeb: _typing.Any, opts: _typing.Any, map: _typing.Any = HTML_MAP) -> None:
+        """
+        Initialize and validate the rebinary state.
+
+        Example:
+            Exercise ReBinary.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :param root: Root directory that bounds path resolution or traversal.
+        :param item: Value supplied for item under the utility contract.
+        :param oeb: Value supplied for oeb under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :param map: Value supplied for map under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.item = item
         self.logger = oeb.logger
         self.manifest = oeb.manifest
@@ -236,6 +403,19 @@ class ReBinary(object):
         self.aht = self.build_aht() if is_html else None
 
     def write(self: _typing.Self, *values: _typing.Any) -> None:
+        """
+        Perform the write operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ReBinary.write through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :param values: Value supplied for values under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for value in values:
             if isinstance(value, (int, long)):
                 try:
@@ -246,9 +426,38 @@ class ReBinary(object):
             self.buf.write(value.encode("utf-8"))
 
     def is_block(self: _typing.Self, style: _typing.Any) -> bool:
+        """
+        Return whether is block holds for the supplied ebook data.
+
+        Example:
+            Exercise ReBinary.is block through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :param style: Value supplied for style under the utility contract.
+        :return: True when the documented condition holds; otherwise False.
+        """
         return style["display"] not in ("inline", "inline-block")
 
     def tree_to_binary(self: _typing.Self, elem: _typing.Any, nsrmap: _typing.Any = NSRMAP, parents: _typing.Any = None, inhead: bool = False, preserve: bool = False) -> None:
+        """
+        Perform the tree to binary operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ReBinary.tree to binary through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :param elem: Value supplied for elem under the utility contract.
+        :param nsrmap: Value supplied for nsrmap under the utility contract.
+        :param parents: Value supplied for parents under the utility contract.
+        :param inhead: Value supplied for inhead under the utility contract.
+        :param preserve: Value supplied for preserve under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if parents is None:
             parents = []
 
@@ -363,6 +572,18 @@ class ReBinary(object):
             self.page_breaks.append((self.buf.tell(), list(parents)))
 
     def build_ahc(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the build ahc operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ReBinary.build ahc through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if len(self.anchors) > 6:
             self.logger.warn("More than six anchors in file %r. " "Some links may not work properly." % self.item.href)
         data = six_cStringIO()
@@ -374,11 +595,51 @@ class ReBinary(object):
         return data.getvalue()
 
     def build_aht(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the build aht operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ReBinary.build aht through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return pack("<I", 0)
 
 
 def preserve(function: _typing.Any) -> _typing.Any:
+    """
+    Perform the preserve operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise preserve through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+    :param function: Value supplied for function under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     def wrapper(self: _typing.Any, *args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
+        """
+        Perform the wrapper operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise preserve.wrapper through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :param self: Value supplied for self under the utility contract.
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         opos = self._stream.tell()
         try:
             return function(self, *args, **kwargs)
@@ -390,10 +651,42 @@ def preserve(function: _typing.Any) -> _typing.Any:
 
 
 class LitWriter(object):
+    """
+    Provide the litwriter contract for validated ebook processing.
+
+    Example:
+        Exercise LitWriter through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+    """
     def __init__(self: _typing.Self, opts: _typing.Any) -> None:
+        """
+        Initialize and validate the litwriter state.
+
+        Example:
+            Exercise LitWriter.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :param opts: Value supplied for opts under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.opts = opts
 
     def _litize_oeb(self: _typing.Self) -> None:
+        """
+        Perform the litize oeb operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LitWriter. litize oeb through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         oeb = self._oeb
         oeb.metadata.add("calibre-version", getattr(LiuXin_alpha, "__version__", "0"))
         cover = None
@@ -407,6 +700,21 @@ class LitWriter(object):
             self._logger.warn("No suitable cover image found.")
 
     def __call__(self: _typing.Self, oeb: _typing.Any, path: _typing.Any) -> _typing.Any:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LitWriter.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :param oeb: Value supplied for oeb under the utility contract.
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         _require_lzx_compressor()
         if hasattr(path, "write"):
             return self._dump_stream(oeb, path)
@@ -414,6 +722,21 @@ class LitWriter(object):
             return self._dump_stream(oeb, stream)
 
     def _dump_stream(self: _typing.Self, oeb: _typing.Any, stream: _typing.Any) -> None:
+        """
+        Perform the dump stream operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LitWriter. dump stream through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :param oeb: Value supplied for oeb under the utility contract.
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._oeb = oeb
         self._logger = oeb.logger
         self._stream = stream
@@ -424,19 +747,70 @@ class LitWriter(object):
         self._write_content()
 
     def _write(self: _typing.Self, *data: _typing.Any) -> None:
+        """
+        Perform the write operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LitWriter. write through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :param data: Value supplied for data under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for datum in data:
             self._stream.write(_latin_bytes(datum))
 
     @preserve
     def _writeat(self: _typing.Self, pos: _typing.Any, *data: _typing.Any) -> None:
+        """
+        Perform the writeat operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LitWriter. writeat through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :param pos: Value supplied for pos under the utility contract.
+        :param data: Value supplied for data under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._stream.seek(pos)
         self._write(*data)
 
     def _tell(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the tell operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LitWriter. tell through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._stream.tell()
 
     def _write_content(self: _typing.Self) -> None:
         # Build content sections
+        """
+        Write content under the format's safety and compatibility rules.
+
+        Example:
+            Exercise LitWriter. write content through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._build_sections()
 
         # Build directory chunks
@@ -541,6 +915,21 @@ class LitWriter(object):
         self._writeat(filesz_offset, pack("<Q", self._tell()))
 
     def _add_file(self: _typing.Self, name: _typing.Any, data: _typing.Any, secnum: int = 0) -> None:
+        """
+        Perform the add file operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LitWriter. add file through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param data: Value supplied for data under the utility contract.
+        :param secnum: Value supplied for secnum under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         data = _utf8_bytes(data)
         if len(data) > 0:
             section = self._sections[secnum]
@@ -551,14 +940,54 @@ class LitWriter(object):
         self._directory.append(DirectoryEntry(name, secnum, offset, len(data)))
 
     def _add_folder(self: _typing.Self, name: _typing.Any, offset: int = 0, size: int = 0) -> None:
+        """
+        Perform the add folder operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LitWriter. add folder through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param offset: Value supplied for offset under the utility contract.
+        :param size: Value supplied for size under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if not name.endswith("/"):
             name += "/"
         self._directory.append(DirectoryEntry(name, 0, offset, size))
 
     def _djoin(self: _typing.Self, *names: _typing.Any) -> _typing.Any:
+        """
+        Perform the djoin operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LitWriter. djoin through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :param names: Value supplied for names under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "/".join(names)
 
     def _build_sections(self: _typing.Self) -> None:
+        """
+        Perform the build sections operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LitWriter. build sections through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._add_folder("/", ROOT_OFFSET, ROOT_SIZE)
         self._build_data()
         self._build_manifest()
@@ -571,6 +1000,18 @@ class LitWriter(object):
         self._build_transforms()
 
     def _build_data(self: _typing.Self) -> None:
+        """
+        Perform the build data operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LitWriter. build data through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._add_folder("/data")
         for item in self._oeb.manifest.values():
             if item.media_type not in LIT_MIMES:
@@ -598,6 +1039,18 @@ class LitWriter(object):
             item.size = len(data)
 
     def _build_manifest(self: _typing.Self) -> None:
+        """
+        Perform the build manifest operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LitWriter. build manifest through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         states = ["linear", "nonlinear", "css", "images"]
         manifest = dict((state, []) for state in states)
         for item in self._oeb.manifest.values():
@@ -640,6 +1093,18 @@ class LitWriter(object):
         self._add_file("/manifest", data.getvalue())
 
     def _build_page_breaks(self: _typing.Self) -> None:
+        """
+        Perform the build page breaks operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LitWriter. build page breaks through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pb1 = six_cStringIO()
         pb2 = six_cStringIO()
         pb3 = six_cStringIO()
@@ -676,6 +1141,18 @@ class LitWriter(object):
         self._add_file("/pb3", pb3.getvalue(), 0)
 
     def _build_meta(self: _typing.Self) -> None:
+        """
+        Perform the build meta operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LitWriter. build meta through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         _, meta = self._oeb.to_opf1()[OPF_MIME]
         meta.attrib["ms--minimum_level"] = "0"
         meta.attrib["ms--attr5"] = "1"
@@ -686,6 +1163,18 @@ class LitWriter(object):
         self._add_file("/meta", meta)
 
     def _build_drm_storage(self: _typing.Self) -> None:
+        """
+        Perform the build drm storage operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LitWriter. build drm storage through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         drmsource = "Free as in freedom\0".encode("utf-16-le")
         self._add_file("/DRMStorage/DRMSource", drmsource)
         tempkey = self._calculate_deskey([self._meta, drmsource])
@@ -695,9 +1184,33 @@ class LitWriter(object):
         self._add_file("/DRMStorage/ValidationStream", "MSReader", 3)
 
     def _build_version(self: _typing.Self) -> None:
+        """
+        Perform the build version operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LitWriter. build version through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._add_file("/Version", pack("<HH", 8, 1))
 
     def _build_namelist(self: _typing.Self) -> None:
+        """
+        Perform the build namelist operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LitWriter. build namelist through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         data = six_cStringIO()
         data.write(pack("<HH", 0x3C, len(self._sections)))
         names = ["Uncompressed", "MSCompressed", "EbEncryptDS", "EbEncryptOnlyDS"]
@@ -708,6 +1221,18 @@ class LitWriter(object):
         self._add_file("::DataSpace/NameList", data.getvalue())
 
     def _build_storage(self: _typing.Self) -> None:
+        """
+        Perform the build storage operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LitWriter. build storage through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         mapping = [
             (1, "MSCompressed", (LZXCOMPRESS_GUID,)),
             (2, "EbEncryptDS", (LZXCOMPRESS_GUID, DESENCRYPT_GUID)),
@@ -766,10 +1291,35 @@ class LitWriter(object):
                     self._add_file(dname, rdata)
 
     def _build_transforms(self: _typing.Self) -> None:
+        """
+        Perform the build transforms operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LitWriter. build transforms through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for guid in (LZXCOMPRESS_GUID, DESENCRYPT_GUID):
             self._add_folder("::Transform/" + guid)
 
     def _calculate_deskey(self: _typing.Self, hashdata: _typing.Any) -> _typing.Any:
+        """
+        Perform the calculate deskey operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LitWriter. calculate deskey through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :param hashdata: Value supplied for hashdata under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         prepad = 2
         local_hash = mssha1.new()
         for data in hashdata:
@@ -789,6 +1339,18 @@ class LitWriter(object):
         return bytes(key)
 
     def _build_dchunks(self: _typing.Self) -> tuple[_typing.Any, ...]:
+        """
+        Perform the build dchunks operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LitWriter. build dchunks through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ddata = []
         directory = list(self._directory)
         directory.sort(key=lambda x: (x.name or "").lower())

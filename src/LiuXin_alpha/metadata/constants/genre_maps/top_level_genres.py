@@ -2,6 +2,24 @@
 # Assumes input has been normalized: lowercase, accents stripped, separators -> spaces.
 # Compile with re.IGNORECASE|re.UNICODE if you don't normalize first.
 
+"""
+Provide a flat, ordered fiction-genre regex table spanning multiple genre families.
+
+The table includes detailed subgenres as well as broad labels, despite the module
+name. Its source assumes lower-case text with accents removed and separators
+normalized; regex flags can handle case but do not remove accents or normalize
+separators. Order matters for first-match consumers, including overlaps across
+families.
+
+Map canonical labels to tuples of uncompiled regular-expression strings. Consumers
+choose regex flags, normalization, and first-match or multi-match policy; importing
+the module performs no classification.
+
+Example:
+    >>> import re
+    >>> any(re.search(pattern, 'space opera', re.IGNORECASE) for pattern in FICTION_GENRE_MAPPING['Space Opera']) is not False
+    True
+"""
 FICTION_GENRE_MAPPING = {
     # =========================
     # Romance (specific first)

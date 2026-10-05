@@ -12,16 +12,28 @@
 #########################################################################
 
 
+"""
+Parse RTF list-override tables and numbering references.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise override table through a consuming regression::
+
+        python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+"""
 from __future__ import annotations
 
 import typing as _typing
 class OverrideTable:
     """
-    Parse a line of text to make the override table. Return a string
-    (which will convert to XML) and the dictionary containing all the
-    information about the lists. This dictionary is the result of the
-    dictionary that is first passed to this module. This module
-    modifies the dictionary, assigning lists numbers to each list.
+    Parse a line of text to make the override table. Return a string (which will convert to XML) and the dictionary containing all the information about the lists. This dictionary is the result of the dictionary that is first passed to this module. This module modifies the dictionary, assigning lists numbers to each list.
+
+    Example:
+        Exercise OverrideTable through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
     """
 
     def __init__(
@@ -30,12 +42,38 @@ class OverrideTable:
         bug_handler: _typing.Any = Exception,
         run_level: int = 1,
     ) -> None:
+        """
+        Initialize and validate the overridetable state.
+
+        Example:
+            Exercise OverrideTable.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param list_of_lists: Value supplied for list of lists under the utility contract.
+        :param bug_handler: Value supplied for bug handler under the utility contract.
+        :param run_level: Value supplied for run level under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.__list_of_lists = list_of_lists
         self.__bug_handler = bug_handler
         self.__initiate_values()
         self.__run_level = run_level
 
     def __initiate_values(self: _typing.Self) -> None:
+        """
+        Perform the initiate values operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OverrideTable.  initiate values through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.__override_table_final = ""
         self.__state = "default"
         self.__override_list = []
@@ -51,14 +89,17 @@ class OverrideTable:
 
     def __override_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line -- line to parse
-        Returns:
-            nothing
-        Logic:
-            The group {\\override has been found.
-            Check for the end of the group.
-            Otherwise, add appropriate tokens to the override dictionary.
+        Perform the override func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OverrideTable.  override func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.__token_info == "cb<nu<clos-brack" and self.__cb_count == self.__override_ob_count:
             self.__state = "default"
@@ -71,23 +112,16 @@ class OverrideTable:
 
     def __parse_override_dict(self: _typing.Self) -> None:
         """
-        Requires:
-            nothing
-        Returns:
-            nothing
-        Logic:
-            The list of all information about RTF lists has been passed to
-            this module. As of this point, this python list has no id number,
-            which is needed later to identify which lists in the body should
-            be assigned which formatting commands from the list-table.
-            In order to get an id, I have to check to see when the list-table-id
-            from the override_dict (generated in this module) matches the list-table-id
-            in list_of_lists (generated in the list_table.py module). When a match is found,
-            append the lists numbers to the self.__list_of_lists dictionary
-            that contains the empty lists:
-                [[{list-id:[HERE!],[{}]]
-            This is a list, since one list in the table in the preamble of RTF can
-            apply to multiple lists in the body.
+        Requires: nothing Returns: nothing Logic: The list of all information about RTF lists has been passed to this module. As of this point, this python list has no id number, which is needed later to identify which lists in the body should be assigned which formatting commands from the list-table. In order to get an id, I have to check to see when the list-table-id from the override_dict (generated in this module) matches the list-table-id in list_of_lists (generated in the list_table.py module). When a match is found, append the lists numbers to the self.__list_of_lists dictionary that contains the empty lists: [[{list-id:[HERE!],[{}]] This is a list, since one list in the table in the preamble of RTF can apply to multiple lists in the body.
+
+        Example:
+            Exercise OverrideTable.  parse override dict through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         override_dict = self.__override_list[-1]
         list_id = override_dict.get("list-id")
@@ -109,13 +143,17 @@ class OverrideTable:
 
     def __parse_lines(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line --ine to parse
-        Returns:
-            nothing
-        Logic:
-            Break the into tokens by splitting it on the newline.
-            Call on the method according to the state.
+        Requires: line --ine to parse Returns: nothing Logic: Break the into tokens by splitting it on the newline. Call on the method according to the state.
+
+        Example:
+            Exercise OverrideTable.  parse lines through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         lines = line.split("\n")
         self.__ob_count = 0
@@ -138,29 +176,34 @@ class OverrideTable:
 
     def __default_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line -- line to parse
-        Return:
-            nothing
-        Logic:
-            Look for an open bracket and change states when found.
+        Requires: line -- line to parse Return: nothing Logic: Look for an open bracket and change states when found.
+
+        Example:
+            Exercise OverrideTable.  default func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.__token_info == "ob<nu<open-brack":
             self.__state = "unsure_ob"
 
     def __after_bracket_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line -- line to parse
-        Returns:
-            nothing
-        Logic:
-            The last token was an open bracket. You need to determine
-            the group based on the token after.
-            WARNING: this could cause problems. If no group is found, the
-            state will remain unsure_ob, which means no other text will be
-            parsed. I should do states by a list and simply pop this
-            unsure_ob state to get the previous state.
+        Requires: line -- line to parse Returns: nothing Logic: The last token was an open bracket. You need to determine the group based on the token after. WARNING: this could cause problems. If no group is found, the state will remain unsure_ob, which means no other text will be parsed. I should do states by a list and simply pop this unsure_ob state to get the previous state.
+
+        Example:
+            Exercise OverrideTable.  after bracket func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.__token_info == "cw<ls<lis-overid":
             self.__state = "override"
@@ -174,15 +217,16 @@ class OverrideTable:
 
     def __write_final_string(self: _typing.Self) -> None:
         """
-        Requires:
-            line -- line to parse
-        Returns:
-            nothing
-        Logic:
-            First write out the override-table tag.
-            Iteratere through the dictionaries in the main override_list.
-            For each dictionary, write an empty tag "override-list". Add
-            the attributes and values of the tag from the dictionary.
+        Requires: line -- line to parse Returns: nothing Logic: First write out the override-table tag. Iteratere through the dictionaries in the main override_list. For each dictionary, write an empty tag "override-list". Add the attributes and values of the tag from the dictionary.
+
+        Example:
+            Exercise OverrideTable.  write final string through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__override_table_final = "mi<mk<over_beg_\n"
         self.__override_table_final += (
@@ -200,12 +244,17 @@ class OverrideTable:
 
     def parse_override_table(self: _typing.Self, line: _typing.Any) -> tuple[_typing.Any, ...]:
         """
-        Requires:
-            line -- line with border definition in it
-        Returns:
-            A string that will be converted to XML, and a dictionary of
-            all the properties of the RTF lists.
-        Logic:
+        Requires: line -- line with border definition in it Returns: A string that will be converted to XML, and a dictionary of all the properties of the RTF lists. Logic:
+
+        Example:
+            Exercise OverrideTable.parse override table through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         self.__parse_lines(line)
         return self.__override_table_final, self.__list_of_lists

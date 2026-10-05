@@ -1,5 +1,12 @@
 """
-Regression coverage for examples on the public storage API source tree.
+Check named declarations throughout the public storage API for an Example section.
+
+The regression parses source without importing it and includes private/nested/async
+definitions. It checks only docstring presence and the exact Example: marker, not
+parameter coverage, prose accuracy, executable examples, or module introductions.
+
+Example:
+    >>> test_every_storage_api_docstring_has_an_examples_section()
 """
 
 from __future__ import annotations
@@ -14,13 +21,18 @@ DOCUMENTABLE_NODES = (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)
 
 def test_every_storage_api_docstring_has_an_examples_section() -> None:
     """
-    Require the project-wide singular example section on every API definition.
+    Parse every Python file below storage/api and report named definitions missing an Example:
+    marker.
+
+    Collect relative paths, source lines, and declaration names before asserting. Syntax/read
+    failures propagate. Embedded source strings and anonymous lambdas are not declarations in this
+    AST scan.
 
     Example:
         >>> test_every_storage_api_docstring_has_an_examples_section()
 
 
-    :return:
+    :return: None when every named class/function has a docstring containing the exact marker; otherwise raise AssertionError.
     """
 
     missing_examples: list[str] = []

@@ -1,4 +1,19 @@
-"""Low-cognitive-overhead file operations for one configured Store."""
+"""
+Adapt ordinary file identifiers and payloads to one configured Store's exact API.
+
+Read/delete identifiers resolve through Store identity; a prior FileInfo supplies
+only its Location, not cached metadata or an implicit version condition. Writes
+accept bytes-like values, borrowed streams, or owned local-file reads. Optional
+library metadata becomes placement advice, not catalogue persistence or mandatory
+backend-native metadata.
+
+Destination allocation precedes write-mode validation and may have implementation
+effects even when a later argument is rejected. The composed Store owns read-only,
+capability, Location, verification, and publication enforcement.
+
+Example:
+    >>> info = store.store_bytes(b"book", location="incoming/book.epub")  # doctest: +SKIP
+"""
 
 from __future__ import annotations
 
@@ -27,13 +42,17 @@ StoreSource: TypeAlias = (
 StoreFileIdentifier: TypeAlias = str | Location | FileInfo
 
 
+# Todo: split convenience down and include the subclasses in the submodules as appropriate
 class StoreConvenienceAPI:
     """
     Familiar file operations layered over a configured Store's exact API.
 
-    This mixin owns no state. An omitted Location asks the Store allocator to
-    choose one; a string is parsed by the Store; and a Location remains
-    available when the caller needs an exact destination.
+    This mixin owns no state. An omitted Location asks the Store allocator to choose one; a string
+    is parsed by the Store; and a Location remains available when the caller needs an exact
+    destination.
+
+    The runtime casts used by this mixin do not validate its host. Composition must provide
+    StoreIdentityAPI and StoreFileAPI behavior.
 
     Example:
         >>> info = store.store_bytes(  # doctest: +SKIP
@@ -52,24 +71,26 @@ class StoreConvenienceAPI:
         """
         Open a Store file as a read-only binary stream.
 
-        This method never opens the destination for mutation and accepts no
-        write mode. Use ``store()``, ``store_stream()``, or ``begin_write()``
-        for staged, commit-based writes. Close the returned stream, preferably
-        by using it as a context manager.
+        This method never opens the destination for mutation and accepts no write mode. Use
+        ``store()``, ``store_stream()``, or ``begin_write()`` for staged, commit-based writes. Close
+        the returned stream, preferably by using it as a context manager.
 
-        Store keys may themselves be hashes in a content-addressed Store, but
-        a generic Store does not claim a digest reverse index.
+        Store keys may themselves be hashes in a content-addressed Store, but a generic Store does
+        not claim a digest reverse index.
+
+        Resolve the identifier before delegating to get. No implicit URI parsing, digest lookup, or
+        version pinning is added for a FileInfo input.
 
         Example:
             >>> with store.open_file("objects/sha256/abcd") as source:  # doctest: +SKIP
             ...     payload = source.read()
 
 
-        :param identifier:
-        :param offset:
-        :param length:
-        :param if_version:
-        :return:
+        :param identifier: Opaque key, routed Location, or prior FileInfo used only to identify an object.
+        :param offset: Starting byte offset forwarded to the Store reader.
+        :param length: Optional byte count; None reads the remaining object.
+        :param if_version: Optional explicit version precondition; a FileInfo identifier does not supply one automatically.
+        :return: Binary read stream owned by the caller, who must close it.
         """
 
         identity = cast(StoreIdentityAPI, cast(object, self))
@@ -96,11 +117,11 @@ class StoreConvenienceAPI:
             ...     payload = source.read()
 
 
-        :param identifier:
-        :param offset:
-        :param length:
-        :param if_version:
-        :return:
+        :param identifier: Opaque key, routed Location, or prior FileInfo used only to identify an object.
+        :param offset: Starting byte offset forwarded to the Store reader.
+        :param length: Optional byte count; None reads the remaining object.
+        :param if_version: Optional explicit version precondition; a FileInfo identifier does not supply one automatically.
+        :return: The open_file result unchanged, with the same caller-owned lifetime.
         """
 
         return self.open_file(
@@ -121,16 +142,19 @@ class StoreConvenienceAPI:
         """
         Read a Store file by opaque key, Location, or returned FileInfo.
 
+        Read the entire selected range without an independent memory cap. Context cleanup owns the
+        opened stream, including when read raises.
+
         Example:
             >>> store.read_file("objects/42", length=4)  # doctest: +SKIP
             b'book'
 
 
-        :param identifier:
-        :param offset:
-        :param length:
-        :param if_version:
-        :return:
+        :param identifier: Opaque key, routed Location, or prior FileInfo used only to identify an object.
+        :param offset: Starting byte offset forwarded to the Store reader.
+        :param length: Optional byte count; None reads the remaining object.
+        :param if_version: Optional explicit version precondition; a FileInfo identifier does not supply one automatically.
+        :return: The complete source.read() result after cleanup; no independent bytes-type check is performed.
         """
 
         with self.open_file(
@@ -145,15 +169,15 @@ class StoreConvenienceAPI:
         """
         Return current information using a key, Location, or prior FileInfo.
 
-        A supplied ``FileInfo`` identifies the object; this method still asks
-        the Store for fresh information rather than returning a stale value.
+        A supplied ``FileInfo`` identifies the object; this method still asks the Store for fresh
+        information rather than returning a stale value.
 
         Example:
             >>> current = store.stat_file(stored)  # doctest: +SKIP
 
 
-        :param identifier:
-        :return:
+        :param identifier: Opaque key, routed Location, or prior FileInfo used only to identify an object.
+        :return: Fresh stat metadata for the resolved Location.
         """
 
         identity = cast(StoreIdentityAPI, cast(object, self))
@@ -165,13 +189,15 @@ class StoreConvenienceAPI:
         """
         Test whether a Store file exists using any ordinary identifier.
 
+        Identifier resolution occurs before exists, so parsing and ownership errors remain visible.
+
         Example:
             >>> store.file_exists("objects/42")  # doctest: +SKIP
             True
 
 
-        :param identifier:
-        :return:
+        :param identifier: Opaque key, routed Location, or prior FileInfo used only to identify an object.
+        :return: Whether the resolved Store object exists; only the underlying not-found path is suppressed.
         """
 
         identity = cast(StoreIdentityAPI, cast(object, self))
@@ -189,14 +215,17 @@ class StoreConvenienceAPI:
         """
         Delete a Store file using a key, Location, or returned FileInfo.
 
+        The wrapper neither infers a version from FileInfo nor performs its own capability check;
+        those preconditions belong to the concrete delete operation.
+
         Example:
             >>> store.delete_file(stored, missing_ok=True)  # doctest: +SKIP
 
 
-        :param identifier:
-        :param missing_ok:
-        :param if_version:
-        :return:
+        :param identifier: Opaque key, routed Location, or prior FileInfo used only to identify an object.
+        :param missing_ok: Whether the underlying delete may accept genuine absence.
+        :param if_version: Optional explicit version condition forwarded to deletion.
+        :return: None after delegated deletion; ownership, policy, and operational failures propagate.
         """
 
         identity = cast(StoreIdentityAPI, cast(object, self))
@@ -221,6 +250,10 @@ class StoreConvenienceAPI:
         """
         Store bytes, a binary stream, or a local file at one Store.
 
+        Bytes, bytearray, and memoryview are converted to bytes; a supplied size mismatch fails
+        before Store dispatch. Strings and path-like objects select local-file reads. Other values
+        only need a read attribute at this point; actual stream results are checked later by put.
+
         Example:
             >>> info = store.store(  # doctest: +SKIP
             ...     b"cover", name="cover.jpg",
@@ -228,15 +261,15 @@ class StoreConvenienceAPI:
             ... )
 
 
-        :param source:
-        :param location:
-        :param name:
-        :param metadata:
-        :param write_mode:
-        :param expected_size:
-        :param expected_digest:
-        :param mode: Backward-compatible alias for ``write_mode``.
-        :return:
+        :param source: Bytes-like payload, local path, or caller-owned object with a read attribute.
+        :param location: Explicit key/Location, or None to request Store allocation.
+        :param name: Optional name hint for allocation; an explicit destination does not use it.
+        :param metadata: Optional library metadata projected into advisory Store placement hints.
+        :param write_mode: WriteMode or exact enum-value string; defaults to CREATE_ONLY when both mode names are None.
+        :param expected_size: Optional exact source byte count checked before dispatch or by the staged session.
+        :param expected_digest: Optional expected content digest verified by the staged session.
+        :param mode: Compatibility alias for write_mode; supplying both non-None names raises TypeError.
+        :return: Committed FileInfo from the selected bytes, local-file, or stream path.
         """
 
         if isinstance(source, (bytes, bytearray, memoryview)):
@@ -300,14 +333,14 @@ class StoreConvenienceAPI:
             ... )
 
 
-        :param data:
-        :param location:
-        :param name:
-        :param metadata:
-        :param write_mode:
-        :param expected_digest:
-        :param mode: Backward-compatible alias for ``write_mode``.
-        :return:
+        :param data: Small in-memory payload wrapped in BytesIO with len(data) as the size expectation.
+        :param location: Explicit key/Location, or None to request Store allocation.
+        :param name: Optional name hint for allocation; an explicit destination does not use it.
+        :param metadata: Optional library metadata projected into advisory Store placement hints.
+        :param write_mode: WriteMode or exact enum-value string; defaults to CREATE_ONLY when both mode names are None.
+        :param expected_digest: Optional expected content digest verified by the staged session.
+        :param mode: Compatibility alias for write_mode; supplying both non-None names raises TypeError.
+        :return: Committed metadata from store_stream.
         """
 
         return self.store_stream(
@@ -336,21 +369,26 @@ class StoreConvenienceAPI:
         """
         Stream bytes to an explicit or Store-allocated Location.
 
+        Project metadata before checking placement-hint capability or resolving the destination.
+        Allocation receives hints only when advertised, while put always receives the projected
+        value and its default implementation gates begin_write accordingly. Select write mode after
+        resolution/allocation, so a later mode error does not undo allocator effects.
+
         Example:
             >>> info = store.store_stream(  # doctest: +SKIP
             ...     source, expected_size=4, name="book.epub",
             ... )
 
 
-        :param source:
-        :param location:
-        :param name:
-        :param metadata:
-        :param write_mode:
-        :param expected_size:
-        :param expected_digest:
-        :param mode: Backward-compatible alias for ``write_mode``.
-        :return:
+        :param source: Borrowed binary input consumed at its current position without closing or rewinding it.
+        :param location: Explicit key/Location, or None to request Store allocation.
+        :param name: Optional name hint for allocation; an explicit destination does not use it.
+        :param metadata: Optional library metadata projected into advisory Store placement hints.
+        :param write_mode: WriteMode or exact enum-value string; defaults to CREATE_ONLY when both mode names are None.
+        :param expected_size: Optional exact source byte count checked before dispatch or by the staged session.
+        :param expected_digest: Optional expected content digest verified by the staged session.
+        :param mode: Compatibility alias for write_mode; supplying both non-None names raises TypeError.
+        :return: Result of the Store put operation at the explicit or allocated destination.
         """
 
         hints = _placement_hints(metadata)
@@ -390,21 +428,25 @@ class StoreConvenienceAPI:
         """
         Store one local file and use its filename as the default name hint.
 
+        Observe size before opening and use that observation as the transfer expectation. Stat,
+        open, and reading are separate operations; the helper does not lock the source against
+        changes. A read/close failure can be reported after destination publication.
+
         Example:
             >>> info = store.store_file(  # doctest: +SKIP
             ...     "/incoming/book.epub",
             ... )
 
 
-        :param path:
-        :param location:
-        :param name:
-        :param metadata:
-        :param write_mode:
-        :param expected_size:
-        :param expected_digest:
-        :param mode: Backward-compatible alias for ``write_mode``.
-        :return:
+        :param path: Local path opened directly with Path, without expanduser or resolve.
+        :param location: Explicit key/Location, or None to request Store allocation.
+        :param name: Optional allocation name; None uses the source basename.
+        :param metadata: Optional library metadata projected into advisory Store placement hints.
+        :param write_mode: WriteMode or exact enum-value string; defaults to CREATE_ONLY when both mode names are None.
+        :param expected_size: Optional byte count compared with the initial path stat before opening.
+        :param expected_digest: Optional expected content digest verified by the staged session.
+        :param mode: Compatibility alias for write_mode; supplying both non-None names raises TypeError.
+        :return: Committed metadata after closing the owned local source handle.
         """
 
         source_path = Path(path)
@@ -426,6 +468,7 @@ class StoreConvenienceAPI:
             )
 
 
+# Todo: These should not be in the API...
 def _bytes_stream(data: bytes) -> BinaryIO:
     """
     Wrap an in-memory payload as a binary stream.
@@ -433,6 +476,10 @@ def _bytes_stream(data: bytes) -> BinaryIO:
     Example:
         >>> _bytes_stream(b"book").read()
         b'book'
+
+
+    :param data: In-memory payload accepted by io.BytesIO.
+    :return: New BytesIO positioned at the beginning of the payload.
     """
 
     import io
@@ -446,9 +493,17 @@ def _placement_hints(
     """
     Project optional library metadata into Store placement hints.
 
+    The projector may return None for unsupported sources or failed optional providers. Exceptions
+    it does not handle propagate even when a later Store capability check would discard the hints.
+    This helper does not write metadata to a catalogue.
+
     Example:
         >>> _placement_hints({"title": "Book"})["title"]
         'Book'
+
+
+    :param metadata: Optional metadata/hint source accepted by derive_storage_hints.
+    :return: None when absent, otherwise the metadata projection returned by derive_storage_hints.
     """
 
     return None if metadata is None else derive_storage_hints(metadata)
@@ -461,8 +516,16 @@ def _store_file_location(
     """
     Resolve an ordinary Store-file identifier to its checked Location.
 
+    The helper does not reuse FileInfo size/digest/version or perform stat; it resolves identity
+    only.
+
     Example:
         >>> location = _store_file_location(store, stored)  # doctest: +SKIP
+
+
+    :param store: Identity facade responsible for checking Location ownership and parsing keys.
+    :param identifier: Opaque key, routed Location, or prior FileInfo used only to identify an object.
+    :return: Location obtained from store.locate, using only FileInfo.location for metadata inputs.
     """
 
     if isinstance(identifier, FileInfo):
@@ -482,12 +545,26 @@ def _store_location(
     """
     Resolve an ordinary key or ask the Store to allocate a destination.
 
+    An explicit destination bypasses allocation and ignores name, expected size/digest, and
+    placement hints here. With no destination, omit the placement_hints keyword when None for older
+    allocator signatures. Catch only StoreUnsupportedOperation from allocation; other failures
+    propagate, and no additional validation of a returned Location is performed here.
+
     Example:
         >>> destination = _store_location(  # doctest: +SKIP
         ...     store, "incoming/book.epub", name=None,
         ...     expected_size=4, expected_digest=None,
         ...     placement_hints=None,
         ... )
+
+
+    :param store: Configured Store identity/allocation facade.
+    :param location: Explicit key/Location, or None to request Store allocation.
+    :param name: Optional name hint for allocation; an explicit destination does not use it.
+    :param expected_size: Optional byte-size hint forwarded only when allocating a destination.
+    :param expected_digest: Optional content-digest hint forwarded only when allocating a destination.
+    :param placement_hints: Optional already-projected advice forwarded only on the allocation branch.
+    :return: Resolved explicit Location or allocator result; unsupported allocation is re-raised with configured-name context.
     """
 
     if location is not None:
@@ -516,9 +593,15 @@ def _write_mode(mode: WriteMode | str) -> WriteMode:
     """
     Normalize a write mode enum or its string value.
 
+    Text is not stripped or case-normalized before enum conversion.
+
     Example:
         >>> _write_mode("create_only") is WriteMode.CREATE_ONLY
         True
+
+
+    :param mode: WriteMode instance or exact string value accepted by the enum.
+    :return: Existing enum unchanged or WriteMode conversion result; invalid input errors propagate.
     """
 
     return mode if isinstance(mode, WriteMode) else WriteMode(mode)
@@ -531,9 +614,16 @@ def _write_mode_argument(
     """
     Select the clear write-mode name while retaining the former alias.
 
+    Both names being non-None is an error even when their values are equal.
+
     Example:
         >>> _write_mode_argument("replace", None) is WriteMode.REPLACE
         True
+
+
+    :param write_mode: WriteMode or exact enum-value string; defaults to CREATE_ONLY when both mode names are None.
+    :param mode: Compatibility alias for write_mode; supplying both non-None names raises TypeError.
+    :return: Selected normalized policy, defaulting to CREATE_ONLY when both inputs are None.
     """
 
     if write_mode is not None and mode is not None:

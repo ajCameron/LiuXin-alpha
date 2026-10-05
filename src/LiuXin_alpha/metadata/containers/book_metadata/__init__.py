@@ -1,8 +1,17 @@
 
 """
-Container for book type works.
+Provide the minimal book container with a title and independent metadata defaults.
 
-We needed a simplified metadata container to make the interfaces easier.
+This class initializes storage and a cleanup list; it does not implement the richer
+field dispatch or cleanup methods of the Calibre-like container.
+
+Example:
+    >>> book = BookMetadata('Example')
+    >>> book.title, book._data['title']
+    ('Example', '')
+    >>> other = BookMetadata('Other')
+    >>> book._data['tags'] is other._data['tags']
+    False
 """
 
 from copy import deepcopy
@@ -12,15 +21,35 @@ from LiuXin_alpha.metadata.constants import METADATA_NULL_VALUES
 
 class BookMetadata:
     """
-    Container for book type works metadata.
+    Store a title attribute alongside a separate dictionary of metadata defaults.
 
-    It's supposed to look like info for a book - just with a cleaner interface than the calibre version.
+    The title argument is not copied into _data. Each instance receives its own
+    deep-copied defaults and empty _files_for_cleanup list.
+
+    Example:
+        >>> book = BookMetadata('Example')
+        >>> book.title, book._data['title']
+        ('Example', '')
+        >>> other = BookMetadata('Other')
+        >>> book._data['tags'] is other._data['tags']
+        False
     """
     def __init__(self, title: str) -> None:
         """
-        Container for all the metadata of the book.
+        Set the title directly and create independent metadata and cleanup storage.
 
-        :param title:
+        Example:
+            >>> book = BookMetadata('Example')
+            >>> book.title, book._data['title']
+            ('Example', '')
+            >>> other = BookMetadata('Other')
+            >>> book._data['tags'] is other._data['tags']
+            False
+
+
+        :param title: Initial title assigned to the ordinary title attribute without
+            normalization.
+        :return: None.
         """
         self.title = title
 

@@ -1,3 +1,14 @@
+"""
+Provide test odt malformed hostile utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test odt malformed hostile through a consuming regression::
+
+        python -m pytest -q tests/file_formats/odt/test_odt_malformed_hostile.py
+"""
 from __future__ import annotations
 
 import io
@@ -11,6 +22,22 @@ from tests.support.file_format_odt import NullLog, build_unicode_odt, rewrite_od
 
 
 def _assert_extract_rejects_without_partial_output(extract, archive: Path, out_dir: Path, match: str) -> None:
+    """
+    Perform the assert extract rejects without partial output operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  assert extract rejects without partial output through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odt/test_odt_malformed_hostile.py
+
+
+    :param extract: Value supplied for extract under the utility contract.
+    :param archive: Value supplied for archive under the utility contract.
+    :param out_dir: Value supplied for out dir under the utility contract.
+    :param match: Value supplied for match under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     with archive.open("rb") as stream:
         with pytest.raises(ValueError, match=match):
             extract(stream, str(out_dir), NullLog())
@@ -39,6 +66,22 @@ def test_odt_extract_rejects_malformed_container_members(
     remove: tuple[str, ...],
     replace: dict[str, bytes],
 ) -> None:
+    """
+    Perform the test odt extract rejects malformed container members operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test odt extract rejects malformed container members through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odt/test_odt_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param case_id: Value supplied for case id under the utility contract.
+    :param remove: Value supplied for remove under the utility contract.
+    :param replace: Value supplied for replace under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.odt.input import Extract
 
     base = build_unicode_odt(tmp_path / "base.odt")
@@ -55,9 +98,30 @@ def test_odt_extract_rejects_malformed_container_members(
 
 
 def test_odt_extract_rejects_too_many_archive_members_without_partial_output(tmp_path: Path) -> None:
+    """
+    Perform the test odt extract rejects too many archive members without partial output operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test odt extract rejects too many archive members without partial output through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odt/test_odt_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.odt.input import Extract
 
     class StrictExtract(Extract):
+        """
+        Provide the strictextract contract for validated ebook processing.
+
+        Example:
+            Exercise test odt extract rejects too many archive members without partial output.StrictExtract through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odt/test_odt_malformed_hostile.py
+        """
         max_archive_members = 8
 
     base = build_unicode_odt(tmp_path / "small.odt", lines=("small",))
@@ -77,9 +141,30 @@ def test_odt_extract_rejects_too_many_archive_members_without_partial_output(tmp
 
 
 def test_odt_extract_rejects_oversized_archive_member_without_partial_output(tmp_path: Path) -> None:
+    """
+    Perform the test odt extract rejects oversized archive member without partial output operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test odt extract rejects oversized archive member without partial output through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odt/test_odt_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.odt.input import Extract
 
     class StrictExtract(Extract):
+        """
+        Provide the strictextract contract for validated ebook processing.
+
+        Example:
+            Exercise test odt extract rejects oversized archive member without partial output.StrictExtract through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odt/test_odt_malformed_hostile.py
+        """
         max_member_uncompressed_size = 10 * 1024
 
     base = build_unicode_odt(tmp_path / "small.odt", lines=("small",))
@@ -95,9 +180,30 @@ def test_odt_extract_rejects_oversized_archive_member_without_partial_output(tmp
 
 
 def test_odt_extract_rejects_excessive_total_expansion_without_partial_output(tmp_path: Path) -> None:
+    """
+    Perform the test odt extract rejects excessive total expansion without partial output operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test odt extract rejects excessive total expansion without partial output through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odt/test_odt_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.odt.input import Extract
 
     class StrictExtract(Extract):
+        """
+        Provide the strictextract contract for validated ebook processing.
+
+        Example:
+            Exercise test odt extract rejects excessive total expansion without partial output.StrictExtract through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odt/test_odt_malformed_hostile.py
+        """
         max_member_uncompressed_size = 100 * 1024
         max_total_uncompressed_size = 30 * 1024
 
@@ -118,9 +224,30 @@ def test_odt_extract_rejects_excessive_total_expansion_without_partial_output(tm
 
 
 def test_odt_extract_rejects_suspicious_compression_ratio_without_partial_output(tmp_path: Path) -> None:
+    """
+    Perform the test odt extract rejects suspicious compression ratio without partial output operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test odt extract rejects suspicious compression ratio without partial output through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odt/test_odt_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.odt.input import Extract
 
     class StrictExtract(Extract):
+        """
+        Provide the strictextract contract for validated ebook processing.
+
+        Example:
+            Exercise test odt extract rejects suspicious compression ratio without partial output.StrictExtract through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odt/test_odt_malformed_hostile.py
+        """
         max_compression_ratio = 20
         min_compression_ratio_check_size = 32 * 1024
 
@@ -142,6 +269,20 @@ def test_odt_extract_rejects_suspicious_compression_ratio_without_partial_output
 
 
 def test_odt_input_rejects_non_zip_payload_without_partial_output(tmp_path: Path, monkeypatch) -> None:
+    """
+    Perform the test odt input rejects non zip payload without partial output operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test odt input rejects non zip payload without partial output through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odt/test_odt_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.conversion.plugins.odt_input import ODTInput
 
     workdir = tmp_path / "plugin_work"

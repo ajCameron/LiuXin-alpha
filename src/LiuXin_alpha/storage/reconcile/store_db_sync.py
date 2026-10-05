@@ -1,9 +1,19 @@
 """
-Store <-> database reconciliation helpers.
+Register local or rclone-discovered ebook paths in the legacy catalogue tables.
 
-Current focus:
-- treat an existing local disk tree as an unmanaged/read-only store
-- register discovered ebook files into the database `files` table
+Store declarations, file upserts, and optional primary links are incremental;
+there is no all-run transaction or removal of entries absent from a later scan.
+Local classification follows path suffixes, and remote registration follows
+inventory Location keys. Neither proves ebook format validity. Callbacks observe
+live reports, while ordinary callback errors are ignored.
+
+The local hash helper currently returns SHA-512 hex plus size even though the
+payload field is named file_hash_sha256. Remote digest capture trusts an inventory
+claim named sha256. These existing behaviors are distinct from trusted SHA-256
+verification. The standalone main entry point exposes local registration only.
+
+Example:
+    >>> report = register_existing_disk_as_unmanaged_store(db, disk_root, compute_hash=False)  # doctest: +SKIP
 """
 
 from __future__ import annotations
@@ -40,22 +50,73 @@ _HTML_LIKE_EXTENSIONS = {"htm", "html", "htmlz", "xhtm", "xhtml"}
 
 
 def _now_ep_ms() -> int:
+    """
+    Read wall-clock Unix-epoch milliseconds, truncating fractional milliseconds.
+
+    Example:
+        >>> isinstance(_now_ep_ms(), int)
+        True
+
+
+    :return: Current epoch milliseconds, without a monotonicity guarantee.
+    """
     return int(time.time() * 1000)
 
 
 def _epoch_ms_from_seconds(value: float | int | None) -> Optional[int]:
+    """
+    Float-convert seconds to integer epoch milliseconds while preserving None.
+
+    Conversion and nonfinite-value errors propagate; no timezone interpretation occurs.
+
+    Example:
+        >>> _epoch_ms_from_seconds(1.25)
+        1250
+
+
+    :param value: Seconds since the epoch, or None for missing metadata.
+    :return: Milliseconds truncated toward zero, or None.
+    """
     if value is None:
         return None
     return int(float(value) * 1000.0)
 
 
 def _normalize_ebook_extensions(ebook_extensions: Optional[Iterable[str]]) -> set[str]:
+    """
+    Build a lowercase suffix set, using BOOK_EXTENSIONS only for None.
+
+    Skip values whose string is blank after stripping, but retain whitespace on accepted strings.
+    Remove leading dots without stripping surrounding spaces; an explicit empty iterable stays
+    empty.
+
+    Example:
+        >>> _normalize_ebook_extensions(['.EPUB', 'txt', '']) == {'epub', 'txt'}
+        True
+
+
+    :param ebook_extensions: Iterable of suffix-like values, or None for the project defaults.
+    :return: Normalized membership set used for extension filtering.
+    """
     if ebook_extensions is None:
         ebook_extensions = BOOK_EXTENSIONS
     return {str(x).lower().lstrip(".") for x in ebook_extensions if str(x).strip()}
 
 
 def _normalize_root(path: str | os.PathLike[str]) -> pathlib.Path:
+    """
+    Expand a local path, require an existing directory, then resolve it.
+
+    Existence/type checks and subsequent scanning are separate filesystem observations. Missing
+    paths raise FileNotFoundError and non-directories raise NotADirectoryError.
+
+    Example:
+        >>> root = _normalize_root(existing_directory)  # doctest: +SKIP
+
+
+    :param path: Local directory path; URI parsing is not performed.
+    :return: Resolved absolute Path after validation.
+    """
     root = pathlib.Path(path).expanduser()
     if not root.exists():
         raise FileNotFoundError("Disk path does not exist: {!r}".format(str(root)))
@@ -65,6 +126,20 @@ def _normalize_root(path: str | os.PathLike[str]) -> pathlib.Path:
 
 
 def _normalize_remote_root(url: str) -> str:
+    """
+    Stringify and trim the remote selector, rejecting only blank text here.
+
+    Address syntax, credential policy, and backend support are checked by the backend constructor
+    later.
+
+    Example:
+        >>> _normalize_remote_root(' remote:books ')
+        'remote:books'
+
+
+    :param url: Remote selector accepted as text before backend-specific parsing.
+    :return: Nonblank stripped selector; blank text raises ValueError.
+    """
     text = str(url).strip()
     if not text:
         raise ValueError("Remote store URL cannot be blank.")
@@ -72,6 +147,20 @@ def _normalize_remote_root(url: str) -> str:
 
 
 def _coerce_datetime_ep_ms(value: object) -> Optional[int]:
+    """
+    Parse nonblank ISO-like text with Z replaced by +00:00, then convert to epoch milliseconds.
+
+    Parsing Exceptions return None, while stringification or timestamp-conversion failures can
+    propagate. Naive datetimes use the process local timezone.
+
+    Example:
+        >>> _coerce_datetime_ep_ms('1970-01-01T00:00:01Z')
+        1000
+
+
+    :param value: Timestamp-like object stringified for datetime.fromisoformat, or None.
+    :return: Truncated epoch milliseconds or None for absent/unparseable text.
+    """
     if value is None:
         return None
     text = str(value).strip()
@@ -85,6 +174,19 @@ def _coerce_datetime_ep_ms(value: object) -> Optional[int]:
 
 
 def _infer_remote_access_protocol(remote_url: str) -> str:
+    """
+    Label text as HTTPS, HTTP, or rclone using case-insensitive prefix/substring heuristics.
+
+    Check HTTPS first; this does not parse or validate an address.
+
+    Example:
+        >>> _infer_remote_access_protocol('remote:')
+        'rclone'
+
+
+    :param remote_url: Remote selector examined for an HTTP scheme or url= component.
+    :return: The metadata label https, http, or rclone.
+    """
     lowered = remote_url.lower()
     if "url=https://" in lowered or lowered.startswith("https://"):
         return "https"
@@ -94,6 +196,21 @@ def _infer_remote_access_protocol(remote_url: str) -> str:
 
 
 def _guess_remote_url_extension(candidate_url: str) -> str:
+    """
+    Select the last suffix found in the decoded URL path and query values.
+
+    Query-value suffixes override the path suffix, regardless of parameter name. parse_qs already
+    decodes values before a further unquote; this heuristic does not establish file type and is
+    separate from the live inventory-key filter.
+
+    Example:
+        >>> _guess_remote_url_extension('https://example.invalid/download.html?name=book.epub')
+        'epub'
+
+
+    :param candidate_url: URL-like text, with a falsey value treated as empty.
+    :return: Lowercase suffix without its dot, or an empty string when none is found.
+    """
     parsed = urlparse(str(candidate_url or "").strip())
     suffixes: list[str] = []
 
@@ -116,10 +233,35 @@ def _guess_remote_url_extension(candidate_url: str) -> str:
 
 
 def _table_columns(db, table_name: str) -> set[str]:
+    """
+    Read the database-advertised column headings as a set.
+
+    Example:
+        >>> columns = _table_columns(db, "files")  # doctest: +SKIP
+
+
+    :param db: Database facade supplying get_column_headings.
+    :param table_name: Table whose headings are requested without independent validation.
+    :return: Unique column-name set; database failures propagate.
+    """
     return set(db.get_column_headings(table_name))
 
 
 def _ensure_schema_support(db) -> tuple[set[str], set[str], set[str], set[str]]:
+    """
+    Require stores/files tables and their minimal registration address columns.
+
+    Read optional file_store_links headings when present. This is a partial schema check, not
+    validation of every field subsequently used; missing required tables/columns raise
+    InputIntegrityError.
+
+    Example:
+        >>> tables, stores, files, links = _ensure_schema_support(db)  # doctest: +SKIP
+
+
+    :param db: Database facade queried for table and column names.
+    :return: Table names, Store columns, file columns, and optional link columns as four sets.
+    """
     tables = set(db.get_tables())
     required_tables = {"stores", "files"}
     missing_tables = sorted(required_tables - tables)
@@ -155,7 +297,21 @@ def ensure_unmanaged_store_for_disk(
     store_kind: str = "on_disk_existing_unmanaged_drive",
 ) -> tuple[Row, OnDiskUnmanagedStorageBackend]:
     """
-    Create/reuse a `stores` row and unmanaged store backend for an existing disk path.
+    Create or refresh the first Store row matching a resolved existing disk directory.
+
+    Reuse a nonempty UUID from that first row and update supported declaration fields, marking it
+    online without an explicit health probe here. Other matching rows are ignored. Construction and
+    row errors propagate; no file scan or encompassing transaction is added.
+
+    Example:
+        >>> row, backend = ensure_unmanaged_store_for_disk(db, disk_root)  # doctest: +SKIP
+
+
+    :param db: Borrowed database facade receiving incremental row operations.
+    :param disk_path: Existing local directory expanded/resolved before lookup.
+    :param store_name: Truthy name override, otherwise a sanitized name derived from the root.
+    :param store_kind: Legacy Store-kind label persisted independently of the concrete backend class.
+    :return: Persisted Store row and constructed unmanaged backend.
     """
     _ensure_schema_support(db)
     root = _normalize_root(disk_path)
@@ -239,7 +395,31 @@ def ensure_rclone_http_readonly_store(
     max_json_token_chars: int = 8 * 1024 * 1024,
 ) -> tuple[Row, RcloneHttpReadOnlyStorageBackend]:
     """
-    Create/reuse a `stores` row and rclone-backed read-only store for a remote URL.
+    Create or refresh the first Store row for a validated rclone read-only selector.
+
+    Construct the backend before database writes and reuse a nonempty UUID from the first matching
+    row. Persist supported capability fields and sorted policy JSON, including executable/arguments;
+    the declaration is marked online without inventory enumeration here. Callback/rate enforcement
+    belongs to later backend operations.
+
+    Example:
+        >>> row, backend = ensure_rclone_http_readonly_store(db, "remote:")  # doctest: +SKIP
+
+
+    :param db: Borrowed database facade receiving incremental row operations.
+    :param remote_url: Remote selector trimmed here and parsed/validated by the concrete backend.
+    :param store_name: Truthy name override, otherwise a sanitized name derived from the root.
+    :param store_kind: Legacy Store-kind label persisted independently of the concrete backend class.
+    :param max_http_requests_per_hour: Rate ceiling; None resolves the configured default before backend construction.
+    :param apply_rclone_tpslimit: Whether to add rclone TPS flags, bool-converted into options.
+    :param rclone_tpslimit_burst: Burst option int-converted and clamped to at least one.
+    :param enforce_global_rate_limit: Whether shared rate scheduling is enabled, bool-converted into options.
+    :param rclone_exe: Executable selector recorded in backend options and policy JSON.
+    :param rclone_args: Extra arguments materialized as a tuple, or an empty tuple for a falsey value.
+    :param timeout_s: Per-command backend timeout in seconds, or None for no configured timeout.
+    :param max_inventory_entries: Backend ceiling on inventory entries.
+    :param max_json_token_chars: Backend JSON token character ceiling.
+    :return: Persisted Store row and rclone HTTP backend; setup failures propagate.
     """
     _ensure_schema_support(db)
     root = _normalize_remote_root(remote_url)
@@ -343,6 +523,21 @@ def ensure_rclone_http_readonly_store(
 
 
 def _iter_files_under_root(root: pathlib.Path, *, follow_symlinks: bool = False):
+    """
+    Yield os.walk filename entries with sorted directory and filename traversal.
+
+    No independent regular-file or containment check is applied. follow_symlinks controls directory
+    descent only; file symlinks can still be yielded and opened later. Default os.walk error
+    handling can skip inaccessible directories.
+
+    Example:
+        >>> paths = list(_iter_files_under_root(root))  # doctest: +SKIP
+
+
+    :param root: Local tree passed to os.walk.
+    :param follow_symlinks: Whether os.walk descends into linked directories, with its normal cycle behavior.
+    :return: Iterator of child Paths in per-directory sorted traversal order.
+    """
     for dirpath, dirnames, filenames in os.walk(root, followlinks=follow_symlinks):
         dirnames.sort()
         filenames.sort()
@@ -360,6 +555,26 @@ def _build_file_payload(
     source_label: str,
     compute_hash: bool,
 ) -> dict[str, object]:
+    """
+    Read local stat/hash observations and assemble legacy ebook row metadata.
+
+    The storage key is lexical relative_to(root); stat/open can follow file symlinks. compute_hash
+    uses the existing get_file_hash helper, whose value is SHA-512 hex plus decimal byte size
+    despite being assigned to file_hash_sha256. The ok label records that calculation, not a
+    comparison with a trusted digest. Stat and byte reads are separate observations.
+
+    Example:
+        >>> payload = _build_file_payload(path, root=root, store_id=1, now_epk=0, source_label="import", compute_hash=False)  # doctest: +SKIP
+
+
+    :param path: Discovered file path to stat and optionally read.
+    :param root: Path used to derive the relative POSIX storage key.
+    :param store_id: Legacy Store row identity stored on the file.
+    :param now_epk: Wall-clock epoch milliseconds for registration timestamps.
+    :param source_label: Provenance label stored unchanged.
+    :param compute_hash: Whether to calculate the legacy hash and mark integrity ok.
+    :return: Unfiltered field mapping, including None values and platform stat ctime/mtime conversions.
+    """
     rel = path.relative_to(root).as_posix()
     ext = path.suffix.lower().lstrip(".")
     stat = path.stat()
@@ -403,6 +618,29 @@ def _build_remote_file_payload(
     now_epk: int,
     source_label: str,
 ) -> dict[str, object]:
+    """
+    Assemble legacy ebook fields from supplied inventory observations without reading remote bytes.
+
+    A truthy supplied SHA-256 claim sets integrity ok without validating its syntax or content.
+    Name/MIME derive from the key, falling back to the URL as a POSIX path only for a falsey key. A
+    naive modified_at uses local timezone timestamp rules.
+
+    Example:
+        >>> payload = _build_remote_file_payload(file_url="remote:book.epub", storage_key="book.epub", size_bytes=3, modified_at=None, sha256=None, store_id=1, now_epk=0, source_label="remote")
+        >>> payload["file_integrity_status"]
+        'unchecked'
+
+
+    :param file_url: Constructed original remote address retained as provenance.
+    :param storage_key: Backend key stored unchanged and used for filename metadata.
+    :param size_bytes: Inventory-supplied size, without independent validation here.
+    :param modified_at: Inventory datetime converted to epoch milliseconds, or None.
+    :param sha256: Optional digest claim copied directly into the legacy hash field.
+    :param store_id: Legacy Store row identity.
+    :param now_epk: Registration wall-clock epoch milliseconds.
+    :param source_label: Provenance label retained verbatim.
+    :return: Unfiltered payload mapping; conversion errors propagate.
+    """
     path_obj = pathlib.PurePosixPath(storage_key or pathlib.PurePosixPath(file_url).name)
     name = path_obj.name
     ext = path_obj.suffix.lower().lstrip(".")
@@ -445,6 +683,23 @@ def _emit_progress(
     report: UnmanagedDiskRegistrationReport,
     details: Optional[dict[str, object]] = None,
 ) -> None:
+    """
+    Notify an optional observer with the live report and a shallow details copy.
+
+    Stringify the event inside the guard and swallow ordinary Exceptions, including observer
+    failures. BaseException subclasses propagate, and observer mutations to the report remain
+    visible.
+
+    Example:
+        >>> _emit_progress(None, event="scan", report=report)  # doctest: +SKIP
+
+
+    :param progress_callback: Optional synchronous observer of event/report/details.
+    :param event: Event value converted to text for delivery.
+    :param report: Live mutable report passed by reference.
+    :param details: Optional mapping shallow-copied, with a falsey value treated as empty.
+    :return: None after notification or an ignored ordinary failure.
+    """
     if progress_callback is None:
         return
     try:
@@ -455,11 +710,39 @@ def _emit_progress(
 
 
 def _insert_file_row(db, *, payload: dict[str, object], file_columns: set[str]) -> Row:
+    """
+    Insert supported non-None file fields through the Row facade.
+
+    Example:
+        >>> row = _insert_file_row(db, payload=payload, file_columns=columns)  # doctest: +SKIP
+
+
+    :param db: Database receiving the new legacy files row.
+    :param payload: Candidate fields; unsupported keys and None values are omitted.
+    :param file_columns: Advertised allowed file-column set.
+    :return: Created Row; insertion failures propagate.
+    """
     row_dict = {key: value for key, value in payload.items() if key in file_columns and value is not None}
     return Row.from_idless_row_dict(db, row_dict=row_dict, table="files")
 
 
 def _update_file_row(row: Row, *, payload: dict[str, object], file_columns: set[str]) -> bool:
+    """
+    Sync supported non-None fields only after a substantive difference is found.
+
+    Four volatile timestamps do not trigger an update by themselves, but are assigned when another
+    field differs, including acquired time. None never clears existing metadata. Assignments precede
+    sync and are not rolled back here after failure.
+
+    Example:
+        >>> changed = _update_file_row(row, payload=payload, file_columns=columns)  # doctest: +SKIP
+
+
+    :param row: Existing file Row, mutated when a substantive change exists.
+    :param payload: Candidate supported values and timestamps.
+    :param file_columns: Column names eligible for comparison and assignment.
+    :return: True after syncing a changed row, otherwise False.
+    """
     volatile_columns = {
         "file_acquired_timestamp_ep_k",
         "file_last_seen_timestamp_ep_k",
@@ -502,6 +785,24 @@ def _ensure_file_store_link(
     link_columns: set[str],
     linked_file_ids: set[int],
 ) -> bool:
+    """
+    Insert a primary file/Store link when schema support and the caller cache permit.
+
+    The cache suppresses any already-known file identity, without rechecking link type or database
+    uniqueness. Add the identity to the cache only after insertion returns.
+
+    Example:
+        >>> linked = _ensure_file_store_link(db, file_id=1, store_id=2, tables=tables, link_columns=columns, linked_file_ids=known)  # doctest: +SKIP
+
+
+    :param db: Database receiving the optional link insertion.
+    :param file_id: Legacy file row identity to link.
+    :param store_id: Target Store row identity.
+    :param tables: Advertised tables, checked for file_store_links.
+    :param link_columns: Advertised link columns; both foreign-key columns are required.
+    :param linked_file_ids: Mutable set of already-linked file IDs for this Store.
+    :return: True after insertion, or False for absent schema support/cached identity.
+    """
     if "file_store_links" not in tables:
         return False
     required = {"file_store_link_file_id", "file_store_link_store_id"}
@@ -537,7 +838,34 @@ def register_existing_disk_as_unmanaged_store(
     progress_callback: Optional[ProgressCallback] = None,
 ) -> UnmanagedDiskRegistrationReport:
     """
-    Register ebook files under a disk path into `files` using one unmanaged store row.
+    Upsert legacy ebook file rows and optional links from a sorted local tree scan.
+
+    Ensure the Store first, then map existing rows by storage key with the last duplicate winning.
+    Count candidates before per-file work; file/link errors become report strings and scanning
+    continues. Prior writes and counters survive those errors. Do not delete absent files or add an
+    all-run transaction.
+
+    Setup/iterator failures can escape without a completed report. Optional manager bootstrap
+    ignores its return value but records raised Exceptions. Progress observers receive the live
+    report with ordinary failures swallowed. Hash calculation follows the legacy helper contract
+    described by _build_file_payload.
+
+    Example:
+        >>> report = register_existing_disk_as_unmanaged_store(db, disk_root, compute_hash=False)  # doctest: +SKIP
+
+
+    :param db: Borrowed database facade receiving incremental row operations.
+    :param disk_path: Existing local directory used for the unmanaged Store and filesystem scan.
+    :param store_name: Truthy name override, otherwise a sanitized name derived from the root.
+    :param store_kind: Legacy Store-kind label persisted independently of the concrete backend class.
+    :param ebook_extensions: Accepted lowercase suffix policy; None chooses project defaults and an empty iterable selects none.
+    :param source_label: Provenance label stored on accepted file rows.
+    :param compute_hash: Whether to store the legacy SHA-512-plus-size helper value in file_hash_sha256.
+    :param follow_symlinks: Whether to descend linked directories; file symlinks are still handled by ordinary stat/open.
+    :param attach_store_links: Whether to add supported primary links for accepted file rows.
+    :param refresh_storage_manager: Whether to call available bootstrap_storage_manager(clear_existing=True) after the scan.
+    :param progress_callback: Best-effort synchronous observer receiving the live mutable report.
+    :return: Finished registration report after normal scan completion, possibly containing partial-write errors.
     """
     tables, _, file_columns, link_columns = _ensure_schema_support(db)
     store_row, backend = ensure_unmanaged_store_for_disk(
@@ -681,7 +1009,41 @@ def register_rclone_http_readonly_store_files(
     progress_callback: Optional[ProgressCallback] = None,
 ) -> UnmanagedDiskRegistrationReport:
     """
-    Register ebook files discovered by a read-only rclone HTTP store into `files`.
+    Upsert legacy ebook rows from a streaming rclone inventory and optionally bootstrap the manager.
+
+    Persist the Store before iterating. Filter the raw Location key suffix, not the URL-extension
+    heuristic. capture_hashes accepts only an exactly named sha256 inventory claim and does not
+    download bytes for verification. Construct original URLs by text concatenation.
+
+    Last matching duplicate keys win in the initial row map. Per-entry processing failures become
+    report errors after any prior writes/counts, while inventory iteration/location access can fail
+    outside that guard. No absent-file deletion or all-run transaction is provided. Ordinary
+    progress failures are swallowed and bootstrap return values are ignored.
+
+    Example:
+        >>> report = register_rclone_http_readonly_store_files(db, "remote:")  # doctest: +SKIP
+
+
+    :param db: Borrowed database facade receiving incremental row operations.
+    :param remote_url: Remote selector trimmed here and parsed/validated by the concrete backend.
+    :param store_name: Truthy name override, otherwise a sanitized name derived from the root.
+    :param store_kind: Legacy Store-kind label persisted independently of the concrete backend class.
+    :param max_http_requests_per_hour: Rate ceiling; None resolves the configured default before backend construction.
+    :param apply_rclone_tpslimit: Whether to add rclone TPS flags, bool-converted into options.
+    :param rclone_tpslimit_burst: Burst option int-converted and clamped to at least one.
+    :param enforce_global_rate_limit: Whether shared rate scheduling is enabled, bool-converted into options.
+    :param rclone_exe: Executable selector recorded in backend options and policy JSON.
+    :param rclone_args: Extra arguments materialized as a tuple, or an empty tuple for a falsey value.
+    :param timeout_s: Per-command backend timeout in seconds, or None for no configured timeout.
+    :param max_inventory_entries: Backend ceiling on inventory entries.
+    :param max_json_token_chars: Backend JSON token character ceiling.
+    :param ebook_extensions: Accepted lowercase suffix policy; None chooses project defaults and an empty iterable selects none.
+    :param source_label: Provenance label stored on accepted file rows.
+    :param capture_hashes: Whether to retain exactly named sha256 inventory digest claims.
+    :param attach_store_links: Whether to add supported primary links for accepted file rows.
+    :param refresh_storage_manager: Whether to call available bootstrap_storage_manager(clear_existing=True) after the scan.
+    :param progress_callback: Best-effort synchronous observer receiving the live mutable report.
+    :return: Finished report after normal inventory completion, possibly with per-entry/bootstrap errors.
     """
     tables, _, file_columns, link_columns = _ensure_schema_support(db)
     store_row, backend = ensure_rclone_http_readonly_store(
@@ -842,7 +1204,29 @@ def register_existing_disk_with_database_path(
     progress_callback: Optional[ProgressCallback] = None,
 ) -> UnmanagedDiskRegistrationReport:
     """
-    Convenience wrapper that opens a Database instance from a path.
+    Open an existing database without backup, register the local tree, and close through its context
+    manager.
+
+    Forward registration policy unchanged. Construction, registration, and context-exit errors
+    propagate; database lifetime management does not add an all-run transaction.
+
+    Example:
+        >>> report = register_existing_disk_with_database_path(database_path=catalogue, disk_path=root)  # doctest: +SKIP
+
+
+    :param database_path: Database path stringified through Path without expanduser or resolve.
+    :param disk_path: Existing local directory used for the unmanaged Store and filesystem scan.
+    :param db_type: Database adapter selector, defaulting to SQLite.
+    :param store_name: Truthy name override, otherwise a sanitized name derived from the root.
+    :param store_kind: Legacy Store-kind label persisted independently of the concrete backend class.
+    :param ebook_extensions: Accepted lowercase suffix policy; None chooses project defaults and an empty iterable selects none.
+    :param source_label: Provenance label stored on accepted file rows.
+    :param compute_hash: Whether to store the legacy SHA-512-plus-size helper value in file_hash_sha256.
+    :param follow_symlinks: Whether to descend linked directories; file symlinks are still handled by ordinary stat/open.
+    :param attach_store_links: Whether to add supported primary links for accepted file rows.
+    :param refresh_storage_manager: Whether to call available bootstrap_storage_manager(clear_existing=True) after the scan.
+    :param progress_callback: Best-effort synchronous observer receiving the live mutable report.
+    :return: Registration report after successful database context exit.
     """
     from LiuXin_alpha.databases.database import Database
 
@@ -887,7 +1271,36 @@ def register_rclone_http_readonly_with_database_path(
     progress_callback: Optional[ProgressCallback] = None,
 ) -> UnmanagedDiskRegistrationReport:
     """
-    Convenience wrapper that opens a Database instance and ingests files from an rclone HTTP store.
+    Open an existing database without backup and delegate rclone inventory registration.
+
+    The wrapper owns the Database context, forwards all policies, and closes it before returning.
+    Setup, inventory, or close failures can escape after prior writes.
+
+    Example:
+        >>> report = register_rclone_http_readonly_with_database_path(database_path=catalogue, remote_url="remote:")  # doctest: +SKIP
+
+
+    :param database_path: Database path stringified through Path without expanduser or resolve.
+    :param remote_url: Remote selector trimmed here and parsed/validated by the concrete backend.
+    :param db_type: Database adapter selector, defaulting to SQLite.
+    :param store_name: Truthy name override, otherwise a sanitized name derived from the root.
+    :param store_kind: Legacy Store-kind label persisted independently of the concrete backend class.
+    :param max_http_requests_per_hour: Rate ceiling; None resolves the configured default before backend construction.
+    :param apply_rclone_tpslimit: Whether to add rclone TPS flags, bool-converted into options.
+    :param rclone_tpslimit_burst: Burst option int-converted and clamped to at least one.
+    :param enforce_global_rate_limit: Whether shared rate scheduling is enabled, bool-converted into options.
+    :param rclone_exe: Executable selector recorded in backend options and policy JSON.
+    :param rclone_args: Extra arguments materialized as a tuple, or an empty tuple for a falsey value.
+    :param timeout_s: Per-command backend timeout in seconds, or None for no configured timeout.
+    :param max_inventory_entries: Backend ceiling on inventory entries.
+    :param max_json_token_chars: Backend JSON token character ceiling.
+    :param ebook_extensions: Accepted lowercase suffix policy; None chooses project defaults and an empty iterable selects none.
+    :param source_label: Provenance label stored on accepted file rows.
+    :param capture_hashes: Whether to retain exact sha256 inventory digest claims.
+    :param attach_store_links: Whether to add supported primary links for accepted file rows.
+    :param refresh_storage_manager: Whether to call available bootstrap_storage_manager(clear_existing=True) after the scan.
+    :param progress_callback: Best-effort synchronous observer receiving the live mutable report.
+    :return: Delegated registration report after successful context exit.
     """
     from LiuXin_alpha.databases.database import Database
 
@@ -917,6 +1330,19 @@ def register_rclone_http_readonly_with_database_path(
 
 
 def _build_arg_parser() -> argparse.ArgumentParser:
+    """
+    Construct the standalone local-disk registration grammar without opening a database.
+
+    The fixed help labels describe historical hash behavior; parsing does not perform the operation.
+    This entry point does not expose the rclone registration options.
+
+    Example:
+        >>> _build_arg_parser().parse_args(["--database", "catalogue.sqlite", "--disk", "/books"]).no_hash
+        False
+
+
+    :return: Fresh ArgumentParser with required database/disk paths and output/failure flags.
+    """
     parser = argparse.ArgumentParser(description="Register ebook files from an unmanaged disk into LiuXin files table.")
     parser.add_argument("--database", required=True, help="Path to the target LiuXin database file.")
     parser.add_argument("--disk", required=True, help="Root path of the existing disk/folder to index.")
@@ -948,11 +1374,18 @@ def _build_arg_parser() -> argparse.ArgumentParser:
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
     """
-    Run the reconcile command-line entry point.
+    Parse local-disk registration options, run the database-path wrapper, and print its report.
+
+    Emit either sorted JSON or fixed text counters. Report errors affect the return code only with
+    --fail-on-errors. Parsing can raise SystemExit and setup/output exceptions propagate after any
+    prior effects.
+
+    Example:
+        >>> status = main(["--database", str(catalogue), "--disk", str(root), "--json"])  # doctest: +SKIP
 
 
-    :param argv:
-    :return:
+    :param argv: Argument sequence, or None to read the process command line.
+    :return: 2 when fail-on-errors is selected and report.errors is nonempty; otherwise 0.
     """
     parser = _build_arg_parser()
     args = parser.parse_args(argv)

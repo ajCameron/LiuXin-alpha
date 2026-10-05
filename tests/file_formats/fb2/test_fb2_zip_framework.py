@@ -1,3 +1,14 @@
+"""
+Provide test fb2 zip framework utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test fb2 zip framework through a consuming regression::
+
+        python -m pytest -q tests/file_formats/fb2/test_fb2_zip_framework.py
+"""
 from __future__ import annotations
 
 import io
@@ -29,18 +40,58 @@ from tests.support.file_format_unicode import assert_fragments_present, assert_n
 
 
 def _write_member_to_path(tmp_path: Path, member_payload: bytes, suffix: str = ".fb2") -> Path:
+    """
+    Write member to path under the format's safety and compatibility rules.
+
+    Example:
+        Exercise  write member to path through a consuming regression::
+
+            python -m pytest -q tests/file_formats/fb2/test_fb2_zip_framework.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param member_payload: Value supplied for member payload under the utility contract.
+    :param suffix: Text appended to the formatted or selected result.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     path = tmp_path / f"payload{suffix}"
     path.write_bytes(member_payload)
     return path
 
 
 def test_fb2_input_plugin_declares_fbz_support() -> None:
+    """
+    Perform the test fb2 input plugin declares fbz support operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test fb2 input plugin declares fbz support through a consuming regression::
+
+            python -m pytest -q tests/file_formats/fb2/test_fb2_zip_framework.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.conversion.plugins.fb2_input import FB2Input
 
     assert {"fb2", "fbz"}.issubset(FB2Input.file_types)
 
 
 def test_zipped_fb2_fixture_builds_valid_container_shape_and_unicode_payload(tmp_path: Path) -> None:
+    """
+    Perform the test zipped fb2 fixture builds valid container shape and unicode payload operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test zipped fb2 fixture builds valid container shape and unicode payload through a consuming regression::
+
+            python -m pytest -q tests/file_formats/fb2/test_fb2_zip_framework.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     fixture = build_zipped_fb2(tmp_path / "fixture_Καλημέρα_世界.fbz")
 
     with zipfile.ZipFile(fixture.path, "r") as zf:
@@ -70,6 +121,19 @@ def test_zipped_fb2_fixture_builds_valid_container_shape_and_unicode_payload(tmp
 def test_zipped_fb2_fixture_supports_utf16_payload_extra_binaries_and_extra_members(
     tmp_path: Path,
 ) -> None:
+    """
+    Perform the test zipped fb2 fixture supports utf16 payload extra binaries and extra members operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test zipped fb2 fixture supports utf16 payload extra binaries and extra members through a consuming regression::
+
+            python -m pytest -q tests/file_formats/fb2/test_fb2_zip_framework.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     extra_binary = b"plain embedded note"
     extra_members = {
         "notes/readme_שלום.txt": "שלום zip note".encode("utf-8"),
@@ -101,6 +165,18 @@ def test_zipped_fb2_fixture_supports_utf16_payload_extra_binaries_and_extra_memb
 
 
 def test_fb2_zip_bytes_can_build_stream_payload_for_router_tests() -> None:
+    """
+    Perform the test fb2 zip bytes can build stream payload for router tests operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test fb2 zip bytes can build stream payload for router tests through a consuming regression::
+
+            python -m pytest -q tests/file_formats/fb2/test_fb2_zip_framework.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     payload = fb2_zip_bytes(member_name="book.fb2", extra_members={"z-last.txt": b"extra"})
 
     with zipfile.ZipFile(io.BytesIO(payload), "r") as zf:
@@ -109,6 +185,19 @@ def test_fb2_zip_bytes_can_build_stream_payload_for_router_tests() -> None:
 
 
 def test_zipped_fb2_rewrite_helper_removes_replaces_and_adds_members(tmp_path: Path) -> None:
+    """
+    Perform the test zipped fb2 rewrite helper removes replaces and adds members operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test zipped fb2 rewrite helper removes replaces and adds members through a consuming regression::
+
+            python -m pytest -q tests/file_formats/fb2/test_fb2_zip_framework.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     fixture = build_zipped_fb2(
         tmp_path / "base.fbz",
         extra_members={"notes/original.txt": b"remove me"},
@@ -141,6 +230,20 @@ def test_fb2_input_convert_accepts_fbz_and_preserves_unicode_outputs(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    """
+    Perform the test fb2 input convert accepts fbz and preserves unicode outputs operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test fb2 input convert accepts fbz and preserves unicode outputs through a consuming regression::
+
+            python -m pytest -q tests/file_formats/fb2/test_fb2_zip_framework.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.conversion.plugins.fb2_input import FB2Input
 
     cover_id = "zip_cover_世界.png"
@@ -206,6 +309,20 @@ def test_fb2_input_convert_accepts_utf16_fbz_without_replacement_chars(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    """
+    Perform the test fb2 input convert accepts utf16 fbz without replacement chars operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test fb2 input convert accepts utf16 fbz without replacement chars through a consuming regression::
+
+            python -m pytest -q tests/file_formats/fb2/test_fb2_zip_framework.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.conversion.plugins.fb2_input import FB2Input
 
     fixture = build_zipped_fb2(

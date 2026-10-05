@@ -1,3 +1,14 @@
+"""
+Build deterministic HTMLZ fixtures and test doubles.
+
+The module keeps generated data, ordering and failure modes explicit so consumers
+can assert stable behavior.
+
+Example:
+    Exercise file format htmlz through a consuming regression::
+
+        python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+"""
 from __future__ import annotations
 
 import binascii
@@ -28,6 +39,14 @@ HTMLZ_IMAGE_MEMBER = "images/深/cover_世界.png"
 
 @dataclass(frozen=True)
 class HTMLZFixture:
+    """
+    Carry the deterministic HTMLZFixture inputs and expected values used by format tests.
+
+    Example:
+        Exercise HTMLZFixture through a consuming regression::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+    """
     path: Path
     html_member: str
     opf_member: str | None
@@ -38,6 +57,14 @@ class HTMLZFixture:
 
 @dataclass(frozen=True)
 class HTMLInputCall:
+    """
+    Represent the HTMLInputCall state used by deterministic test-support operations.
+
+    Example:
+        Exercise HTMLInputCall through a consuming regression::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+    """
     name: str
     payload: bytes
     file_ext: str
@@ -45,52 +72,241 @@ class HTMLInputCall:
 
 
 class NullLog:
+    """
+    Record or discard NullLog messages without requiring the production logging stack.
+
+    Example:
+        Exercise NullLog through a consuming regression::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+    """
     def __init__(self) -> None:
+        """
+        Initialize and validate the NullLog test-support state.
+
+        Example:
+            Exercise NullLog.  init   through a consuming regression::
+
+                python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+        :return: None; completion is expressed through state changes or assertions.
+        """
         self.messages: list[str] = []
 
     def __call__(self, message: str = "", *args) -> None:
+        """
+        Execute the configured fixture builder or test double operation.
+
+        Example:
+            Exercise NullLog.  call   through a consuming regression::
+
+                python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+        :param message: Diagnostic message recorded or discarded by the test logger.
+        :param args: Positional arguments forwarded to the bounded test double.
+        :return: None; fixture state or the supplied destination is updated in place.
+        """
         self.messages.append(message % args if args else message)
 
     def debug(self, message: str = "", *args) -> None:
+        """
+        Record or discard a debug message for assertions without external logging.
+
+        Example:
+            Exercise NullLog.debug through a consuming regression::
+
+                python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+        :param message: Diagnostic message recorded or discarded by the test logger.
+        :param args: Positional arguments forwarded to the bounded test double.
+        :return: None; fixture state or the supplied destination is updated in place.
+        """
         self(message, *args)
 
     def info(self, message: str = "", *args) -> None:
+        """
+        Record or discard a info message for assertions without external logging.
+
+        Example:
+            Exercise NullLog.info through a consuming regression::
+
+                python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+        :param message: Diagnostic message recorded or discarded by the test logger.
+        :param args: Positional arguments forwarded to the bounded test double.
+        :return: None; fixture state or the supplied destination is updated in place.
+        """
         self(message, *args)
 
     def warning(self, message: str = "", *args) -> None:
+        """
+        Record or discard a warning message for assertions without external logging.
+
+        Example:
+            Exercise NullLog.warning through a consuming regression::
+
+                python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+        :param message: Diagnostic message recorded or discarded by the test logger.
+        :param args: Positional arguments forwarded to the bounded test double.
+        :return: None; fixture state or the supplied destination is updated in place.
+        """
         self(message, *args)
 
     warn = warning
 
     def exception(self, message: str = "", *args) -> None:
+        """
+        Record or discard a exception message for assertions without external logging.
+
+        Example:
+            Exercise NullLog.exception through a consuming regression::
+
+                python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+        :param message: Diagnostic message recorded or discarded by the test logger.
+        :param args: Positional arguments forwarded to the bounded test double.
+        :return: None; fixture state or the supplied destination is updated in place.
+        """
         self(message, *args)
 
 
 class RecordedManifest:
+    """
+    Provide the RecordedManifest test double with a deliberately bounded compatibility surface.
+
+    Example:
+        Exercise RecordedManifest through a consuming regression::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+    """
     def __init__(self) -> None:
+        """
+        Initialize and validate the RecordedManifest test-support state.
+
+        Example:
+            Exercise RecordedManifest.  init   through a consuming regression::
+
+                python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+        :return: None; completion is expressed through state changes or assertions.
+        """
         self.generated: list[tuple[str, str]] = []
         self.added: list[types.SimpleNamespace] = []
 
     def generate(self, item_id: str, href: str) -> tuple[str, str]:
+        """
+        Perform the generate step with deterministic fixture inputs.
+
+        Example:
+            Exercise RecordedManifest.generate through a consuming regression::
+
+                python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+        :param item_id: Value supplied for item id under the deterministic fixture contract.
+        :param href: Value supplied for href under the deterministic fixture contract.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         self.generated.append((item_id, href))
         return item_id, href
 
     def add(self, item_id: str, href: str, media_type: str, data: bytes | None = None):
+        """
+        Perform the add step with deterministic fixture inputs.
+
+        Example:
+            Exercise RecordedManifest.add through a consuming regression::
+
+                python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+        :param item_id: Value supplied for item id under the deterministic fixture contract.
+        :param href: Value supplied for href under the deterministic fixture contract.
+        :param media_type: Value supplied for media type under the deterministic fixture
+            contract.
+        :param data: Bytes or structured data consumed by the operation.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         item = types.SimpleNamespace(id=item_id, href=href, media_type=media_type, data=data)
         self.added.append(item)
         return item
 
 
 class RecordedGuide:
+    """
+    Provide the RecordedGuide test double with a deliberately bounded compatibility surface.
+
+    Example:
+        Exercise RecordedGuide through a consuming regression::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+    """
     def __init__(self) -> None:
+        """
+        Initialize and validate the RecordedGuide test-support state.
+
+        Example:
+            Exercise RecordedGuide.  init   through a consuming regression::
+
+                python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+        :return: None; completion is expressed through state changes or assertions.
+        """
         self.added: list[tuple[str, str, str]] = []
 
     def add(self, guide_type: str, title: str, href: str) -> None:
+        """
+        Perform the add step with deterministic fixture inputs.
+
+        Example:
+            Exercise RecordedGuide.add through a consuming regression::
+
+                python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+        :param guide_type: Value supplied for guide type under the deterministic fixture
+            contract.
+        :param title: Value supplied for title under the deterministic fixture contract.
+        :param href: Value supplied for href under the deterministic fixture contract.
+        :return: None; fixture state or the supplied destination is updated in place.
+        """
         self.added.append((guide_type, title, href))
 
 
 class RecordedHTMLInput:
+    """
+    Provide the RecordedHTMLInput test double with a deliberately bounded compatibility surface.
+
+    Example:
+        Exercise RecordedHTMLInput through a consuming regression::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+    """
     def __init__(self, returned_oeb) -> None:
+        """
+        Initialize and validate the RecordedHTMLInput test-support state.
+
+        Example:
+            Exercise RecordedHTMLInput.  init   through a consuming regression::
+
+                python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+        :param returned_oeb: Value supplied for returned oeb under the deterministic fixture
+            contract.
+        :return: None; completion is expressed through state changes or assertions.
+        """
         self.options = (
             _option("breadth_first", False),
             _option("max_levels", 5),
@@ -100,6 +316,25 @@ class RecordedHTMLInput:
         self.returned_oeb = returned_oeb
 
     def convert(self, stream, options, file_ext, log, accelerators):
+        """
+        Perform the convert step with deterministic fixture inputs.
+
+        Example:
+            Exercise RecordedHTMLInput.convert through a consuming regression::
+
+                python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+        :param stream: Value supplied for stream under the deterministic fixture contract.
+        :param options: Value supplied for options under the deterministic fixture contract.
+        :param file_ext: Value supplied for file ext under the deterministic fixture
+            contract.
+        :param log: Value supplied for log under the deterministic fixture contract.
+        :param accelerators: Value supplied for accelerators under the deterministic fixture
+            contract.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         self.calls.append(
             HTMLInputCall(
                 name=stream.name,
@@ -112,7 +347,28 @@ class RecordedHTMLInput:
 
 
 class HTMLZInputPipelineRecorder:
+    """
+    Represent the HTMLZInputPipelineRecorder state used by deterministic test-support operations.
+
+    Example:
+        Exercise HTMLZInputPipelineRecorder through a consuming regression::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+    """
     def __init__(self, metadata_info=None) -> None:
+        """
+        Initialize and validate the HTMLZInputPipelineRecorder test-support state.
+
+        Example:
+            Exercise HTMLZInputPipelineRecorder.  init   through a consuming regression::
+
+                python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+        :param metadata_info: Value supplied for metadata info under the deterministic
+            fixture contract.
+        :return: None; completion is expressed through state changes or assertions.
+        """
         self.oeb = types.SimpleNamespace(
             metadata=types.SimpleNamespace(),
             manifest=RecordedManifest(),
@@ -128,6 +384,21 @@ class HTMLZInputPipelineRecorder:
 
 
 def _option(name: str, recommended_value):
+    """
+    Perform the option step with deterministic fixture inputs.
+
+    Example:
+        Exercise  option through a consuming regression::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+    :param name: Stable fixture, profile, member or field name.
+    :param recommended_value: Value supplied for recommended value under the
+        deterministic fixture contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     return types.SimpleNamespace(
         option=types.SimpleNamespace(name=name),
         recommended_value=recommended_value,
@@ -135,16 +406,62 @@ def _option(name: str, recommended_value):
 
 
 def install_htmlz_input_pipeline_stubs(monkeypatch, metadata_info=None) -> HTMLZInputPipelineRecorder:
+    """
+    Perform the install htmlz input pipeline stubs step with deterministic fixture inputs.
+
+    Example:
+        Exercise install htmlz input pipeline stubs through a consuming regression::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate dependencies and mutable process
+        state.
+    :param metadata_info: Value supplied for metadata info under the deterministic
+        fixture contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     recorder = HTMLZInputPipelineRecorder(metadata_info=metadata_info)
 
     fake_ui = types.ModuleType("LiuXin_alpha.customize.ui")
 
     def plugin_for_input_format(fmt: str):
+        """
+        Perform the plugin for input format step with deterministic fixture inputs.
+
+        Example:
+            Exercise install htmlz input pipeline stubs.plugin for input format through a consuming regression::
+
+                python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+        :param fmt: Value supplied for fmt under the deterministic fixture contract.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         if fmt == "html":
             return recorder.html_input
         return None
 
     def get_file_type_metadata(stream, file_ext, *args, **kwargs):
+        """
+        Return file type metadata under the fixture contract.
+
+        Example:
+            Exercise install htmlz input pipeline stubs.get file type metadata through a consuming regression::
+
+                python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+        :param stream: Value supplied for stream under the deterministic fixture contract.
+        :param file_ext: Value supplied for file ext under the deterministic fixture
+            contract.
+        :param args: Positional arguments forwarded to the bounded test double.
+        :param kwargs: Keyword arguments forwarded to the bounded test double or builder.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         recorder.metadata_calls.append(
             types.SimpleNamespace(file_ext=file_ext, position=stream.tell())
         )
@@ -156,6 +473,21 @@ def install_htmlz_input_pipeline_stubs(monkeypatch, metadata_info=None) -> HTMLZ
     fake_meta_transform = types.ModuleType("LiuXin_alpha.file_formats.oeb.transforms.metadata")
 
     def meta_info_to_oeb_metadata(mi, metadata, log) -> None:
+        """
+        Perform the meta info to oeb metadata step with deterministic fixture inputs.
+
+        Example:
+            Exercise install htmlz input pipeline stubs.meta info to oeb metadata through a consuming regression::
+
+                python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+        :param mi: Value supplied for mi under the deterministic fixture contract.
+        :param metadata: Value supplied for metadata under the deterministic fixture
+            contract.
+        :param log: Value supplied for log under the deterministic fixture contract.
+        :return: None; fixture state or the supplied destination is updated in place.
+        """
         recorder.metadata_transform_calls.append(
             types.SimpleNamespace(metadata_info=mi, metadata=metadata)
         )
@@ -172,9 +504,38 @@ def install_htmlz_input_pipeline_stubs(monkeypatch, metadata_info=None) -> HTMLZ
 
 
 def png_bytes(width: int = 16, height: int = 16, rgb: tuple[int, int, int] = (70, 130, 170)) -> bytes:
+    """
+    Return deterministic PNG bytes for the requested dimensions and colour.
+
+    Example:
+        Exercise png bytes through a consuming regression::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+    :param width: Image width in pixels.
+    :param height: Image height in pixels.
+    :param rgb: RGB colour embedded in the generated image.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     signature = b"\x89PNG\r\n\x1a\n"
 
     def chunk(tag: bytes, payload: bytes) -> bytes:
+        """
+        Return the encoded binary chunk required by the fixture container.
+
+        Example:
+            Exercise png bytes.chunk through a consuming regression::
+
+                python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+        :param tag: Value supplied for tag under the deterministic fixture contract.
+        :param payload: Binary or structured payload encoded into the fixture.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         return (
             struct.pack(">I", len(payload))
             + tag
@@ -189,6 +550,19 @@ def png_bytes(width: int = 16, height: int = 16, rgb: tuple[int, int, int] = (70
 
 
 def _xml_text(text: str) -> str:
+    """
+    Perform the xml text step with deterministic fixture inputs.
+
+    Example:
+        Exercise  xml text through a consuming regression::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+    :param text: Text encoded, parsed or embedded in the fixture.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     return escape(text, {'"': "&quot;"})
 
 
@@ -202,6 +576,30 @@ def build_unicode_htmlz(
     include_image: bool = True,
     extra_assets: Mapping[str, tuple[str, bytes]] | None = None,
 ) -> HTMLZFixture:
+    """
+    Build unicode htmlz for deterministic fixture consumers.
+
+    Example:
+        Exercise build unicode htmlz through a consuming regression::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+    :param path: Filesystem path read, written or validated by the fixture operation.
+    :param lines: Value supplied for lines under the deterministic fixture contract.
+    :param html_member: Value supplied for html member under the deterministic fixture
+        contract.
+    :param opf_member: Value supplied for opf member under the deterministic fixture
+        contract.
+    :param include_css: Value supplied for include css under the deterministic fixture
+        contract.
+    :param include_image: Value supplied for include image under the deterministic
+        fixture contract.
+    :param extra_assets: Value supplied for extra assets under the deterministic fixture
+        contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     body_lines = tuple(lines or MULTISCRIPT_TEXT.splitlines())
     extra_assets = dict(extra_assets or {})
     css_members = (HTMLZ_CSS_MEMBER,) if include_css else ()
@@ -324,11 +722,38 @@ def build_unicode_htmlz(
 
 
 def zip_members(path: Path) -> tuple[str, ...]:
+    """
+    Return the normalized members stored in the generated archive fixture.
+
+    Example:
+        Exercise zip members through a consuming regression::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+    :param path: Filesystem path read, written or validated by the fixture operation.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     with zipfile.ZipFile(path, "r") as zf:
         return tuple(info.filename for info in zf.infolist())
 
 
 def read_htmlz_member(path: Path, member: str) -> bytes:
+    """
+    Read htmlz member under the fixture contract.
+
+    Example:
+        Exercise read htmlz member through a consuming regression::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+    :param path: Filesystem path read, written or validated by the fixture operation.
+    :param member: Archive or container member addressed by the operation.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     with zipfile.ZipFile(path, "r") as zf:
         return zf.read(member)
 
@@ -342,6 +767,24 @@ def rewrite_htmlz_zip(
     add: Mapping[str, bytes] | None = None,
     add_compression: int = zipfile.ZIP_STORED,
 ) -> None:
+    """
+    Perform the rewrite htmlz zip step with deterministic fixture inputs.
+
+    Example:
+        Exercise rewrite htmlz zip through a consuming regression::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_metadata_source.py
+
+
+    :param src: Source path or value copied into the fixture.
+    :param dst: Destination path or object receiving generated fixture data.
+    :param remove: Value supplied for remove under the deterministic fixture contract.
+    :param replace: Value supplied for replace under the deterministic fixture contract.
+    :param add: Value supplied for add under the deterministic fixture contract.
+    :param add_compression: Value supplied for add compression under the deterministic
+        fixture contract.
+    :return: None; fixture state or the supplied destination is updated in place.
+    """
     replacements = dict(replace or {})
     additions = dict(add or {})
     removed = set(remove)

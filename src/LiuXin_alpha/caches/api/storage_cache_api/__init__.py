@@ -1,9 +1,11 @@
 
 """
-The StorageCache is responsible for storage of raw data values.
+Export storage cache, field and table contracts through their compatibility package.
 
-Application-facing sort, filter, search, and projection behavior is exposed by
-the composed ``CacheAPI`` rather than this storage plugin contract.
+Expose canonical APIs, capability metadata, key aliases, link values and
+legacy names from their owning modules. Concrete backends implement these
+contracts; the composed CacheAPI owns application search and coordinated
+writes. Package import does not construct or load a storage cache.
 """
 
 from LiuXin_alpha.caches.api.storage_cache_api.storage_cache_api import (
@@ -47,11 +49,11 @@ from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api import (
     StorageCacheOneToOneLinkTable,
     StorageCacheOneToOneLinkTableAPI,
     StorageCacheSingleTableAPI,
-    StorageStorageCacheSingleTableAPI,
     TableMetadata,
     TableTypes,
     null,
 )
+
 __all__ = [
     "CacheOneOneInSameTableFieldAPI",
     "CacheOneOneInSameTableFieldUniqueAPI",
@@ -89,7 +91,6 @@ __all__ = [
     "StorageCacheOneToOneLinkTable",
     "StorageCacheOneToOneLinkTableAPI",
     "StorageCacheSingleTableAPI",
-    "StorageStorageCacheSingleTableAPI",
     "TableMetadata",
     "TableTypes",
     "null",

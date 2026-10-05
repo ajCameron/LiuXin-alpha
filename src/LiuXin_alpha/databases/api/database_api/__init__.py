@@ -1,7 +1,7 @@
-"""Database API contract exports.
+"""
+Re-export the database, driver, wrapper and generator contract classes.
 
-Import from here when you specifically want database API contracts without pulling in
-all of :mod:`LiuXin_alpha.databases.api`.
+This package exposes DatabaseAPI, DatabaseDriverAPI, DatabaseDriverWrapperAPI and DatabaseGeneratorAPI through __all__. These are the original imported classes, not concrete database instances. Importing this subpackage also initializes its parent API package, whose own exports eagerly load additional contracts; this path is not an isolated lightweight import boundary.
 """
 
 from __future__ import annotations

@@ -1,7 +1,14 @@
-"""Canonical public WEMI metadata-container API surface.
+"""
+Export the canonical WEMI metadata contracts and relation value objects.
 
-This package exports abstract contracts and API value objects only. Concrete
-container implementations live under ``LiuXin_alpha.metadata.containers``.
+The public surface includes identity, bundle, projection, agent and structural
+target APIs. Concrete identity and metadata containers live in
+LiuXin_alpha.metadata.containers.
+
+Example:
+    >>> link = RelationLink(target={'work_id': '3'})
+    >>> relation_target_id(link.target, 'work_id')
+    3
 """
 
 from __future__ import annotations

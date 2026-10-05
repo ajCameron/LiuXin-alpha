@@ -1,4 +1,9 @@
-"""PostgreSQL database driver plugin."""
+"""
+PostgreSQL plugin namespace exposing readiness checks and their report formatter.
+
+The concrete driver, connection configuration and schema builder live in separate
+modules; importing this package does not establish a database connection.
+"""
 
 from __future__ import annotations
 

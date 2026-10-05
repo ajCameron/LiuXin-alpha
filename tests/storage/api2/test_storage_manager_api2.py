@@ -1,4 +1,11 @@
-"""Transactional contract tests for the second-generation storage API."""
+"""
+Exercise storage API contracts with memory Stores and the transient manager.
+
+Fixtures stage real bytes and hashes in memory, while catalogue state is disposable.
+Tests cover routing, value/export contracts, publication, selection, policy,
+reconciliation, provenance, and convenience calls. Selected cases create real
+temporary files/ZIP exports; none establishes database persistence or recipe replay.
+"""
 
 from __future__ import annotations
 
@@ -14,8 +21,8 @@ from uuid import UUID
 import pytest
 
 import LiuXin_alpha.storage.api as api
-from LiuXin_alpha.storage import utils as storage_utils
-from LiuXin_alpha.storage.storage_manager import InMemoryStorageManager
+import LiuXin_alpha.storage.utils.store as storage_utils
+from LiuXin_alpha.storage.storage_manager.manager import TransientStorageManager
 
 
 MEMORY_STORE_UUID = UUID("00000000-0000-0000-0000-000000000001")
@@ -29,6 +36,20 @@ DEVICE_B_UUID = UUID("00000000-0000-0000-0000-000000000202")
 
 
 class _MemoryWriteSession:
+    """
+    Stage bytes in a bytearray and publish to the owning memory Store on commit. Size/digest and
+    collision checks precede dictionary mutation. Versions increase per Store; this double adds no
+    locks, durable transactions, or staging-size limit. A later stat error can escape after the
+    committed flag and payload were set.
+
+    Example:
+        >>> store = _MemoryStore()
+        >>> session = store.begin_write(store.location("book"), expected_size=4)
+        >>> session.write(b"book")
+        4
+        >>> session.commit().size
+        4
+    """
     def __init__(
         self,
         store: "_MemoryStore",
@@ -38,6 +59,24 @@ class _MemoryWriteSession:
         expected_size: int | None,
         expected_digest: api.Digest | None,
     ) -> None:
+        """
+        Retain the owning Store, destination, and write expectations with an empty unbounded buffer.
+        Construction does not validate inputs or publish bytes.
+
+        Example:
+            >>> store = _MemoryStore()
+            >>> session = store.begin_write(store.location("book"))
+            >>> session.committed or session.aborted
+            False
+
+
+        :param store: Memory Store receiving bytes and a version on commit.
+        :param location: Exact Location checked against the fixture Store UUID.
+        :param mode: Collision mode interpreted by enum-member identity.
+        :param expected_size: Optional exact payload byte count checked at commit.
+        :param expected_digest: Optional digest checked with hashlib at commit.
+        :return: None after updating the fixture state.
+        """
         self.store = store
         self.location = location
         self.mode = mode
@@ -48,12 +87,44 @@ class _MemoryWriteSession:
         self.aborted = False
 
     def write(self, data: bytes) -> int:
+        """
+        Append all input bytes unless the session has committed or aborted. Finished-session writes
+        raise StoreError; no independent type or size check occurs here.
+
+        Example:
+            >>> store = _MemoryStore()
+            >>> session = store.begin_write(store.location("book"))
+            >>> session.write(b"book")
+            4
+            >>> session.abort()
+
+
+        :param data: Bytes appended to the staging bytearray.
+        :return: Number of input bytes appended.
+        """
         if self.committed or self.aborted:
             raise api.StoreError("write session is already finished")
         self.buffer.extend(data)
         return len(data)
 
     def commit(self) -> api.FileInfo:
+        """
+        Check lifecycle, expected size/digest, and create/replace presence before publishing.
+        Hashlib algorithm failures propagate. Success writes bytes, increments and stores a version,
+        marks committed, then calls Store.stat; that final observation can fail after publication. A
+        failed pre-publication check leaves the session unfinished until aborted or retried.
+
+        Example:
+            >>> store = _MemoryStore()
+            >>> session = store.begin_write(store.location("book"), expected_size=4)
+            >>> session.write(b"book")
+            4
+            >>> session.commit().version
+            '1'
+
+
+        :return: Fresh FileInfo from Store.stat after dictionary publication.
+        """
         if self.committed or self.aborted:
             raise api.StoreError("write session is already finished")
 
@@ -78,21 +149,91 @@ class _MemoryWriteSession:
         return self.store.stat(self.location)
 
     def abort(self) -> None:
+        """
+        Clear the staged buffer and mark aborted unless publication already committed. Repeated
+        aborts remain harmless; committed payloads are retained.
+
+        Example:
+            >>> store = _MemoryStore()
+            >>> session = store.begin_write(store.location("book"))
+            >>> session.abort()
+            >>> session.aborted
+            True
+
+
+        :return: None after updating the fixture state.
+        """
         if self.committed:
             return
         self.buffer.clear()
         self.aborted = True
 
     def __enter__(self):
+        """
+        Return the same session without validating lifecycle state or changing ownership.
+
+        Example:
+            >>> store = _MemoryStore()
+            >>> session = store.begin_write(store.location("book"))
+            >>> session.__enter__() is session
+            True
+            >>> session.abort()
+
+
+        :return: This session, even if it has already finished.
+        """
         return self
 
     def __exit__(self, exc_type, exc, traceback) -> None:
+        """
+        Abort any uncommitted buffer on context exit and leave exceptions unsuppressed. A committed
+        session remains published even when the context body raises afterwards.
+
+        Example:
+            >>> store = _MemoryStore()
+            >>> with store.begin_write(store.location("book")) as session:
+            ...     count = session.write(b"book")
+            >>> session.aborted
+            True
+
+
+        :param exc_type: Exception type supplied by context management; ignored.
+        :param exc: Exception instance supplied by context management; ignored.
+        :param traceback: Exception traceback supplied by context management; ignored.
+        :return: None, so an active context exception propagates.
+        """
         if not self.committed:
             self.abort()
 
 
 class _MemoryStore(api.StoreAPI):
+    """
+    Implement Store primitives with dictionaries, synthetic versions, and real hashlib digests.
+    Writes stage through the memory session; range reads allocate BytesIO. Mutable
+    availability/read-only/capability fields support failure fixtures. The reported one-MiB capacity
+    is synthetic and is not an enforced write quota.
+
+    Example:
+        >>> store = _MemoryStore()
+        >>> store.write_bytes(store.location("book"), b"book").size
+        4
+        >>> store.close()
+    """
     def __init__(self, store_ref: api.StoreUUID = MEMORY_STORE_UUID) -> None:
+        """
+        Build a memory configuration, empty payload/version maps, and online writable flags.
+        Advertised capabilities include conditional deletion but not conditional reads or native
+        copy.
+
+        Example:
+            >>> store = _MemoryStore()
+            >>> store.configuration.store_kind
+            'memory'
+
+
+        :param store_ref: UUID used as the fixture Store identity and configuration-name seed.
+        :return: None after updating the fixture state.
+        """
         store_name = f"store-{store_ref.hex[:8]}"
         self._configuration = api.StoreConfiguration(
             store_uuid=store_ref,
@@ -118,26 +259,100 @@ class _MemoryStore(api.StoreAPI):
 
     @property
     def configuration(self) -> api.StoreConfiguration:
+        """
+        Expose the retained configuration object without copying or probing.
+
+        Example:
+            >>> store = _MemoryStore()
+            >>> store.configuration is store.configuration
+            True
+
+
+        :return: The fixture StoreConfiguration.
+        """
         return self._configuration
 
     @property
     def capabilities(self) -> api.StoreCapabilities:
+        """
+        Expose the current mutable-fixture capability record without deriving flags from
+        availability/read-only state.
+
+        Example:
+            >>> _MemoryStore().capabilities.conditional_delete
+            True
+
+
+        :return: Current StoreCapabilities retained in _capabilities.
+        """
         return self._capabilities
 
     def location(self, *tokens: str) -> api.Location:
+        """
+        Strip outer slashes from each token, omit empty stripped tokens, and join with slash. The
+        resulting Location enforces its ordinary nonempty/NUL rules; internal separators and dot
+        components are not normalized.
+
+        Example:
+            >>> _MemoryStore().location("/books/", "", "a.epub").key
+            'books/a.epub'
+
+
+        :param tokens: Ordered string key components, with outer slash characters ignored.
+        :return: Location owned by this Store for the joined key.
+        """
         key = "/".join(token.strip("/") for token in tokens if token.strip("/"))
         return api.Location(self.store_ref, key)
 
     def _key(self, location: api.Location) -> str:
+        """
+        Require matching Store UUID and expose the opaque key unchanged. No path or existence
+        validation is added.
+
+        Example:
+            >>> store = _MemoryStore()
+            >>> store._key(store.location("book"))
+            'book'
+
+
+        :param location: Exact Location checked against the fixture Store UUID.
+        :return: Owned key, or StoreInvalidLocation for another Store.
+        """
         if location.store_ref != self.store_ref:
             raise api.StoreInvalidLocation(str(location))
         return location.key
 
     def _require_online(self) -> None:
+        """
+        Raise StoreUnavailable when the mutable online switch is false. This helper does not inspect
+        payload state or change availability.
+
+        Example:
+            >>> store = _MemoryStore()
+            >>> store._require_online()
+
+
+        :return: None when online; otherwise raises StoreUnavailable.
+        """
         if not self.online:
             raise api.StoreUnavailable(str(self.store_ref))
 
     def stat(self, location: api.Location) -> api.FileInfo:
+        """
+        Check online state and ownership, then compute current byte length/SHA-256 and fetch the
+        synthetic version. Absent payloads raise StoreNotFound; an inconsistent missing version
+        entry can raise KeyError.
+
+        Example:
+            >>> store = _MemoryStore()
+            >>> location = store.write_bytes(store.location("book"), b"book").location
+            >>> store.stat(location).digest == _sha256(b"book")
+            True
+
+
+        :param location: Exact Location checked against the fixture Store UUID.
+        :return: New FileInfo for the current in-memory payload.
+        """
         self._require_online()
         key = self._key(location)
         if key not in self.files:
@@ -157,6 +372,24 @@ class _MemoryStore(api.StoreAPI):
         offset: int = 0,
         length: int | None = None,
     ) -> io.BytesIO:
+        """
+        Check online state, ownership, existence, and nonnegative ranges before allocating a sliced
+        BytesIO. Offsets beyond the end return empty bytes. The caller owns the reader and closes it
+        independently of the Store.
+
+        Example:
+            >>> store = _MemoryStore()
+            >>> location = store.write_bytes(store.location("book"), b"book").location
+            >>> with store.open_read(location, offset=1, length=2) as source:
+            ...     source.read()
+            b'oo'
+
+
+        :param location: Exact Location checked against the fixture Store UUID.
+        :param offset: Nonnegative starting byte offset.
+        :param length: Optional nonnegative byte count; None selects the remainder.
+        :return: New caller-owned BytesIO containing the selected slice.
+        """
         self._require_online()
         key = self._key(location)
         if key not in self.files:
@@ -176,6 +409,23 @@ class _MemoryStore(api.StoreAPI):
         expected_size: int | None = None,
         expected_digest: api.Digest | None = None,
     ) -> _MemoryWriteSession:
+        """
+        Check availability, address ownership, and the read-only switch before returning a session.
+        Collision and content expectations are checked later by commit, not reserved at session
+        creation.
+
+        Example:
+            >>> store = _MemoryStore()
+            >>> session = store.begin_write(store.location("book"))
+            >>> session.abort()
+
+
+        :param location: Exact Location checked against the fixture Store UUID.
+        :param mode: Collision mode interpreted by enum-member identity.
+        :param expected_size: Optional exact payload byte count checked at commit.
+        :param expected_digest: Optional digest checked with hashlib at commit.
+        :return: New uncommitted memory write session.
+        """
         self._require_online()
         self._key(location)
         if self.read_only:
@@ -195,6 +445,21 @@ class _MemoryStore(api.StoreAPI):
         missing_ok: bool = False,
         if_version: str | None = None,
     ) -> None:
+        """
+        Check online/ownership/read-only policy, then absence and optional version before deleting
+        both dictionary entries. Allowed absence returns before version checking. No physical
+        backend or catalogue transaction is involved.
+
+        Example:
+            >>> store = _MemoryStore()
+            >>> store.delete(store.location("absent"), missing_ok=True)
+
+
+        :param location: Exact Location checked against the fixture Store UUID.
+        :param missing_ok: Whether absence is permitted before testing a version.
+        :param if_version: Optional synthetic version that must match before deletion.
+        :return: None after removal or permitted absence.
+        """
         self._require_online()
         key = self._key(location)
         if self.read_only:
@@ -213,6 +478,21 @@ class _MemoryStore(api.StoreAPI):
         *,
         prefix: api.Location | None = None,
     ) -> Iterator[api.Location]:
+        """
+        Check online state and prefix ownership, then yield sorted payload keys matching a raw
+        string prefix. Sorting snapshots the keys when iteration starts; the prefix has no
+        path-component boundary rule.
+
+        Example:
+            >>> store = _MemoryStore()
+            >>> info = store.write_bytes(store.location("books/a"), b"a")
+            >>> list(store.iter_locations(prefix=store.location("books"))) == [info.location]
+            True
+
+
+        :param prefix: Optional owned Location whose key is used for startswith filtering.
+        :return: Iterator over matching Location values in sorted-key order.
+        """
         self._require_online()
         prefix_key = "" if prefix is None else self._key(prefix)
         for key in sorted(self.files):
@@ -220,13 +500,49 @@ class _MemoryStore(api.StoreAPI):
                 yield api.Location(self.store_ref, key)
 
     def startup(self) -> api.StoreStatus:
+        """
+        Set the online switch before returning the synthetic status. Payloads and versions are
+        retained across close/startup.
+
+        Example:
+            >>> store = _MemoryStore()
+            >>> store.close()
+            >>> store.startup().available
+            True
+
+
+        :return: Current StoreStatus after setting online to True.
+        """
         self.online = True
         return self.status()
 
     def probe(self) -> api.StoreStatus:
+        """
+        Return synthetic status without contacting a backend or changing online state.
+
+        Example:
+            >>> _MemoryStore().probe().available
+            True
+
+
+        :return: Current status produced by status().
+        """
         return self.status()
 
     def status(self, *, refresh: bool = False) -> api.StoreStatus:
+        """
+        Report online/writable flags and synthetic one-MiB capacity minus current payload lengths.
+        refresh is ignored. Oversized fixture payloads can make StoreStatus reject negative free
+        space, since writes do not enforce this reported quota.
+
+        Example:
+            >>> _MemoryStore().status().total_bytes
+            1048576
+
+
+        :param refresh: Compatibility argument ignored by this in-memory observation.
+        :return: New StoreStatus calculated from current fixture fields.
+        """
         return api.StoreStatus(
             available=self.online,
             writable=self.online and not self.read_only,
@@ -235,11 +551,44 @@ class _MemoryStore(api.StoreAPI):
         )
 
     def close(self) -> None:
+        """
+        Mark the Store offline without clearing payloads, versions, or existing independent readers.
+
+        Example:
+            >>> store = _MemoryStore()
+            >>> store.close()
+            >>> store.online
+            False
+
+
+        :return: None after updating the fixture state.
+        """
         self.online = False
 
 
 class _PlacementAwareMemoryStore(_MemoryStore):
+    """
+    Record placement hints at allocation and write creation while retaining memory publication
+    mechanics. Suggested title-based keys are neither reserved nor collision-checked during
+    allocation.
+
+    Example:
+        >>> store = _PlacementAwareMemoryStore()
+        >>> store.allocate_location(placement_hints={"title": "Book"}).key
+        'rich/Book'
+    """
     def __init__(self, store_ref: api.StoreUUID = MEMORY_STORE_UUID) -> None:
+        """
+        Initialize the memory Store, advertise placement hints, and clear both observation slots.
+
+        Example:
+            >>> _PlacementAwareMemoryStore().allocation_hints is None
+            True
+
+
+        :param store_ref: Configured UUID forwarded to the memory Store initializer.
+        :return: None after updating the fixture state.
+        """
         super().__init__(store_ref)
         self._capabilities = replace(
             self._capabilities,
@@ -256,6 +605,22 @@ class _PlacementAwareMemoryStore(_MemoryStore):
         name_hint: str | None = None,
         placement_hints: api.StoragePlacementHints | None = None,
     ) -> api.Location:
+        """
+        Record hints and choose a rich/title key using mapping title or an object title attribute,
+        then name_hint, then untitled. False title/name values fall through. Size/digest are
+        ignored, and allocation performs no online/read-only check or reservation.
+
+        Example:
+            >>> _PlacementAwareMemoryStore().allocate_location(name_hint="Book").key
+            'rich/Book'
+
+
+        :param expected_size: Accepted size hint, unused by this allocator.
+        :param expected_digest: Accepted digest hint, unused by this allocator.
+        :param name_hint: Fallback name used when projected title is false.
+        :param placement_hints: Retained hint value inspected for title.
+        :return: Location formed by the memory Store from rich and the selected name.
+        """
         self.allocation_hints = placement_hints
         title = (
             placement_hints.get("title")
@@ -273,6 +638,25 @@ class _PlacementAwareMemoryStore(_MemoryStore):
         expected_digest: api.Digest | None = None,
         placement_hints: api.StoragePlacementHints | None = None,
     ) -> _MemoryWriteSession:
+        """
+        Record placement hints before delegating session creation to the parent Store. The recorded
+        value remains visible even if parent availability, ownership, or read-only checks fail.
+
+        Example:
+            >>> store = _PlacementAwareMemoryStore()
+            >>> session = store.begin_write(store.location("book"), placement_hints={"title": "Book"})
+            >>> session.abort()
+            >>> store.write_hints["title"]
+            'Book'
+
+
+        :param location: Exact Location checked against the fixture Store UUID.
+        :param mode: Collision mode interpreted by enum-member identity.
+        :param expected_size: Optional exact payload byte count checked at commit.
+        :param expected_digest: Optional digest checked with hashlib at commit.
+        :param placement_hints: Hint value retained in write_hints before delegation.
+        :return: Parent memory write session.
+        """
         self.write_hints = placement_hints
         return super().begin_write(
             location,
@@ -283,6 +667,16 @@ class _PlacementAwareMemoryStore(_MemoryStore):
 
 
 class _CharacteristicMemoryStore(_MemoryStore):
+    """
+    Expose an injected characteristics profile and warning tuple above memory Store behavior. The
+    profile itself does not enforce publication limits in this double; manager preflight is tested
+    separately.
+
+    Example:
+        >>> store = _CharacteristicMemoryStore(MAIN_STORE_UUID, api.StorageCharacteristics())
+        >>> store.characteristics.max_object_bytes is None
+        True
+    """
     def __init__(
         self,
         store_ref: api.StoreUUID,
@@ -290,32 +684,130 @@ class _CharacteristicMemoryStore(_MemoryStore):
         *,
         warnings: tuple[str, ...] = (),
     ) -> None:
+        """
+        Initialize memory storage and retain supplied characteristics and warning objects.
+
+        Example:
+            >>> store = _CharacteristicMemoryStore(MAIN_STORE_UUID, api.StorageCharacteristics(), warnings=("bounded",))
+            >>> store.status().warnings
+            ('bounded',)
+
+
+        :param store_ref: Configured UUID for the parent memory Store.
+        :param characteristics: Profile returned unchanged by the characteristics property.
+        :param warnings: Warning strings substituted into every status result.
+        :return: None after updating the fixture state.
+        """
         super().__init__(store_ref)
         self._characteristics = characteristics
         self._status_warnings = warnings
 
     @property
     def characteristics(self) -> api.StorageCharacteristics:
+        """
+        Return the injected profile by identity without probing or validating its claims.
+
+        Example:
+            >>> profile = api.StorageCharacteristics()
+            >>> _CharacteristicMemoryStore(MAIN_STORE_UUID, profile).characteristics is profile
+            True
+
+
+        :return: Retained StorageCharacteristics instance.
+        """
         return self._characteristics
 
     def status(self, *, refresh: bool = False) -> api.StoreStatus:
+        """
+        Copy the parent synthetic status with the injected warning tuple. refresh is discarded and
+        no backend operation is performed.
+
+        Example:
+            >>> _CharacteristicMemoryStore(MAIN_STORE_UUID, api.StorageCharacteristics(), warnings=("bounded",)).status().warnings
+            ('bounded',)
+
+
+        :param refresh: Compatibility flag ignored before requesting parent status.
+        :return: New parent status with fixture warnings substituted.
+        """
         del refresh
         return replace(super().status(), warnings=self._status_warnings)
 
 
 class _MemoryManager(api.StorageRouterAPI):
+    """
+    Route the seven primitive operations to one memory Store while inheriting router conveniences.
+    Foreign UUIDs raise StoreInvalidLocation except filtered enumeration, which returns an empty
+    iterator. The get signature intentionally omits conditional reads; the fixture capability
+    profile does not advertise them.
+
+    Example:
+        >>> manager = _MemoryManager(_MemoryStore())
+        >>> manager.status(MEMORY_STORE_UUID).available
+        True
+    """
     def __init__(self, store: _MemoryStore) -> None:
+        """
+        Retain the supplied Store without startup, validation, or lifetime ownership.
+
+        Example:
+            >>> store = _MemoryStore()
+            >>> _MemoryManager(store).store is store
+            True
+
+
+        :param store: Memory Store used for every route.
+        :return: None after updating the fixture state.
+        """
         self.store = store
 
     def _route(self, location: api.Location) -> _MemoryStore:
+        """
+        Require the Location UUID to equal the retained Store UUID. No online or object-existence
+        check occurs until the delegated operation.
+
+        Example:
+            >>> store = _MemoryStore()
+            >>> _MemoryManager(store)._route(store.location("book")) is store
+            True
+
+
+        :param location: Exact Location checked against the fixture Store UUID.
+        :return: Retained Store, or StoreInvalidLocation for another UUID.
+        """
         if location.store_ref != self.store.store_ref:
             raise api.StoreInvalidLocation(str(location))
         return self.store
 
     def stat(self, location):
+        """
+        Route metadata lookup to the memory Store and propagate its current digest/version or
+        failure.
+
+        Example:
+            >>> info = manager.stat(location)  # doctest: +SKIP
+
+
+        :param location: Exact Location checked against the fixture Store UUID.
+        :return: FileInfo returned by the routed Store.
+        """
         return self._route(location).stat(location)
 
     def get(self, location, *, offset=0, length=None):
+        """
+        Route an unconditional range read to Store.open_read. The returned independent BytesIO
+        belongs to the caller; this fixture exposes no if_version parameter.
+
+        Example:
+            >>> with manager.get(location, length=4) as source:  # doctest: +SKIP
+            ...     payload = source.read()
+
+
+        :param location: Exact Location checked against the fixture Store UUID.
+        :param offset: Nonnegative starting byte offset.
+        :param length: Optional nonnegative byte count; None selects the remainder.
+        :return: Caller-owned reader returned by the memory Store.
+        """
         return self._route(location).open_read(location, offset=offset, length=length)
 
     def put(
@@ -327,6 +819,22 @@ class _MemoryManager(api.StorageRouterAPI):
         expected_size=None,
         expected_digest=None,
     ):
+        """
+        Use storage_utils.put to stream through the selected Store write session with all
+        expectations forwarded. Source ownership and cleanup follow that helper; this wrapper adds
+        no extra staging.
+
+        Example:
+            >>> info = manager.put(location, source, expected_size=4)  # doctest: +SKIP
+
+
+        :param location: Exact Location checked against the fixture Store UUID.
+        :param source: Borrowed input stream forwarded to the Store utility.
+        :param mode: Collision mode interpreted by enum-member identity.
+        :param expected_size: Optional exact payload byte count checked at commit.
+        :param expected_digest: Optional digest checked with hashlib at commit.
+        :return: Published FileInfo returned by storage_utils.put.
+        """
         return storage_utils.put(
             self._route(location),
             location,
@@ -337,6 +845,18 @@ class _MemoryManager(api.StorageRouterAPI):
         )
 
     def delete(self, location, *, missing_ok=False, if_version=None):
+        """
+        Forward owned-address deletion and both absence/version policies to the Store.
+
+        Example:
+            >>> manager.delete(location, missing_ok=True)  # doctest: +SKIP
+
+
+        :param location: Exact Location checked against the fixture Store UUID.
+        :param missing_ok: Whether absence is permitted before testing a version.
+        :param if_version: Optional synthetic version that must match before deletion.
+        :return: None after the Store call succeeds.
+        """
         self._route(location).delete(
             location,
             missing_ok=missing_ok,
@@ -344,26 +864,88 @@ class _MemoryManager(api.StorageRouterAPI):
         )
 
     def iter_locations(self, *, store_ref=None, prefix=None):
+        """
+        Return an empty iterator for another selected Store UUID; otherwise delegate prefix
+        enumeration. This is an ordinary method returning the Store iterator, so its lazy online
+        check remains deferred.
+
+        Example:
+            >>> list(_MemoryManager(_MemoryStore()).iter_locations(store_ref=OTHER_STORE_UUID))
+            []
+
+
+        :param store_ref: Optional UUID selection; a foreign selection yields no locations.
+        :param prefix: Optional owned Location forwarded to Store enumeration.
+        :return: Store Location iterator or an empty iterator for another UUID.
+        """
         if store_ref is not None and store_ref != self.store.store_ref:
             return iter(())
         return self.store.iter_locations(prefix=prefix)
 
     def capabilities(self, store_ref):
+        """
+        Reject a foreign UUID and return the retained Store capability record. This does not probe
+        availability.
+
+        Example:
+            >>> _MemoryManager(_MemoryStore()).capabilities(MEMORY_STORE_UUID).atomic_publish
+            True
+
+
+        :param store_ref: UUID required to match the fixture Store.
+        :return: Store capability record by identity.
+        """
         if store_ref != self.store.store_ref:
             raise api.StoreInvalidLocation(str(store_ref))
         return self.store.capabilities
 
     def status(self, store_ref):
+        """
+        Reject a foreign UUID and return current synthetic Store status.
+
+        Example:
+            >>> _MemoryManager(_MemoryStore()).status(MEMORY_STORE_UUID).available
+            True
+
+
+        :param store_ref: UUID required to match the fixture Store.
+        :return: Status returned by the memory Store.
+        """
         if store_ref != self.store.store_ref:
             raise api.StoreInvalidLocation(str(store_ref))
         return self.store.status()
 
 
 def _sha256(data: bytes) -> api.Digest:
+    """
+    Compute a real SHA-256 hexadecimal digest for fixture bytes and wrap it in the shared Digest
+    value.
+
+    Example:
+        >>> _sha256(b"book").algorithm
+        'sha256'
+
+
+    :param data: Complete byte payload to hash.
+    :return: Normalized SHA-256 Digest for the supplied bytes.
+    """
     return api.Digest("sha256", hashlib.sha256(data).hexdigest())
 
 
 def _asset(asset_id: int = 1, payload: bytes = b"payload") -> api.DigitalAssetRecord:
+    """
+    Build a passive Asset record with the supplied identity and actual payload size/digest. No bytes
+    or catalogue state are stored by this helper.
+
+    Example:
+        >>> _asset(payload=b"book").size_bytes
+        4
+
+
+    :param asset_id: Positive fixture Asset identity, defaulting to one.
+    :param payload: Bytes used only to calculate record size and digest.
+    :return: New DigitalAssetRecord for the fixture payload.
+    """
     return api.DigitalAssetRecord(
         api.DigitalAssetID(asset_id),
         len(payload),
@@ -377,6 +959,21 @@ def _replica(
     asset: api.DigitalAssetRecord | None = None,
     store_ref: api.StoreUUID = MAIN_STORE_UUID,
 ) -> api.ReplicaRecord:
+    """
+    Build a verified active Replica record for the selected Asset at an assets/ID key. Missing asset
+    uses the default fixture Asset. Verification is declared fixture state rather than a performed
+    read.
+
+    Example:
+        >>> _replica().location.key
+        'assets/1'
+
+
+    :param replica_id: Positive fixture Replica identity.
+    :param asset: Optional Asset record referenced by the Replica.
+    :param store_ref: Store UUID used in the synthesized Location.
+    :return: New active ReplicaRecord carrying a VERIFIED observation.
+    """
     selected_asset = _asset() if asset is None else asset
     return api.ReplicaRecord(
         api.ReplicaID(replica_id),
@@ -388,11 +985,47 @@ def _replica(
 
 
 class _IngestHarness(api.DigitalAssetIngestAPI):
+    """
+    Observe convenience-stream bytes/size and return fixed domain fixtures. Results use the default
+    payload Asset even when the observed input differs, so this double tests forwarding rather than
+    content registration.
+
+    Example:
+        >>> result = _IngestHarness().ingest_bytes(b"payload")
+        >>> result.asset_record.digital_asset_id
+        1
+    """
     def __init__(self) -> None:
+        """
+        Clear the observed byte and expected-size slots before a convenience ingest.
+
+        Example:
+            >>> _IngestHarness().observed is None
+            True
+
+
+        :return: None after updating the fixture state.
+        """
         self.observed: bytes | None = None
         self.size: int | None = None
 
     def ingest_stream(self, stream, **kwargs):
+        """
+        Read the borrowed stream once and record expected_size, then synthesize a successful default
+        Asset/Replica result. Required keyword access may raise KeyError; the stream is not closed
+        and content expectations are not checked.
+
+        Example:
+            >>> manager = _IngestHarness()
+            >>> result = manager.ingest_bytes(b"payload")
+            >>> manager.size
+            7
+
+
+        :param stream: Borrowed input read without a size bound from its current position.
+        :param kwargs: Forwarded ingest options; expected_size and operation_id are accessed, other options ignored.
+        :return: Fixture result with default Asset/Replica and the supplied truthy operation ID or UUID 10.
+        """
         self.observed = stream.read()
         self.size = kwargs["expected_size"]
         asset = _asset()
@@ -405,6 +1038,20 @@ class _IngestHarness(api.DigitalAssetIngestAPI):
         )
 
     def adopt_location(self, location, **kwargs):
+        """
+        Synthesize an unmanaged, unverified Replica at the supplied address without inspecting
+        bytes. The default Asset is reused and other metadata/verification options are ignored.
+
+        Example:
+            >>> result = _IngestHarness().adopt_location(api.Location(MAIN_STORE_UUID, "book"))
+            >>> result.replica_record.mode is api.ReplicaMode.UNMANAGED
+            True
+
+
+        :param location: Address retained in the synthetic Replica.
+        :param kwargs: Optional operation_id selects the result identity; remaining options are ignored.
+        :return: Fixture ingest result declaring no new Asset and a new unmanaged Replica.
+        """
         asset = _asset()
         replica = api.ReplicaRecord(
             api.ReplicaID(2),
@@ -423,10 +1070,41 @@ class _IngestHarness(api.DigitalAssetIngestAPI):
 
 
 class _RetrievalHarness(api.DigitalAssetRetrievalAPI):
+    """
+    Record Asset/Replica selection calls and synthesize predictable addresses. Asset 404 models
+    NoReadableReplica; no actual bytes, eligibility scan, or verification are involved.
+
+    Example:
+        >>> manager = _RetrievalHarness()
+        >>> manager.locate_replica(12).key
+        'replicas/12'
+    """
     def __init__(self) -> None:
+        """
+        Start an empty ordered selection-call log.
+
+        Example:
+            >>> _RetrievalHarness().calls
+            []
+
+
+        :return: None after updating the fixture state.
+        """
         self.calls: list[tuple[object, ...]] = []
 
     def select_replica(self, digital_asset_id, **kwargs):
+        """
+        Forward Asset selection arguments to resolve_digital_asset and return its Replica record.
+
+        Example:
+            >>> _RetrievalHarness().select_replica(7).location.key
+            'assets/7'
+
+
+        :param digital_asset_id: Fixture Asset identity passed to resolution.
+        :param kwargs: Selection options forwarded unchanged.
+        :return: ReplicaRecord extracted from the fixture resolution.
+        """
         return self.resolve_digital_asset(
             digital_asset_id, **kwargs
         ).replica_record
@@ -439,6 +1117,23 @@ class _RetrievalHarness(api.DigitalAssetRetrievalAPI):
         mode=api.ReplicaMode.ACTIVE,
         require_verified=False,
     ):
+        """
+        Record Asset ID, Store preference, and verification flag; reject ID 404 and synthesize a
+        verified active Replica otherwise. mode is ignored and require_verified is only recorded. A
+        false Store preference falls back to MAIN_STORE_UUID.
+
+        Example:
+            >>> manager = _RetrievalHarness()
+            >>> manager.resolve_digital_asset(7, preferred_store_ref=ARCHIVE_STORE_UUID).location.store_ref == ARCHIVE_STORE_UUID
+            True
+
+
+        :param digital_asset_id: ID converted to int for fixture records; 404 raises NoReadableReplica.
+        :param preferred_store_ref: Optional UUID selected for the synthetic Replica.
+        :param mode: Accepted Replica mode argument ignored by this double.
+        :param require_verified: Boolean recorded for forwarding assertions without performing verification.
+        :return: Synthetic DigitalAssetResolution for the selected fixture identity.
+        """
         self.calls.append(
             (
                 "digital_asset",
@@ -458,17 +1153,60 @@ class _RetrievalHarness(api.DigitalAssetRetrievalAPI):
         return api.DigitalAssetResolution(asset, replica)
 
     def locate_replica(self, replica_id):
+        """
+        Record the exact Replica ID and construct a MAIN_STORE_UUID replicas/ID Location. The
+        identity is not looked up or validated against a repository.
+
+        Example:
+            >>> _RetrievalHarness().locate_replica(12).key
+            'replicas/12'
+
+
+        :param replica_id: Value interpolated into the fixture key and retained in the log.
+        :return: New synthetic Replica Location.
+        """
         self.calls.append(("replica", replica_id))
         return api.Location(MAIN_STORE_UUID, f"replicas/{replica_id}")
 
     def materialize_digital_asset(self, digital_asset_id, **kwargs):
+        """
+        Reject materialization because the selection-only fixture supplies no bytes or temporary
+        files.
+
+        Example:
+            >>> manager.materialize_digital_asset(7)  # doctest: +SKIP
+
+
+        :param digital_asset_id: Unused Asset identity accepted for interface conformance.
+        :param kwargs: Unused materialization options.
+        :return: Never returns; raises NotImplementedError.
+        """
         raise NotImplementedError
 
     def resolve_item_digital_asset(self, item_id, **kwargs):
+        """
+        Reject Item resolution because this fixture only covers direct Asset/Replica selection.
+
+        Example:
+            >>> manager.resolve_item_digital_asset(7)  # doctest: +SKIP
+
+
+        :param item_id: Unused Item identity accepted for interface conformance.
+        :param kwargs: Unused selection options.
+        :return: Never returns; raises NotImplementedError.
+        """
         raise NotImplementedError
 
 
 class _TopologyHarness:
+    """
+    Reuse real Store topology-comparison methods over a configuration dictionary. Only configuration
+    lookup is supplied; the fixture performs no host/device discovery or byte access.
+
+    Example:
+        >>> _TopologyHarness(()).configurations
+        {}
+    """
     compare_location_hosts = api.StoreAdministrationAPI.compare_location_hosts
     compare_location_devices = api.StoreAdministrationAPI.compare_location_devices
 
@@ -476,6 +1214,18 @@ class _TopologyHarness:
         self,
         configurations: tuple[api.StoreConfiguration, ...],
     ) -> None:
+        """
+        Index supplied configurations by Store UUID, with later duplicates replacing earlier values.
+        No Store is constructed.
+
+        Example:
+            >>> _TopologyHarness(()).configurations
+            {}
+
+
+        :param configurations: Ordered configuration values used to build the lookup dictionary.
+        :return: None after updating the fixture state.
+        """
         self.configurations = {
             configuration.store_uuid: configuration
             for configuration in configurations
@@ -485,10 +1235,30 @@ class _TopologyHarness:
         self,
         store_ref: api.StoreUUID,
     ) -> api.StoreConfiguration:
+        """
+        Return the retained configuration by exact UUID, allowing ordinary KeyError for absence.
+
+        Example:
+            >>> configuration = topology.get_store_configuration(MAIN_STORE_UUID)  # doctest: +SKIP
+
+
+        :param store_ref: UUID key looked up directly in the fixture dictionary.
+        :return: Retained StoreConfiguration for the requested key.
+        """
         return self.configurations[store_ref]
 
 
 def test_public_surface_is_small_complete_and_unique() -> None:
+    """
+    Verify every exported API name exists without duplicates, the router has exactly seven abstract
+    primitives, and neither abstract router nor full manager can be instantiated.
+
+    Example:
+        >>> test_public_surface_is_small_complete_and_unique()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     assert len(api.__all__) == len(set(api.__all__))
     assert all(hasattr(api, name) for name in api.__all__)
     assert api.StorageRouterAPI.__abstractmethods__ == {
@@ -507,6 +1277,17 @@ def test_public_surface_is_small_complete_and_unique() -> None:
 
 
 def test_full_manager_layers_catalogue_and_policy_above_the_small_router() -> None:
+    """
+    Verify the full manager combines the declared catalogue, policy, lifecycle, and workflow API
+    bases above routing. Required domain operations remain abstract while begin_write stays outside
+    the manager primitive set.
+
+    Example:
+        >>> test_full_manager_layers_catalogue_and_policy_above_the_small_router()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     facade_bases = {
         api.StoreAdministrationAPI,
         api.DigitalAssetRegistryAPI,
@@ -537,8 +1318,20 @@ def test_full_manager_layers_catalogue_and_policy_above_the_small_router() -> No
 
 
 def test_storage_manager_package_exposes_stable_segregated_import_paths() -> None:
+    """
+    Verify selected manager interfaces, value enums/policies, and LocationFactory preserve object
+    identity through their owning modules and public facades; manager exports must be unique.
+
+    Example:
+        >>> test_storage_manager_package_exposes_stable_segregated_import_paths()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     from LiuXin_alpha.storage.api import storage_manager_api as manager_api
-    from LiuXin_alpha.storage.api.storage_manager_api.models.assets import ReplicaState
+    from LiuXin_alpha.storage.api.storage_manager_api.models.replicas import (
+        ReplicaState,
+    )
     from LiuXin_alpha.storage.api.storage_manager_api.models.policies import ReplicationPolicy
     from LiuXin_alpha.storage.api.storage_manager_api.location_factory import LocationFactory
     from LiuXin_alpha.storage.api.storage_manager_api.derivations_api import DigitalAssetDerivationRegistryAPI
@@ -558,6 +1351,17 @@ def test_storage_manager_package_exposes_stable_segregated_import_paths() -> Non
 
 
 def test_location_factory_resolves_asset_and_replica_ids_through_manager() -> None:
+    """
+    Verify factory methods forward exact IDs, Store preference, and verification requirements to the
+    selection fixture in order. Returned synthetic addresses are checked and NoReadableReplica
+    remains visible.
+
+    Example:
+        >>> test_location_factory_resolves_asset_and_replica_ids_through_manager()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     manager = _RetrievalHarness()
     factory = manager.location_factory
 
@@ -584,6 +1388,17 @@ def test_location_factory_resolves_asset_and_replica_ids_through_manager() -> No
 
 
 def test_structural_protocols_accept_a_complete_backend_and_session() -> None:
+    """
+    Verify the memory Store satisfies StoreAPI/StoreCoreAPI membership and its session satisfies the
+    runtime write-session protocol. Native-copy support remains false; membership alone is not
+    execution evidence.
+
+    Example:
+        >>> test_structural_protocols_accept_a_complete_backend_and_session()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     store = _MemoryStore()
     session = store.begin_write(api.Location(MEMORY_STORE_UUID, "book.epub"))
 
@@ -594,6 +1409,16 @@ def test_structural_protocols_accept_a_complete_backend_and_session() -> None:
 
 
 def test_store_api_composes_identity_lifecycle_and_transactional_files() -> None:
+    """
+    Verify Store exports, inheritance, and the exact abstract primitive set, then exercise ownership
+    checks, byte/digest operations, copy/move, and close/startup on memory storage.
+
+    Example:
+        >>> test_store_api_composes_identity_lifecycle_and_transactional_files()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     from LiuXin_alpha.storage.api import store_api
     from LiuXin_alpha.storage.api.store_api.file_api import StoreFileAPI
     from LiuXin_alpha.storage.api.store_api.identity_api import StoreIdentityAPI
@@ -648,6 +1473,17 @@ def test_store_api_composes_identity_lifecycle_and_transactional_files() -> None
 
 
 def test_models_are_explicit_stable_and_validated() -> None:
+    """
+    Verify opaque Location spelling, digest normalization, enumeration/write-mode values, and
+    selected rejection cases: empty keys, inconsistent conditional deletion, non-UUID configuration,
+    negative file size, and excessive free capacity.
+
+    Example:
+        >>> test_models_are_explicit_stable_and_validated()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     location = api.Location(MAIN_STORE_UUID, "opaque/object-key")
     digest = api.Digest(" SHA256 ", " ABCDEF ")
     capabilities = api.StoreCapabilities(
@@ -692,6 +1528,16 @@ def test_models_are_explicit_stable_and_validated() -> None:
 
 
 def test_error_family_preserves_actionable_failure_categories() -> None:
+    """
+    Verify Store failure classes share StoreError while an unknown Store configuration belongs to
+    StorageManagementError and is not a concrete-object StoreNotFound subtype.
+
+    Example:
+        >>> test_error_family_preserves_actionable_failure_categories()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     error_types = (
         api.StoreNotFound,
         api.StoreAlreadyExists,
@@ -712,6 +1558,16 @@ def test_error_family_preserves_actionable_failure_categories() -> None:
 
 
 def test_free_operations_are_segregated_from_contract_exports() -> None:
+    """
+    Verify free operations are exported by their Store, driver, and workflow owner modules.
+    The API facade supplies contracts and does not republish these helpers.
+
+    Example:
+        >>> test_free_operations_are_segregated_from_contract_exports()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     utility_names = {
         "compute_digest",
         "copy",
@@ -734,19 +1590,33 @@ def test_free_operations_are_segregated_from_contract_exports() -> None:
     }
 
     assert not utility_names & set(api.__all__)
-    assert utility_names <= set(storage_utils.__all__)
+    from LiuXin_alpha.storage.utils import driver, workflow
+
+    assert utility_names <= (
+        set(storage_utils.__all__) | set(driver.__all__) | set(workflow.__all__)
+    )
     assert storage_utils.try_stat.__module__ == (
         "LiuXin_alpha.storage.utils.store"
     )
-    assert storage_utils.transfer_between_drivers.__module__ == (
+    assert driver.transfer_between_drivers.__module__ == (
         "LiuXin_alpha.storage.utils.driver"
     )
-    assert storage_utils.normalize_archive_path.__module__ == (
+    assert workflow.normalize_archive_path.__module__ == (
         "LiuXin_alpha.storage.utils.workflow"
     )
 
 
 def test_create_only_is_safe_and_final_location_changes_only_on_commit() -> None:
+    """
+    Verify staged memory bytes are invisible before commit, successful commit reports and exposes
+    the payload, create-only collisions reject, and explicit replacement changes the stored bytes.
+
+    Example:
+        >>> test_create_only_is_safe_and_final_location_changes_only_on_commit()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     store = _MemoryStore()
     location = api.Location(MEMORY_STORE_UUID, "book.epub")
     session = store.begin_write(
@@ -775,6 +1645,16 @@ def test_create_only_is_safe_and_final_location_changes_only_on_commit() -> None
 
 
 def test_failed_commit_and_context_exit_leave_no_partial_publication() -> None:
+    """
+    Verify a digest-mismatched replacement preserves original memory bytes, repeated abort is
+    harmless, and leaving a write context without commit publishes no new object.
+
+    Example:
+        >>> test_failed_commit_and_context_exit_leave_no_partial_publication()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     store = _MemoryStore()
     existing = api.Location(MEMORY_STORE_UUID, "existing")
     new = api.Location(MEMORY_STORE_UUID, "new")
@@ -799,6 +1679,16 @@ def test_failed_commit_and_context_exit_leave_no_partial_publication() -> None:
 
 
 def test_try_stat_suppresses_only_not_found() -> None:
+    """
+    Verify the Store utilities return None/False for absent bytes but propagate StoreUnavailable
+    after the memory backend is switched offline.
+
+    Example:
+        >>> test_try_stat_suppresses_only_not_found()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     store = _MemoryStore()
     missing = api.Location(MEMORY_STORE_UUID, "missing")
     assert storage_utils.try_stat(store, missing) is None
@@ -812,6 +1702,17 @@ def test_try_stat_suppresses_only_not_found() -> None:
 
 
 def test_read_ranges_delete_preconditions_and_idempotence_are_explicit() -> None:
+    """
+    Verify exact ranged bytes, stale-delete rejection with content retained, successful
+    version-conditioned deletion, permitted repeated absence, and an error when absence is not
+    allowed.
+
+    Example:
+        >>> test_read_ranges_delete_preconditions_and_idempotence_are_explicit()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     store = _MemoryStore()
     location = api.Location(MEMORY_STORE_UUID, "alphabet")
     info = storage_utils.write_bytes(store, location, b"abcdefghij")
@@ -828,6 +1729,16 @@ def test_read_ranges_delete_preconditions_and_idempotence_are_explicit() -> None
 
 
 def test_enumeration_and_iter_infos_are_files_only_and_prefix_filtered() -> None:
+    """
+    Verify sorted books-prefix addresses and their sizes exclude cover keys in memory storage, whose
+    fixture advertises complete enumeration.
+
+    Example:
+        >>> test_enumeration_and_iter_infos_are_files_only_and_prefix_filtered()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     store = _MemoryStore()
     storage_utils.write_bytes(store, api.Location(MEMORY_STORE_UUID, "books/a.epub"), b"a")
     storage_utils.write_bytes(store, api.Location(MEMORY_STORE_UUID, "books/b.epub"), b"bb")
@@ -846,6 +1757,16 @@ def test_enumeration_and_iter_infos_are_files_only_and_prefix_filtered() -> None
 
 
 def test_copy_move_and_digest_have_safe_generic_fallbacks() -> None:
+    """
+    Verify Store utility copy/digest results and move publication/removal with real in-memory bytes.
+    Invalid digest chunk size and an unsupported algorithm must raise their distinct errors.
+
+    Example:
+        >>> test_copy_move_and_digest_have_safe_generic_fallbacks()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     store = _MemoryStore()
     source = api.Location(MEMORY_STORE_UUID, "source")
     copied = api.Location(MEMORY_STORE_UUID, "copied")
@@ -868,6 +1789,16 @@ def test_copy_move_and_digest_have_safe_generic_fallbacks() -> None:
 
 
 def test_store_and_manager_moves_refuse_unprotected_fallbacks_before_copy() -> None:
+    """
+    Disable conditional deletion and verify both Store utility and router move reject before
+    creating destination payloads, while the source remains present.
+
+    Example:
+        >>> test_store_and_manager_moves_refuse_unprotected_fallbacks_before_copy()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     store = _MemoryStore(MAIN_STORE_UUID)
     source = api.Location(MAIN_STORE_UUID, "source")
     utility_destination = api.Location(MAIN_STORE_UUID, "utility-moved")
@@ -895,8 +1826,38 @@ def test_store_and_manager_moves_refuse_unprotected_fallbacks_before_copy() -> N
 
 
 def test_store_and_manager_moves_require_a_source_version_before_copy() -> None:
+    """
+    Remove version claims from Store metadata and verify Store/router move reject before publication
+    despite conditional-delete support. Both destination addresses remain absent.
+
+    Example:
+        >>> test_store_and_manager_moves_require_a_source_version_before_copy()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     class _UnversionedMemoryStore(_MemoryStore):
+        """
+        Retain all memory Store behavior while removing version evidence from stat results. This
+        isolates the generic move preflight requirement without disabling conditional-delete
+        capability.
+
+        Example:
+            >>> store = _UnversionedMemoryStore(MAIN_STORE_UUID)  # doctest: +SKIP
+        """
         def stat(self, location: api.Location) -> api.FileInfo:
+            """
+            Compute normal memory metadata, then copy it with version=None. All parent availability,
+            ownership, absence, and digest behavior remains active.
+
+            Example:
+                >>> store.stat(location).version is None  # doctest: +SKIP
+                True
+
+
+            :param location: Exact Location checked against the fixture Store UUID.
+            :return: Parent FileInfo with its version claim removed.
+            """
             return replace(super().stat(location), version=None)
 
     store = _UnversionedMemoryStore(MAIN_STORE_UUID)
@@ -918,6 +1879,17 @@ def test_store_and_manager_moves_require_a_source_version_before_copy() -> None:
 
 
 def test_manager_routes_primitives_and_derives_only_small_conveniences() -> None:
+    """
+    Exercise the single-Store router defaults for write, existence, ranged read, metadata
+    enumeration, capability/status, copy, and move. Assert exact destination bytes and removal of
+    the moved source.
+
+    Example:
+        >>> test_manager_routes_primitives_and_derives_only_small_conveniences()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     store = _MemoryStore(MAIN_STORE_UUID)
     manager = _MemoryManager(store)
     location = api.Location(MAIN_STORE_UUID, "book.epub")
@@ -940,12 +1912,23 @@ def test_manager_routes_primitives_and_derives_only_small_conveniences() -> None
 
 
 def test_manager_exposes_characteristics_and_preflights_declared_size() -> None:
+    """
+    Verify the transient manager exposes the injected profile by identity and rejects a declared
+    seven-byte write against a four-byte ceiling before consuming the source. A four-byte write
+    succeeds.
+
+    Example:
+        >>> test_manager_exposes_characteristics_and_preflights_declared_size()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     profile = api.StorageCharacteristics(
         publication_model=api.StoragePublicationModel.PER_OBJECT,
         max_object_bytes=4,
     )
     store = _CharacteristicMemoryStore(MAIN_STORE_UUID, profile)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
     )
     source = io.BytesIO(b"payload")
@@ -965,12 +1948,22 @@ def test_manager_exposes_characteristics_and_preflights_declared_size() -> None:
 
 
 def test_automatic_active_placement_avoids_archival_snapshot_writers() -> None:
+    """
+    Verify destination planning excludes a whole-container archival-snapshot writer for ordinary
+    replication but selects it for an ARCHIVE backup request with the same expected size.
+
+    Example:
+        >>> test_automatic_active_placement_avoids_archival_snapshot_writers()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     profile = api.StorageCharacteristics(
         publication_model=api.StoragePublicationModel.WHOLE_STORE_REBUILD,
         recommended_write_usage=api.StorageWriteUsage.ARCHIVAL_SNAPSHOT,
     )
     archive = _CharacteristicMemoryStore(ARCHIVE_STORE_UUID, profile)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((archive.configuration, archive),),
     )
 
@@ -989,12 +1982,22 @@ def test_automatic_active_placement_avoids_archival_snapshot_writers() -> None:
 
 
 def test_store_status_warnings_are_promoted_to_operational_issues() -> None:
+    """
+    Verify a refreshed memory Store warning becomes one operational issue attributed to that Store
+    UUID with its explanation retained.
+
+    Example:
+        >>> test_store_status_warnings_are_promoted_to_operational_issues()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     store = _CharacteristicMemoryStore(
         MAIN_STORE_UUID,
         api.StorageCharacteristics(),
         warnings=("normalization requires explicit approval",),
     )
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
     )
 
@@ -1007,6 +2010,17 @@ def test_store_status_warnings_are_promoted_to_operational_issues() -> None:
 
 
 def test_location_topology_distinguishes_same_different_and_unknown() -> None:
+    """
+    Compare configured host/device UUIDs through the real topology helper methods. Assert same host
+    with different devices, different hosts, and unknown device relation when one device is
+    unspecified.
+
+    Example:
+        >>> test_location_topology_distinguishes_same_different_and_unknown()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     main = api.StoreConfiguration(
         MAIN_STORE_UUID,
         "main",
@@ -1054,6 +2068,16 @@ def test_location_topology_distinguishes_same_different_and_unknown() -> None:
 
 
 def test_facade_models_cover_store_policy_and_replica_state() -> None:
+    """
+    Verify configuration identity, effective copy targets, and the distinction between unavailable
+    and missing Replica states. Reject a target below the minimum and an ACTIVE backup policy.
+
+    Example:
+        >>> test_facade_models_cover_store_policy_and_replica_state()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     configuration = api.StoreConfiguration(
         store_uuid=ARCHIVE_STORE_UUID,
         store_name="archive",
@@ -1080,6 +2104,17 @@ def test_facade_models_cover_store_policy_and_replica_state() -> None:
 
 
 def test_asset_and_replica_records_are_explicit_public_values() -> None:
+    """
+    Build declaration/record pairs and verify size, digests, identity links, and explicit public
+    fields. Missing digests and zero Asset identity reject; obsolete row-wrapper names remain
+    absent.
+
+    Example:
+        >>> test_asset_and_replica_records_are_explicit_public_values()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     digest = _sha256(b"book")
     declaration = api.DigitalAssetDeclaration(
         4,
@@ -1123,6 +2158,17 @@ def test_asset_and_replica_records_are_explicit_public_values() -> None:
 
 
 def test_public_exports_reject_ambiguous_legacy_value_names() -> None:
+    """
+    Verify the complete listed set of retired ambiguous names is absent from public exports and
+    representative explicit record, declaration, graph, observation, and reference names remain
+    published.
+
+    Example:
+        >>> test_public_exports_reject_ambiguous_legacy_value_names()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     retired_names = {
         "AssetDerivation",
         "AssetDerivationDeclaration",
@@ -1162,7 +2208,7 @@ def test_public_exports_reject_ambiguous_legacy_value_names() -> None:
         "RecipeArtifactReference",
         "RecipeInput",
         "RecipeInputReference",
-        "RegisteredBackupArtifact",
+        "BackupArtifactRegistration",
         "Replica",
         "ReplicaSpec",
         "ReplicationPlan",
@@ -1192,26 +2238,115 @@ def test_public_exports_reject_ambiguous_legacy_value_names() -> None:
 
 
 def test_repository_ports_operate_on_domain_values_not_record_protocols() -> None:
+    """
+    Verify a minimal structural repository satisfies the persistence protocol and add returns a
+    domain Asset record. The fixture has no persistent state; the public facade must not export
+    RecordAPI.
+
+    Example:
+        >>> test_repository_ports_operate_on_domain_values_not_record_protocols()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     class _AssetRepository:
+        """
+        Satisfy the structural Asset repository port with synthesized records and fixed responses.
+        Methods do not retain mutations, check revisions, search digests, or prove persistence.
+
+        Example:
+            >>> repository = _AssetRepository()  # doctest: +SKIP
+        """
         def add(self, declaration):
+            """
+            Synthesize Asset ID 7 while retaining the declaration size, digests, and metadata. No
+            repository state is written.
+
+            Example:
+                >>> created = repository.add(declaration)  # doctest: +SKIP
+
+
+            :param declaration: Domain declaration whose content fields populate the fixture record.
+            :return: New DigitalAssetRecord with fixed ID 7.
+            """
             return api.DigitalAssetRecord(
                 api.DigitalAssetID(7), declaration.size_bytes,
                 declaration.digests, declaration.metadata,
             )
 
         def get(self, digital_asset_id):
+            """
+            Synthesize a record for the requested integer ID using the fixed book payload. There is
+            no missing-record branch or stored-state lookup.
+
+            Example:
+                >>> record = repository.get(7)  # doctest: +SKIP
+
+
+            :param digital_asset_id: Value converted to an integer fixture Asset identity.
+            :return: Fresh four-byte book Asset record.
+            """
             return _asset(int(digital_asset_id), b"book")
 
         def replace_metadata(self, digital_asset_id, metadata, *, if_revision=None):
+            """
+            Copy a synthesized get result with the supplied metadata. Revision protection is ignored
+            and no value is stored for later reads.
+
+            Example:
+                >>> changed = repository.replace_metadata(7, metadata)  # doctest: +SKIP
+
+
+            :param digital_asset_id: Identity forwarded to the synthetic get method.
+            :param metadata: Metadata substituted into the returned record.
+            :param if_revision: Accepted but ignored revision precondition.
+            :return: New Asset record with substituted metadata.
+            """
             return replace(self.get(digital_asset_id), metadata=metadata)
 
         def find_by_digest(self, digest, *, size_bytes=None):
+            """
+            Return a fixed no-match response without inspecting digest or size.
+
+            Example:
+                >>> repository.find_by_digest(_sha256(b"book")) is None  # doctest: +SKIP
+                True
+
+
+            :param digest: Ignored search digest.
+            :param size_bytes: Ignored optional expected byte count.
+            :return: None for every search.
+            """
             return None
 
         def iter_assets(self):
+            """
+            Expose an empty iterator regardless of earlier add calls. The fixture stores no Asset
+            collection.
+
+            Example:
+                >>> list(repository.iter_assets())  # doctest: +SKIP
+                []
+
+
+            :return: New empty iterator.
+            """
             return iter(())
 
         def remove(self, digital_asset_id, *, if_revision=None):
+            """
+            Return a fixed successful-removal response without changing state or checking
+            existence/revision.
+
+            Example:
+                >>> repository.remove(7)  # doctest: +SKIP
+                True
+
+
+            :param digital_asset_id: Ignored identity accepted for protocol conformance.
+            :param if_revision: Ignored revision precondition.
+            :return: True for every request.
+            """
             return True
 
     repository = _AssetRepository()
@@ -1222,6 +2357,16 @@ def test_repository_ports_operate_on_domain_values_not_record_protocols() -> Non
 
 
 def test_composite_resolution_preserves_relationship_metadata() -> None:
+    """
+    Verify a resolved composite member exposes its underlying Replica Location while retaining the
+    membership logical path and title independently.
+
+    Example:
+        >>> test_composite_resolution_preserves_relationship_metadata()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     asset = _asset(7)
     resolved = api.DigitalAssetResolution(asset, _replica(asset=asset))
     relationship = api.CompositeDigitalAssetMembership(
@@ -1240,6 +2385,17 @@ def test_composite_resolution_preserves_relationship_metadata() -> None:
 
 
 def test_exact_derivation_recipe_pins_everything_needed_for_replay() -> None:
+    """
+    Construct a complete exact recipe and verify the derivation reports exact recreatability while
+    retaining pinned source, executor, and output evidence. No executor is run; the obsolete
+    DerivedDigitalAsset name stays absent.
+
+    Example:
+        >>> test_exact_derivation_recipe_pins_everything_needed_for_replay()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     source_digest = _sha256(b"book")
     cover_digest = _sha256(b"cover")
     tool_digest = _sha256(b"extractor")
@@ -1296,6 +2452,16 @@ def test_exact_derivation_recipe_pins_everything_needed_for_replay() -> None:
 
 
 def test_composite_derivation_provenance_uses_flattened_atomic_recipe_inputs() -> None:
+    """
+    Verify provenance can reference a Composite identity while the recipe independently pins ordered
+    atomic Asset inputs 7 and 8. Construction does not execute packaging.
+
+    Example:
+        >>> test_composite_derivation_provenance_uses_flattened_atomic_recipe_inputs()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     recipe = api.ReproductionRecipe(
         recipe_type="package_audiobook",
         reproducibility=api.Reproducibility.EXACT,
@@ -1340,6 +2506,16 @@ def test_composite_derivation_provenance_uses_flattened_atomic_recipe_inputs() -
 
 
 def test_exact_complete_recipe_rejects_missing_replay_evidence() -> None:
+    """
+    Verify recipe/declaration validation rejects missing pinned executor or command, noncanonical
+    JSON, an escaping output path, nonpositive workflow ID, and blank workflow reference.
+
+    Example:
+        >>> test_exact_complete_recipe_rejects_missing_replay_evidence()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     input_ = api.ReproductionRecipeInputReference(
         0, api.DigitalAssetID(7), 4, (_sha256(b"book"),), "book.epub",
     )
@@ -1402,6 +2578,17 @@ def test_exact_complete_recipe_rejects_missing_replay_evidence() -> None:
 
 
 def test_derivative_policy_can_trade_copies_for_exact_recreation() -> None:
+    """
+    Verify zero-copy recreation and backup policies retain lower-priority derivative settings and
+    that supplied exact-recreation evidence makes an unavailable assessment recoverable. These are
+    passive model assertions, not replay execution.
+
+    Example:
+        >>> test_derivative_policy_can_trade_copies_for_exact_recreation()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     original = api.ReplicationPolicy(name="original")
     derivative = api.ReplicationPolicy(
         name="recreatable_derivative",
@@ -1443,6 +2630,16 @@ def test_derivative_policy_can_trade_copies_for_exact_recreation() -> None:
 
 
 def test_zero_copy_policy_must_admit_loss_or_recreation() -> None:
+    """
+    Verify zero live-copy policy requires explicit loss/recreation permission and zero backup copies
+    cannot be retention-locked.
+
+    Example:
+        >>> test_zero_copy_policy_must_admit_loss_or_recreation()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     with pytest.raises(ValueError, match="explicitly permit"):
         api.ReplicationPolicy(min_copies=0, synchronous_write_copies=0)
     with pytest.raises(ValueError, match="retention locked"):
@@ -1450,6 +2647,16 @@ def test_zero_copy_policy_must_admit_loss_or_recreation() -> None:
 
 
 def test_health_and_reconciliation_do_not_collapse_distinct_states() -> None:
+    """
+    Verify supplied readable-replica evidence can coexist with replication risk and satisfied backup
+    policy; a partial inventory plan must not produce a clean reconciliation report.
+
+    Example:
+        >>> test_health_and_reconciliation_do_not_collapse_distinct_states()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     replication = api.StoragePolicyAssessment(
         api.DigitalAssetID(7),
         "live",
@@ -1483,6 +2690,17 @@ def test_health_and_reconciliation_do_not_collapse_distinct_states() -> None:
 
 
 def test_ingest_bytes_remains_a_small_wrapper_over_transactional_stream_ingest() -> None:
+    """
+    Verify ingest_bytes forwards payload and exact size into the ingest fixture and preserves
+    returned Asset/Replica identity and Location aliasing. The fixture result does not prove
+    persistent publication.
+
+    Example:
+        >>> test_ingest_bytes_remains_a_small_wrapper_over_transactional_stream_ingest()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     manager = _IngestHarness()
     result = manager.ingest_bytes(
         b"payload", item_id=api.ItemID(7), role="primary_payload",
@@ -1497,6 +2715,17 @@ def test_ingest_bytes_remains_a_small_wrapper_over_transactional_stream_ingest()
 
 
 def test_verification_and_reconciliation_results_preserve_operational_distinctions() -> None:
+    """
+    Verify unavailable and corrupt reports are unhealthy, a fully matching verified report is
+    healthy, any healthy report makes the Asset readable, and missing-Replica reconciliation remains
+    dirty.
+
+    Example:
+        >>> test_verification_and_reconciliation_results_preserve_operational_distinctions()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     unavailable = api.ReplicaVerificationReport(
         api.ReplicaID(1), api.DigitalAssetID(9),
         api.ReplicaState.UNAVAILABLE, None, errors=("offline",),
@@ -1527,8 +2756,19 @@ def test_verification_and_reconciliation_results_preserve_operational_distinctio
 
 
 def test_reference_manager_is_concrete_and_ingest_is_idempotent() -> None:
+    """
+    Verify the transient manager is concrete, identical operation retry returns the same result, and
+    equal bytes deduplicate Asset/Replica identity. Check verified item resolution and reject reuse
+    of the operation ID for different bytes.
+
+    Example:
+        >>> test_reference_manager_is_concrete_and_ingest_is_idempotent()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     store = _MemoryStore(MAIN_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
     )
     operation_id = UUID("00000000-0000-0000-0000-000000000901")
@@ -1547,7 +2787,7 @@ def test_reference_manager_is_concrete_and_ingest_is_idempotent() -> None:
     )
     deduplicated = manager.ingest_bytes(b"payload")
 
-    assert not InMemoryStorageManager.__abstractmethods__
+    assert not TransientStorageManager.__abstractmethods__
     assert retried == first
     assert deduplicated.asset_record == first.asset_record
     assert (
@@ -1569,8 +2809,19 @@ def test_reference_manager_is_concrete_and_ingest_is_idempotent() -> None:
 
 
 def test_operational_status_reports_replica_and_policy_recovery_actions() -> None:
+    """
+    Verify missing backup coverage produces a planning action, then corrupt memory bytes and verify
+    the Replica. Refreshed status must attribute corruption and replication violations and propose
+    an appropriate replication action.
+
+    Example:
+        >>> test_operational_status_reports_replica_and_policy_recovery_actions()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     store = _MemoryStore(MAIN_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
     )
     result = manager.ingest_bytes(b"health payload", verify=True)
@@ -1604,12 +2855,35 @@ def test_operational_status_reports_replica_and_policy_recovery_actions() -> Non
 def test_failed_manager_publication_leaves_no_phantom_asset(
     monkeypatch,
 ) -> None:
+    """
+    Inject a Store.put availability failure during ingest and verify the error propagates without
+    registering any Asset or Replica in transient manager state.
+
+    Example:
+        >>> test_failed_manager_publication_leaves_no_phantom_asset(monkeypatch)  # doctest: +SKIP
+
+
+    :param monkeypatch: Pytest fixture restoring the injected Store.put failure after this test.
+    :return: None after the stated regression assertions pass.
+    """
     store = _MemoryStore(MAIN_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
     )
 
     def _fail_put(*args, **kwargs):
+        """
+        Raise a fixed availability error at the Store.put boundary before returning a publication
+        result. All arguments are ignored; no bytes are consumed or registered by this replacement.
+
+        Example:
+            >>> _fail_put()  # doctest: +SKIP
+
+
+        :param args: Ignored positional publication arguments.
+        :param kwargs: Ignored publication policy and expectation arguments.
+        :return: Never returns; raises StoreUnavailable.
+        """
         del args, kwargs
         raise api.StoreUnavailable("destination disconnected during publish")
 
@@ -1623,8 +2897,18 @@ def test_failed_manager_publication_leaves_no_phantom_asset(
 
 
 def test_adopt_location_preserves_metadata_for_a_new_asset() -> None:
+    """
+    Adopt existing memory bytes and verify new Asset metadata, exact address, unmanaged Replica
+    mode, and idempotent retry. Changed metadata under the same operation ID must reject.
+
+    Example:
+        >>> test_adopt_location_preserves_metadata_for_a_new_asset()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     store = _MemoryStore(MAIN_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
     )
     location = store.write_bytes(store.location("incoming/book.epub"), b"book").location
@@ -1659,9 +2943,20 @@ def test_adopt_location_preserves_metadata_for_a_new_asset() -> None:
 
 
 def test_reference_manager_replicates_verifies_and_reconciles() -> None:
+    """
+    Replicate bytes across two memory Stores, corrupt the destination, and verify/report/apply the
+    corrupt observation. A later ingest changes repository generation so an earlier reconciliation
+    plan rejects as stale.
+
+    Example:
+        >>> test_reference_manager_replicates_verifies_and_reconciles()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     main = _MemoryStore(MAIN_STORE_UUID)
     other = _MemoryStore(OTHER_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=(
             (main.configuration, main),
             (other.configuration, other),
@@ -1696,10 +2991,21 @@ def test_reference_manager_replicates_verifies_and_reconciles() -> None:
 
 
 def test_policy_plans_do_not_place_independent_modes_on_an_occupied_store() -> None:
+    """
+    Create backup and active-replication needs across three memory Stores. Verify backup avoids the
+    original Store and subsequent active-copy planning avoids both the original and already occupied
+    backup Store.
+
+    Example:
+        >>> test_policy_plans_do_not_place_independent_modes_on_an_occupied_store()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     main = _MemoryStore(MAIN_STORE_UUID)
     other = _MemoryStore(OTHER_STORE_UUID)
     archive = _MemoryStore(ARCHIVE_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=(
             (main.configuration, main),
             (other.configuration, other),
@@ -1741,8 +3047,20 @@ def test_policy_plans_do_not_place_independent_modes_on_an_occupied_store() -> N
 def test_detailed_file_ingest_returns_result_and_defaults_original_name(
     tmp_path,
 ) -> None:
+    """
+    Ingest a real temporary file whose name contains composed and decomposed accented text into
+    memory storage. Verify custom metadata plus exact original filename and bytes; an incorrect
+    expected size rejects.
+
+    Example:
+        >>> test_detailed_file_ingest_returns_result_and_defaults_original_name(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real source files or exported composite members; destination Store metadata remains in memory.
+    :return: None after the stated regression assertions pass.
+    """
     store = _MemoryStore(MAIN_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
     )
     source = tmp_path / "Tortured-Caf\u00e9-Cafe\u0301.epub"
@@ -1762,10 +3080,20 @@ def test_detailed_file_ingest_returns_result_and_defaults_original_name(
 
 
 def test_replication_reuses_and_can_override_recorded_placement_hints() -> None:
+    """
+    Verify replication inherits original placement hints into allocation, writing, and Replica
+    records, while an explicit metadata override reaches the third Store and its Replica record.
+
+    Example:
+        >>> test_replication_reuses_and_can_override_recorded_placement_hints()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     main = _PlacementAwareMemoryStore(MAIN_STORE_UUID)
     other = _PlacementAwareMemoryStore(OTHER_STORE_UUID)
     archive = _PlacementAwareMemoryStore(ARCHIVE_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=(
             (main.configuration, main),
             (other.configuration, other),
@@ -1800,10 +3128,20 @@ def test_replication_reuses_and_can_override_recorded_placement_hints() -> None:
 
 
 def test_verify_digital_asset_supports_exact_ordered_replica_subsets() -> None:
+    """
+    Verify a requested Replica subset preserves order, first-healthy mode stops after one success,
+    and combining first-healthy with all_replicas rejects.
+
+    Example:
+        >>> test_verify_digital_asset_supports_exact_ordered_replica_subsets()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     main = _MemoryStore(MAIN_STORE_UUID)
     other = _MemoryStore(OTHER_STORE_UUID)
     archive = _MemoryStore(ARCHIVE_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=(
             (main.configuration, main),
             (other.configuration, other),
@@ -1845,8 +3183,20 @@ def test_verify_digital_asset_supports_exact_ordered_replica_subsets() -> None:
 
 
 def test_composite_convenience_ingests_and_exports_members(tmp_path) -> None:
+    """
+    Ingest composite byte members, export them to a real temporary directory, and inspect the
+    generated ZIP for exact paths/bytes including Unicode spellings. A parent-traversal logical path
+    must reject.
+
+    Example:
+        >>> test_composite_convenience_ingests_and_exports_members(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real source files or exported composite members; destination Store metadata remains in memory.
+    :return: None after the stated regression assertions pass.
+    """
     store = _MemoryStore(MAIN_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
     )
     composite = manager.store_composite(
@@ -1879,23 +3229,22 @@ def test_composite_convenience_ingests_and_exports_members(tmp_path) -> None:
         manager.store_composite({"../escape.bin": b"escape"})
 
 
-def test_persistence_ports_have_a_dedicated_spi_with_compatibility_imports() -> None:
-    from LiuXin_alpha.storage.api.persistence_api import (
-        DigitalAssetRepositoryAPI as PersistenceRepository,
-        StorageUnitOfWorkAPI as PersistenceUnitOfWork,
-    )
-    from LiuXin_alpha.storage.api.storage_manager_api.repositories_api import (
-        DigitalAssetRepositoryAPI as CompatibilityRepository,
-        StorageUnitOfWorkAPI as CompatibilityUnitOfWork,
-    )
-
-    assert PersistenceRepository is CompatibilityRepository
-    assert PersistenceUnitOfWork is CompatibilityUnitOfWork
 
 
 def test_reference_manager_records_exact_derivation_and_disposable_policy() -> None:
+    """
+    Register an exact pinned recipe and zero-copy recreation policies, then remove the result
+    Replica. Verify assessment/replication planning retains exact recreation evidence without
+    executing the tool.
+
+    Example:
+        >>> test_reference_manager_records_exact_derivation_and_disposable_policy()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     store = _MemoryStore(MAIN_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
     )
     source = manager.ingest_bytes(b"source").asset_record
@@ -1974,8 +3323,18 @@ def test_reference_manager_records_exact_derivation_and_disposable_policy() -> N
 
 
 def test_reference_manager_validates_composites_and_derivation_cycles() -> None:
+    """
+    Resolve both members of a declared composite, register one derivation direction, and verify the
+    reverse dependency rejects as a cycle.
+
+    Example:
+        >>> test_reference_manager_validates_composites_and_derivation_cycles()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     store = _MemoryStore(MAIN_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
     )
     first = manager.ingest_bytes(b"first").asset_record
@@ -2031,8 +3390,18 @@ def test_reference_manager_validates_composites_and_derivation_cycles() -> None:
 
 
 def test_derivation_graph_traverses_chains_branches_and_workflows() -> None:
+    """
+    Build a branching conversion graph with an alternative route. Assert exact ancestor/descendant
+    ordering, workflow-filtered identities/records, and a truncated depth-one view.
+
+    Example:
+        >>> test_derivation_graph_traverses_chains_branches_and_workflows()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     store = _MemoryStore(MAIN_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
     )
     html = manager.ingest_bytes(b"html").asset_record
@@ -2120,8 +3489,18 @@ def test_derivation_graph_traverses_chains_branches_and_workflows() -> None:
 
 
 def test_namespaced_workflow_references_filter_derivations_and_graphs() -> None:
+    """
+    Verify a backup:17 reference filters both derivation iteration and graph results, backup:18
+    yields no records, and an empty reference rejects.
+
+    Example:
+        >>> test_namespaced_workflow_references_filter_derivations_and_graphs()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     store = _MemoryStore(MAIN_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
     )
     source = manager.ingest_bytes(b"source").asset_record
@@ -2159,8 +3538,19 @@ def test_namespaced_workflow_references_filter_derivations_and_graphs() -> None:
 
 
 def test_recreation_plan_selects_shortest_route_and_orders_chain() -> None:
+    """
+    Register direct and chained exact recipes, remove result/intermediate Replicas, and verify
+    shortest-route selection with available source/tool evidence. Forgetting the direct route must
+    yield ordered chain steps and preserved recipe parameters; no replay is run.
+
+    Example:
+        >>> test_recreation_plan_selects_shortest_route_and_orders_chain()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     store = _MemoryStore(MAIN_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
     )
     html_ingest = manager.ingest_bytes(b"html")
@@ -2178,6 +3568,21 @@ def test_recreation_plan_selects_shortest_route_and_orders_chain() -> None:
         *,
         workflow_id: int,
     ) -> api.DigitalAssetDerivationRecord:
+        """
+        Register a complete exact recipe using the enclosing source/tool/result records and supplied
+        workflow grouping. Input/output paths are fixed within the recipe workspace and profile JSON
+        records recipe_type. No conversion executable is invoked.
+
+        Example:
+            >>> record = exact_conversion(source, result, "profile", workflow_id=42)  # doctest: +SKIP
+
+
+        :param source: Asset whose identity, size, and digests pin the recipe input.
+        :param result: Already registered result Asset whose bytes are the expected output.
+        :param recipe_type: Recipe label also interpolated into the fixture profile JSON.
+        :param workflow_id: Workflow identity attached to the registered derivation.
+        :return: Derivation record registered in the enclosing transient manager.
+        """
         recipe = api.ReproductionRecipe(
             recipe_type=recipe_type,
             reproducibility=api.Reproducibility.EXACT,
@@ -2271,13 +3676,34 @@ def test_recreation_plan_selects_shortest_route_and_orders_chain() -> None:
 
 
 def test_reference_manager_store_lifecycle_uses_injected_factory() -> None:
+    """
+    Verify Store creation selects the default/configuration, reload invokes the injected factory
+    again, and removal with forget_configuration makes later configuration lookup fail.
+
+    Example:
+        >>> test_reference_manager_store_lifecycle_uses_injected_factory()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     created: list[api.StoreUUID] = []
 
     def factory(configuration: api.StoreConfiguration) -> _MemoryStore:
+        """
+        Record the requested Store UUID and construct a fresh memory Store with that identity. The
+        remaining configuration fields are not applied by this narrow factory.
+
+        Example:
+            >>> store = factory(configuration)  # doctest: +SKIP
+
+
+        :param configuration: Requested configuration whose UUID is logged and used for construction.
+        :return: New memory Store for the requested UUID.
+        """
         created.append(configuration.store_uuid)
         return _MemoryStore(configuration.store_uuid)
 
-    manager = InMemoryStorageManager(store_factory=factory)
+    manager = TransientStorageManager(store_factory=factory)
     configuration = api.StoreConfiguration(
         MAIN_STORE_UUID,
         "main",
@@ -2296,8 +3722,18 @@ def test_reference_manager_store_lifecycle_uses_injected_factory() -> None:
 
 
 def test_reference_manager_distinguishes_unknown_and_unavailable_stores() -> None:
+    """
+    Verify unknown Store lookup raises StoreConfigurationNotFound. Detaching a known Store retains
+    its configuration, makes get_store unavailable, and leaves one unavailable status observation.
+
+    Example:
+        >>> test_reference_manager_distinguishes_unknown_and_unavailable_stores()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     store = _MemoryStore(MAIN_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
     )
 
@@ -2314,7 +3750,18 @@ def test_reference_manager_distinguishes_unknown_and_unavailable_stores() -> Non
 
 
 def test_store_default_policies_are_captured_at_first_placement() -> None:
-    manager = InMemoryStorageManager()
+    """
+    Give two Stores different default replication policies and ingest into the first before
+    replicating to the second. Verify the Asset retains the first policy as an explicit Asset-level
+    assignment.
+
+    Example:
+        >>> test_store_default_policies_are_captured_at_first_placement()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
+    manager = TransientStorageManager()
     main_policy = manager.create_replication_policy(
         api.ReplicationPolicy(name="main-policy")
     )
@@ -2359,8 +3806,19 @@ def test_store_default_policies_are_captured_at_first_placement() -> None:
 
 
 def test_policy_updates_validate_recreation_and_revision_transactionally() -> None:
+    """
+    Verify an unsafe recreation-policy update rejects with the old policy unchanged, stale
+    replication revision rejects, and a valid backup update advances revision before rejecting reuse
+    of its previous revision.
+
+    Example:
+        >>> test_policy_updates_validate_recreation_and_revision_transactionally()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     store = _MemoryStore(MAIN_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
     )
     asset = manager.ingest_bytes(b"no-recipe").asset_record
@@ -2413,8 +3871,19 @@ def test_policy_updates_validate_recreation_and_revision_transactionally() -> No
 
 
 def test_uri_only_recipe_artifacts_require_an_availability_resolver() -> None:
+    """
+    Register an exact recipe whose executor is only an unmanaged URI without a resolver. After
+    removing the result copy, verify recreation is unavailable with an artifact warning and a
+    recreation-only policy assignment rejects.
+
+    Example:
+        >>> test_uri_only_recipe_artifacts_require_an_availability_resolver()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     store = _MemoryStore(MAIN_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
     )
     source = manager.ingest_bytes(b"source").asset_record
@@ -2490,8 +3959,18 @@ def test_uri_only_recipe_artifacts_require_an_availability_resolver() -> None:
 
 
 def test_optional_composite_members_do_not_make_assessment_unreadable() -> None:
+    """
+    Remove the optional member Replica from a two-member composite and verify the required member
+    still makes it readable with one expected member and no assessment errors.
+
+    Example:
+        >>> test_optional_composite_members_do_not_make_assessment_unreadable()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     store = _MemoryStore(MAIN_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
     )
     required = manager.ingest_bytes(b"required").asset_record
@@ -2523,8 +4002,18 @@ def test_optional_composite_members_do_not_make_assessment_unreadable() -> None:
 
 
 def test_staged_replica_is_not_selected_or_counted_as_readable() -> None:
+    """
+    Register a STAGED Replica even though its memory bytes exist, then verify selection raises
+    NoReadableReplica and the assessment excludes its ID from readable replicas.
+
+    Example:
+        >>> test_staged_replica_is_not_selected_or_counted_as_readable()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     store = _MemoryStore(MAIN_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
     )
     asset = manager.declare_digital_asset(
@@ -2548,8 +4037,18 @@ def test_staged_replica_is_not_selected_or_counted_as_readable() -> None:
 
 
 def test_ingest_operation_id_binds_the_complete_request() -> None:
+    """
+    Verify retrying the same bytes and operation ID with changed Asset metadata raises a
+    different-request precondition failure.
+
+    Example:
+        >>> test_ingest_operation_id_binds_the_complete_request()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     store = _MemoryStore(MAIN_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
     )
     operation_id = UUID("00000000-0000-0000-0000-000000000902")
@@ -2568,8 +4067,18 @@ def test_ingest_operation_id_binds_the_complete_request() -> None:
 
 
 def test_ingest_operation_id_binds_placement_hints() -> None:
+    """
+    Verify changing rich placement hints under an existing ingest operation ID rejects even when the
+    payload bytes are unchanged.
+
+    Example:
+        >>> test_ingest_operation_id_binds_placement_hints()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     store = _PlacementAwareMemoryStore(MAIN_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
     )
     operation_id = UUID("00000000-0000-0000-0000-000000000903")
@@ -2588,8 +4097,18 @@ def test_ingest_operation_id_binds_placement_hints() -> None:
 
 
 def test_ingest_republishes_when_a_matching_replica_is_missing() -> None:
+    """
+    Delete a previously ingested payload and verify it as missing, then ingest equal bytes again. A
+    new Replica identity must be created and its bytes readable.
+
+    Example:
+        >>> test_ingest_republishes_when_a_matching_replica_is_missing()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     store = _MemoryStore(MAIN_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
     )
     first = manager.ingest_bytes(b"replace-missing")
@@ -2605,6 +4124,17 @@ def test_ingest_republishes_when_a_matching_replica_is_missing() -> None:
 
 
 def test_storage_manager_exposes_concrete_convenience_operations() -> None:
+    """
+    Verify convenience API/type exports, the get_file identifier annotation, and concrete
+    convenience method status. Store-add and recovery methods remain required at the abstract facade
+    and implemented by the transient manager.
+
+    Example:
+        >>> test_storage_manager_exposes_concrete_convenience_operations()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     from LiuXin_alpha.storage.api import storage_manager_api
     from LiuXin_alpha.storage.api.storage_manager_api.convenience_api import (
         DigitalAssetFileIdentifier,
@@ -2641,7 +4171,7 @@ def test_storage_manager_exposes_concrete_convenience_operations() -> None:
         "record_derivation",
     }.isdisjoint(api.StorageManagerAPI.__abstractmethods__)
     assert "add_store" in api.StorageManagerAPI.__abstractmethods__
-    assert "add_store" not in InMemoryStorageManager.__abstractmethods__
+    assert "add_store" not in TransientStorageManager.__abstractmethods__
     assert {
         "list_ingest_operations",
         "recover_pending_ingests",
@@ -2651,15 +4181,27 @@ def test_storage_manager_exposes_concrete_convenience_operations() -> None:
         "list_ingest_operations",
         "recover_pending_ingests",
         "retry_ingest_operation",
-    }.isdisjoint(InMemoryStorageManager.__abstractmethods__)
+    }.isdisjoint(TransientStorageManager.__abstractmethods__)
 
 
 def test_convenience_storage_and_retrieval_accept_ordinary_inputs(
     tmp_path,
 ) -> None:
+    """
+    Store bytes, a stream, and a real temporary file through ordinary convenience inputs; verify
+    metadata, ranged reads, ID/digest lookup, Item linkage, and backup replication. Reject
+    simultaneous mode aliases and an unregistered digest.
+
+    Example:
+        >>> test_convenience_storage_and_retrieval_accept_ordinary_inputs(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real source files or exported composite members; destination Store metadata remains in memory.
+    :return: None after the stated regression assertions pass.
+    """
     main = _MemoryStore(MAIN_STORE_UUID)
     other = _MemoryStore(OTHER_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=(
             (main.configuration, main),
             (other.configuration, other),
@@ -2741,8 +4283,18 @@ def test_convenience_storage_and_retrieval_accept_ordinary_inputs(
 
 
 def test_convenience_storage_forwards_metadata_as_rich_placement_hints() -> None:
+    """
+    Verify manager store_bytes forwards the metadata mapping into allocation and writing, selects
+    the title-based rich key, and returns readable stored bytes.
+
+    Example:
+        >>> test_convenience_storage_forwards_metadata_as_rich_placement_hints()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     store = _PlacementAwareMemoryStore(MAIN_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
     )
     metadata = {
@@ -2761,6 +4313,16 @@ def test_convenience_storage_forwards_metadata_as_rich_placement_hints() -> None
 
 
 def test_store_convenience_projects_metadata_for_rich_store_placement() -> None:
+    """
+    Verify Store-level store_bytes forwards a metadata mapping into both placement seams and returns
+    its title-based rich Location.
+
+    Example:
+        >>> test_store_convenience_projects_metadata_for_rich_store_placement()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     store = _PlacementAwareMemoryStore(MAIN_STORE_UUID)
     metadata = {
         "title": "Permutation City",
@@ -2775,6 +4337,16 @@ def test_store_convenience_projects_metadata_for_rich_store_placement() -> None:
 
 
 def test_store_convenience_requires_allocation_or_an_explicit_location() -> None:
+    """
+    Verify plain Store convenience publication rejects automatic placement without allocator
+    support, while an explicit destination string succeeds.
+
+    Example:
+        >>> test_store_convenience_requires_allocation_or_an_explicit_location()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     store = _MemoryStore(MAIN_STORE_UUID)
 
     with pytest.raises(
@@ -2791,8 +4363,18 @@ def test_store_convenience_requires_allocation_or_an_explicit_location() -> None
 
 
 def test_convenience_storage_keeps_hints_advisory_for_plain_stores() -> None:
+    """
+    Verify manager publication to a plain memory Store still succeeds with a WorkStorageHints value,
+    even though the Store has no rich placement capability.
+
+    Example:
+        >>> test_convenience_storage_keeps_hints_advisory_for_plain_stores()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     store = _MemoryStore(MAIN_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
     )
 
@@ -2808,8 +4390,18 @@ def test_convenience_storage_keeps_hints_advisory_for_plain_stores() -> None:
 
 
 def test_convenience_composites_and_item_links_hide_membership_objects() -> None:
+    """
+    Create composite membership from an ordinary path-to-Asset mapping and verify logical
+    paths/attributes. Exercise Item link, unlink, and relink through an explicit Composite ID.
+
+    Example:
+        >>> test_convenience_composites_and_item_links_hide_membership_objects()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     store = _MemoryStore(MAIN_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
     )
     book = manager.store_bytes(b"book")
@@ -2846,13 +4438,36 @@ def test_convenience_composites_and_item_links_hide_membership_objects() -> None
 
 
 def test_convenience_policy_store_and_declaration_helpers() -> None:
+    """
+    Build policies, Store configuration, and an Asset declaration from ordinary convenience inputs.
+    Verify copy/spread/mode conversion, default policy IDs, injected factory invocation, and
+    declaration metadata.
+
+    Example:
+        >>> test_convenience_policy_store_and_declaration_helpers()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     created: list[api.StoreConfiguration] = []
 
     def factory(configuration: api.StoreConfiguration) -> _MemoryStore:
+        """
+        Record the complete requested configuration and construct a memory Store with its UUID.
+        Policy/configuration forwarding is asserted through the recorded object, not through a
+        durable backend.
+
+        Example:
+            >>> store = factory(configuration)  # doctest: +SKIP
+
+
+        :param configuration: Configuration appended to the enclosing call log.
+        :return: New memory Store using configuration.store_uuid.
+        """
         created.append(configuration)
         return _MemoryStore(configuration.store_uuid)
 
-    manager = InMemoryStorageManager(store_factory=factory)
+    manager = TransientStorageManager(store_factory=factory)
     replication = manager.define_replication_policy(
         "durable",
         copies=2,
@@ -2907,8 +4522,18 @@ def test_convenience_policy_store_and_declaration_helpers() -> None:
 
 
 def test_convenience_provenance_hides_source_reference_objects() -> None:
+    """
+    Record provenance from ordinary named Asset and Composite inputs. Verify generated source
+    identities, role, kind, notes, and Composite reference metadata without replaying content.
+
+    Example:
+        >>> test_convenience_provenance_hides_source_reference_objects()  # doctest: +SKIP
+
+
+    :return: None after the stated regression assertions pass.
+    """
     store = _MemoryStore(MAIN_STORE_UUID)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
     )
     source = manager.store_bytes(b"source")

@@ -1,6 +1,13 @@
 
 """
-Search in a field of bools.
+Evaluate boolean catalog fields under explicit presence and equality operators.
+
+The module keeps validation, normalization and host mutation boundaries explicit.
+
+Example:
+    Exercise boolean search through its owning regression module::
+
+        python -m pytest -q tests/catalog/test_field_search_operators.py
 """
 
 
@@ -16,11 +23,22 @@ class BooleanSearch:
     """
     Conduct a search of a boolean field.
 
-    Which might contains text info - for added perversity.
+    Example:
+        Exercise BooleanSearch through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_field_search_operators.py
     """
     def __init__(self) -> None:
         """
         Constructor.
+
+        Example:
+            Exercise BooleanSearch.init through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_field_search_operators.py
+
+
+        :return: None; the function records state or raises through its assertions.
         """
         self.local_no = icu_lower(_("no"))
         self.local_yes = icu_lower(_("yes"))
@@ -52,6 +70,21 @@ class BooleanSearch:
         }
 
     def __call__(self, query, field_iter, bools_are_tristate) -> set[int]:
+        """
+        Evaluate or build the BooleanSearch operation.
+
+        Example:
+            Exercise BooleanSearch.call through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_field_search_operators.py
+
+
+        :param query: Parsed or textual catalog query to evaluate.
+        :param field_iter: Value supplied for field iter under the catalog contract.
+        :param bools_are_tristate: Value supplied for bools are tristate under the catalog
+            contract.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         matches = set()
         if query not in self.local_bool_values:
             raise ParseException(_('Invalid boolean query "{0}"').format(query))

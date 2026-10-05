@@ -1,5 +1,16 @@
 # tests/metadata/containers/calibre_like_book_metadata/test_metadata_identifiers.py
 
+"""
+Verify identifier normalization, replacement and compatibility access.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test metadata identifiers through its owning regression module::
+
+        python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_identifiers.py
+"""
 from __future__ import annotations
 
 from collections import OrderedDict
@@ -15,7 +26,13 @@ def test_set_identifier_and_has_identifier_and_remove() -> None:
     """
     Tests the round trip of setting, having and then removing an identifier.
 
-    :return:
+    Example:
+        Exercise test set identifier and has identifier and remove through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_identifiers.py
+
+
+    :return: None; the function records state or raises through its assertions.
     """
     md = CalibreLikeLiuXinBookMetaData()
 
@@ -35,6 +52,17 @@ def test_set_identifier_and_has_identifier_and_remove() -> None:
 
 
 def test_set_identifiers_accepts_str_list_set_ordereddict() -> None:
+    """
+    Verify set identifiers accepts str list set ordereddict.
+
+    Example:
+        Exercise test set identifiers accepts str list set ordereddict through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_identifiers.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     md = CalibreLikeLiuXinBookMetaData()
     ext = next(iter(EXTERNAL_EBOOK_ID_SCHEMA))
 
@@ -50,6 +78,17 @@ def test_set_identifiers_accepts_str_list_set_ordereddict() -> None:
 
 
 def test_internal_identifiers_add_and_get() -> None:
+    """
+    Verify internal identifiers add and get.
+
+    Example:
+        Exercise test internal identifiers add and get through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_identifiers.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     md = CalibreLikeLiuXinBookMetaData()
     internal = next(iter(INTERNAL_EBOOK_ID_SCHEMA))
 
@@ -62,6 +101,17 @@ def test_internal_identifiers_add_and_get() -> None:
 
 
 def test_read_identifiers_uses_cleaning_and_normalization() -> None:
+    """
+    Verify read identifiers uses cleaning and normalization.
+
+    Example:
+        Exercise test read identifiers uses cleaning and normalization through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_identifiers.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     md = CalibreLikeLiuXinBookMetaData()
 
     # pick a normalized external id name candidate
@@ -78,6 +128,17 @@ def test_read_identifiers_uses_cleaning_and_normalization() -> None:
 
 
 def test_identifier_type_unknown_is_ignored_or_raises_cleanly() -> None:
+    """
+    Verify identifier type unknown remains ignored or raises cleanly.
+
+    Example:
+        Exercise test identifier type unknown is ignored or raises cleanly through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_identifiers.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     md = CalibreLikeLiuXinBookMetaData()
 
     # If your implementation ignores unknown identifier keys, this should pass.

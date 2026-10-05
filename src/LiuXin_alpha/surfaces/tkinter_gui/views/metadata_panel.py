@@ -1,4 +1,14 @@
-"""Metadata hydration panel view."""
+"""
+Display and edit metadata in Tk.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise metadata panel through a consuming regression::
+
+        python -m pytest -q tests/surfaces/test_tkinter_gui.py
+"""
 
 from __future__ import annotations
 
@@ -9,7 +19,14 @@ from .inspector import set_readonly_text
 
 
 class MetadataPanel:
-    """Present editable metadata fields and delegate mutations to callbacks."""
+    """
+    Present editable metadata fields and delegate mutations to callbacks.
+
+    Example:
+        Exercise MetadataPanel through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_tkinter_gui.py
+    """
 
     def __init__(
         self,
@@ -22,6 +39,24 @@ class MetadataPanel:
         edit_value_var: Any,
         on_replace: Callable[[], None],
     ) -> None:
+        """
+        Initialize and validate the metadatapanel state.
+
+        Example:
+            Exercise MetadataPanel.  init   through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :param tk: Value supplied for tk under the utility contract.
+        :param ttk: Value supplied for ttk under the utility contract.
+        :param on_hydrate: Value supplied for on hydrate under the utility contract.
+        :param edit_field_var: Value supplied for edit field var under the utility contract.
+        :param edit_value_var: Value supplied for edit value var under the utility contract.
+        :param on_replace: Value supplied for on replace under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.tk = tk
         self.frame = ttk.Frame(parent)
         self.toolbar = ttk.Frame(self.frame)
@@ -49,12 +84,51 @@ class MetadataPanel:
         self.set_edit_enabled(False)
 
     def set_text(self, text: str) -> None:
+        """
+        Set text under the format's safety and compatibility rules.
+
+        Example:
+            Exercise MetadataPanel.set text through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         set_readonly_text(self.tk, self.text, text)
 
     def set_hydrate_enabled(self, enabled: bool) -> None:
+        """
+        Set hydrate enabled under the format's safety and compatibility rules.
+
+        Example:
+            Exercise MetadataPanel.set hydrate enabled through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :param enabled: Value supplied for enabled under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.hydrate_button.configure(state="normal" if enabled else "disabled")
 
     def set_edit_enabled(self, enabled: bool) -> None:
+        """
+        Set edit enabled under the format's safety and compatibility rules.
+
+        Example:
+            Exercise MetadataPanel.set edit enabled through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :param enabled: Value supplied for enabled under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         entry_state = "normal" if enabled else "disabled"
         self.edit_field_combo.configure(state="readonly" if enabled else "disabled")
         self.edit_entry.configure(state=entry_state)

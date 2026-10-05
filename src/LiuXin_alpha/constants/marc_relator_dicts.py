@@ -7,6 +7,17 @@
 #   - Regex strings include an inline (?i) for case-insensitive matching.
 #   - Dict insertion order is meaningful if you iterate to find the first match.
 
+"""
+Map MARC relator codes and names for contributor metadata.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise marc relator dicts through a consuming regression::
+
+        python -m pytest -q tests/test_constants.py
+"""
 MARC_REKEY_REGEX = {'(?i)\\bauthor[\\s_\\-/,]+of[\\s_\\-/,]+forewords?\\b': 'wfw',
  '(?i)\\bauthor[\\s_\\-/,]+of[\\s_\\-/,]+introductions?\\b': 'win',
  '(?i)\\bauthor[\\s_\\-/,]+of[\\s_\\-/,]+prefaces?\\b': 'wpr',

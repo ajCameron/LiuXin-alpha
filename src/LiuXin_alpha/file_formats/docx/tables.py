@@ -1,6 +1,17 @@
 #!/usr/bin/env python2
 # vim:fileencoding=utf-8
 
+"""
+Translate DOCX table grids, spans, borders and cells into normalized HTML.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise tables through a consuming regression::
+
+        python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -33,6 +44,20 @@ edges = ("left", "top", "right", "bottom")
 
 
 def _read_width(elem: _typing.Any, get: _typing.Any) -> _typing.Any:
+    """
+    Read width under the format's safety and compatibility rules.
+
+    Example:
+        Exercise  read width through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param elem: Value supplied for elem under the utility contract.
+    :param get: Value supplied for get under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     ans = inherit
     try:
         w = int(get(elem, "w:w"))
@@ -51,6 +76,22 @@ def _read_width(elem: _typing.Any, get: _typing.Any) -> _typing.Any:
 
 
 def read_width(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: _typing.Any) -> None:
+    """
+    Read width under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read width through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param parent: Value supplied for parent under the utility contract.
+    :param dest: Value supplied for dest under the utility contract.
+    :param XPath: Value supplied for XPath under the utility contract.
+    :param get: Value supplied for get under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     ans = inherit
     for tblW in XPath("./w:tblW")(parent):
         ans = _read_width(tblW, get)
@@ -58,6 +99,22 @@ def read_width(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: 
 
 
 def read_cell_width(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: _typing.Any) -> None:
+    """
+    Read cell width under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read cell width through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param parent: Value supplied for parent under the utility contract.
+    :param dest: Value supplied for dest under the utility contract.
+    :param XPath: Value supplied for XPath under the utility contract.
+    :param get: Value supplied for get under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     ans = inherit
     for tblW in XPath("./w:tcW")(parent):
         ans = _read_width(tblW, get)
@@ -65,6 +122,22 @@ def read_cell_width(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, 
 
 
 def read_padding(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: _typing.Any) -> None:
+    """
+    Read padding under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read padding through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param parent: Value supplied for parent under the utility contract.
+    :param dest: Value supplied for dest under the utility contract.
+    :param XPath: Value supplied for XPath under the utility contract.
+    :param get: Value supplied for get under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     name = "tblCellMar" if parent.tag.endswith("}tblPr") else "tcMar"
     ans = {x: inherit for x in edges}
     for mar in XPath("./w:%s" % name)(parent):
@@ -76,6 +149,22 @@ def read_padding(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get
 
 
 def read_justification(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: _typing.Any) -> None:
+    """
+    Read justification under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read justification through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param parent: Value supplied for parent under the utility contract.
+    :param dest: Value supplied for dest under the utility contract.
+    :param XPath: Value supplied for XPath under the utility contract.
+    :param get: Value supplied for get under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     left = right = inherit
     for jc in XPath("./w:jc[@w:val]")(parent):
         val = get(jc, "w:val")
@@ -92,6 +181,22 @@ def read_justification(parent: _typing.Any, dest: _typing.Any, XPath: _typing.An
 
 
 def read_spacing(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: _typing.Any) -> None:
+    """
+    Read spacing under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read spacing through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param parent: Value supplied for parent under the utility contract.
+    :param dest: Value supplied for dest under the utility contract.
+    :param XPath: Value supplied for XPath under the utility contract.
+    :param get: Value supplied for get under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     ans = inherit
     for cs in XPath("./w:tblCellSpacing")(parent):
         ans = _read_width(cs, get)
@@ -99,6 +204,22 @@ def read_spacing(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get
 
 
 def read_float(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: _typing.Any) -> None:
+    """
+    Read float under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read float through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param parent: Value supplied for parent under the utility contract.
+    :param dest: Value supplied for dest under the utility contract.
+    :param XPath: Value supplied for XPath under the utility contract.
+    :param get: Value supplied for get under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     ans = inherit
     for x in XPath("./w:tblpPr")(parent):
         ans = {k.rpartition("}")[-1]: v for k, v in iteritems(x.attrib)}
@@ -106,6 +227,22 @@ def read_float(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: 
 
 
 def read_indent(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: _typing.Any) -> None:
+    """
+    Read indent under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read indent through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param parent: Value supplied for parent under the utility contract.
+    :param dest: Value supplied for dest under the utility contract.
+    :param XPath: Value supplied for XPath under the utility contract.
+    :param get: Value supplied for get under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     ans = inherit
     for cs in XPath("./w:tblInd")(parent):
         ans = _read_width(cs, get)
@@ -116,11 +253,43 @@ border_edges = ("left", "top", "right", "bottom", "insideH", "insideV")
 
 
 def read_borders(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: _typing.Any) -> None:
+    """
+    Read borders under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read borders through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param parent: Value supplied for parent under the utility contract.
+    :param dest: Value supplied for dest under the utility contract.
+    :param XPath: Value supplied for XPath under the utility contract.
+    :param get: Value supplied for get under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     name = "tblBorders" if parent.tag.endswith("}tblPr") else "tcBorders"
     read_border(parent, dest, XPath, get, border_edges, name)
 
 
 def read_height(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: _typing.Any) -> None:
+    """
+    Read height under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read height through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param parent: Value supplied for parent under the utility contract.
+    :param dest: Value supplied for dest under the utility contract.
+    :param XPath: Value supplied for XPath under the utility contract.
+    :param get: Value supplied for get under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     ans = inherit
     for rh in XPath("./w:trHeight")(parent):
         rule = get(rh, "w:hRule", "auto")
@@ -131,6 +300,22 @@ def read_height(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get:
 
 
 def read_vertical_align(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: _typing.Any) -> None:
+    """
+    Read vertical align under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read vertical align through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param parent: Value supplied for parent under the utility contract.
+    :param dest: Value supplied for dest under the utility contract.
+    :param XPath: Value supplied for XPath under the utility contract.
+    :param get: Value supplied for get under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     ans = inherit
     for va in XPath("./w:vAlign")(parent):
         val = get(va, "w:val")
@@ -139,6 +324,22 @@ def read_vertical_align(parent: _typing.Any, dest: _typing.Any, XPath: _typing.A
 
 
 def read_col_span(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: _typing.Any) -> None:
+    """
+    Read col span under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read col span through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param parent: Value supplied for parent under the utility contract.
+    :param dest: Value supplied for dest under the utility contract.
+    :param XPath: Value supplied for XPath under the utility contract.
+    :param get: Value supplied for get under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     ans = inherit
     for gs in XPath("./w:gridSpan")(parent):
         try:
@@ -149,6 +350,22 @@ def read_col_span(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, ge
 
 
 def read_merge(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: _typing.Any) -> None:
+    """
+    Read merge under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read merge through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param parent: Value supplied for parent under the utility contract.
+    :param dest: Value supplied for dest under the utility contract.
+    :param XPath: Value supplied for XPath under the utility contract.
+    :param get: Value supplied for get under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     for x in ("hMerge", "vMerge"):
         ans = inherit
         for m in XPath("./w:%s" % x)(parent):
@@ -157,6 +374,22 @@ def read_merge(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: 
 
 
 def read_band_size(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: _typing.Any) -> None:
+    """
+    Read band size under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read band size through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param parent: Value supplied for parent under the utility contract.
+    :param dest: Value supplied for dest under the utility contract.
+    :param XPath: Value supplied for XPath under the utility contract.
+    :param get: Value supplied for get under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     for x in ("Col", "Row"):
         ans = 1
         for y in XPath("./w:tblStyle%sBandSize" % x)(parent):
@@ -168,6 +401,22 @@ def read_band_size(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, g
 
 
 def read_look(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: _typing.Any) -> None:
+    """
+    Read look under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read look through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param parent: Value supplied for parent under the utility contract.
+    :param dest: Value supplied for dest under the utility contract.
+    :param XPath: Value supplied for XPath under the utility contract.
+    :param get: Value supplied for get under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     ans = 0
     for x in XPath("./w:tblLook")(parent):
         try:
@@ -181,6 +430,19 @@ def read_look(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: _
 
 
 def clone(style: _typing.Any) -> _typing.Any:
+    """
+    Perform the clone operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise clone through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param style: Value supplied for style under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if style is None:
         return None
     try:
@@ -192,13 +454,46 @@ def clone(style: _typing.Any) -> _typing.Any:
 
 
 class Style(object):
+    """
+    Provide the style contract for validated ebook processing.
+
+    Example:
+        Exercise Style through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+    """
     def update(self: _typing.Self, other: _typing.Any) -> None:
+        """
+        Perform the update operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Style.update through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param other: Value supplied for other under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for prop in self.all_properties:
             nval = getattr(other, prop)
             if nval is not inherit:
                 setattr(self, prop, nval)
 
     def convert_spacing(self: _typing.Self) -> _typing.Any:
+        """
+        Convert spacing under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Style.convert spacing through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = {}
         if self.spacing is not inherit:
             if self.spacing in {"auto", "0"}:
@@ -209,6 +504,18 @@ class Style(object):
         return ans
 
     def convert_border(self: _typing.Self) -> _typing.Any:
+        """
+        Convert border under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Style.convert border through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         c = {}
         for x in edges:
             border_to_css(x, self, c)
@@ -220,6 +527,14 @@ class Style(object):
 
 class RowStyle(Style):
 
+    """
+    Provide the rowstyle contract for validated ebook processing.
+
+    Example:
+        Exercise RowStyle through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+    """
     all_properties = (
         "height",
         "cantSplit",
@@ -228,6 +543,19 @@ class RowStyle(Style):
     )
 
     def __init__(self: _typing.Self, namespace: _typing.Any, trPr: _typing.Any = None) -> None:
+        """
+        Initialize and validate the rowstyle state.
+
+        Example:
+            Exercise RowStyle.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param namespace: Value supplied for namespace under the utility contract.
+        :param trPr: Value supplied for trPr under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.namespace = namespace
         if trPr is None:
             for p in self.all_properties:
@@ -242,6 +570,18 @@ class RowStyle(Style):
 
     @property
     def css(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the css operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise RowStyle.css through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self._css is None:
             c = self._css = {}
             if self.hidden is True:
@@ -261,6 +601,14 @@ class RowStyle(Style):
 
 class CellStyle(Style):
 
+    """
+    Provide the cellstyle contract for validated ebook processing.
+
+    Example:
+        Exercise CellStyle through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+    """
     all_properties = (
         "background_color",
         "cell_padding_left",
@@ -276,6 +624,19 @@ class CellStyle(Style):
     ) + tuple(k % edge for edge in border_edges for k in border_props)
 
     def __init__(self: _typing.Self, namespace: _typing.Any, tcPr: _typing.Any = None) -> None:
+        """
+        Initialize and validate the cellstyle state.
+
+        Example:
+            Exercise CellStyle.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param namespace: Value supplied for namespace under the utility contract.
+        :param tcPr: Value supplied for tcPr under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.namespace = namespace
         if tcPr is None:
             for p in self.all_properties:
@@ -297,6 +658,18 @@ class CellStyle(Style):
 
     @property
     def css(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the css operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CellStyle.css through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self._css is None:
 
             self._css = c = {}
@@ -327,6 +700,14 @@ class CellStyle(Style):
 
 class TableStyle(Style):
 
+    """
+    Provide the tablestyle contract for validated ebook processing.
+
+    Example:
+        Exercise TableStyle through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+    """
     all_properties = (
         "width",
         "float",
@@ -346,6 +727,19 @@ class TableStyle(Style):
     ) + tuple(k % edge for edge in border_edges for k in border_props)
 
     def __init__(self: _typing.Self, namespace: _typing.Any, tblPr: _typing.Any = None) -> None:
+        """
+        Initialize and validate the tablestyle state.
+
+        Example:
+            Exercise TableStyle.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param namespace: Value supplied for namespace under the utility contract.
+        :param tblPr: Value supplied for tblPr under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.namespace = namespace
         if tblPr is None:
             for p in self.all_properties:
@@ -385,6 +779,19 @@ class TableStyle(Style):
         self._css = None
 
     def resolve_based_on(self: _typing.Self, parent: _typing.Any) -> None:
+        """
+        Perform the resolve based on operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TableStyle.resolve based on through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for p in self.all_properties:
             val = getattr(self, p)
             if val is inherit:
@@ -392,6 +799,18 @@ class TableStyle(Style):
 
     @property
     def css(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the css operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TableStyle.css through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self._css is None:
             c = self._css = {}
             if self.width not in (inherit, "auto"):
@@ -429,7 +848,31 @@ class TableStyle(Style):
 
 
 class Table(object):
+    """
+    Provide the table contract for validated ebook processing.
+
+    Example:
+        Exercise Table through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+    """
     def __init__(self: _typing.Self, namespace: _typing.Any, tbl: _typing.Any, styles: _typing.Any, para_map: _typing.Any, is_sub_table: bool = False) -> None:
+        """
+        Initialize and validate the table state.
+
+        Example:
+            Exercise Table.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param namespace: Value supplied for namespace under the utility contract.
+        :param tbl: Value supplied for tbl under the utility contract.
+        :param styles: Value supplied for styles under the utility contract.
+        :param para_map: Value supplied for para map under the utility contract.
+        :param is_sub_table: Value supplied for is sub table under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.namespace = namespace
         self.tbl = tbl
         self.styles = styles
@@ -491,8 +934,16 @@ class Table(object):
     def override_allowed(self: _typing.Self, name: _typing.Any) -> _typing.Any:
         """
         Check if the named override is allowed by the tblLook element
-        :param name:
-        :return:
+
+        Example:
+            Exercise Table.override allowed through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if name.endswith("Cell") or name == "wholeTable":
             return True
@@ -514,15 +965,38 @@ class Table(object):
     def get_overrides(self: _typing.Self, r: _typing.Any, c: _typing.Any, num_of_rows: _typing.Any, num_of_cols_in_row: _typing.Any) -> _typing.Any:
         """
         List of possible overrides for the given para
-        :param r:
-        :param c:
-        :param num_of_rows:
-        :param num_of_cols_in_row:
-        :return:
+
+        Example:
+            Exercise Table.get overrides through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param r: Value supplied for r under the utility contract.
+        :param c: Value supplied for c under the utility contract.
+        :param num_of_rows: Value supplied for num of rows under the utility contract.
+        :param num_of_cols_in_row: Value supplied for num of cols in row under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         overrides = ["wholeTable"]
 
         def divisor(m: _typing.Any, n: _typing.Any) -> _typing.Any:
+            """
+            Perform the divisor operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Table.get overrides.divisor through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+            :param m: Value supplied for m under the utility contract.
+            :param n: Value supplied for n under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return (m - (m % n)) // n
 
         if c is not None:
@@ -556,6 +1030,20 @@ class Table(object):
         return tuple(filter(self.override_allowed, overrides))
 
     def resolve_row_style(self: _typing.Self, tr: _typing.Any, overrides: _typing.Any) -> None:
+        """
+        Perform the resolve row style operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Table.resolve row style through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param tr: Value supplied for tr under the utility contract.
+        :param overrides: Value supplied for overrides under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         local_rs = RowStyle(self.namespace)
         for o in overrides:
             if o in self.overrides:
@@ -569,6 +1057,24 @@ class Table(object):
         self.style_map[tr] = local_rs
 
     def resolve_cell_style(self: _typing.Self, tc: _typing.Any, overrides: _typing.Any, row: _typing.Any, col: _typing.Any, rows: _typing.Any, cols_in_row: _typing.Any) -> None:
+        """
+        Perform the resolve cell style operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Table.resolve cell style through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param tc: Value supplied for tc under the utility contract.
+        :param overrides: Value supplied for overrides under the utility contract.
+        :param row: Value supplied for row under the utility contract.
+        :param col: Value supplied for col under the utility contract.
+        :param rows: Value supplied for rows under the utility contract.
+        :param cols_in_row: Value supplied for cols in row under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         cs = CellStyle(self.namespace)
         # from lxml.etree import tostring
         # txt = tostring(tc, method='text', encoding=unicode)
@@ -616,6 +1122,20 @@ class Table(object):
         self.style_map[tc] = cs
 
     def resolve_para_style(self: _typing.Self, p: _typing.Any, overrides: _typing.Any) -> None:
+        """
+        Perform the resolve para style operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Table.resolve para style through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param p: Path-like value normalized or validated by the operation.
+        :param overrides: Value supplied for overrides under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         text_styles = [clone(self.paragraph_style), clone(self.run_style)]
 
         for o in overrides:
@@ -631,6 +1151,18 @@ class Table(object):
         self.style_map[p] = text_styles
 
     def handle_merged_cells(self: _typing.Self) -> None:
+        """
+        Perform the handle merged cells operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Table.handle merged cells through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if not self.cell_map:
             return
         # Handle vMerge
@@ -680,6 +1212,17 @@ class Table(object):
                         tc.getparent().remove(tc)
 
     def __iter__(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
+        """
+        Perform the iter operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Table.  iter   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         for p in self.paragraphs:
             yield p
         for t in itervalues(self.sub_tables):
@@ -687,6 +1230,21 @@ class Table(object):
                 yield p
 
     def apply_markup(self: _typing.Self, rmap: _typing.Any, page: _typing.Any, parent: _typing.Any = None) -> None:
+        """
+        Perform the apply markup operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Table.apply markup through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param rmap: Value supplied for rmap under the utility contract.
+        :param page: Value supplied for page under the utility contract.
+        :param parent: Value supplied for parent under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         table = TABLE("\n\t\t")
         self.table_style.page = page
         style_map = {}
@@ -734,29 +1292,103 @@ class Table(object):
 
 
 class Tables(object):
+    """
+    Provide the tables contract for validated ebook processing.
+
+    Example:
+        Exercise Tables through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+    """
     def __init__(self: _typing.Self, namespace: _typing.Any) -> None:
+        """
+        Initialize and validate the tables state.
+
+        Example:
+            Exercise Tables.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param namespace: Value supplied for namespace under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.tables = []
         self.para_map = {}
         self.sub_tables = set()
         self.namespace = namespace
 
     def register(self: _typing.Self, tbl: _typing.Any, styles: _typing.Any) -> None:
+        """
+        Perform the register operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Tables.register through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param tbl: Value supplied for tbl under the utility contract.
+        :param styles: Value supplied for styles under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if tbl in self.sub_tables:
             return
         self.tables.append(Table(self.namespace, tbl, styles, self.para_map))
         self.sub_tables |= set(self.tables[-1].sub_tables)
 
     def apply_markup(self: _typing.Self, object_map: _typing.Any, page_map: _typing.Any) -> None:
+        """
+        Perform the apply markup operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Tables.apply markup through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param object_map: Value supplied for object map under the utility contract.
+        :param page_map: Value supplied for page map under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         rmap = {v: k for k, v in iteritems(object_map)}
         for table in self.tables:
             table.apply_markup(rmap, page_map[table.tbl])
 
     def para_style(self: _typing.Self, p: _typing.Any) -> _typing.Any:
+        """
+        Perform the para style operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Tables.para style through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param p: Path-like value normalized or validated by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         table = self.para_map.get(p, None)
         if table is not None:
             return table.style_map.get(p, (None, None))[0]
 
     def run_style(self: _typing.Self, p: _typing.Any) -> _typing.Any:
+        """
+        Perform the run style operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Tables.run style through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param p: Path-like value normalized or validated by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         table = self.para_map.get(p, None)
         if table is not None:
             return table.style_map.get(p, (None, None))[1]

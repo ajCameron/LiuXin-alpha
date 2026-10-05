@@ -1,4 +1,10 @@
-"""Interactive wizard command for adding subject rows."""
+"""
+Prompt for a subject and optional existing parent before creating it through Core.
+
+Duplicate checking always queries ``subject_sort`` even though payload inclusion
+of that field is schema-dependent. This module does not silently fall back after
+an incompatible-schema read failure.
+"""
 
 from __future__ import annotations
 
@@ -9,6 +15,17 @@ from LiuXin_alpha.metadata.standardization import make_title_search_term
 
 
 def _safe_int(value: str) -> Optional[int]:
+    """
+    Parse an optional parent-ID prompt without imposing a positivity constraint.
+
+    Example:
+        >>> _safe_int("12"), _safe_int("parent")
+        (12, None)
+
+
+    :param value: Prompt value stringified and stripped before integer conversion.
+    :return: Parsed integer, or ``None`` for blank/invalid integer text.
+    """
     text = str(value).strip()
     if not text:
         return None
@@ -19,7 +36,16 @@ def _safe_int(value: str) -> Optional[int]:
 
 
 class NewSubjectWizardCommand(TerminalCommandAPI):
-    """Create a subject row through guided prompts."""
+    """
+    Create one subject with an editable normalized sort value and optional parent reference.
+
+    Duplicate confirmation defaults to refusal; final confirmation defaults to
+    acceptance. Existing matches are not reused by the wizard.
+
+    Example:
+        >>> NewSubjectWizardCommand().usage
+        'add subject'
+    """
 
     group = "add"
     name = "subject"
@@ -33,6 +59,23 @@ class NewSubjectWizardCommand(TerminalCommandAPI):
     usage = "add subject"
 
     def execute(self, browser, args: list[str]) -> bool:
+        """
+        Validate the subject and optional parent, check sort-value duplicates, and submit confirmed creation.
+
+        Parent lookup precedes mutation even when the schema cannot store a parent.
+        Supported parent-ID/parent fields are selected in that order. Creation and
+        duplicate checks are not atomic, and later result/output failure does not
+        undo a successful catalog write.
+
+        Example:
+            >>> NewSubjectWizardCommand().execute(browser, [])  # doctest: +SKIP
+
+
+        :param browser: Host providing subject reads, prompts, Core catalog creation, and output.
+        :param args: Must be empty; subject data is collected through prompts.
+        :return: ``True`` after reporting the created subject.
+        :raises ValueError: For invalid arguments/schema/text/parent or declined confirmation.
+        """
         if args:
             raise ValueError("Usage: {}".format(self.usage))
 
@@ -49,7 +92,10 @@ class NewSubjectWizardCommand(TerminalCommandAPI):
             raise ValueError("Subject cannot be blank.")
 
         default_sort = make_title_search_term(subject_text)
-        subject_sort = browser.prompt_text("Subject sort", default=default_sort).strip() or default_sort
+        subject_sort = (
+            browser.prompt_text("Subject sort", default=default_sort).strip()
+            or default_sort
+        )
 
         parent_id_text = browser.prompt_text("Parent subject id (optional)", default="")
         parent_id = _safe_int(parent_id_text)
@@ -59,7 +105,9 @@ class NewSubjectWizardCommand(TerminalCommandAPI):
         if parent_id is not None:
             parent_row = browser.db.get_row_from_id("subjects", parent_id)
             if parent_row is None:
-                raise ValueError("No subject exists with subject_id={}.".format(parent_id))
+                raise ValueError(
+                    "No subject exists with subject_id={}.".format(parent_id)
+                )
 
         existing = browser.db.search("subjects", "subject_sort", subject_sort)
         if existing:
@@ -69,7 +117,9 @@ class NewSubjectWizardCommand(TerminalCommandAPI):
                     existing[0]["subject"],
                 )
             )
-            proceed_duplicate = browser.prompt_yes_no("Create another subject with this sort value?", default=False)
+            proceed_duplicate = browser.prompt_yes_no(
+                "Create another subject with this sort value?", default=False
+            )
             if not proceed_duplicate:
                 raise ValueError("Subject wizard canceled to avoid duplicate entry.")
 

@@ -1,9 +1,14 @@
 # -*- coding:iso-8859-1 -*-
 """
-Copyright (c) 2003-2007  Gustavo Niemeyer <gustavo@niemeyer.net>
+Parse free-form date and time strings into normalized datetime values.
 
-This module offers extensions to the standard python 2.3+
-datetime module.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise parser through a consuming regression::
+
+        python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
 """
 __author__ = "Gustavo Niemeyer <gustavo@niemeyer.net>"
 __license__ = "PSF License"
@@ -39,7 +44,27 @@ from past.builtins import str
 
 
 class _timelex(object):
+    """
+    Provide the timelex utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise  timelex through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+    """
     def __init__(self, instream):
+        """
+        Initialize and validate the timelex state.
+
+        Example:
+            Exercise  timelex.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param instream: Value supplied for instream under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         if isinstance(instream, str):
             instream = StringIO(instream)
         self.instream = instream
@@ -56,6 +81,18 @@ class _timelex(object):
         self.eof = False
 
     def get_token(self):
+        """
+        Return token under the documented compatibility and safety rules.
+
+        Example:
+            Exercise  timelex.get token through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.tokenstack:
             return self.tokenstack.pop(0)
         seenletters = False
@@ -133,26 +170,95 @@ class _timelex(object):
         return token
 
     def __iter__(self):
+        """
+        Expose iter behavior for the compatibility container.
+
+        Example:
+            Exercise  timelex.  iter   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self
 
     def __next__(self):
+        """
+        Perform the next utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  timelex.  next   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         token = self.get_token()
         if token is None:
             raise StopIteration
         return token
 
     def split(cls, s):
+        """
+        Perform the split utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  timelex.split through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param s: Value supplied for s under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return list(cls(s))
 
     split = classmethod(split)
 
 
 class _resultbase(object):
+    """
+    Provide the resultbase utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise  resultbase through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+    """
     def __init__(self):
+        """
+        Initialize and validate the resultbase state.
+
+        Example:
+            Exercise  resultbase.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         for attr in self.__slots__:
             setattr(self, attr, None)
 
     def _repr(self, classname):
+        """
+        Perform the repr utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  resultbase. repr through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param classname: Value supplied for classname under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         l = []
         for attr in self.__slots__:
             value = getattr(self, attr)
@@ -161,12 +267,32 @@ class _resultbase(object):
         return "%s(%s)" % (classname, ", ".join(l))
 
     def __repr__(self):
+        """
+        Perform the repr utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  resultbase.  repr   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._repr(self.__class__.__name__)
 
 
 class parserinfo(object):
 
     # m from a.m/p.m, t from ISO T separator
+    """
+    Provide the parserinfo utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise parserinfo through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+    """
     JUMP = [
         " ",
         ".",
@@ -222,6 +348,19 @@ class parserinfo(object):
     TZOFFSET = {}
 
     def __init__(self, dayfirst=False, yearfirst=False):
+        """
+        Initialize and validate the parserinfo state.
+
+        Example:
+            Exercise parserinfo.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param dayfirst: Value supplied for dayfirst under the utility contract.
+        :param yearfirst: Value supplied for yearfirst under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self._jump = self._convert(self.JUMP)
         self._weekdays = self._convert(self.WEEKDAYS)
         self._months = self._convert(self.MONTHS)
@@ -237,6 +376,19 @@ class parserinfo(object):
         self._century = self._year // 100 * 100
 
     def _convert(self, lst):
+        """
+        Perform the convert utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise parserinfo. convert through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param lst: Value supplied for lst under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         dct = {}
         for i in range(len(lst)):
             v = lst[i]
@@ -248,9 +400,35 @@ class parserinfo(object):
         return dct
 
     def jump(self, name):
+        """
+        Perform the jump utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise parserinfo.jump through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return name.lower() in self._jump
 
     def weekday(self, name):
+        """
+        Perform the weekday utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise parserinfo.weekday through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if len(name) >= 3:
             try:
                 return self._weekdays[name.lower()]
@@ -259,6 +437,19 @@ class parserinfo(object):
         return None
 
     def month(self, name):
+        """
+        Perform the month utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise parserinfo.month through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if len(name) >= 3:
             try:
                 return self._months[name.lower()] + 1
@@ -267,29 +458,107 @@ class parserinfo(object):
         return None
 
     def hms(self, name):
+        """
+        Perform the hms utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise parserinfo.hms through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             return self._hms[name.lower()]
         except KeyError:
             return None
 
     def ampm(self, name):
+        """
+        Perform the ampm utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise parserinfo.ampm through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             return self._ampm[name.lower()]
         except KeyError:
             return None
 
     def pertain(self, name):
+        """
+        Perform the pertain utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise parserinfo.pertain through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return name.lower() in self._pertain
 
     def utczone(self, name):
+        """
+        Perform the utczone utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise parserinfo.utczone through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return name.lower() in self._utczone
 
     def tzoffset(self, name):
+        """
+        Perform the tzoffset utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise parserinfo.tzoffset through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if name in self._utczone:
             return 0
         return self.TZOFFSET.get(name)
 
     def convertyear(self, year):
+        """
+        Perform the convertyear utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise parserinfo.convertyear through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param year: Value supplied for year under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if year < 100:
             year += self._century
             if abs(year - self._year) >= 50:
@@ -301,6 +570,19 @@ class parserinfo(object):
 
     def validate(self, res):
         # move to info
+        """
+        Perform the validate utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise parserinfo.validate through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param res: Value supplied for res under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if res.year is not None:
             res.year = self.convertyear(res.year)
         if res.tzoffset == 0 and not res.tzname or res.tzname == "Z":
@@ -312,10 +594,47 @@ class parserinfo(object):
 
 
 class parser(object):
+    """
+    Provide the parser utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise parser through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+    """
     def __init__(self, info=None):
+        """
+        Initialize and validate the parser state.
+
+        Example:
+            Exercise parser.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param info: Value supplied for info under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.info = info or parserinfo()
 
     def parse(self, timestr, default=None, ignoretz=False, tzinfos=None, **kwargs):
+        """
+        Parse the supplied date text and return its normalized datetime value.
+
+        Example:
+            Exercise parser.parse through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param timestr: Value supplied for timestr under the utility contract.
+        :param default: Value supplied for default under the utility contract.
+        :param ignoretz: Value supplied for ignoretz under the utility contract.
+        :param tzinfos: Value supplied for tzinfos under the utility contract.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not default:
             default = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
         res = self._parse(timestr, **kwargs)
@@ -353,6 +672,14 @@ class parser(object):
         return ret
 
     class _result(_resultbase):
+        """
+        Provide the result utility contract with explicit state and cleanup behavior.
+
+        Example:
+            Exercise parser. result through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+        """
         __slots__ = [
             "year",
             "month",
@@ -367,6 +694,22 @@ class parser(object):
         ]
 
     def _parse(self, timestr, dayfirst=None, yearfirst=None, fuzzy=False):
+        """
+        Perform the parse utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise parser. parse through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param timestr: Value supplied for timestr under the utility contract.
+        :param dayfirst: Value supplied for dayfirst under the utility contract.
+        :param yearfirst: Value supplied for yearfirst under the utility contract.
+        :param fuzzy: Value supplied for fuzzy under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         info = self.info
         if dayfirst is None:
             dayfirst = info.dayfirst
@@ -723,6 +1066,21 @@ DEFAULTPARSER = parser()
 
 
 def parse(timestr, parserinfo=None, **kwargs):
+    """
+    Parse the supplied date text and return its normalized datetime value.
+
+    Example:
+        Exercise parse through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+    :param timestr: Value supplied for timestr under the utility contract.
+    :param parserinfo: Value supplied for parserinfo under the utility contract.
+    :param kwargs: Keyword values forwarded to the compatibility implementation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if parserinfo:
         return parser(parserinfo).parse(timestr, **kwargs)
     else:
@@ -730,22 +1088,82 @@ def parse(timestr, parserinfo=None, **kwargs):
 
 
 class _tzparser(object):
+    """
+    Provide the tzparser utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise  tzparser through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+    """
     class _result(_resultbase):
 
+        """
+        Provide the result utility contract with explicit state and cleanup behavior.
+
+        Example:
+            Exercise  tzparser. result through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+        """
         __slots__ = ["stdabbr", "stdoffset", "dstabbr", "dstoffset", "start", "end"]
 
         class _attr(_resultbase):
+            """
+            Provide the attr utility contract with explicit state and cleanup behavior.
+
+            Example:
+                Exercise  tzparser. result. attr through a consuming regression::
+
+                    python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+            """
             __slots__ = ["month", "week", "weekday", "yday", "jyday", "day", "time"]
 
         def __repr__(self):
+            """
+            Perform the repr utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise  tzparser. result.  repr   through a consuming regression::
+
+                    python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self._repr("")
 
         def __init__(self):
+            """
+            Initialize and validate the result state.
+
+            Example:
+                Exercise  tzparser. result.  init   through a consuming regression::
+
+                    python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+            :return: None; validated state is stored on the receiving object.
+            """
             _resultbase.__init__(self)
             self.start = self._attr()
             self.end = self._attr()
 
     def parse(self, tzstr):
+        """
+        Parse the supplied date text and return its normalized datetime value.
+
+        Example:
+            Exercise  tzparser.parse through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param tzstr: Value supplied for tzstr under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         res = self._result()
         l = _timelex.split(tzstr)
         try:
@@ -907,11 +1325,36 @@ DEFAULTTZPARSER = _tzparser()
 
 
 def _parsetz(tzstr):
+    """
+    Perform the parsetz utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  parsetz through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+    :param tzstr: Value supplied for tzstr under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return DEFAULTTZPARSER.parse(tzstr)
 
 
 def _parsems(value):
-    """Parse a I[.F] seconds value into (seconds, microseconds)."""
+    """
+    Parse a I[.F] seconds value into (seconds, microseconds).
+
+    Example:
+        Exercise  parsems through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+    :param value: Value normalized, stored, formatted or returned.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if "." not in value:
         return int(value), 0
     else:

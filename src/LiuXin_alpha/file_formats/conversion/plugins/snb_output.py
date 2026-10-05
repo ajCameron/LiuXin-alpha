@@ -1,5 +1,16 @@
 # -*- coding: utf-8 -*-
 
+"""
+Convert SNB content from the normalized ebook conversion pipeline.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise snb output through a consuming regression::
+
+        python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -20,6 +31,14 @@ __docformat__ = "restructuredtext en"
 
 class SNBOutput(OutputFormatPlugin):
 
+    """
+    Provide the snboutput contract for validated ebook processing.
+
+    Example:
+        Exercise SNBOutput through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+    """
     name = "SNB Output"
     author = "Li Fanxi"
     file_type = "snb"
@@ -76,6 +95,23 @@ class SNBOutput(OutputFormatPlugin):
 
     def convert(self: _typing.Self, oeb_book: _typing.Any, output_path: _typing.Any, input_plugin: _typing.Any, opts: _typing.Any, log: _typing.Any) -> None:
 
+        """
+        Convert the supplied source into the stage's normalized output representation.
+
+        Example:
+            Exercise SNBOutput.convert through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param oeb_book: Value supplied for oeb book under the utility contract.
+        :param output_path: Value supplied for output path under the utility contract.
+        :param input_plugin: Value supplied for input plugin under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         from lxml import etree
         from LiuXin_alpha.file_formats.snb.snbfile import SNBFile
         from LiuXin_alpha.file_formats.snb.snbml import SNBMLizer, ProcessFileName
@@ -255,6 +291,20 @@ class SNBOutput(OutputFormatPlugin):
             snb_file.Output(output_path)
 
     def HandleImage(self: _typing.Self, imageData: _typing.Any, imagePath: _typing.Any) -> None:
+        """
+        Perform the HandleImage operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SNBOutput.HandleImage through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param imageData: Value supplied for imageData under the utility contract.
+        :param imagePath: Value supplied for imagePath under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         from LiuXin_alpha.utils.magick import Image
 
         img = Image()
@@ -293,6 +343,14 @@ if __name__ == "__main__":
     from LiuXin_alpha.file_formats.conversion.preprocess import HTMLPreProcessor
 
     class OptionValues(object):
+        """
+        Provide the optionvalues contract for validated ebook processing.
+
+        Example:
+            Exercise OptionValues through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+        """
         pass
 
     opts = OptionValues()

@@ -1,4 +1,6 @@
-"""Generic writer for many-to-one cache-backed relationships."""
+"""
+Coordinate legacy many-to-one value resolution, cache updates and link writes.
+"""
 
 from __future__ import division, absolute_import, print_function, unicode_literals
 
@@ -15,10 +17,26 @@ from LiuXin_alpha.utils.text.icu import safe_lower
 
 class ManyToOneWriter(BaseWriter):
     """
-    Write in to a many to one table.
+    Write one target per owner, with optional typed legacy update mappings.
+
+    Public writes bypass scalar adaptation, resolve value IDs, update the table cache and then persist links. The hook returns a result dictionary rather than only an affected-ID set.
+
+    Example:
+        With a configured many-to-one field, ``ManyToOneWriter(field).set_books({7: "Shelf A"}, db)`` resolves the value and returns update metadata.
     """
 
     def __init__(self, field):
+        """
+        Initialize shared state and bind unadapted many-to-one updates.
+
+        Example:
+            A typed table makes ``writer._make_book_id_item_id_map`` use the converter for ``{book_id: {link_type: value}}`` mappings.
+
+
+        :param field: Legacy field supplying metadata and the relation cache/update hooks.
+        :return: None; binds many_one and selects the typed converter when table.typed is truthy.
+        """
+
         super(ManyToOneWriter, self).__init__(field)
         self.set_books_func = self.many_one
         self.set_books = self.no_adapter_set_books
@@ -29,19 +47,20 @@ class ManyToOneWriter(BaseWriter):
     # Todo: Normalize names inside this function
     def many_one(self, book_id_val_map, db, field, allow_case_change, *args):
         """
-        Update fields where many books are linked to one item.
-        No examples of this exist in the canonical database. Custom examples might include "character_introductions"
-        (characters can be introduced, at most, once) or shelf locations in a physical library (a book can be on, at
-        most, one shelf).
-        Retrieves the appropriate handler for the database upate for the particular field. Passes that into the update
-        handler which is also responsible for updating the cache and running clean operations on the table.
-        :param book_id_val_map: A map from the book ids to the update values
-        :param db: The database to run the update on
-        :param field: The field being updated
-        :param allow_case_change: If True allows case changes when trying to match the updated value to existing values
-                                  on the database.
-        :param args:
-        :return:
+        Resolve target values, update the table cache, and persist changed links.
+
+        Select rating/custom/generic persistence and value matchers, precheck input, build a normalized reverse map and repair case duplicates. Resolve values through the shared helper and apply case changes, then convert IDs and discard values equal to the cached projection. internal_update_cache runs before database persistence. The returned dirtied set is computed from updated keys and deleted entries, replacing the earlier locally accumulated set. Optional metadata.clear_unused triggers cleanup after writes. No whole-operation rollback restores cache or database changes after failure.
+
+        Example:
+            With compatible cache hooks, ``writer.many_one({7: "Shelf A"}, db, field, True)`` resolves the shelf and returns the maps used for changed links.
+
+
+        :param book_id_val_map: Book-to-value mapping accepted by table precheck and the selected typed/untyped converter.
+        :param db: Database adapter used by the selected persistence helpers; errors propagate.
+        :param field: Legacy field supplying metadata and the relation cache/update hooks.
+        :param allow_case_change: Whether value resolution may schedule case changes.
+        :param args: Additional compatibility arguments, logged and otherwise ignored.
+        :return: Dictionary with dirtied, book_col_map, id_map and cache_update_needed=False.
         """
         if args:
             info_str = "many_one had unexpected arguments passed into it"
@@ -144,10 +163,19 @@ class ManyToOneWriter(BaseWriter):
 
     def _make_book_id_item_id_map(self, book_id_val_map, val_map):
         """
-        Transform the book_id_val_map to a book_id_item_id_map
-        :param book_id_val_map:
-        :param val_map:
-        :return:
+        Replace known hashable values with IDs and preserve unmatched values.
+
+        Every value is tested for membership in val_map, including integers. Unknown values pass through unchanged; lists, sets and dictionaries cannot be used as membership keys.
+
+        Example:
+            >>> ManyToOneWriter._make_book_id_item_id_map(None, {7: "Shelf", 8: 9}, {"Shelf": 4})
+            {7: 4, 8: 9}
+
+
+        :param book_id_val_map: Book IDs mapped to hashable scalar values.
+        :param val_map: Value-to-ID lookup, commonly including None mapped to None.
+        :return: A new book-to-ID/value dictionary.
+        :raises TypeError: An input value is unhashable.
         """
         book_id_item_id_map = dict()
         for book_id, item_val in iteritems(book_id_val_map):
@@ -159,11 +187,21 @@ class ManyToOneWriter(BaseWriter):
 
     def _typed_make_book_id_item_id_map(self, book_id_val_map, val_map):
         """
-        Transform the book_id_val_map to a book_id_item_id_map - in the case where the map contains type information as
-        well.
-        :param book_id_val_map:
-        :param val_map:
-        :return:
+        Resolve typed scalar values while retaining None and integer IDs.
+
+        Strings require an exact lookup; integer values including booleans pass through unchanged. Link-type keys are retained without validation. Unsupported outer shapes are logged before raising.
+
+        Example:
+            >>> result = ManyToOneWriter._typed_make_book_id_item_id_map(None, {7: {"role": "Shelf"}, 8: None}, {"Shelf": 4})
+            >>> dict(result)
+            {7: {'role': 4}, 8: None}
+
+
+        :param book_id_val_map: Book IDs mapped to None or dictionaries of link type to None/string/integer.
+        :param val_map: String-value-to-ID lookup for typed values.
+        :return: A new defaultdict(dict) with converted typed values or None per book.
+        :raises KeyError: A typed string is missing from val_map.
+        :raises NotImplementedError: An outer or typed value has an unsupported shape.
         """
         book_id_item_id_map = defaultdict(dict)
         for book_id, item_val in iteritems(book_id_val_map):
@@ -197,26 +235,38 @@ class ManyToOneWriter(BaseWriter):
     @staticmethod
     def dummy_many_one_clear_unused(db, table, field):
         """
-        Remove unused elements from the ratings table.
-        Currently not used - as that table should be preserved.
-        :param db:
-        :param table:
-        :param field:
-        :return:
+        Preserve rating entries by performing no unused-item cleanup.
+
+        Example:
+            >>> ManyToOneWriter.dummy_many_one_clear_unused(None, None, None) is None
+            True
+
+
+        :param db: Compatibility argument not used by this helper.
+        :param table: Compatibility argument not used by this helper.
+        :param field: Compatibility argument not used by this helper.
+        :return: None; no database or cache access occurs.
         """
         pass
 
     @staticmethod
     def do_rating_many_one_db_update(db, table, field, is_custom_series, updated, deleted):
         """
-        Preform updates of the title-ratings link table.
-        :param db:
-        :param table:
-        :param field:
-        :param is_custom_series:
-        :param updated:
-        :param deleted:
-        :return:
+        Set requested title ratings, then clear deleted ratings with zero.
+
+        Updates run before deletions, so an ID present in both ends at zero. This helper performs no independent range validation or cache refresh.
+
+        Example:
+            ``do_rating_many_one_db_update(db, table, field, False, {7: 8}, {9})`` sets rating 8 for book 7 and zero for book 9.
+
+
+        :param db: Database adapter used by the selected persistence helpers; errors propagate.
+        :param table: Compatibility argument not used by this helper.
+        :param field: Compatibility argument not used by this helper.
+        :param is_custom_series: Compatibility argument not used by this helper.
+        :param updated: Book IDs mapped to rating values passed unchanged to metadata_sql.
+        :param deleted: Book IDs whose rating is subsequently set to zero.
+        :return: (None, None); this helper returns no replacement cache maps.
         """
         # Preform updates on all the links which haven't been broken
         for book_id in updated:
@@ -232,13 +282,23 @@ class ManyToOneWriter(BaseWriter):
 
     def do_generic_many_one_db_update(self, db, table, field, is_custom_series, updated, deleted, link_type=None):
         """
-        Use the generic database update handler to apply the changes to the database.
-        :param db:
-        :param table:
-        :param is_custom_series:
-        :param updated:
-        :param deleted:
-        :return:
+        Apply legacy integer, typed-dictionary or null link updates under the database lock.
+
+        An integer update clears all links for that owner without a type filter, reads the owner from "titles" and links the target row with the requested type. Typed dictionaries recurse while the outer lock remains held; each integer branch again clears all owner types, so successive typed assignments can remove earlier ones. None clears links with the supplied type filter. Deletions happen before custom-series rejection and outside the lock. No cache update or transaction rollback is supplied.
+
+        Example:
+            ``writer.do_generic_many_one_db_update(db, table, field, False, {7: 4}, {})`` clears owner 7 links and inserts target 4.
+
+
+        :param db: Database adapter used by the selected persistence helpers; errors propagate.
+        :param table: Table providing link and destination table names.
+        :param field: Field metadata accessed only when rejecting updated custom series.
+        :param is_custom_series: Reject nonempty custom-series updates after processing deletions.
+        :param updated: Book IDs mapped to integer targets, nested type dictionaries or None.
+        :param deleted: Book IDs whose owner links are cleared before acquiring the update lock.
+        :param link_type: Link type passed to insertion and nullification calls.
+        :return: (None, None); this helper returns no replacement cache maps.
+        :raises NotImplementedError: A nonempty custom-series update or unsupported value shape is encountered.
         """
         # Update the db link table - remove all the links to the book
         if deleted:
@@ -310,11 +370,16 @@ class ManyToOneWriter(BaseWriter):
 
     def _book_val_has_unexpected_form(self, updated, book_val):
         """
-        Err msg
-        :param updated:
-        :param book_val:
-        :param book_val:
-        :return:
+        Format the rejected value and its enclosing update for diagnostics.
+
+        Example:
+            >>> "type(book_val): <class 'float'>" in ManyToOneWriter._book_val_has_unexpected_form(None, {7: 1.5}, 1.5)
+            True
+
+
+        :param updated: Complete update mapping included via pprint.
+        :param book_val: Rejected value included with its Python type.
+        :return: A four-part newline-joined diagnostic string; nothing is logged here.
         """
         err_msg = [
             "book_val was found to have unexpected form",
@@ -328,8 +393,18 @@ class ManyToOneWriter(BaseWriter):
     @staticmethod
     def generic_many_one_clear_unused(db, table, field):
         """
-        Clear now unused items from a many-one table on the database.
-        :return:
+        Remove cached unused target IDs after delegating database cleanup.
+
+        Select IDs whose reverse membership is absent or false. Pass singleton ID tuples to break_generic_link using metadata.table directly, then delete those IDs from id_map and col_book_map. This does not independently verify storage references; a database failure prevents the subsequent cache removals.
+
+        Example:
+            If cached ID 4 has no reverse membership, ``generic_many_one_clear_unused(db, table, field)`` submits it for cleanup and then removes its cache entries.
+
+
+        :param db: Database adapter used by the selected persistence helpers; errors propagate.
+        :param table: Table with id_map and reverse col_book_map used to identify unused targets.
+        :param field: Field metadata providing table and optional table_id, defaulting to "id".
+        :return: None; any described database/cache mutations happen in place.
         """
         remove = {item_id for item_id in table.id_map if not table.col_book_map.get(item_id, False)}
         if remove:
@@ -345,14 +420,21 @@ class ManyToOneWriter(BaseWriter):
     @staticmethod
     def do_custom_many_one_db_update(db, table, field, is_custom_series, updated, deleted):
         """
-        Update a many to one entry in a custom table.
-        :param db:
-        :param table:
-        :param field:
-        :param is_custom_series:
-        :param updated:
-        :param deleted:
-        :return:
+        Replace custom-column links, optionally writing a default series index.
+
+        Deletions use a set of IDs outside the lock. Nonempty updates acquire db.lock, break links using singleton book-ID tuples, then call add_cc_link_with_extra_multi. Series sequences contain (book_id, item_id, 1.0) with target_column; ordinary sequences contain pairs with extra=False. No cache refresh or rollback is performed here.
+
+        Example:
+            A custom-series update ``{7: 4}`` inserts the sequence (7, 4, 1.0) after existing custom links for book 7 are cleared.
+
+
+        :param db: Database adapter used by the selected persistence helpers; errors propagate.
+        :param table: Table supplying link_table, or metadata["table"] when that attribute is absent.
+        :param field: Field metadata supplying link_column for custom series.
+        :param is_custom_series: Whether inserted links carry extra index 1.0.
+        :param updated: Book IDs mapped to target IDs.
+        :param deleted: Book IDs whose custom links are cleared before locked replacements.
+        :return: (None, None); this helper returns no replacement cache maps.
         """
         # Update the db link table
 
@@ -433,18 +515,32 @@ class ManyToOneWriter(BaseWriter):
         id_map_update=None,
     ):
         """
-        Attempts to match the given rating value to an entry in the ratings table.
-        :param val: The value to match - will fail if it's not an integer in the range 1-10.
-        :param db:
-        :param m:
-        :param table:
-        :param kmap:
-        :param rid_map:
-        :param allow_case_change:
-        :param case_changes:
-        :param val_map:
-        :param is_authors:
-        :return:
+        Map a false value to None or an integer-convertible rating to the range 1–10.
+
+        False values map to None without int conversion. Other values pass through int, so fractional numbers are truncated and True becomes 1. The converted result must be 1–10. No database lookup, case update or id_map_update change occurs; the original value must be a usable dictionary key.
+
+        Example:
+            >>> values = {}
+            >>> ManyToOneWriter.get_rating_id("8", None, None, None, None, {}, False, {}, values)
+            >>> values
+            {'8': 8}
+
+
+        :param val: Original rating value, deep-copied before conversion.
+        :param db: Compatibility argument not used by this helper.
+        :param m: Compatibility argument not used by this helper.
+        :param table: Compatibility argument not used by this helper.
+        :param kmap: Compatibility argument not used by this helper.
+        :param rid_map: Compatibility argument not used by this helper.
+        :param allow_case_change: Compatibility argument not used by this helper.
+        :param case_changes: Compatibility argument not used by this helper.
+        :param val_map: Mutable map receiving the result under the original value.
+        :param is_authors: Compatibility argument not used by this helper.
+        :param id_map_update: Compatibility argument not used by this helper.
+        :return: None; any described database/cache mutations happen in place.
+        :raises InputIntegrityError: The converted integer is outside 1–10.
+        :raises ValueError: int cannot parse the supplied value.
+        :raises TypeError: Conversion or insertion of the original map key is unsupported.
         """
         # Todo: Needs to do cache update - doesn't currently
         # Todo: These should really be methods in the cache - it'd be a whole lot more elegant

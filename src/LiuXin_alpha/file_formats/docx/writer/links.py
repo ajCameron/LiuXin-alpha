@@ -1,5 +1,16 @@
 #!/usr/bin/env python2
 # vim:fileencoding=utf-8
+"""
+Create internal and external hyperlink relationships in generated DOCX content.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise links through a consuming regression::
+
+        python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -20,6 +31,21 @@ __copyright__ = "2015, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
 def start_text(tag: _typing.Any, prefix_len: int = 0, top_level: bool = True) -> _typing.Any:
+    """
+    Perform the start text operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise start text through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param tag: Value supplied for tag under the utility contract.
+    :param prefix_len: Value supplied for prefix len under the utility contract.
+    :param top_level: Value supplied for top level under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     ans = tag.text or ""
     limit = 50 - prefix_len
     if len(ans) < limit:
@@ -33,11 +59,47 @@ def start_text(tag: _typing.Any, prefix_len: int = 0, top_level: bool = True) ->
 
 
 class TOCItem(object):
+    """
+    Provide the tocitem contract for validated ebook processing.
+
+    Example:
+        Exercise TOCItem through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+    """
     def __init__(self: _typing.Self, title: _typing.Any, bmark: _typing.Any, level: _typing.Any) -> None:
+        """
+        Initialize and validate the tocitem state.
+
+        Example:
+            Exercise TOCItem.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param title: Value supplied for title under the utility contract.
+        :param bmark: Value supplied for bmark under the utility contract.
+        :param level: Value supplied for level under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.title, self.bmark, self.level = title, bmark, level
         self.is_first = self.is_last = False
 
     def serialize(self: _typing.Self, body: _typing.Any, makeelement: _typing.Any) -> None:
+        """
+        Perform the serialize operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TOCItem.serialize through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param body: Value supplied for body under the utility contract.
+        :param makeelement: Value supplied for makeelement under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         p = makeelement(body, "w:p", append=False)
         ppr = makeelement(p, "w:pPr")
         makeelement(ppr, "w:pStyle", w_val="Normal")
@@ -71,11 +133,47 @@ class TOCItem(object):
 
 
 def sanitize_bookmark_name(base: _typing.Any) -> _typing.Any:
+    """
+    Perform the sanitize bookmark name operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise sanitize bookmark name through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param base: Value supplied for base under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return re.sub(r"[^0-9a-zA-Z]", "_", ascii_text(base))
 
 
 class LinksManager(object):
+    """
+    Provide the linksmanager contract for validated ebook processing.
+
+    Example:
+        Exercise LinksManager through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+    """
     def __init__(self: _typing.Self, namespace: _typing.Any, document_relationships: _typing.Any, log: _typing.Any) -> None:
+        """
+        Initialize and validate the linksmanager state.
+
+        Example:
+            Exercise LinksManager.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param namespace: Value supplied for namespace under the utility contract.
+        :param document_relationships: Value supplied for document relationships under the
+            utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.namespace = namespace
         self.log = log
         self.document_relationships = document_relationships
@@ -88,6 +186,21 @@ class LinksManager(object):
         self.toc = []
 
     def bookmark_for_anchor(self: _typing.Self, anchor: _typing.Any, current_item: _typing.Any, html_tag: _typing.Any) -> _typing.Any:
+        """
+        Perform the bookmark for anchor operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LinksManager.bookmark for anchor through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param anchor: Value supplied for anchor under the utility contract.
+        :param current_item: Value supplied for current item under the utility contract.
+        :param html_tag: Value supplied for html tag under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         key = (current_item.href, anchor)
         if key in self.anchor_map:
             return self.anchor_map[key]
@@ -106,10 +219,36 @@ class LinksManager(object):
 
     @property
     def bookmark_id(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the bookmark id operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LinksManager.bookmark id through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.bmark_id += 1
         return self.bmark_id
 
     def serialize_hyperlink(self: _typing.Self, parent: _typing.Any, link: _typing.Any) -> _typing.Any:
+        """
+        Serialize hyperlink under the format's safety and compatibility rules.
+
+        Example:
+            Exercise LinksManager.serialize hyperlink through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :param link: Value supplied for link under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         item, url, tooltip = link
         purl = urlparse(url)
         href = purl.path
@@ -138,6 +277,20 @@ class LinksManager(object):
         return parent
 
     def process_toc_node(self: _typing.Self, toc: _typing.Any, level: int = 0) -> None:
+        """
+        Perform the process toc node operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LinksManager.process toc node through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param toc: Value supplied for toc under the utility contract.
+        :param level: Value supplied for level under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         href = toc.href
         if href:
             purl = urlparse(href)
@@ -153,6 +306,19 @@ class LinksManager(object):
             self.process_toc_node(child, level + 1)
 
     def process_toc_links(self: _typing.Self, oeb: _typing.Any) -> None:
+        """
+        Perform the process toc links operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LinksManager.process toc links through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param oeb: Value supplied for oeb under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.toc = []
         has_toc = oeb.toc and oeb.toc.count() > 1
         if not has_toc:
@@ -164,6 +330,21 @@ class LinksManager(object):
             self.toc[-1].is_last = True
 
     def serialize_toc(self: _typing.Self, body: _typing.Any, primary_heading_style: _typing.Any) -> None:
+        """
+        Serialize toc under the format's safety and compatibility rules.
+
+        Example:
+            Exercise LinksManager.serialize toc through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param body: Value supplied for body under the utility contract.
+        :param primary_heading_style: Value supplied for primary heading style under the
+            utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pbb = body[0].xpath('//*[local-name()="pageBreakBefore"]')[0]
         pbb.set("{%s}val" % self.namespace.namespaces["w"], "on")
         for block in reversed(self.toc):

@@ -1,8 +1,9 @@
 
 """
-Mixin to enable adding entries to the database to the driver wrapper.
+Insert dictionaries and reserve writable rows through the driver.
 
-Allows easier bulk adding to the database.
+The host supplies a driver plus schema and search helpers. Reserving a blank row
+inserts persistent data; it is not a detached row factory.
 """
 
 from __future__ import annotations
@@ -19,37 +20,79 @@ if TYPE_CHECKING:
 
 class DriverWrapperAddMixin:
     """
-    Add entries to the database to the driver wrapper.
+    Insert dictionaries and reserve writable rows through the driver.
+
+    The host supplies a driver plus schema and search helpers. Reserving a blank row
+    inserts persistent data; it is not a detached row factory.
+
+    Example:
+        >>> wrapper.get_blank_row("works")  # doctest: +SKIP
     """
 
     driver: "DatabaseDriverAPI"
 
     def add_row(self, row_dict: dict[str, Any]) -> None:
         """
-        Takes a single row in the form of a dictionary and adds the values to the database.
+        Infer a table, derive configured identity values and insert one bound-value row.
 
-        :param row_dict:
-        :return:
+        Delegates to the driver's direct_add_simple_row_dict hook. The following backend
+        details describe the shared SQL/SQLite implementation; backend errors propagate.
+
+        Custom-column value tables also sanitize NUL text. The connection commits and closes
+        in finally, even on execution errors; this is not a rollback-on-error helper. SQLite
+        operational/integrity errors become driver/integrity errors.
+
+        Example:
+            >>> wrapper.add_row({"work_id": 1, "work_title": "Example"})  # doctest: +SKIP
+
+
+        :param row_dict: Column-to-value mapping; table inference removes any ``table`` key
+            in place.
+        :return: The cursor lastrowid for the inserted row.
         """
         # Returns the SQLite rowid / INTEGER PRIMARY KEY value if available.
         return self.driver.direct_add_simple_row_dict(row_dict)
 
     def add_multiple_rows(self, row_dict_list: list[dict[str, Any]]) -> None:
         """
-        Takes an index of row_dicts and adds each of them to the database.
+        Insert rows sharing a table, the same keys and the same key order.
 
-        :param row_dict_list:
-        :return:
+        Delegates to the driver's direct_add_multiple_simple_row_dicts hook. The following
+        backend details describe the shared SQL/SQLite implementation; backend errors
+        propagate.
+
+        Mismatched tables/key sets or non-null explicit IDs raise InputIntegrityError.
+        Values follow each mapping's insertion order, so matching key sets alone are
+        insufficient. Identity derivation and NUL sanitization follow single-row insertion.
+        Commit/close run in finally, allowing partial batches to persist on errors.
+
+        Example:
+            >>> wrapper.add_multiple_rows([{"work_title": "Example"}])  # doctest: +SKIP
+
+
+        :param row_dict_list: Sized, indexable sequence of homogeneous row mappings;
+            inference and sanitization may mutate them.
+        :return: None; the driver result is discarded.
         """
         self.driver.direct_add_multiple_simple_row_dicts(row_dict_list)
 
     def get_blank_row(self, table: str) -> dict[str, Any]:
         """
-        Get a pre-assigned blank row from the database.
+        Insert a minimally populated row and read it back by a unique scratch token.
 
-        Such as when it's going to be written into the name of a folder or file.table
-        get_blank_row gives you an empty row which data can be written into.
-        :param table: The table the row should be in.
+        Stringifies table and rejects views with InputIntegrityError. Requires a scratch
+        column. For books, reserves a titles row first and reuses its ID; for
+        asset_replicas, seeds a nonempty blank/<token> storage key. Zero or multiple scratch
+        matches raise DatabaseIntegrityError after insertion. Clears the scratch value only
+        in the returned mapping: the stored token remains until a later update. Backend
+        defaults and constraints still apply, and earlier writes are not rolled back here.
+
+        Example:
+            >>> wrapper.get_blank_row("works")  # doctest: +SKIP
+
+
+        :param table: Table name in the current schema.
+        :return: Inserted row dictionary with its ID and an empty scratch value.
         """
         table = str(table)
 

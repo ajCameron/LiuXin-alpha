@@ -1,4 +1,10 @@
-"""Size-bounded backup planning over the new manager and Store contracts."""
+"""
+Plan SquashFS backup declarations from configured Store inventory.
+
+The planner groups source-size estimates and captures digest/catalogue evidence without
+building or reserving output. Plans use the public BackupPackPlan value.
+Inventory, digest, and Replica reads can observe different moments in time.
+"""
 
 from __future__ import annotations
 
@@ -20,9 +26,36 @@ from LiuXin_alpha.storage.utils.workflow import normalize_archive_path
 
 
 class StoreBackupPlanner(BackupPlannerAPI):
-    """Partition a configured Store's complete inventory into SquashFS packs."""
+    """
+    Collect a Store inventory and group its ordered sources into proposed SquashFS packs.
+
+    Planning borrows a manager, obtains missing digests through Store reads, and retains available
+    non-deleted Replica provenance. It does not adopt unknown sources, execute a build, persist
+    intent, reserve destinations, or lock the source inventory. Targets measure summed source sizes
+    rather than final compressed-image size; an oversized individual source still receives a pack.
+
+    Example:
+        >>> plans = StoreBackupPlanner(manager).plan_store_backup(  # doctest: +SKIP
+        ...     source_store_ref=source.store_ref,
+        ...     destination_store_ref=destination.store_ref,
+        ...     target_artifact_size_bytes=1024**3,
+        ... )
+    """
 
     def __init__(self, storage_manager) -> None:
+        """
+        Retain the manager used for Store lookup and optional source provenance.
+
+        No runtime conformance check, startup, or ownership transfer occurs. The caller controls
+        manager lifetime.
+
+        Example:
+            >>> planner = StoreBackupPlanner(manager)  # doctest: +SKIP
+
+
+        :param storage_manager: Borrowed manager exposing Store lookup and Replica-record iteration.
+        :return: None after retaining the supplied manager reference.
+        """
         self.storage_manager = storage_manager
 
     def plan_store_backup(
@@ -36,6 +69,46 @@ class StoreBackupPlanner(BackupPlannerAPI):
         max_sources_per_artifact: int | None = None,
         allowed_extensions: Iterable[str] | None = None,
     ) -> tuple[BackupPackPlan, ...]:
+        """
+        Partition qualifying inventory into deterministic source-order pack declarations.
+
+        Reject nonpositive size/count targets before Store lookup. Materialize the source inventory,
+        compute absent digests, and associate the last encountered non-deleted Replica at each
+        Location. Replica health is not otherwise filtered. A later read failure aborts the call
+        rather than returning partial plans. Source bytes and catalogue metadata are not a
+        version-pinned snapshot.
+
+        Normalize archive names and sort them lexically. Greedily accumulate source sizes, treating
+        an absent size as zero, and flush a nonempty pack before another source would exceed the
+        size/count target. An oversized source is included alone; the estimate excludes compression
+        and archive overhead. Member-name collisions are rejected when a declaration is built,
+        within that pack.
+
+        Extension filtering uses the final POSIX suffix, case-insensitively. Supplied filters are
+        stringified, stripped, and stripped of leading dots. None selects all entries, while an
+        empty collection selects none. Pack names receive one-based four-digit ordinals and .sqsh;
+        destination location construction validates its own key policy without reserving or
+        publishing an output.
+
+        Example:
+            >>> packs = planner.plan_store_backup(  # doctest: +SKIP
+            ...     source_store_ref=source.store_ref,
+            ...     destination_store_ref=destination.store_ref,
+            ...     target_artifact_size_bytes=25,
+            ...     max_sources_per_artifact=100,
+            ...     allowed_extensions=["epub"],
+            ... )
+
+
+        :param source_store_ref: Configured Store UUID whose inventory and non-deleted Replica records supply source evidence.
+        :param destination_store_ref: Configured Store UUID used to construct proposed output Locations.
+        :param target_artifact_size_bytes: Positive target for summed source bytes per pack, not a sealed-image byte ceiling.
+        :param workflow_name_prefix: Truthy pack-name prefix, otherwise the source Store name or a Store-UUID fallback.
+        :param output_key_prefix: Output key prefix; empty text places generated filenames at the Store root.
+        :param max_sources_per_artifact: Optional positive source-count target; comparisons do not require exact integer types.
+        :param allowed_extensions: Optional iterable of suffix spellings; None accepts all suffixes and an empty iterable accepts none.
+        :return: Ordered tuple of BackupPackPlan values, or an empty tuple when no entries qualify.
+        """
         if target_artifact_size_bytes <= 0:
             raise ValueError("target_artifact_size_bytes must be positive.")
         if max_sources_per_artifact is not None and max_sources_per_artifact <= 0:
@@ -98,6 +171,21 @@ class StoreBackupPlanner(BackupPlannerAPI):
         current_size = 0
 
         def flush() -> None:
+            """
+            Append a declaration for the currently accumulated sources and reset pack accounting.
+
+            The closure uses the borrowed destination Store, selected prefixes, current source list,
+            size total, and prior plans. An empty group is a no-op. Location/declaration
+            construction precedes append and reset, so a failure leaves captured accounting
+            unchanged and propagates to the planner. It does not create a destination object.
+
+            Example:
+                Within the enclosing planner, call flush() when adding another source would exceed a
+                size/count target, and once after inventory traversal to retain the final group.
+
+
+            :return: None after appending a numbered plan and clearing its source/size accumulator, or when the group is empty.
+            """
             nonlocal current, current_size
             if not current:
                 return
@@ -147,7 +235,8 @@ class StoreBackupPlanner(BackupPlannerAPI):
 
 # A descriptive implementation name remains useful to application code; the
 # public value returned by the planner is BackupPackPlan.
-PlannedBackupPack = BackupPackPlan
 
 
-__all__ = ["PlannedBackupPack", "StoreBackupPlanner"]
+__all__ = [
+    "StoreBackupPlanner",
+]

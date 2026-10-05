@@ -1,3 +1,14 @@
+"""
+Register the retained bundle of common Markdown extensions.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise extra through a consuming regression::
+
+        python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+"""
 from __future__ import unicode_literals
 from __future__ import absolute_import
 from __future__ import annotations
@@ -46,10 +57,30 @@ extensions = [
 
 
 class ExtraExtension(Extension):
-    """Add various extensions to Markdown class."""
+    """
+    Add various extensions to Markdown class.
+
+    Example:
+        Exercise ExtraExtension through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+    """
 
     def extendMarkdown(self: _typing.Self, md: _typing.Any, md_globals: _typing.Any) -> None:
-        """Register extension instances."""
+        """
+        Register extension instances.
+
+        Example:
+            Exercise ExtraExtension.extendMarkdown through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param md: Value supplied for md under the utility contract.
+        :param md_globals: Value supplied for md globals under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         md.registerExtensions(extensions, self.config)
         if not md.safeMode:
             # Turn on processing of markdown text within raw html
@@ -57,4 +88,17 @@ class ExtraExtension(Extension):
 
 
 def makeExtension(configs: _typing.Any = None) -> _typing.Any:
+    """
+    Perform the makeExtension operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise makeExtension through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+    :param configs: Value supplied for configs under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return ExtraExtension(configs=dict(configs or {}))

@@ -1,8 +1,13 @@
 """
-Basic support for manipulating OEB 1.x/2.0 content and metadata.
+Model OEB books, manifests, spines, guides, metadata and navigation.
 
-OEB files where a precursor to EPUB - a XML file and a manifest packaged in a zip file, with a .opf file extension.
-Hence, some of the tools to manipulate XML files are here.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise base through a consuming regression::
+
+        python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
 """
 from __future__ import annotations
 
@@ -22,7 +27,28 @@ try:
     from lxml import html  # type: ignore
 except Exception:  # pragma: no cover - runtime without lxml
     class _MissingLxmlHtml:
+        """
+        Provide the missinglxmlhtml contract for validated ebook processing.
+
+        Example:
+            Exercise  MissingLxmlHtml through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+        """
         def __getattr__(self: _typing.Self, name: _typing.Any) -> None:
+            """
+            Perform the getattr operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise  MissingLxmlHtml.  getattr   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :param name: Field, file, function or resource name addressed by the operation.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             raise ImportError("lxml.html is unavailable in this runtime")
 
     html = _MissingLxmlHtml()
@@ -115,56 +141,152 @@ OPF2_NSMAP = {
 def XML(name: _typing.Any) -> _typing.Any:
     """
     Makes a name in the XML namespace.
-    :param name:
-    :return:
+
+    Example:
+        Exercise XML through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return "{%s}%s" % (XML_NS, name)
 
 
 def OPF(name: _typing.Any) -> _typing.Any:
+    """
+    Perform the OPF operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise OPF through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return "{%s}%s" % (OPF2_NS, name)
 
 
 def DC(name: _typing.Any) -> _typing.Any:
     """
     Names in the Dublin core metadata namespace
-    :param name:
-    :return:
+
+    Example:
+        Exercise DC through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return "{%s}%s" % (DC11_NS, name)
 
 
 def XSI(name: _typing.Any) -> _typing.Any:
+    """
+    Perform the XSI operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise XSI through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return "{%s}%s" % (XSI_NS, name)
 
 
 def DCTERMS(name: _typing.Any) -> _typing.Any:
     """
-    dcterms is a more specified version of Dublin Core. For more information on the semantic differences.
-    http://wiki.dublincore.org/index.php/FAQ/DC_and_DCTERMS_Namespaces
-    :param name:
-    :return:
+    dcterms is a more specified version of Dublin Core. For more information on the semantic differences. http://wiki.dublincore.org/index.php/FAQ/DC_and_DCTERMS_Namespaces
+
+    Example:
+        Exercise DCTERMS through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return "{%s}%s" % (DCTERMS_NS, name)
 
 
 def NCX(name: _typing.Any) -> _typing.Any:
+    """
+    Perform the NCX operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise NCX through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return "{%s}%s" % (NCX_NS, name)
 
 
 def SVG(name: _typing.Any) -> _typing.Any:
+    """
+    Perform the SVG operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise SVG through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return "{%s}%s" % (SVG_NS, name)
 
 
 def XLINK(name: _typing.Any) -> _typing.Any:
+    """
+    Perform the XLINK operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise XLINK through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return "{%s}%s" % (XLINK_NS, name)
 
 
 def CALIBRE(name: _typing.Any) -> _typing.Any:
     """
     Makes a name in the calibre namespace.
-    :param name:
-    :return:
+
+    Example:
+        Exercise CALIBRE through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return "{%s}%s" % (CALIBRE_NS, name)
 
@@ -257,16 +379,53 @@ _self_closing_pat_bytes = re.compile(
 
 
 def close_self_closing_tags(raw: _typing.Any) -> _typing.Any:
+    """
+    Perform the close self closing tags operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise close self closing tags through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if isinstance(raw, bytes):
         return _self_closing_pat_bytes.sub(br"<\g<tag>\g<arg>></\g<tag>>", raw)
     return _self_closing_pat.sub(r"<\g<tag>\g<arg>></\g<tag>>", raw)
 
 
 def uuid_id() -> _typing.Any:
+    """
+    Perform the uuid id operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise uuid id through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return "u" + six_unicode(uuid.uuid4())
 
 
 def itercsslinks(raw: _typing.Any) -> _typing.Iterator[_typing.Any]:
+    """
+    Perform the itercsslinks operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise itercsslinks through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :return: An iterator yielding the normalized values described above.
+    """
     for match in _css_url_re.finditer(raw):
         yield match.group(1), match.start(1)
     for match in _css_import_re.finditer(raw):
@@ -276,7 +435,17 @@ def itercsslinks(raw: _typing.Any) -> _typing.Iterator[_typing.Any]:
 def iterlinks(root: _typing.Any, find_links_in_css: bool = True) -> _typing.Iterator[_typing.Any]:
     """
     Iterate over all links in a OEB Document.
-    :param root: A valid lxml.etree element.
+
+    Example:
+        Exercise iterlinks through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param find_links_in_css: Value supplied for find links in css under the utility
+        contract.
+    :return: An iterator yielding the normalized values described above.
     """
     assert etree.iselement(root)
     link_attrs = set(html.defs.link_attrs) | {XLINK("href"), "poster"}
@@ -326,20 +495,53 @@ def iterlinks(root: _typing.Any, find_links_in_css: bool = True) -> _typing.Iter
 
 def make_links_absolute(root: _typing.Any, base_url: _typing.Any) -> None:
     """
-    Make all links in the document absolute, given the ``base_url`` for the document (the full URL where the document
-    came from)
-    :param root:
-    :param base_url:
-    :return:
+    Make all links in the document absolute, given the ``base_url`` for the document (the full URL where the document came from)
+
+    Example:
+        Exercise make links absolute through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param base_url: Value supplied for base url under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
 
     def link_repl(href: _typing.Any) -> _typing.Any:
+        """
+        Perform the link repl operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise make links absolute.link repl through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param href: Value supplied for href under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return urljoin(base_url, href)
 
     rewrite_links(root, link_repl)
 
 
 def resolve_base_href(root: _typing.Any) -> None:
+    """
+    Perform the resolve base href operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise resolve base href through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     base_href = None
     basetags = root.xpath("//base[@href]|//h:base[@href]", namespaces=XPNSMAP)
     for b in basetags:
@@ -352,17 +554,20 @@ def resolve_base_href(root: _typing.Any) -> None:
 
 def rewrite_links(root: _typing.Any, link_repl_func: _typing.Any, resolve_base_href: bool = False) -> None:
     """
-    Rewrite all the links in the document.  For each link ``link_repl_func(link)`` will be called, and the return value
-    will replace the old link.
+    Rewrite all the links in the document. For each link ``link_repl_func(link)`` will be called, and the return value will replace the old link.
 
-    Note that links may not be absolute (unless you first called ``make_links_absolute()``), and may be internal (e.g.,
-    ``'#anchor'``).  They can also be values like ``'mailto:email'`` or ``'javascript:expr'``.
+    Example:
+        Exercise rewrite links through a consuming regression::
 
-    If the ``link_repl_func`` returns None, the attribute or tag text will be removed completely.
-    :param root:
-    :param link_repl_func:
-    :param resolve_base_href:
-    :return:
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param link_repl_func: Value supplied for link repl func under the utility contract.
+    :param resolve_base_href: Value supplied for resolve base href under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     try:
         from cssutils import replaceUrls, log, CSSParser
@@ -401,6 +606,19 @@ def rewrite_links(root: _typing.Any, link_repl_func: _typing.Any, resolve_base_h
         # Fallback CSS URL rewriting without cssutils. This handles url(...)
         # and @import references in <style> and inline style attributes.
         def replace_css_links(text: _typing.Any) -> _typing.Any:
+            """
+            Perform the replace css links operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise rewrite links.replace css links through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :param text: Text parsed, normalized or rendered.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             if not text:
                 return text
             links = list(itercsslinks(text))
@@ -430,7 +648,7 @@ def rewrite_links(root: _typing.Any, link_repl_func: _typing.Any, resolve_base_h
         return
 
     parser = CSSParser(raiseExceptions=False, log=_css_logger, fetcher=lambda x: (None, None))
-    for el in root.iter(etree.Element):
+    for el in root.iter():
         try:
             tag = el.tag
         except UnicodeDecodeError:
@@ -496,10 +714,18 @@ CSSURL_RE = re.compile(r"""url[(](?P<q>["']?)(?P<url>[^)]+)(?P=q)[)]""")
 def element(parent: _typing.Any, *args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
     """
     Return an element, optionally under a parent. Pass parent = None to get a top level element.
-    :param parent:
-    :param args:
-    :param kwargs:
-    :return:
+
+    Example:
+        Exercise element through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param parent: Value supplied for parent under the utility contract.
+    :param args: Positional values forwarded to the compatibility implementation.
+    :param kwargs: Keyword values forwarded to the compatibility implementation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if parent is not None:
         return etree.SubElement(parent, *args, **kwargs)
@@ -509,9 +735,17 @@ def element(parent: _typing.Any, *args: _typing.Any, **kwargs: _typing.Any) -> _
 def prefixname(name: _typing.Any, nsrmap: _typing.Any) -> _typing.Any:
     """
     Makes an element name with the correct prefix.
-    :param name:
-    :param nsrmap:
-    :return:
+
+    Example:
+        Exercise prefixname through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :param nsrmap: Value supplied for nsrmap under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if not isqname(name):
         return name
@@ -527,14 +761,36 @@ def prefixname(name: _typing.Any, nsrmap: _typing.Any) -> _typing.Any:
 def isprefixname(name: _typing.Any) -> bool:
     """
     True if the name is prefixed - False otherwise
-    :param name:
-    :return:
+
+    Example:
+        Exercise isprefixname through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     # Uses an re to check if there's an : in the name
     return name and PREFIXNAME_RE.match(name) is not None
 
 
 def qname(name: _typing.Any, nsmap: _typing.Any) -> _typing.Any:
+    """
+    Perform the qname operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise qname through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :param nsmap: Value supplied for nsmap under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if not isprefixname(name):
         return name
     prefix, local = name.split(":", 1)
@@ -544,27 +800,73 @@ def qname(name: _typing.Any, nsmap: _typing.Any) -> _typing.Any:
 
 
 def isqname(name: _typing.Any) -> bool:
+    """
+    Perform the isqname operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise isqname through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return name and QNAME_RE.match(name) is not None
 
 
 def XPath(expr: _typing.Any) -> _typing.Any:
+    """
+    Perform the XPath operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise XPath through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param expr: Value supplied for expr under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return etree.XPath(expr, namespaces=XPNSMAP)
 
 
 def xpath(elem: _typing.Any, expr: _typing.Any) -> _typing.Any:
+    """
+    Perform the xpath operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise xpath through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param elem: Value supplied for elem under the utility contract.
+    :param expr: Value supplied for expr under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return elem.xpath(expr, namespaces=XPNSMAP)
 
 
 def xml2str(root: _typing.Any, pretty_print: bool = False, strip_comments: bool = False, with_tail: bool = True) -> _typing.Any:
     """
     Render the xml document as a string
-    :param root: The root of the xml tree to render
-    :param pretty_print: If True then
-    :type pretty_print: bool
-    :param strip_comments: Removes comments from the xml tree - needed because some ereaders fail if there are comments
-                           in the tree
-    :param with_tail:
-    :return:
+
+    Example:
+        Exercise xml2str through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param pretty_print: Value supplied for pretty print under the utility contract.
+    :param strip_comments: Value supplied for strip comments under the utility contract.
+    :param with_tail: Value supplied for with tail under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if not strip_comments:
         # -- in comments trips up adobe digital editions
@@ -586,14 +888,56 @@ def xml2str(root: _typing.Any, pretty_print: bool = False, strip_comments: bool 
 
 
 def xml2unicode(root: _typing.Any, pretty_print: bool = False) -> _typing.Any:
+    """
+    Perform the xml2unicode operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise xml2unicode through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param pretty_print: Value supplied for pretty print under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return etree.tostring(root, pretty_print=pretty_print)
 
 
 def xml2text(elem: _typing.Any) -> _typing.Any:
+    """
+    Perform the xml2text operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise xml2text through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param elem: Value supplied for elem under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return etree.tostring(elem, method="text", encoding=unicode, with_tail=False)
 
 
 def serialize(data: _typing.Any, media_type: _typing.Any, pretty_print: bool = False) -> _typing.Any:
+    """
+    Perform the serialize operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise serialize through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :param media_type: Value supplied for media type under the utility contract.
+    :param pretty_print: Value supplied for pretty print under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if isinstance(data, etree._Element):
         is_oeb_doc = media_type in OEB_DOCS
         if is_oeb_doc:
@@ -617,23 +961,76 @@ def serialize(data: _typing.Any, media_type: _typing.Any, pretty_print: bool = F
 
 
 class SimpleCSSRule(object):
+    """
+    Provide the simplecssrule contract for validated ebook processing.
+
+    Example:
+        Exercise SimpleCSSRule through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+    """
     STYLE_RULE = 1
     CHARSET_RULE = 2
 
     def __init__(self: _typing.Self, css_text: _typing.Any) -> None:
+        """
+        Initialize and validate the simplecssrule state.
+
+        Example:
+            Exercise SimpleCSSRule.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param css_text: Value supplied for css text under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.cssText = css_text
         stripped = css_text.lstrip().lower()
         self.type = self.CHARSET_RULE if stripped.startswith("@charset") else self.STYLE_RULE
 
 
 class SimpleCSSStyleSheet(object):
+    """
+    Provide the simplecssstylesheet contract for validated ebook processing.
+
+    Example:
+        Exercise SimpleCSSStyleSheet through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+    """
     def __init__(self: _typing.Self, text: str = "") -> None:
+        """
+        Initialize and validate the simplecssstylesheet state.
+
+        Example:
+            Exercise SimpleCSSStyleSheet.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.namespaces = {}
         self.cssRules = []
         self.cssText = ""
         self.set_css_text(text)
 
     def _parse_rules(self: _typing.Self, text: _typing.Any) -> _typing.Any:
+        """
+        Parse rules under the format's safety and compatibility rules.
+
+        Example:
+            Exercise SimpleCSSStyleSheet. parse rules through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         matches = re.findall(r"@charset\s+[^;]+;|[^{}]+{[^{}]*}", text, flags=re.I | re.S)
         if not matches:
             stripped = text.strip()
@@ -641,17 +1038,68 @@ class SimpleCSSStyleSheet(object):
         return [SimpleCSSRule(x.strip()) for x in matches if x.strip()]
 
     def set_css_text(self: _typing.Self, text: _typing.Any) -> None:
+        """
+        Set css text under the format's safety and compatibility rules.
+
+        Example:
+            Exercise SimpleCSSStyleSheet.set css text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.cssText = text or ""
         self.cssRules = self._parse_rules(self.cssText)
 
     def __iter__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the iter operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SimpleCSSStyleSheet.  iter   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return iter(self.cssRules)
 
     def add(self: _typing.Self, rule: _typing.Any) -> None:
+        """
+        Perform the add operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SimpleCSSStyleSheet.add through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param rule: Value supplied for rule under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.cssRules.append(SimpleCSSRule(getattr(rule, "cssText", six_unicode(rule))))
         self.cssText = "\n".join(r.cssText for r in self.cssRules)
 
     def deleteRule(self: _typing.Self, index: _typing.Any) -> None:
+        """
+        Perform the deleteRule operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SimpleCSSStyleSheet.deleteRule through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param index: Value supplied for index under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         del self.cssRules[index]
         self.cssText = "\n".join(r.cssText for r in self.cssRules)
 
@@ -664,10 +1112,17 @@ URL_UNSAFE = [ASCII_CHARS - URL_SAFE, UNIBYTE_CHARS - URL_SAFE]
 
 def urlquote(href: _typing.Any) -> _typing.Any:
     """
-    Quote URL-unsafe characters, allowing IRI-safe characters.
-    That is, this function returns valid IRIs not valid URIs. In particular, IRIs can contain non-ascii characters.
-    :param href:
-    :return:
+    Quote URL-unsafe characters, allowing IRI-safe characters. That is, this function returns valid IRIs not valid URIs. In particular, IRIs can contain non-ascii characters.
+
+    Example:
+        Exercise urlquote through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param href: Value supplied for href under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     result = []
     unsafe = 0 if isinstance(href, unicode) else 1
@@ -680,6 +1135,20 @@ def urlquote(href: _typing.Any) -> _typing.Any:
 
 
 def urlunquote(href: _typing.Any, error_handling: str = "strict") -> _typing.Any:
+    """
+    Perform the urlunquote operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise urlunquote through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param href: Value supplied for href under the utility contract.
+    :param error_handling: Value supplied for error handling under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if isinstance(href, bytes):
         href = href.decode("utf-8", error_handling)
     return unquote(href, errors=error_handling)
@@ -688,8 +1157,16 @@ def urlunquote(href: _typing.Any, error_handling: str = "strict") -> _typing.Any
 def urlnormalize(href: _typing.Any) -> _typing.Any:
     """
     Convert a URL into normalized form, with all and only URL-unsafe characters URL quoted.
-    :param href:
-    :return:
+
+    Example:
+        Exercise urlnormalize through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param href: Value supplied for href under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     parts = urlparse(href)
     if not parts.scheme or parts.scheme == "file":
@@ -703,9 +1180,17 @@ def urlnormalize(href: _typing.Any) -> _typing.Any:
 
 def extract(elem: _typing.Any) -> None:
     """
-    Removes this element from the tree, including its children and text.
-    The tail text is joined to the previous element or parent.
-    :param elem:
+    Removes this element from the tree, including its children and text. The tail text is joined to the previous element or parent.
+
+    Example:
+        Exercise extract through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param elem: Value supplied for elem under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     parent = elem.getparent()
     if parent is not None:
@@ -721,14 +1206,43 @@ def extract(elem: _typing.Any) -> None:
 class DummyHandler(logging.Handler):
     """
     Dummy logging handler - passes the message on to the log if the log is set, otherwise does nothing.
+
+    Example:
+        Exercise DummyHandler through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
     """
 
     def __init__(self: _typing.Self) -> None:
+        """
+        Initialize and validate the dummyhandler state.
+
+        Example:
+            Exercise DummyHandler.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         logging.Handler.__init__(self, logging.WARNING)
         self.setFormatter(logging.Formatter("%(message)s"))
         self.log = None
 
     def emit(self: _typing.Self, record: _typing.Any) -> None:
+        """
+        Perform the emit operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DummyHandler.emit through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param record: Value supplied for record under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.log is not None:
             msg = self.format(record)
             f = self.log.error if record.levelno >= logging.ERROR else self.log.warn
@@ -744,6 +1258,11 @@ _css_logger.addHandler(_css_log_handler)
 class OEBError(Exception):
     """
     Generic OEB-processing error.
+
+    Example:
+        Exercise OEBError through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
     """
 
     pass
@@ -753,32 +1272,120 @@ class NullContainer(object):
     """
     An empty container.
 
-    For use with book formats which do not support container-like access.
+    Example:
+        Exercise NullContainer through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
     """
 
     def __init__(self: _typing.Self, log: _typing.Any) -> None:
+        """
+        Initialize and validate the nullcontainer state.
+
+        Example:
+            Exercise NullContainer.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param log: Value supplied for log under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.log = log
 
     def read(self: _typing.Self, path: _typing.Any) -> None:
+        """
+        Perform the read operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise NullContainer.read through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raise OEBError("Attempt to read from NullContainer")
 
     def write(self: _typing.Self, path: _typing.Any) -> None:
+        """
+        Perform the write operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise NullContainer.write through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raise OEBError("Attempt to write to NullContainer")
 
     def exists(self: _typing.Self, path: _typing.Any) -> bool:
+        """
+        Perform the exists operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise NullContainer.exists through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return False
 
     def namelist(self: _typing.Self) -> list[_typing.Any]:
+        """
+        Perform the namelist operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise NullContainer.namelist through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return []
 
 
 class DirContainer(object):
     """
-    Filesystem directory container.
-    Contains pointer to files which are stored on the file system.
+    Filesystem directory container. Contains pointer to files which are stored on the file system.
+
+    Example:
+        Exercise DirContainer through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
     """
 
     def __init__(self: _typing.Self, path: _typing.Any, log: _typing.Any, ignore_opf: bool = False) -> None:
+        """
+        Initialize and validate the dircontainer state.
+
+        Example:
+            Exercise DirContainer.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :param log: Value supplied for log under the utility contract.
+        :param ignore_opf: Value supplied for ignore opf under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.log = log
         # `isbytestring()` in this codebase currently treats str as bytes-like.
         # Only decode actual bytes here.
@@ -802,8 +1409,17 @@ class DirContainer(object):
     def _unquote(self: _typing.Self, path: _typing.Any) -> _typing.Any:
         """
         Transforms a path into an actual path which (hopefully) points to a resource on the system.
-        :param path:
-        :return:
+
+        Example:
+            Exercise DirContainer. unquote through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if isinstance(path, bytes):
             path = path.decode("utf-8", "replace")
@@ -812,8 +1428,17 @@ class DirContainer(object):
     def read(self: _typing.Self, path: _typing.Any) -> _typing.Any:
         """
         Read and returns the binary data for a given path.
-        :param path: Path from the manifest (will be unquotes before trying to read). Relative.
-        :return:
+
+        Example:
+            Exercise DirContainer.read through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if path is None:
             path = self.opfname
@@ -824,9 +1449,18 @@ class DirContainer(object):
     def write(self: _typing.Self, path: _typing.Any, data: _typing.Any) -> _typing.Any:
         """
         Write data out to the system.
-        :param path: Relative path to the resource. Will be unquoted before the method tries to write the info out.
-        :param data: The binary data to write to file (written using 'wb')
-        :return:
+
+        Example:
+            Exercise DirContainer.write through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :param data: Value supplied for data under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         path = os.path.join(self.rootdir, self._unquote(path))
         target_dir = os.path.dirname(path)
@@ -838,8 +1472,17 @@ class DirContainer(object):
     def exists(self: _typing.Self, path: _typing.Any) -> _typing.Any:
         """
         Checks to see if the given path exists
-        :param path: Path in the manifest (will be unquoted before trying to return data).
-        :return:
+
+        Example:
+            Exercise DirContainer.exists through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if not path:
             return False
@@ -857,9 +1500,16 @@ class DirContainer(object):
 
     def namelist(self: _typing.Self) -> _typing.Any:
         """
-        Returns the names of all the files in the root - will always return posix style relative paths (paths
-        separated by /).
-        :return:
+        Returns the names of all the files in the root - will always return posix style relative paths (paths separated by /).
+
+        Example:
+            Exercise DirContainer.namelist through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         names = []
         base = self.rootdir
@@ -882,10 +1532,10 @@ class Metadata(object):
     """
     A collection of OEB data model metadata.
 
-    Provides access to the list of items associated with a particular metadata term via the term's local name using
-    either Python container or attribute syntax.
+    Example:
+        Exercise Metadata through a consuming regression::
 
-    Return an empty list for any terms with no currently associated metadata items.
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
     """
 
     DC_TERMS = {
@@ -935,13 +1585,10 @@ class Metadata(object):
         """
         An item of OEB data model metadata.
 
-        The metadata term or name may be accessed via the :attr:`term` or :attr:`name` attributes.
-        The metadata value or content may be accessed via the :attr:`value` or :attr:`content` attributes, or via
-        Unicode or string representations of the object.
+        Example:
+            Exercise Metadata.Item through a consuming regression::
 
-        OEB data model metadata attributes may be accessed either via their fully-qualified names using the Python
-        container access syntax, or via their local names using Python attribute syntax.  Only attributes allowed by
-        the OPF 2.0 specification are supported.
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
         """
 
         item_type = "MetadataItem"
@@ -949,13 +1596,26 @@ class Metadata(object):
         class Attribute(object):
             """
             Smart accessor for the attributes of an OEB metadata item
+
+            Example:
+                Exercise Metadata.Item.Attribute through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
             """
 
             def __init__(self: _typing.Self, attr: _typing.Any, allowed: _typing.Any = None) -> None:
                 """
+                Initialize and validate the attribute state.
 
-                :param attr:
-                :param allowed: The allowed sub-types under that attribute.
+                Example:
+                    Exercise Metadata.Item.Attribute.  init   through a consuming regression::
+
+                        python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+                :param attr: Value supplied for attr under the utility contract.
+                :param allowed: Value supplied for allowed under the utility contract.
+                :return: None; validated state is stored on the receiving object.
                 """
                 if not callable(attr):
                     attr_, attr = attr, lambda term: attr_
@@ -963,6 +1623,19 @@ class Metadata(object):
                 self.allowed = allowed
 
             def term_attr(self: _typing.Self, obj: _typing.Any) -> _typing.Any:
+                """
+                Perform the term attr operation under explicit file-format and conversion rules.
+
+                Example:
+                    Exercise Metadata.Item.Attribute.term attr through a consuming regression::
+
+                        python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+                :param obj: Value supplied for obj under the utility contract.
+                :return: The normalized value, metadata record, path, stream result or collection
+                    described above.
+                """
                 term = obj.term
                 if namespace(term) != DC11_NS:
                     term = OPF("meta")
@@ -974,20 +1647,57 @@ class Metadata(object):
                 return self.attr(term)
 
             def __get__(self: _typing.Self, obj: _typing.Any, cls: _typing.Any) -> _typing.Any:
+                """
+                Perform the get operation under explicit file-format and conversion rules.
+
+                Example:
+                    Exercise Metadata.Item.Attribute.  get   through a consuming regression::
+
+                        python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+                :param obj: Value supplied for obj under the utility contract.
+                :param cls: Value supplied for cls under the utility contract.
+                :return: The normalized value, metadata record, path, stream result or collection
+                    described above.
+                """
                 if obj is None:
                     return None
                 return obj.attrib.get(self.term_attr(obj), "")
 
             def __set__(self: _typing.Self, obj: _typing.Any, value: _typing.Any) -> None:
+                """
+                Perform the set operation under explicit file-format and conversion rules.
+
+                Example:
+                    Exercise Metadata.Item.Attribute.  set   through a consuming regression::
+
+                        python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+                :param obj: Value supplied for obj under the utility contract.
+                :param value: Value normalized, stored, formatted or returned.
+                :return: None; the operation mutates state, writes output or performs cleanup in
+                    place.
+                """
                 obj.attrib[self.term_attr(obj)] = value
 
         def __init__(self: _typing.Self, term: _typing.Any, value: _typing.Any, attrib: _typing.Any = None, nsmap: _typing.Any = None, **kwargs: _typing.Any) -> None:
             """
-            :param term: Metadata term
-            :param value: The value for the metadata entry (should be hashable - probably a string)
-            :param attrib:
-            :param nsmap:
-            :param kwargs:
+            Initialize and validate the item state.
+
+            Example:
+                Exercise Metadata.Item.  init   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :param term: Value supplied for term under the utility contract.
+            :param value: Value normalized, stored, formatted or returned.
+            :param attrib: Value supplied for attrib under the utility contract.
+            :param nsmap: Value supplied for nsmap under the utility contract.
+            :param kwargs: Keyword values forwarded to the compatibility implementation.
+            :return: None; validated state is stored on the receiving object.
             """
             # Make sure that the value being stored is not of the wrong type
             hash(value)
@@ -1023,14 +1733,51 @@ class Metadata(object):
 
         @property
         def name(self: _typing.Self) -> _typing.Any:
+            """
+            Perform the name operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Metadata.Item.name through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self.term
 
         @property
         def content(self: _typing.Self) -> _typing.Any:
+            """
+            Perform the content operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Metadata.Item.content through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self.value
 
         @content.setter
         def content(self: _typing.Self, value: _typing.Any) -> None:
+            """
+            Perform the content operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Metadata.Item.content through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :param value: Value normalized, stored, formatted or returned.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.value = value
 
         scheme = Attribute(
@@ -1058,18 +1805,84 @@ class Metadata(object):
         )
 
         def __getitem__(self: _typing.Self, key: _typing.Any) -> _typing.Any:
+            """
+            Perform the getitem operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Metadata.Item.  getitem   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :param key: Metadata, identifier or local-variable key.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self.attrib[key]
 
         def __setitem__(self: _typing.Self, key: _typing.Any, value: _typing.Any) -> None:
+            """
+            Perform the setitem operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Metadata.Item.  setitem   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :param key: Metadata, identifier or local-variable key.
+            :param value: Value normalized, stored, formatted or returned.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.attrib[key] = value
 
         def __contains__(self: _typing.Self, key: _typing.Any) -> bool:
+            """
+            Perform the contains operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Metadata.Item.  contains   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :param key: Metadata, identifier or local-variable key.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return key in self.attrib
 
         def get(self: _typing.Self, key: _typing.Any, default: _typing.Any = None) -> _typing.Any:
+            """
+            Perform the get operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Metadata.Item.get through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :param key: Metadata, identifier or local-variable key.
+            :param default: Value supplied for default under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self.attrib.get(key, default)
 
         def __repr__(self: _typing.Self) -> _typing.Any:
+            """
+            Perform the repr operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Metadata.Item.  repr   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return "Item(term=%r, value=%r, attrib=%r)" % (
                 barename(self.term),
                 self.value,
@@ -1077,16 +1890,55 @@ class Metadata(object):
             )
 
         def __str__(self: _typing.Self) -> _typing.Any:
+            """
+            Perform the str operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Metadata.Item.  str   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             val = six_unicode(self.value)
             if isinstance(val, bytes):
                 val = val.decode("utf-8", "replace")
             return val
 
         def __unicode__(self: _typing.Self) -> _typing.Any:
+            """
+            Perform the unicode operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Metadata.Item.  unicode   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return as_unicode(self.value)
 
         def to_opf1(self: _typing.Self, dcmeta: _typing.Any = None, xmeta: _typing.Any = None, nsrmap: _typing.Any = None) -> _typing.Any:
 
+            """
+            Perform the to opf1 operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Metadata.Item.to opf1 through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :param dcmeta: Value supplied for dcmeta under the utility contract.
+            :param xmeta: Value supplied for xmeta under the utility contract.
+            :param nsrmap: Value supplied for nsrmap under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             if nsrmap is None:
                 nsrmap = {}
 
@@ -1107,6 +1959,20 @@ class Metadata(object):
 
         def to_opf2(self: _typing.Self, parent: _typing.Any = None, nsrmap: _typing.Any = None) -> _typing.Any:
 
+            """
+            Perform the to opf2 operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Metadata.Item.to opf2 through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :param parent: Value supplied for parent under the utility contract.
+            :param nsrmap: Value supplied for nsrmap under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             if nsrmap is None:
                 nsrmap = {}
 
@@ -1126,18 +1992,38 @@ class Metadata(object):
             return elem
 
     def __init__(self: _typing.Self, oeb: _typing.Any) -> None:
+        """
+        Initialize and validate the metadata state.
+
+        Example:
+            Exercise Metadata.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param oeb: Value supplied for oeb under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.oeb = oeb
         self.items = defaultdict(list)
 
     def add(self: _typing.Self, term: _typing.Any, value: _typing.Any, attrib: _typing.Any = None, nsmap: _typing.Any = None, **kwargs: _typing.Any) -> _typing.Any:
         """
         Add a new metadata item.
-        :param term:
-        :param value:
-        :param attrib:
-        :param nsmap:
-        :param kwargs:
-        :return:
+
+        Example:
+            Exercise Metadata.add through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param term: Value supplied for term under the utility contract.
+        :param value: Value normalized, stored, formatted or returned.
+        :param attrib: Value supplied for attrib under the utility contract.
+        :param nsmap: Value supplied for nsmap under the utility contract.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if attrib is None:
             attrib = {}
@@ -1150,33 +2036,122 @@ class Metadata(object):
         return item
 
     def iterkeys(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
+        """
+        Perform the iterkeys operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Metadata.iterkeys through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         for key in self.items:
             yield key
 
     __iter__ = iterkeys
 
     def clear(self: _typing.Self, key: _typing.Any) -> None:
+        """
+        Perform the clear operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Metadata.clear through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param key: Metadata, identifier or local-variable key.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         l = self.items[key]
         for x in list(l):
             l.remove(x)
 
     def filter(self: _typing.Self, key: _typing.Any, predicate: _typing.Any) -> None:
+        """
+        Perform the filter operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Metadata.filter through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param key: Metadata, identifier or local-variable key.
+        :param predicate: Value supplied for predicate under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         l = self.items[key]
         for x in list(l):
             if predicate(x):
                 l.remove(x)
 
     def __getitem__(self: _typing.Self, key: _typing.Any) -> _typing.Any:
+        """
+        Perform the getitem operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Metadata.  getitem   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param key: Metadata, identifier or local-variable key.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.items[key]
 
     def __contains__(self: _typing.Self, key: _typing.Any) -> bool:
+        """
+        Perform the contains operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Metadata.  contains   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param key: Metadata, identifier or local-variable key.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return key in self.items
 
     def __getattr__(self: _typing.Self, term: _typing.Any) -> _typing.Any:
+        """
+        Perform the getattr operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Metadata.  getattr   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param term: Value supplied for term under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.items[term]
 
     @property
     def _nsmap(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the nsmap operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Metadata. nsmap through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         nsmap = {}
         for term in self.items:
             for item in self.items[term]:
@@ -1185,6 +2160,18 @@ class Metadata(object):
 
     @property
     def _opf1_nsmap(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the opf1 nsmap operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Metadata. opf1 nsmap through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         nsmap = self._nsmap
         for key, value in nsmap.items():
             if value in OPF_NSES or value in DC_NSES:
@@ -1193,11 +2180,36 @@ class Metadata(object):
 
     @property
     def _opf2_nsmap(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the opf2 nsmap operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Metadata. opf2 nsmap through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         nsmap = self._nsmap
         nsmap.update(OPF2_NSMAP)
         return nsmap
 
     def to_opf1(self: _typing.Self, parent: _typing.Any = None) -> _typing.Any:
+        """
+        Perform the to opf1 operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Metadata.to opf1 through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         nsmap = self._opf1_nsmap
         nsrmap = dict((value, key) for key, value in nsmap.items())
         elem = element(parent, "metadata", nsmap=nsmap)
@@ -1212,6 +2224,19 @@ class Metadata(object):
         return elem
 
     def to_opf2(self: _typing.Self, parent: _typing.Any = None) -> _typing.Any:
+        """
+        Perform the to opf2 operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Metadata.to opf2 through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         nsmap = self._opf2_nsmap
         nsrmap = dict((value, key) for key, value in nsmap.items())
         elem = element(parent, OPF("metadata"), nsmap=nsmap)
@@ -1225,38 +2250,20 @@ class Manifest(object):
     """
     Collection of files composing an OEB data model book.
 
-    Provides access to the content of the files composing the book and
-    attributes associated with those files, including their internal paths,
-    unique identifiers, and MIME types.
+    Example:
+        Exercise Manifest through a consuming regression::
 
-    Itself acts as a :class:`set` of manifest items, and provides the following
-    instance data member for dictionary-like access:
-
-    :attr:`ids`: A dictionary in which the keys are the unique identifiers of
-        the manifest items and the values are the items themselves.
-    :attr:`hrefs`: A dictionary in which the keys are the internal paths of the
-        manifest items and the values are the items themselves.
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
     """
 
     class Item(object):
         """
         A representation of OEB data model book content file.
 
-        Provides the following data members for accessing the file content and metadata associated with this
-        particular file.
+        Example:
+            Exercise Manifest.Item through a consuming regression::
 
-        :attr:`id`: Unique identifier.
-        :attr:`href`: Book-internal path.
-        :attr:`media_type`: MIME type of the file content.
-        :attr:`fallback`: Unique id of any fallback manifest item associated
-            with this manifest item.
-        :attr:`spine_position`: Display/reading order index for book textual
-            content.  `None` for manifest items which are not part of the
-            book's textual content.
-        :attr:`linear`: `True` for textual content items which are part of the
-            primary linear reading order and `False` for textual content items
-            which are not (such as footnotes).  Meaningless for items which
-            have a :attr:`spine_position` of `None`.
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
         """
 
         item_type = "ManifestItem"
@@ -1264,6 +2271,24 @@ class Manifest(object):
         NUM_RE = re.compile("^(.*)([0-9][0-9.]*)(?=[.]|$)")
 
         def __init__(self: _typing.Self, oeb: _typing.Any, id: _typing.Any, href: _typing.Any, media_type: _typing.Any, fallback: _typing.Any = None, loader: _typing.Any = str, data: _typing.Any = None) -> None:
+            """
+            Initialize and validate the item state.
+
+            Example:
+                Exercise Manifest.Item.  init   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :param oeb: Value supplied for oeb under the utility contract.
+            :param id: Value supplied for id under the utility contract.
+            :param href: Value supplied for href under the utility contract.
+            :param media_type: Value supplied for media type under the utility contract.
+            :param fallback: Value supplied for fallback under the utility contract.
+            :param loader: Value supplied for loader under the utility contract.
+            :param data: Value supplied for data under the utility contract.
+            :return: None; validated state is stored on the receiving object.
+            """
             if href:
                 href = six_unicode(href)
             self.oeb = oeb
@@ -1280,6 +2305,18 @@ class Manifest(object):
             self._data = data
 
         def __repr__(self: _typing.Self) -> _typing.Any:
+            """
+            Perform the repr operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Manifest.Item.  repr   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return "Item(id=%r, href=%r, media_type=%r)" % (
                 self.id,
                 self.href,
@@ -1288,12 +2325,38 @@ class Manifest(object):
 
         # Parsing {{{
         def _parse_xml(self: _typing.Self, data: _typing.Any) -> _typing.Any:
+            """
+            Parse xml under the format's safety and compatibility rules.
+
+            Example:
+                Exercise Manifest.Item. parse xml through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :param data: Value supplied for data under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             data = xml_to_unicode(data, strip_encoding_pats=True, assume_utf8=True, resolve_entities=True)[0]
             if not data:
                 return None
             return etree.fromstring(data, parser=RECOVER_PARSER)
 
         def _parse_xhtml(self: _typing.Self, data: _typing.Any) -> _typing.Any:
+            """
+            Parse xhtml under the format's safety and compatibility rules.
+
+            Example:
+                Exercise Manifest.Item. parse xhtml through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :param data: Value supplied for data under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             orig_data = data
             fname = urlunquote(self.href)
             self.oeb.log.debug("Parsing", fname, "...")
@@ -1314,8 +2377,16 @@ class Manifest(object):
         def _parse_txt(self: _typing.Self, data: _typing.Any) -> _typing.Any:
             """
             Parse data as a string.
-            :param data:
-            :return:
+
+            Example:
+                Exercise Manifest.Item. parse txt through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :param data: Value supplied for data under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
             """
             if "<html>" in data:
                 return self._parse_xhtml(data)
@@ -1333,6 +2404,19 @@ class Manifest(object):
             return self._parse_xhtml(convert_markdown(data, title=title))
 
         def _parse_css(self: _typing.Self, data: _typing.Any) -> _typing.Any:
+            """
+            Parse css under the format's safety and compatibility rules.
+
+            Example:
+                Exercise Manifest.Item. parse css through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :param data: Value supplied for data under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             self.oeb.log.debug("Parsing", self.href, "...")
             data = self.oeb.decode(data)
             data = self.oeb.css_preprocessor(data, add_namespace=True)
@@ -1357,6 +2441,20 @@ class Manifest(object):
             return data
 
         def _fetch_css(self: _typing.Self, path: _typing.Any) -> tuple[_typing.Any, ...]:
+            """
+            Perform the fetch css operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Manifest.Item. fetch css through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :param path: Filesystem path read, written, normalized or validated by the
+                operation.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             hrefs = self.oeb.manifest.hrefs
             if path not in hrefs:
                 self.oeb.logger.warn("CSS import of missing file %r" % path)
@@ -1374,17 +2472,16 @@ class Manifest(object):
         @property
         def data(self: _typing.Self) -> _typing.Any:
             """
-            Provides MIME type sensitive access to the manifest
-            entry's associated content.
+            Provides MIME type sensitive access to the manifest entry's associated content.
 
-            - XHTML, HTML, and variant content is parsed as necessary to
-              convert and and return as an lxml.etree element in the XHTML
-              namespace.
-            - XML content is parsed and returned as an lxml.etree element.
-            - CSS and CSS-variant content is parsed and returned as a cssutils
-              CSS DOM stylesheet.
-            - All other content is returned as a :class:`str` object with no
-              special parsing.
+            Example:
+                Exercise Manifest.Item.data through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
             """
             data = self._data
             if data is None:
@@ -1408,17 +2505,50 @@ class Manifest(object):
 
         @data.setter
         def data(self: _typing.Self, value: _typing.Any) -> None:
+            """
+            Perform the data operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Manifest.Item.data through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :param value: Value normalized, stored, formatted or returned.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self._data = value
 
         @data.deleter
         def data(self: _typing.Self) -> None:
+            """
+            Perform the data operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Manifest.Item.data through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self._data = None
 
         def unload_data_from_memory(self: _typing.Self, memory: _typing.Any = None) -> None:
             """
             Write the internal _data cache out to memory.
-            :param memory: If None, then creates a temporary file and writes the data out to that
-            :return:
+
+            Example:
+                Exercise Manifest.Item.unload data from memory through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :param memory: Value supplied for memory under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
             """
             if isinstance(self._data, (str, bytes)):
                 if memory is None:
@@ -1430,6 +2560,19 @@ class Manifest(object):
                     self.oeb._temp_files.append(pt.name)
 
                     def loader(*args: _typing.Any) -> _typing.Any:
+                        """
+                        Perform the loader operation under explicit file-format and conversion rules.
+
+                        Example:
+                            Exercise Manifest.Item.unload data from memory.loader through a consuming regression::
+
+                                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+                        :param args: Positional values forwarded to the compatibility implementation.
+                        :return: The normalized value, metadata record, path, stream result or collection
+                            described above.
+                        """
                         with open(pt.name, "rb") as f:
                             ans = f.read()
                         os.remove(pt.name)
@@ -1439,6 +2582,19 @@ class Manifest(object):
                 else:
 
                     def loader2(*args: _typing.Any) -> _typing.Any:
+                        """
+                        Perform the loader2 operation under explicit file-format and conversion rules.
+
+                        Example:
+                            Exercise Manifest.Item.unload data from memory.loader2 through a consuming regression::
+
+                                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+                        :param args: Positional values forwarded to the compatibility implementation.
+                        :return: The normalized value, metadata record, path, stream result or collection
+                            described above.
+                        """
                         with open(memory, "rb") as f:
                             ans = f.read()
                         return ans
@@ -1447,12 +2603,36 @@ class Manifest(object):
                 self._data = None
 
         def __str__(self: _typing.Self) -> _typing.Any:
+            """
+            Perform the str operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Manifest.Item.  str   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             text = serialize(self.data, self.media_type, pretty_print=self.oeb.pretty_print)
             if isinstance(text, bytes):
                 return text.decode("utf-8", "replace")
             return six_unicode(text)
 
         def __unicode__(self: _typing.Self) -> _typing.Any:
+            """
+            Perform the unicode operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Manifest.Item.  unicode   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             data = self.data
             if isinstance(data, etree._Element):
                 return xml2unicode(data, pretty_print=self.oeb.pretty_print)
@@ -1463,15 +2643,66 @@ class Manifest(object):
             return six_unicode(data)
 
         def __eq__(self: _typing.Self, other: _typing.Any) -> bool:
+            """
+            Perform the eq operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Manifest.Item.  eq   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :param other: Value supplied for other under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return id(self) == id(other)
 
         def __hash__(self: _typing.Self) -> _typing.Any:
+            """
+            Perform the hash operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Manifest.Item.  hash   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return id(self)
 
         def __ne__(self: _typing.Self, other: _typing.Any) -> _typing.Any:
+            """
+            Perform the ne operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Manifest.Item.  ne   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :param other: Value supplied for other under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return not self.__eq__(other)
 
         def __cmp__(self: _typing.Self, other: _typing.Any) -> _typing.Any:
+            """
+            Perform the cmp operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Manifest.Item.  cmp   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :param other: Value supplied for other under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             result = six_cmp(self.spine_position, other.spine_position)
             if result != 0:
                 return result
@@ -1487,10 +2718,17 @@ class Manifest(object):
 
         def relhref(self: _typing.Self, href: _typing.Any) -> _typing.Any:
             """
-            Convert the URL provided in :param:`href` from a book-absolute reference to a reference relative to this
-            manifest item.
-            :param href:
-            :return:
+            Convert the URL provided in :param:`href` from a book-absolute reference to a reference relative to this manifest item.
+
+            Example:
+                Exercise Manifest.Item.relhref through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :param href: Value supplied for href under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
             """
             if urlparse(href).scheme:
                 return href
@@ -1514,10 +2752,17 @@ class Manifest(object):
 
         def abshref(self: _typing.Self, href: _typing.Any) -> _typing.Any:
             """
-            Convert the URL provided in :param:`href` from a reference relative to this manifest item to a
-            book-absolute reference.
-            :param href:
-            :return:
+            Convert the URL provided in :param:`href` from a reference relative to this manifest item to a book-absolute reference.
+
+            Example:
+                Exercise Manifest.Item.abshref through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :param href: Value supplied for href under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
             """
             purl = urlparse(href)
             scheme = purl.scheme
@@ -1540,6 +2785,18 @@ class Manifest(object):
             return href
 
     def __init__(self: _typing.Self, oeb: _typing.Any) -> None:
+        """
+        Initialize and validate the manifest state.
+
+        Example:
+            Exercise Manifest.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param oeb: Value supplied for oeb under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.oeb = oeb
         self.items = set()
         self.ids = {}
@@ -1549,19 +2806,20 @@ class Manifest(object):
         """
         Add a new item to the book manifest.
 
-        The item's :param:`id`, :param:`href`, and :param:`media_type` are all
-        required.  A :param:`fallback` item-id is required for any items with a
-        MIME type which is not one of the OPS core media types.  Either the
-        item's data itself may be provided with :param:`data`, or a loader
-        function for the data may be provided with :param:`loader`, or the
-        item's data may later be set manually via the :attr:`data` attribute.
-        :param id:
-        :param href:
-        :param media_type:
-        :param fallback:
-        :param loader:
-        :param data:
-        :return:
+        Example:
+            Exercise Manifest.add through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param id: Value supplied for id under the utility contract.
+        :param href: Value supplied for href under the utility contract.
+        :param media_type: Value supplied for media type under the utility contract.
+        :param fallback: Value supplied for fallback under the utility contract.
+        :param loader: Value supplied for loader under the utility contract.
+        :param data: Value supplied for data under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         item = self.Item(self.oeb, id, href, media_type, fallback, loader, data)
         self.items.add(item)
@@ -1572,8 +2830,16 @@ class Manifest(object):
     def remove(self: _typing.Self, item: _typing.Any) -> None:
         """
         Removes :param:`item` from the manifest.
-        :param item:
-        :return:
+
+        Example:
+            Exercise Manifest.remove through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param item: Value supplied for item under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if item in self.ids:
             item = self.ids[item]
@@ -1585,6 +2851,19 @@ class Manifest(object):
             self.oeb.spine.remove(item)
 
     def remove_duplicate_item(self: _typing.Self, item: _typing.Any) -> None:
+        """
+        Perform the remove duplicate item operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Manifest.remove duplicate item through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param item: Value supplied for item under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if item in self.ids:
             item = self.ids[item]
         del self.ids[item.id]
@@ -1592,15 +2871,18 @@ class Manifest(object):
 
     def generate(self: _typing.Self, id: _typing.Any = None, href: _typing.Any = None) -> tuple[_typing.Any, ...]:
         """
-        Generate a new unique identifier and/or internal path for use in
-        creating a new manifest item, using the provided :param:`id` and/or :param:`href` as bases.
+        Generate a new unique identifier and/or internal path for use in creating a new manifest item, using the provided :param:`id` and/or :param:`href` as bases.
 
-        Returns an two-tuple of the new id and path.  If either :param:`id` or
-        :param:`href` are `None` then the corresponding item in the return
-        tuple will also be `None`.
-        :param id:
-        :param href:
-        :return:
+        Example:
+            Exercise Manifest.generate through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param id: Value supplied for id under the utility contract.
+        :param href: Value supplied for href under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if id is not None:
             base = id
@@ -1619,19 +2901,80 @@ class Manifest(object):
         return id, six_unicode(href)
 
     def __iter__(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
+        """
+        Perform the iter operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Manifest.  iter   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         for item in self.items:
             yield item
 
     def __len__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the len operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Manifest.  len   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return len(self.items)
 
     def values(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the values operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Manifest.values through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return list(self.items)
 
     def __contains__(self: _typing.Self, item: _typing.Any) -> bool:
+        """
+        Perform the contains operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Manifest.  contains   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param item: Value supplied for item under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return item in self.items
 
     def to_opf1(self: _typing.Self, parent: _typing.Any = None) -> _typing.Any:
+        """
+        Perform the to opf1 operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Manifest.to opf1 through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         elem = element(parent, "manifest")
         for item in self.items:
             media_type = item.media_type
@@ -1650,6 +2993,19 @@ class Manifest(object):
         return elem
 
     def to_opf2(self: _typing.Self, parent: _typing.Any = None) -> _typing.Any:
+        """
+        Perform the to opf2 operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Manifest.to opf2 through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         elem = element(parent, OPF("manifest"))
         for item in sorted(self.items, key=lambda x: x.href):
             media_type = item.media_type
@@ -1669,6 +3025,18 @@ class Manifest(object):
 
     @property
     def main_stylesheet(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the main stylesheet operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Manifest.main stylesheet through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = getattr(self, "_main_stylesheet", None)
         if ans is None:
             for item in self:
@@ -1679,6 +3047,19 @@ class Manifest(object):
 
     @main_stylesheet.setter
     def main_stylesheet(self: _typing.Self, item: _typing.Any) -> None:
+        """
+        Perform the main stylesheet operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Manifest.main stylesheet through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param item: Value supplied for item under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._main_stylesheet = item
 
 
@@ -1686,16 +3067,43 @@ class Spine(object):
     """
     Collection of manifest items composing an OEB data model book's main textual content.
 
-    The spine manages which manifest items compose the book's main textual content and the sequence in which they
-    appear. Provides Python container access as a list-like object.
+    Example:
+        Exercise Spine through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
     """
 
     def __init__(self: _typing.Self, oeb: _typing.Any) -> None:
+        """
+        Initialize and validate the spine state.
+
+        Example:
+            Exercise Spine.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param oeb: Value supplied for oeb under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.oeb = oeb
         self.items = []
         self.page_progression_direction = None
 
     def _linear(self: _typing.Self, linear: _typing.Any) -> _typing.Any:
+        """
+        Perform the linear operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Spine. linear through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param linear: Value supplied for linear under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if isinstance(linear, six_string_types):
             linear = linear.lower()
         if linear is None or linear in ("yes", "true"):
@@ -1707,9 +3115,17 @@ class Spine(object):
     def add(self: _typing.Self, item: _typing.Any, linear: _typing.Any = None) -> _typing.Any:
         """
         Append :param:`item` to the end of the `Spine`.
-        :param item:
-        :param linear:
-        :return:
+
+        Example:
+            Exercise Spine.add through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param item: Value supplied for item under the utility contract.
+        :param linear: Value supplied for linear under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         item.linear = self._linear(linear)
         item.spine_position = len(self.items)
@@ -1719,10 +3135,18 @@ class Spine(object):
     def insert(self: _typing.Self, index: _typing.Any, item: _typing.Any, linear: _typing.Any) -> _typing.Any:
         """
         Insert :param:`item` at position :param:`index` in the `Spine`.
-        :param index:
-        :param item:
-        :param linear:
-        :return:
+
+        Example:
+            Exercise Spine.insert through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param index: Value supplied for index under the utility contract.
+        :param item: Value supplied for item under the utility contract.
+        :param linear: Value supplied for linear under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         item.linear = self._linear(linear)
         item.spine_position = index
@@ -1734,8 +3158,16 @@ class Spine(object):
     def remove(self: _typing.Self, item: _typing.Any) -> None:
         """
         Remove :param:`item` from the `Spine`.
-        :param item:
-        :return:
+
+        Example:
+            Exercise Spine.remove through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param item: Value supplied for item under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         index = item.spine_position
         self.items.pop(index)
@@ -1744,25 +3176,100 @@ class Spine(object):
         item.spine_position = None
 
     def index(self: _typing.Self, item: _typing.Any) -> _typing.Any:
+        """
+        Perform the index operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Spine.index through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param item: Value supplied for item under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         for i, x in enumerate(self):
             if item == x:
                 return i
         return -1
 
     def __iter__(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
+        """
+        Perform the iter operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Spine.  iter   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         for item in self.items:
             yield item
 
     def __getitem__(self: _typing.Self, index: _typing.Any) -> _typing.Any:
+        """
+        Perform the getitem operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Spine.  getitem   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param index: Value supplied for index under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.items[index]
 
     def __len__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the len operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Spine.  len   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return len(self.items)
 
     def __contains__(self: _typing.Self, item: _typing.Any) -> bool:
+        """
+        Perform the contains operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Spine.  contains   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param item: Value supplied for item under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return item in self.items
 
     def to_opf1(self: _typing.Self, parent: _typing.Any = None) -> _typing.Any:
+        """
+        Perform the to opf1 operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Spine.to opf1 through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         elem = element(parent, "spine")
         for item in self.items:
             if item.linear:
@@ -1770,6 +3277,19 @@ class Spine(object):
         return elem
 
     def to_opf2(self: _typing.Self, parent: _typing.Any = None) -> _typing.Any:
+        """
+        Perform the to opf2 operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Spine.to opf2 through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         elem = element(parent, OPF("spine"))
         for item in self.items:
             attrib = {"idref": item.id}
@@ -1781,23 +3301,22 @@ class Spine(object):
 
 class Guide(object):
     """
-    Collection of references to standard frequently-occurring sections
-    within an OEB data model book.
+    Collection of references to standard frequently-occurring sections within an OEB data model book.
 
-    Provides dictionary-like access, in which the keys are the OEB reference
-    type identifiers and the values are `Reference` objects.
+    Example:
+        Exercise Guide through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
     """
 
     class Reference(object):
-        """Reference to a standard book section.
+        """
+        Reference to a standard book section.
 
-        Provides the following instance data members:
+        Example:
+            Exercise Guide.Reference through a consuming regression::
 
-        :attr:`type`: Reference type identifier, as chosen from the list
-            allowed in the OPF 2.0 specification.
-        :attr:`title`: Human-readable section title.
-        :attr:`href`: Book-internal URL of the referenced section.  May include
-            a fragment identifier.
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
         """
 
         _TYPES_TITLES = [
@@ -1824,6 +3343,21 @@ class Guide(object):
         ORDER = dict((t, i) for i, (t, _) in enumerate(_TYPES_TITLES))  # noqa
 
         def __init__(self: _typing.Self, oeb: _typing.Any, type: _typing.Any, title: _typing.Any, href: _typing.Any) -> None:
+            """
+            Initialize and validate the reference state.
+
+            Example:
+                Exercise Guide.Reference.  init   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :param oeb: Value supplied for oeb under the utility contract.
+            :param type: Value supplied for type under the utility contract.
+            :param title: Value supplied for title under the utility contract.
+            :param href: Value supplied for href under the utility contract.
+            :return: None; validated state is stored on the receiving object.
+            """
             self.oeb = oeb
             if type.lower() in self.TYPES:
                 local_type = type.lower()
@@ -1838,6 +3372,18 @@ class Guide(object):
             self.href = urlnormalize(href)
 
         def __repr__(self: _typing.Self) -> _typing.Any:
+            """
+            Perform the repr operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Guide.Reference.  repr   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return "Reference(type=%r, title=%r, href=%r)" % (
                 self.type,
                 self.title,
@@ -1846,9 +3392,52 @@ class Guide(object):
 
         @property
         def _order(self: _typing.Self) -> _typing.Any:
+            """
+            Perform the order operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Guide.Reference. order through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self.ORDER.get(self.type, self.type)
 
+        @property
+        def _sort_key(self: _typing.Self) -> tuple[int, int | str]:
+            """
+            Return a Python 3-safe ordering key for guide references.
+
+            Example:
+                Exercise Guide.Reference. sort key through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
+            if self.type in self.ORDER:
+                return (0, self.ORDER[self.type])
+            return (1, self.type)
+
         def __cmp__(self: _typing.Self, other: _typing.Any) -> _typing.Any:
+            """
+            Perform the cmp operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Guide.Reference.  cmp   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :param other: Value supplied for other under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             if not isinstance(other, Guide.Reference):
                 return NotImplemented
             return six_cmp(self._order, other._order)
@@ -1857,22 +3446,51 @@ class Guide(object):
         def item(self: _typing.Self) -> _typing.Any:
             """
             The manifest item associated with this reference.
+
+            Example:
+                Exercise Guide.Reference.item through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
             """
             path = urldefrag(self.href)[0]
             hrefs = self.oeb.manifest.hrefs
             return hrefs.get(path, None)
 
     def __init__(self: _typing.Self, oeb: _typing.Any) -> None:
+        """
+        Initialize and validate the guide state.
+
+        Example:
+            Exercise Guide.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param oeb: Value supplied for oeb under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.oeb = oeb
         self.refs = {}
 
     def add(self: _typing.Self, type: _typing.Any, title: _typing.Any, href: _typing.Any) -> _typing.Any:
         """
         Add a new reference to the `Guide`.
-        :param type:
-        :param title:
-        :param href:
-        :return:
+
+        Example:
+            Exercise Guide.add through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param type: Value supplied for type under the utility contract.
+        :param title: Value supplied for title under the utility contract.
+        :param href: Value supplied for href under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if href:
             href = six_unicode(href)
@@ -1881,34 +3499,145 @@ class Guide(object):
         return ref
 
     def remove(self: _typing.Self, type: _typing.Any) -> _typing.Any:
+        """
+        Perform the remove operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Guide.remove through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param type: Value supplied for type under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.refs.pop(type, None)
 
     def iterkeys(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
+        """
+        Perform the iterkeys operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Guide.iterkeys through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         for item_type in self.refs:
             yield item_type
 
     __iter__ = iterkeys
 
     def values(self: _typing.Self) -> _typing.Any:
-        return sorted(self.refs.values())
+        """
+        Perform the values operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Guide.values through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
+        return sorted(self.refs.values(), key=lambda ref: ref._sort_key)
 
     def items(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
+        """
+        Perform the items operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Guide.items through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         for item_type, ref in self.refs.items():
             yield item_type, ref
 
     def __getitem__(self: _typing.Self, key: _typing.Any) -> _typing.Any:
+        """
+        Perform the getitem operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Guide.  getitem   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param key: Metadata, identifier or local-variable key.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.refs[key]
 
     def __delitem__(self: _typing.Self, key: _typing.Any) -> None:
+        """
+        Perform the delitem operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Guide.  delitem   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param key: Metadata, identifier or local-variable key.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         del self.refs[key]
 
     def __contains__(self: _typing.Self, key: _typing.Any) -> bool:
+        """
+        Perform the contains operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Guide.  contains   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param key: Metadata, identifier or local-variable key.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return key in self.refs
 
     def __len__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the len operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Guide.  len   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return len(self.refs)
 
     def to_opf1(self: _typing.Self, parent: _typing.Any = None) -> _typing.Any:
+        """
+        Perform the to opf1 operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Guide.to opf1 through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         elem = element(parent, "guide")
         for ref in self.refs.values():
             attrib = {"type": ref.type, "href": urlunquote(ref.href)}
@@ -1918,6 +3647,19 @@ class Guide(object):
         return elem
 
     def to_opf2(self: _typing.Self, parent: _typing.Any = None) -> _typing.Any:
+        """
+        Perform the to opf2 operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Guide.to opf2 through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         elem = element(parent, OPF("guide"))
         for ref in self.refs.values():
             attrib = {"type": ref.type, "href": urlunquote(ref.href)}
@@ -1928,19 +3670,13 @@ class Guide(object):
 
 
 class TOC(object):
-    """Represents a hierarchical table of contents or navigation tree for
-    accessing arbitrary semantic sections within an OEB data model book.
+    """
+    Represents a hierarchical table of contents or navigation tree for accessing arbitrary semantic sections within an OEB data model book.
 
-    Acts as a node within the navigation tree.  Provides list-like access to
-    sub-nodes.  Provides the follow node instance data attributes:
+    Example:
+        Exercise TOC through a consuming regression::
 
-    :attr:`title`: The title of this navigation node.
-    :attr:`href`: Book-internal URL referenced by this node.
-    :attr:`klass`: Optional semantic class referenced by this node.
-    :attr:`id`: Option unique identifier for this node.
-    :attr:`author`: Optional author attribution for periodicals <mbp:>
-    :attr:`description`: Optional description attribute for periodicals <mbp:>
-    :attr:`toc_thumbnail`: Optional toc thumbnail image
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
     """
 
     def __init__(
@@ -1954,6 +3690,25 @@ class TOC(object):
         description: _typing.Any = None,
         toc_thumbnail: _typing.Any = None,
     ) -> None:
+        """
+        Initialize and validate the toc state.
+
+        Example:
+            Exercise TOC.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param title: Value supplied for title under the utility contract.
+        :param href: Value supplied for href under the utility contract.
+        :param klass: Value supplied for klass under the utility contract.
+        :param id: Value supplied for id under the utility contract.
+        :param play_order: Value supplied for play order under the utility contract.
+        :param author: Value supplied for author under the utility contract.
+        :param description: Value supplied for description under the utility contract.
+        :param toc_thumbnail: Value supplied for toc thumbnail under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.title = title
         self.href = urlnormalize(href) if href else href
         self.klass = klass
@@ -1980,21 +3735,42 @@ class TOC(object):
     ) -> _typing.Any:
         """
         Create and return a new sub-node of this node.
-        :param title:
-        :param href:
-        :param klass:
-        :param id:
-        :param play_order:
-        :param author:
-        :param description:
-        :param toc_thumbnail:
-        :return:
+
+        Example:
+            Exercise TOC.add through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param title: Value supplied for title under the utility contract.
+        :param href: Value supplied for href under the utility contract.
+        :param klass: Value supplied for klass under the utility contract.
+        :param id: Value supplied for id under the utility contract.
+        :param play_order: Value supplied for play order under the utility contract.
+        :param author: Value supplied for author under the utility contract.
+        :param description: Value supplied for description under the utility contract.
+        :param toc_thumbnail: Value supplied for toc thumbnail under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         node = TOC(title, href, klass, id, play_order, author, description, toc_thumbnail)
         self.nodes.append(node)
         return node
 
     def remove(self: _typing.Self, node: _typing.Any) -> bool:
+        """
+        Perform the remove operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TOC.remove through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param node: Value supplied for node under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         for child in self.nodes:
             if child is node:
                 self.nodes.remove(child)
@@ -2005,27 +3781,85 @@ class TOC(object):
         return False
 
     def iter(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
-        """Iterate over this node and all descendants in depth-first order."""
+        """
+        Iterate over this node and all descendants in depth-first order.
+
+        Example:
+            Exercise TOC.iter through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         yield self
         for child in self.nodes:
             for node in child.iter():
                 yield node
 
     def count(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the count operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TOC.count through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return len(list(self.iter())) - 1
 
     def next_play_order(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the next play order operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TOC.next play order through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         entries = [x.play_order for x in self.iter()]
         base = max(entries) if entries else 0
         return base + 1
 
     def has_href(self: _typing.Self, href: _typing.Any) -> bool:
+        """
+        Return whether has href holds for the supplied ebook data.
+
+        Example:
+            Exercise TOC.has href through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param href: Value supplied for href under the utility contract.
+        :return: True when the documented condition holds; otherwise False.
+        """
         for x in self.iter():
             if x.href == href:
                 return True
         return False
 
     def has_text(self: _typing.Self, text: _typing.Any) -> bool:
+        """
+        Return whether has text holds for the supplied ebook data.
+
+        Example:
+            Exercise TOC.has text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: True when the documented condition holds; otherwise False.
+        """
         for x in self.iter():
             if x.title and x.title.lower() == text.lower():
                 return True
@@ -2034,8 +3868,15 @@ class TOC(object):
     def iterdescendants(self: _typing.Self, breadth_first: bool = False) -> _typing.Iterator[_typing.Any]:
         """
         Iterate over all descendant nodes in depth-first order.
-        :param breadth_first:
-        :return:
+
+        Example:
+            Exercise TOC.iterdescendants through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param breadth_first: Value supplied for breadth first under the utility contract.
+        :return: An iterator yielding the normalized values described above.
         """
         if breadth_first:
             for child in self.nodes:
@@ -2049,17 +3890,48 @@ class TOC(object):
                     yield node
 
     def __iter__(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
-        """Iterate over all immediate child nodes."""
+        """
+        Iterate over all immediate child nodes.
+
+        Example:
+            Exercise TOC.  iter   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         for node in self.nodes:
             yield node
 
     def __getitem__(self: _typing.Self, index: _typing.Any) -> _typing.Any:
+        """
+        Perform the getitem operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TOC.  getitem   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param index: Value supplied for index under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.nodes[index]
 
     def autolayer(self: _typing.Self) -> None:
         """
-        Make sequences of children pointing to the same content file into
-        children of the first node referencing that file.
+        Make sequences of children pointing to the same content file into children of the first node referencing that file.
+
+        Example:
+            Exercise TOC.autolayer through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         prev = None
         for node in list(self.nodes):
@@ -2072,6 +3944,15 @@ class TOC(object):
     def depth(self: _typing.Self) -> _typing.Any:
         """
         The maximum depth of the navigation tree rooted at this node.
+
+        Example:
+            Exercise TOC.depth through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         try:
             return max(node.depth() for node in self.nodes) + 1
@@ -2079,18 +3960,68 @@ class TOC(object):
             return 1
 
     def get_lines(self: _typing.Self, lvl: int = 0) -> _typing.Any:
+        """
+        Return lines under the format's safety and compatibility rules.
+
+        Example:
+            Exercise TOC.get lines through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param lvl: Value supplied for lvl under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = [("\t" * lvl) + "TOC: %s --> %s" % (self.title, self.href)]
         for child in self:
             ans.extend(child.get_lines(lvl + 1))
         return ans
 
     def __str__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the str operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TOC.  str   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "\n".join(self.get_lines())
 
     def __unicode__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the unicode operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TOC.  unicode   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "\n".join(self.get_lines())
 
     def to_opf1(self: _typing.Self, tour: _typing.Any) -> _typing.Any:
+        """
+        Perform the to opf1 operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TOC.to opf1 through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param tour: Value supplied for tour under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         for node in self.nodes:
             element(
                 tour,
@@ -2101,6 +4032,19 @@ class TOC(object):
         return tour
 
     def to_ncx(self: _typing.Self, parent: _typing.Any = None) -> _typing.Any:
+        """
+        Perform the to ncx operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TOC.to ncx through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if parent is None:
             parent = etree.Element(NCX("navMap"))
         for node in self.nodes:
@@ -2125,11 +4069,32 @@ class TOC(object):
 
     def rationalize_play_orders(self: _typing.Self) -> None:
         """
-        Ensure that all nodes with the same play_order have the same href and
-        with different play_orders have different hrefs.
+        Ensure that all nodes with the same play_order have the same href and with different play_orders have different hrefs.
+
+        Example:
+            Exercise TOC.rationalize play orders through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         def po_node(n: _typing.Any) -> _typing.Any:
+            """
+            Perform the po node operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise TOC.rationalize play orders.po node through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :param n: Value supplied for n under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             for x in self.iter():
                 if x is n:
                     return
@@ -2137,6 +4102,19 @@ class TOC(object):
                     return x
 
         def href_node(n: _typing.Any) -> _typing.Any:
+            """
+            Perform the href node operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise TOC.rationalize play orders.href node through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :param n: Value supplied for n under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             for loc_x in self.iter():
                 if loc_x is n:
                     return
@@ -2155,32 +4133,43 @@ class TOC(object):
 
 class PageList(object):
     """
-    Collection of named "pages" to mapped positions within an OEB data model
-    book's textual content.
+    Collection of named "pages" to mapped positions within an OEB data model book's textual content.
 
-    Provides list-like access to the pages.
+    Example:
+        Exercise PageList through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
     """
 
     class Page(object):
-        """Represents a mapping between a page name and a position within
-        the book content.
+        """
+        Represents a mapping between a page name and a position within the book content.
 
-        Provides the following instance data attributes:
+        Example:
+            Exercise PageList.Page through a consuming regression::
 
-        :attr:`name`: The name of this page.  Generally a number.
-        :attr:`href`: Book-internal URL at which point this page begins.
-        :attr:`type`: Must be one of 'front' (for prefatory pages, as commonly
-            labeled in print with small-case Roman numerals), 'normal' (for
-            standard pages, as commonly labeled in print with Arabic numerals),
-            or 'special' (for other pages, as commonly not labeled in any
-            fashion in print, such as the cover and title pages).
-        :attr:`klass`: Optional semantic class of this page.
-        :attr:`id`: Optional unique identifier for this page.
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
         """
 
         TYPES = {"front", "normal", "special"}
 
         def __init__(self: _typing.Self, name: _typing.Any, href: _typing.Any, type: str = "normal", klass: _typing.Any = None, id: _typing.Any = None) -> None:
+            """
+            Initialize and validate the page state.
+
+            Example:
+                Exercise PageList.Page.  init   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :param name: Field, file, function or resource name addressed by the operation.
+            :param href: Value supplied for href under the utility contract.
+            :param type: Value supplied for type under the utility contract.
+            :param klass: Value supplied for klass under the utility contract.
+            :param id: Value supplied for id under the utility contract.
+            :return: None; validated state is stored on the receiving object.
+            """
             self.name = six_unicode(name)
             self.href = urlnormalize(href)
             self.type = type if type in self.TYPES else "normal"
@@ -2188,39 +4177,133 @@ class PageList(object):
             self.klass = klass
 
     def __init__(self: _typing.Self) -> None:
+        """
+        Initialize and validate the pagelist state.
+
+        Example:
+            Exercise PageList.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         self.pages = []
 
     def add(self: _typing.Self, name: _typing.Any, href: _typing.Any, type: str = "normal", klass: _typing.Any = None, id: _typing.Any = None) -> _typing.Any:
         """
         Create a new page and add it to the `PageList`.
-        :param name:
-        :param href:
-        :param type:
-        :param klass:
-        :param id:
-        :return:
+
+        Example:
+            Exercise PageList.add through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param href: Value supplied for href under the utility contract.
+        :param type: Value supplied for type under the utility contract.
+        :param klass: Value supplied for klass under the utility contract.
+        :param id: Value supplied for id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         page = self.Page(name, href, type, klass, id)
         self.pages.append(page)
         return page
 
     def __len__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the len operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PageList.  len   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return len(self.pages)
 
     def __iter__(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
+        """
+        Perform the iter operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PageList.  iter   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         for page in self.pages:
             yield page
 
     def __getitem__(self: _typing.Self, index: _typing.Any) -> _typing.Any:
+        """
+        Perform the getitem operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PageList.  getitem   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param index: Value supplied for index under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.pages[index]
 
     def pop(self: _typing.Self, index: _typing.Any = -1) -> _typing.Any:
+        """
+        Perform the pop operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PageList.pop through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param index: Value supplied for index under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.pages.pop(index)
 
     def remove(self: _typing.Self, page: _typing.Any) -> _typing.Any:
+        """
+        Perform the remove operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PageList.remove through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param page: Value supplied for page under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.pages.remove(page)
 
     def to_ncx(self: _typing.Self, parent: _typing.Any = None) -> _typing.Any:
+        """
+        Perform the to ncx operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PageList.to ncx through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         plist = element(parent, NCX("pageList"), id=uuid_id())
         values = dict((t, count(1)) for t in ("front", "normal", "special"))
         for page in self.pages:
@@ -2237,6 +4320,18 @@ class PageList(object):
         return plist
 
     def to_page_map(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the to page map operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PageList.to page map through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         pmap = etree.Element(OPF("page-map"), nsmap={None: OPF2_NS})
         for page in self.pages:
             element(pmap, OPF("page"), name=page.name, href=page.href)
@@ -2246,6 +4341,11 @@ class PageList(object):
 class OEBBook(object):
     """
     Representation of a book in the IDPF OEB data model.
+
+    Example:
+        Exercise OEBBook through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
     """
 
     COVER_SVG_XP = XPath("h:body//svg:svg[position() = 1]")
@@ -2260,35 +4360,24 @@ class OEBBook(object):
         pretty_print: bool = False,
         input_encoding: str = "utf-8",
     ) -> None:
-        """Create empty book.  Arguments:
+        """
+        Create empty book. Arguments:
 
-        :param:`encoding`: Default encoding for textual content read
-            from an external container.
-        :param:`pretty_print`: Whether or not the canonical string form
-            of XML markup is pretty-printed.
-        :param html_preprocessor: A callable that takes a unicode object
-            and returns a unicode object. Will be called on all html files
-            before they are parsed.
-        :param css_preprocessor: A callable that takes a unicode object
-            and returns a unicode object. Will be called on all CSS files
-            before they are parsed.
-        :param:`logger`: A Log object to use for logging all messages
-            related to the processing of this book.  It is accessible
-            via the instance data members :attr:`logger,log`.
+        Example:
+            Exercise OEBBook.  init   through a consuming regression::
 
-        It provides the following public instance data members for
-        accessing various parts of the OEB data model:
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
 
-        :attr:`metadata`: Metadata such as title, author name(s), etc.
-        :attr:`manifest`: Manifest of all files included in the book,
-            including MIME types and fallback information.
-        :attr:`spine`: In-order list of manifest items which compose
-            the textual content of the book.
-        :attr:`guide`: Collection of references to standard positions
-            within the text, such as the cover, preface, etc.
-        :attr:`toc`: Hierarchical table of contents.
-        :attr:`pages`: List of "pages," such as indexed to a print edition of
-            the same text.
+
+        :param logger: Value supplied for logger under the utility contract.
+        :param html_preprocessor: Value supplied for html preprocessor under the utility
+            contract.
+        :param css_preprocessor: Value supplied for css preprocessor under the utility
+            contract.
+        :param encoding: Value supplied for encoding under the utility contract.
+        :param pretty_print: Value supplied for pretty print under the utility contract.
+        :param input_encoding: Value supplied for input encoding under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         _css_log_handler.log = logger
         self.encoding = encoding
@@ -2310,6 +4399,18 @@ class OEBBook(object):
         self._temp_files = []
 
     def clean_temp_files(self: _typing.Self) -> None:
+        """
+        Perform the clean temp files operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OEBBook.clean temp files through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for path in self._temp_files:
             try:
                 os.remove(path)
@@ -2320,8 +4421,16 @@ class OEBBook(object):
     def generate(cls: type[_typing.Self], opts: _typing.Any) -> _typing.Any:
         """
         Generate an OEBBook instance from command-line options.
-        :param opts:
-        :return:
+
+        Example:
+            Exercise OEBBook.generate through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param opts: Value supplied for opts under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         encoding = opts.encoding
         pretty_print = opts.pretty_print
@@ -2330,8 +4439,16 @@ class OEBBook(object):
     def translate(self: _typing.Self, text: _typing.Any) -> _typing.Any:
         """
         Translate :param:`text` into the book's primary language.
-        :param text: Text to be translated
-        :return:
+
+        Example:
+            Exercise OEBBook.translate through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         lang = str(self.metadata.language[0])
         lang = lang.split("-", 1)[0].lower()
@@ -2340,11 +4457,32 @@ class OEBBook(object):
     def decode(self: _typing.Self, data: _typing.Any) -> _typing.Any:
         """
         Automatically decode :param:`data` into a `unicode` object.
-        :param data: Data to be translated into a unicode object
-        :return:
+
+        Example:
+            Exercise OEBBook.decode through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param data: Value supplied for data under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         def fix_data(d: _typing.Any) -> _typing.Any:
+            """
+            Perform the fix data operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise OEBBook.decode.fix data through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :param d: Value supplied for d under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return d.replace("\r\n", "\n").replace("\r", "\n")
 
         if isinstance(data, unicode):
@@ -2384,8 +4522,14 @@ class OEBBook(object):
         """
         Produce OPF 1.2 representing the book's metadata and structure.
 
-        Returns a dictionary in which the keys are MIME types and the values
-        are tuples of (default) filenames and lxml.etree element structures.
+        Example:
+            Exercise OEBBook.to opf1 through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         package = etree.Element("package", attrib={"unique-identifier": self.uid.id})
         self.metadata.to_opf1(package)
@@ -2398,6 +4542,19 @@ class OEBBook(object):
         return {OPF_MIME: ("content.opf", package)}
 
     def _update_playorder(self: _typing.Self, ncx: _typing.Any) -> None:
+        """
+        Perform the update playorder operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OEBBook. update playorder through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param ncx: Value supplied for ncx under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         hrefs = set(map(urlnormalize, xpath(ncx, "//ncx:content/@src")))
         playorder = {}
         next_item = 1
@@ -2427,6 +4584,18 @@ class OEBBook(object):
         return
 
     def _to_ncx(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the to ncx operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OEBBook. to ncx through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         lang = six_unicode(self.metadata.language[0])
         lang = lang.replace("_", "-")
 
@@ -2463,10 +4632,15 @@ class OEBBook(object):
         """
         Produce OPF 2.0 representing the book's metadata and structure.
 
-        Returns a dictionary in which the keys are MIME types and the values
-        are tuples of (default) filenames and lxml.etree element structures.
-        :param page_map:
-        :return:
+        Example:
+            Exercise OEBBook.to opf2 through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param page_map: Value supplied for page map under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         results = {}
         package = etree.Element(

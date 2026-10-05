@@ -1,8 +1,14 @@
 
 """
-Cache entry for a one-to-many table.
+Model priority-ordered one-to-many relations.
 
-(One item in the primary table is linked to many in the secondary - without type or order info).
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise priority one to many table through a consuming regression::
+
+        python -m pytest -q tests/library/test_unified_library.py
 """
 
 from collections import defaultdict
@@ -36,7 +42,10 @@ class CalibrePriorityOneToManyTable(CalibreOneToManyTable[T]):
     """
     For the case where one, and only one, book is linked to many items and the items are linked to no other books.
 
-    Priority information is also provided - so there is an order in which the elements are linked to the book.
+    Example:
+        Exercise CalibrePriorityOneToManyTable through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
     table_type = ONE_MANY
     _table_type = ONE_MANY
@@ -54,11 +63,17 @@ class CalibrePriorityOneToManyTable(CalibreOneToManyTable[T]):
         """
         Preform startup for a PriorityOneToManyTable.
 
-        The table has the concept of priority as well
-        :param name:
-        :param metadata:
-        :param link_table:
-        :param custom:
+        Example:
+            Exercise CalibrePriorityOneToManyTable.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param metadata: Value supplied for metadata under the utility contract.
+        :param link_table: Value supplied for link table under the utility contract.
+        :param custom: Value supplied for custom under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         super(CalibrePriorityOneToManyTable, self).__init__(
             name=name, metadata=metadata, link_table=link_table, custom=custom
@@ -74,9 +89,14 @@ class CalibrePriorityOneToManyTable(CalibreOneToManyTable[T]):
         """
         Part of producing nested default dicts.
 
-        This is a priority table - so it has the concept of order - requiring data to be stored in a list.
-        However it does not have the concept of type, so it isn't necessary to nest that in a type dict.
-        :return:
+        Example:
+            Exercise CalibrePriorityOneToManyTable. book col map factory through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return defaultdict(list)
 
@@ -88,9 +108,16 @@ class CalibrePriorityOneToManyTable(CalibreOneToManyTable[T]):
         """
         Preform a read into the internal caches.
 
-        :param db:
-        :param type_filter: Either a string or None
-        :return None: All changes are made internally
+        Example:
+            Exercise CalibrePriorityOneToManyTable.read maps through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param db: Value supplied for db under the utility contract.
+        :param type_filter: Value supplied for type filter under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         assert type_filter is None, "type_filter is no longer in use"
 
@@ -127,13 +154,17 @@ class CalibrePriorityOneToManyTable(CalibreOneToManyTable[T]):
         """
         Check that an update is of a valid form before writing it out to the cache and the database.
 
-        Called when you know the ids you want to assign to the book after the update. Checks those ids are valid.
-        No changes will be made to the :param book_id_item_id_map: (e.g. if the map is valued with tuples - not lists
-        as expected - this will not be corrected.
-        Raised InvalidCacheUpdate if the cache update is invalid in some way.
-        :param book_id_item_id_map: Keyed with the ids of the books to update and valued with the
-        :param id_map_update:
-        :return None: An error is raised if the update does not meet spec
+        Example:
+            Exercise CalibrePriorityOneToManyTable.update precheck through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_item_id_map: Value supplied for book id item id map under the utility
+            contract.
+        :param id_map_update: Value supplied for id map update under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         for update_id, update_val in iteritems(id_map_update):
             assert isinstance(update_id, int), self._id_map_not_keyed_with_int(id_map_update)
@@ -165,9 +196,15 @@ class CalibrePriorityOneToManyTable(CalibreOneToManyTable[T]):
         """
         Error message.
 
-        One of the keys of the id map is not an int - and so cannot be an id in the item table.
-        :param id_map: The map which caused the check to fail
-        :return:
+        Example:
+            Exercise CalibrePriorityOneToManyTable. id map not keyed with int through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param id_map: Value supplied for id map under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         err_msg = [
             "id_map has bad form - one of the keys was not a int",
@@ -181,9 +218,15 @@ class CalibrePriorityOneToManyTable(CalibreOneToManyTable[T]):
         """
         Error message.
 
-        One of the values of the id map is not a string.
-        :param id_map: The map which caused the check to fail
-        :return:
+        Example:
+            Exercise CalibrePriorityOneToManyTable. id map not valued with str through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param id_map: Value supplied for id map under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         err_msg = [
             "id_map has bad form - one of the vals was not a string",
@@ -199,9 +242,17 @@ class CalibrePriorityOneToManyTable(CalibreOneToManyTable[T]):
         """
         Preform a cache update from a book_id_val_map.
 
-        :param book_id_val_map:
-        :param id_map:
-        :return None: All changes are made internally
+        Example:
+            Exercise CalibrePriorityOneToManyTable.update cache through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_val_map: Value supplied for book id val map under the utility
+            contract.
+        :param id_map: Value supplied for id map under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.val_unique:
             self.update_precheck(book_id_val_map, id_map)
@@ -216,11 +267,17 @@ class CalibrePriorityOneToManyTable(CalibreOneToManyTable[T]):
         """
         Update cache with some additional information provided in the return.
 
-        Used in write when it needs to know some info about the cache before writing out to the database.
+        Example:
+            Exercise CalibrePriorityOneToManyTable.internal update cache through a consuming regression::
 
-        :param book_id_item_id_map:
-        :param id_map_update: Dictionary used to directly update the id_map
-        :return:
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_item_id_map: Value supplied for book id item id map under the utility
+            contract.
+        :param id_map_update: Value supplied for id map update under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         self.id_map.update(id_map_update)
 
@@ -292,9 +349,18 @@ class CalibrePriorityOneToManyTable(CalibreOneToManyTable[T]):
         """
         Bring the update into a form where it can be more easily written out to the database.
 
-        :param book_id_item_id_map:
-        :param id_map_update:
-        :return:
+        Example:
+            Exercise CalibrePriorityOneToManyTable.update preflight through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_item_id_map: Value supplied for book id item id map under the utility
+            contract.
+        :param id_map_update: Value supplied for id map update under the utility contract.
+        :param dirtied: Value supplied for dirtied under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         id_map_update = dict() if id_map_update is None else id_map_update
         clean_book_id_item_id_map: dict[SrcTableID, Optional[list[DstTableID]]] = defaultdict(list)
@@ -338,14 +404,17 @@ class CalibrePriorityOneToManyTable(CalibreOneToManyTable[T]):
         """
         Check that an update is of a valid form before writing it out to the cache and the database.
 
-        Called when you know the ids you want to assign to the book after the update. Checks those ids are valid.
-        No changes will be made to the :param book_id_item_id_map: (e.g. if the map is valued with tuples - not lists
-        as expected - this will not be corrected.
-        Raised InvalidCacheUpdate if the cache update is invalid in some way.
+        Example:
+            Exercise CalibrePriorityOneToManyTable.update precheck unique through a consuming regression::
 
-        :param book_id_item_id_map: Keyed with the ids of the books to update and valued with the
-        :param id_map_update:
-        :return None: No return - will just error if a test fails
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_item_id_map: Value supplied for book id item id map under the utility
+            contract.
+        :param id_map_update: Value supplied for id map update under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         seen_ids = set()
         seen_strs = set()
@@ -395,9 +464,18 @@ class CalibrePriorityOneToManyTable(CalibreOneToManyTable[T]):
         """
         Bring the update into a form where it can be more easily written out to the database.
 
-        :param book_id_item_id_map:
-        :param id_map_update:
-        :return:
+        Example:
+            Exercise CalibrePriorityOneToManyTable.update preflight unique through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_item_id_map: Value supplied for book id item id map under the utility
+            contract.
+        :param id_map_update: Value supplied for id map update under the utility contract.
+        :param dirtied: Value supplied for dirtied under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         id_map_update = dict() if id_map_update is None else id_map_update
         clean_book_id_item_id_map = defaultdict(list)
@@ -449,10 +527,19 @@ class CalibrePriorityOneToManyTable(CalibreOneToManyTable[T]):
         """
         Write out an update to the database - which eventually uses the write methods.
 
-        :param book_id_to_val_map: By this point we should be dealing with a well formed book_id_to_val_map dict.
-        :param db: The database to write the changes out to
-        :param allow_case_change: In the case the data value is a string
-        :return status: Did the write out complete?
+        Example:
+            Exercise CalibrePriorityOneToManyTable.update db through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_to_val_map: Value supplied for book id to val map under the utility
+            contract.
+        :param db: Value supplied for db under the utility contract.
+        :param allow_case_change: Value supplied for allow case change under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         return super(CalibrePriorityOneToManyTable, self).update_db(

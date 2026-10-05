@@ -1,4 +1,11 @@
-"""Normalized field-update values used by cache write coordination."""
+"""
+Carry mutable field-value and relation replacement intentions for cache backends.
+
+These dataclasses preserve supplied dictionaries, sets and sequences
+without copying, validation or ID normalization. Field deletion means clearing
+values or detaching relationships, while owner-row lifecycle stays with
+table/database APIs. Consumers apply creation, uniqueness and refresh policy.
+"""
 
 from __future__ import annotations
 
@@ -15,14 +22,23 @@ T = TypeVar("T")
 @dataclasses.dataclass
 class ManyManyInTwoTableFieldUpdate(Generic[T]):
     """
-    Update for a many-to-many field stored across a link table and a dst table.
+    Describe plural source-keyed relation changes without deleting owners.
 
-    The mapping is keyed by the src table id and valued with the values to be
-    written into the dst table target column.
+    Table labels and target column describe the destination projection.
+    added_maps and updated_maps are keyed by source IDs and carry sequences
+    of optional destination values. deleted_ids requests clearing/unlinking
+    source mappings; dirtied carries refresh hints. unique defaults false but
+    is not enforced by construction. All supplied containers remain shared.
 
-    ``deleted_ids`` means "detach/clear this field from these src rows", not
-    "delete the src rows themselves". Implementations may mutate links and, if
-    explicitly supported, create or remove related dst rows.
+    link_replacements has an independent empty dict default for each instance.
+    Its per-source sequence describes desired destination links and metadata;
+    the consumer validates conflicts with value maps/deletions and controls
+    shared-destination reuse. Construction creates no rows or links.
+
+    Example:
+        >>> change = ManyManyInTwoTableFieldUpdate("books", "tags", "name", {}, {}, {1}, set())
+        >>> change.deleted_ids, change.unique
+        ({1}, False)
     """
 
     src_table: MainTableName
@@ -46,14 +62,23 @@ class ManyManyInTwoTableFieldUpdate(Generic[T]):
 @dataclasses.dataclass
 class ManyOneInTwoTableFieldUpdate(Generic[T]):
     """
-    Update for a many-to-one field stored across a link table and a dst table.
+    Describe scalar source-keyed relation changes without deleting owners.
 
-    The mapping is keyed by the src table id and valued with the value to be
-    written into the dst table target column.
+    Table labels and target column describe the destination projection.
+    added_maps and updated_maps are keyed by source IDs and carry optional
+    destination values. deleted_ids requests clearing/unlinking
+    source mappings; dirtied carries refresh hints. unique defaults false but
+    is not enforced by construction. All supplied containers remain shared.
 
-    ``deleted_ids`` means "detach/clear this field from these src rows", not
-    "delete the src rows themselves". Implementations may mutate links and, if
-    explicitly supported, create or remove related dst rows.
+    create_missing_links and create_missing_related_rows default false.
+    Related-row creation requires link creation under the intended policy,
+    but this dataclass does not validate that combination. A concrete updater
+    can reuse an existing shared destination or create one when permitted.
+
+    Example:
+        >>> change = ManyOneInTwoTableFieldUpdate("books", "tags", "name", {}, {}, {1}, set())
+        >>> change.deleted_ids, change.unique
+        ({1}, False)
     """
 
     src_table: MainTableName
@@ -82,14 +107,23 @@ class ManyOneInTwoTableFieldUpdate(Generic[T]):
 @dataclasses.dataclass
 class OneManyInTwoTableFieldUpdate(Generic[T]):
     """
-    Update for a one-to-many field stored across a link table and a dst table.
+    Describe plural source-keyed relation changes without deleting owners.
 
-    The mapping is keyed by the src table id and valued with the values to be
-    written into the dst table target column.
+    Table labels and target column describe the destination projection.
+    added_maps and updated_maps are keyed by source IDs and carry sequences
+    of optional destination values. deleted_ids requests clearing/unlinking
+    source mappings; dirtied carries refresh hints. unique defaults false but
+    is not enforced by construction. All supplied containers remain shared.
 
-    ``deleted_ids`` means "detach/clear this field from these src rows", not
-    "delete the src rows themselves". Implementations may mutate links and, if
-    explicitly supported, create or remove related dst rows.
+    link_replacements has an independent empty dict default for each instance.
+    Its per-source sequence describes desired destination links and metadata;
+    the consumer validates conflicts with value maps/deletions and controls
+    exclusive-destination ownership. Construction creates no rows or links.
+
+    Example:
+        >>> change = OneManyInTwoTableFieldUpdate("books", "tags", "name", {}, {}, {1}, set())
+        >>> change.deleted_ids, change.unique
+        ({1}, False)
     """
 
     src_table: MainTableName
@@ -114,11 +148,18 @@ class OneManyInTwoTableFieldUpdate(Generic[T]):
 @dataclasses.dataclass
 class OneOneInOneTableFieldUpdate(Generic[T]):
     """
-    Update for a one-to-one field stored in a single table.
+    Describe scalar value writes and clears for existing owner rows.
 
-    This update is field-oriented, not row-lifecycle-oriented:
-    ``deleted_ids`` means "clear/nullify this field for these ids", not
-    "delete the owning rows".
+    Required added_maps and updated_maps carry ID-to-optional-value mappings;
+    deleted_ids means clearing/nullifying the column rather than deleting rows.
+    dirtied carries owner refresh hints and unique defaults false. This mutable
+    dataclass retains the supplied containers without checking nullability, row
+    existence or uniqueness; concrete field updates enforce those constraints.
+
+    Example:
+        >>> change = OneOneInOneTableFieldUpdate({}, {}, {7}, set())
+        >>> change.deleted_ids
+        {7}
     """
 
     added_maps: dict[MainTableID, Optional[T]]

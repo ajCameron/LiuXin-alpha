@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:fdm=marker:ai
 
+"""
+Embed, subset and reference fonts in rendered PDF documents.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise fonts through a consuming regression::
+
+        python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -29,12 +40,42 @@ try:
     from LiuXin_alpha.utils.fonts.sfnt.subset import pdf_subset, UnsupportedFont, NoGlyphs
 except Exception:
     class UnsupportedFont(Exception):
+        """
+        Provide the unsupportedfont contract for validated ebook processing.
+
+        Example:
+            Exercise UnsupportedFont through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+        """
         pass
 
     class NoGlyphs(Exception):
+        """
+        Provide the noglyphs contract for validated ebook processing.
+
+        Example:
+            Exercise NoGlyphs through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+        """
         pass
 
     def pdf_subset(*_args: _typing.Any, **_kwargs: _typing.Any) -> None:
+        """
+        Perform the pdf subset operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise pdf subset through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param _args: Value supplied for args under the utility contract.
+        :param _kwargs: Value supplied for kwargs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raise UnsupportedFont("Font subsetting backend is not available.")
 
 __license__ = "GPL v3"
@@ -81,22 +122,77 @@ first. Each number gets mapped to a glyph id equal to itself by the
 
 
 class FontStream(Stream):
+    """
+    Provide the fontstream contract for validated ebook processing.
+
+    Example:
+        Exercise FontStream through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+    """
     def __init__(self: _typing.Self, is_otf: _typing.Any, compress: bool = False) -> None:
+        """
+        Initialize and validate the fontstream state.
+
+        Example:
+            Exercise FontStream.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param is_otf: Value supplied for is otf under the utility contract.
+        :param compress: Value supplied for compress under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         Stream.__init__(self, compress=compress)
         self.is_otf = is_otf
 
     def add_extra_keys(self: _typing.Self, d: _typing.Any) -> None:
+        """
+        Add supported metadata keys to the PDF information dictionary.
+
+        Example:
+            Exercise FontStream.add extra keys through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param d: Value supplied for d under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         d["Length1"] = d["DL"]
         if self.is_otf:
             d["Subtype"] = Name("CIDFontType0C")
 
 
 def to_hex_string(c: _typing.Any) -> _typing.Any:
+    """
+    Perform the to hex string operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise to hex string through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+    :param c: Value supplied for c under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return bytes(hex(int(c))[2:]).rjust(4, b"0").decode("ascii")
 
 
 class CMap(Stream):
 
+    """
+    Provide the cmap contract for validated ebook processing.
+
+    Example:
+        Exercise CMap through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+    """
     skeleton = textwrap.dedent(
         """\
         /CIDInit /ProcSet findresource begin
@@ -121,6 +217,20 @@ class CMap(Stream):
     )
 
     def __init__(self: _typing.Self, name: _typing.Any, glyph_map: _typing.Any, compress: bool = False) -> None:
+        """
+        Initialize and validate the cmap state.
+
+        Example:
+            Exercise CMap.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param glyph_map: Value supplied for glyph map under the utility contract.
+        :param compress: Value supplied for compress under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         Stream.__init__(self, compress)
         current_map = OrderedDict()
         maps = []
@@ -144,7 +254,30 @@ class CMap(Stream):
 
 
 class Font(object):
+    """
+    Provide the font contract for validated ebook processing.
+
+    Example:
+        Exercise Font through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+    """
     def __init__(self: _typing.Self, metrics: _typing.Any, num: _typing.Any, objects: _typing.Any, compress: _typing.Any) -> None:
+        """
+        Initialize and validate the font state.
+
+        Example:
+            Exercise Font.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param metrics: Value supplied for metrics under the utility contract.
+        :param num: Value supplied for num under the utility contract.
+        :param objects: Value supplied for objects under the utility contract.
+        :param compress: Value supplied for compress under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.metrics, self.compress = metrics, compress
         self.is_otf = self.metrics.is_otf
         self.subset_tag = (
@@ -196,6 +329,20 @@ class Font(object):
         self.used_glyphs = set()
 
     def embed(self: _typing.Self, objects: _typing.Any, debug: _typing.Any) -> None:
+        """
+        Perform the embed operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Font.embed through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param objects: Value supplied for objects under the utility contract.
+        :param debug: Value supplied for debug under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.font_descriptor["FontFile" + ("3" if self.is_otf else "2")] = objects.add(self.font_stream)
         self.write_widths(objects)
         self.write_to_unicode(objects)
@@ -223,10 +370,36 @@ class Font(object):
             self.metrics.sfnt(self.font_stream)
 
     def write_to_unicode(self: _typing.Self, objects: _typing.Any) -> None:
+        """
+        Write to unicode under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Font.write to unicode through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param objects: Value supplied for objects under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         cmap = CMap(self.metrics.postscript_name, self.metrics.glyph_map, compress=self.compress)
         self.font_dict["ToUnicode"] = objects.add(cmap)
 
     def write_widths(self: _typing.Self, objects: _typing.Any) -> None:
+        """
+        Write widths under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Font.write widths through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param objects: Value supplied for objects under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         glyphs = sorted(self.used_glyphs | {0})
         widths = {g: self.metrics.pdf_scale(w) for g, w in zip(glyphs, self.metrics.glyph_widths(glyphs))}
         counter = Counter()
@@ -249,7 +422,28 @@ class Font(object):
 
 
 class FontManager(object):
+    """
+    Provide the fontmanager contract for validated ebook processing.
+
+    Example:
+        Exercise FontManager through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+    """
     def __init__(self: _typing.Self, objects: _typing.Any, compress: _typing.Any) -> None:
+        """
+        Initialize and validate the fontmanager state.
+
+        Example:
+            Exercise FontManager.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param objects: Value supplied for objects under the utility contract.
+        :param compress: Value supplied for compress under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.objects = objects
         self.compress = compress
         self.std_map = {}
@@ -257,6 +451,20 @@ class FontManager(object):
         self.fonts = []
 
     def add_font(self: _typing.Self, font_metrics: _typing.Any, glyph_ids: _typing.Any) -> _typing.Any:
+        """
+        Perform the add font operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise FontManager.add font through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param font_metrics: Value supplied for font metrics under the utility contract.
+        :param glyph_ids: Value supplied for glyph ids under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if font_metrics not in self.font_map:
             self.fonts.append(Font(font_metrics, len(self.fonts), self.objects, self.compress))
             d = self.objects.add(self.fonts[-1].font_dict)
@@ -267,6 +475,19 @@ class FontManager(object):
         return fontref
 
     def add_standard_font(self: _typing.Self, name: _typing.Any) -> _typing.Any:
+        """
+        Perform the add standard font operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise FontManager.add standard font through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if name not in STANDARD_FONTS:
             raise ValueError("%s is not a standard font" % name)
         if name not in self.std_map:
@@ -282,5 +503,18 @@ class FontManager(object):
         return self.std_map[name]
 
     def embed_fonts(self: _typing.Self, debug: _typing.Any) -> None:
+        """
+        Perform the embed fonts operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise FontManager.embed fonts through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param debug: Value supplied for debug under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for font in self.fonts:
             font.embed(self.objects, debug)

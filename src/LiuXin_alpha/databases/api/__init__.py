@@ -1,6 +1,7 @@
-"""Public database API surface.
+"""
+Re-export database, row, driver, maintenance and macro contracts from one API surface.
 
-Import API contracts from this package root to avoid deep import paths.
+Imports here eagerly load the listed contract modules and expose their classes/type aliases through __all__. Concrete database instances are not constructed by these exports; implementations and callers can import shared interfaces from this package root.
 """
 
 from __future__ import annotations

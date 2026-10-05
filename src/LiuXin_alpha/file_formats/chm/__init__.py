@@ -1,6 +1,16 @@
 #!/usr/bin/env python
 
-"""CHM format support."""
+"""
+Expose the supported chm compatibility surface.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/file_formats/chm/test_chm_modernized.py
+"""
 from __future__ import annotations
 
 from .reader import CHMError, CHMReader

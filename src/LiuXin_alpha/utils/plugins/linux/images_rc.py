@@ -6,6 +6,17 @@
 #
 # WARNING! All changes made in this file will be lost!
 
+"""
+Provide images rc utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise images rc through a consuming regression::
+
+        python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+"""
 from PyQt5 import QtCore
 
 qt_resource_data = b"\
@@ -114564,10 +114575,34 @@ qt_resource_struct = b"\
 
 
 def qInitResources():
+    """
+    Perform the qInitResources utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise qInitResources through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     QtCore.qRegisterResourceData(0x01, qt_resource_struct, qt_resource_name, qt_resource_data)
 
 
 def qCleanupResources():
+    """
+    Perform the qCleanupResources utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise qCleanupResources through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     QtCore.qUnregisterResourceData(0x01, qt_resource_struct, qt_resource_name, qt_resource_data)
 
 

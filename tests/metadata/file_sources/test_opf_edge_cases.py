@@ -1,3 +1,14 @@
+"""
+Exercise OPF namespaces, identifiers, refinements, covers and malformed packages.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test opf edge cases through its owning regression module::
+
+        python -m pytest -q tests/metadata/file_sources/test_opf_edge_cases.py
+"""
 from __future__ import annotations
 
 import io
@@ -10,6 +21,18 @@ from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 
 
 def _values(raw):
+    """
+    Perform the values test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise values through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_edge_cases.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     if raw is None:
         return []
     if isinstance(raw, dict):
@@ -23,6 +46,19 @@ def _values(raw):
 
 
 def _first_mapping_value(raw, default=None):
+    """
+    Perform the first mapping value test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise first mapping value through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_edge_cases.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :param default: Value supplied for default in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     if isinstance(raw, dict):
         try:
             return next(iter(raw.values()))
@@ -32,39 +68,162 @@ def _first_mapping_value(raw, default=None):
 
 
 class _NamedBytes(io.BytesIO):
+    """
+    Provide the NamedBytes test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise NamedBytes through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_edge_cases.py
+    """
     def __init__(self, payload: bytes, name: str = "unicode fixture.opf"):
+        """
+        Initialize the NamedBytes test double.
+
+        Example:
+            Exercise NamedBytes.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_opf_edge_cases.py
+
+
+        :param payload: Value supplied for payload in the focused test operation.
+        :param name: Value supplied for name in the focused test operation.
+        :return: None; the function records state or raises through its assertions.
+        """
         super().__init__(payload)
         self.name = name
 
 
 class _TextStream(io.StringIO):
+    """
+    Provide the TextStream test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise TextStream through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_edge_cases.py
+    """
     def __init__(self, payload: str, name: str = "text-stream.opf"):
+        """
+        Initialize the TextStream test double.
+
+        Example:
+            Exercise TextStream.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_opf_edge_cases.py
+
+
+        :param payload: Value supplied for payload in the focused test operation.
+        :param name: Value supplied for name in the focused test operation.
+        :return: None; the function records state or raises through its assertions.
+        """
         super().__init__(payload)
         self.name = name
 
 
 class _TellSeekBroken:
+    """
+    Provide the TellSeekBroken test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise TellSeekBroken through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_edge_cases.py
+    """
     name = "broken-stream.opf"
 
     def __init__(self, payload):
+        """
+        Initialize the TellSeekBroken test double.
+
+        Example:
+            Exercise TellSeekBroken.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_opf_edge_cases.py
+
+
+        :param payload: Value supplied for payload in the focused test operation.
+        :return: None; the function records state or raises through its assertions.
+        """
         self._payload = payload
 
     def tell(self):
+        """
+        Perform the tell test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise TellSeekBroken.tell through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_opf_edge_cases.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         raise OSError("tell unavailable")
 
     def seek(self, _pos):
+        """
+        Perform the seek test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise TellSeekBroken.seek through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_opf_edge_cases.py
+
+
+        :param _pos: Value supplied for pos in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         raise OSError("seek unavailable")
 
     def read(self):
+        """
+        Perform the read test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise TellSeekBroken.read through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_opf_edge_cases.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return self._payload
 
 
 class _ExplodingIdentifiers:
+    """
+    Provide the ExplodingIdentifiers test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise ExplodingIdentifiers through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_edge_cases.py
+    """
     def get_identifiers(self):
+        """
+        Return identifiers from deterministic test state.
+
+        Example:
+            Exercise ExplodingIdentifiers.get identifiers through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_opf_edge_cases.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         raise RuntimeError("identifier backend unavailable")
 
 
 class _IdentifierCarrier:
+    """
+    Provide the IdentifierCarrier test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise IdentifierCarrier through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_edge_cases.py
+    """
     def __init__(
         self,
         *,
@@ -81,6 +240,29 @@ class _IdentifierCarrier:
         identifiers=None,
         set_raises=False,
     ):
+        """
+        Initialize the IdentifierCarrier test double.
+
+        Example:
+            Exercise IdentifierCarrier.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_opf_edge_cases.py
+
+
+        :param title: Value supplied for title in the focused test operation.
+        :param authors: Value supplied for authors in the focused test operation.
+        :param language: Value supplied for language in the focused test operation.
+        :param comments: Value supplied for comments in the focused test operation.
+        :param publisher: Value supplied for publisher in the focused test operation.
+        :param tags: Value supplied for tags in the focused test operation.
+        :param series: Value supplied for series in the focused test operation.
+        :param series_index: Value supplied for series index in the focused test operation.
+        :param title_sort: Value supplied for title sort in the focused test operation.
+        :param isbn: Value supplied for isbn in the focused test operation.
+        :param identifiers: Value supplied for identifiers in the focused test operation.
+        :param set_raises: Value supplied for set raises in the focused test operation.
+        :return: None; the function records state or raises through its assertions.
+        """
         self.title = title
         self.authors = authors
         self.language = language
@@ -95,41 +277,169 @@ class _IdentifierCarrier:
         self._set_raises = set_raises
 
     def get_identifiers(self):
+        """
+        Return identifiers from deterministic test state.
+
+        Example:
+            Exercise IdentifierCarrier.get identifiers through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_opf_edge_cases.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return self._identifiers
 
     def set_identifiers(self, identifiers):
+        """
+        Perform the set identifiers test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise IdentifierCarrier.set identifiers through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_opf_edge_cases.py
+
+
+        :param identifiers: Value supplied for identifiers in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         if self._set_raises:
             raise RuntimeError("cannot set identifiers")
         self._identifiers = identifiers
 
 
 class _BadIterable:
+    """
+    Provide the BadIterable test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise BadIterable through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_edge_cases.py
+    """
     def __iter__(self):
+        """
+        Perform the iter test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise BadIterable.iter through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_opf_edge_cases.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         raise RuntimeError("cannot iterate")
 
 
 class _RestoreSeekBroken(io.BytesIO):
+    """
+    Provide the RestoreSeekBroken test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise RestoreSeekBroken through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_edge_cases.py
+    """
     def seek(self, pos, whence=0):
+        """
+        Perform the seek test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise RestoreSeekBroken.seek through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_opf_edge_cases.py
+
+
+        :param pos: Value supplied for pos in the focused test operation.
+        :param whence: Value supplied for whence in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         if getattr(self, "_break_restore", False) and pos != 0:
             raise OSError("restore unavailable")
         return super().seek(pos, whence)
 
 
 class _SetIdentifierRaises:
+    """
+    Provide the SetIdentifierRaises test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise SetIdentifierRaises through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_edge_cases.py
+    """
     def __init__(self):
+        """
+        Initialize the SetIdentifierRaises test double.
+
+        Example:
+            Exercise SetIdentifierRaises.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_opf_edge_cases.py
+
+
+        :return: None; the function records state or raises through its assertions.
+        """
         self.title = "Raising Identifier Setter"
         self.authors = ["Identifier Author"]
         self.identifiers = {}
 
     def set_identifier(self, _typ, _val):
+        """
+        Perform the set identifier test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise SetIdentifierRaises.set identifier through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_opf_edge_cases.py
+
+
+        :param _typ: Value supplied for typ in the focused test operation.
+        :param _val: Value supplied for val in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         raise RuntimeError("single setter unavailable")
 
     def set_identifiers(self, identifiers):
+        """
+        Perform the set identifiers test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise SetIdentifierRaises.set identifiers through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_opf_edge_cases.py
+
+
+        :param identifiers: Value supplied for identifiers in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.identifiers = identifiers
 
 
 class _FakeLiuxinMetadata:
+    """
+    Provide the FakeLiuxinMetadata test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise FakeLiuxinMetadata through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_edge_cases.py
+    """
     def __init__(self, series=None, fail_isbn=False):
+        """
+        Initialize the FakeLiuxinMetadata test double.
+
+        Example:
+            Exercise FakeLiuxinMetadata.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_opf_edge_cases.py
+
+
+        :param series: Value supplied for series in the focused test operation.
+        :param fail_isbn: Value supplied for fail isbn in the focused test operation.
+        :return: None; the function records state or raises through its assertions.
+        """
         self.title = "Fake Title"
         self.authors = ["Fake Author"]
         self.language = None
@@ -144,21 +454,79 @@ class _FakeLiuxinMetadata:
         self._fail_isbn = fail_isbn
 
     def __setattr__(self, name, value):
+        """
+        Perform the setattr test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise FakeLiuxinMetadata.setattr through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_opf_edge_cases.py
+
+
+        :param name: Value supplied for name in the focused test operation.
+        :param value: Value stored, compared or projected by the operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         if name == "isbn" and getattr(self, "_fail_isbn", False):
             raise RuntimeError("isbn assignment unavailable")
         super().__setattr__(name, value)
 
     def finalize(self):
+        """
+        Perform the finalize test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise FakeLiuxinMetadata.finalize through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_opf_edge_cases.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return None
 
     def set_identifiers(self, identifiers):
+        """
+        Perform the set identifiers test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise FakeLiuxinMetadata.set identifiers through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_opf_edge_cases.py
+
+
+        :param identifiers: Value supplied for identifiers in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self._identifiers = identifiers
 
     def get_identifiers(self):
+        """
+        Return identifiers from deterministic test state.
+
+        Example:
+            Exercise FakeLiuxinMetadata.get identifiers through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_opf_edge_cases.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return self._identifiers
 
 
 def _package_with_unicode_edges() -> bytes:
+    """
+    Perform the package with unicode edges test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise package with unicode edges through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_edge_cases.py
+
+
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return """<?xml version='1.0' encoding='utf-8'?>
 <package xmlns="http://www.idpf.org/2007/opf"
          xmlns:dc="http://purl.org/dc/elements/1.1/"
@@ -200,6 +568,18 @@ Line two with ZWJ: 👩‍💻 and RTL: שלום</dc:description>
 
 
 def test_opf_helper_edges_for_names_normalization_and_stream_bytes(tmp_path: Path) -> None:
+    """
+    Verify opf helper edges for names normalization and stream bytes.
+
+    Example:
+        Exercise test opf helper edges for names normalization and stream bytes through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_edge_cases.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     assert opf._local_name(None) == ""
     assert opf._local_name("dc:title") == "title"
     assert opf._normalize(None) == ""
@@ -243,6 +623,17 @@ def test_opf_helper_edges_for_names_normalization_and_stream_bytes(tmp_path: Pat
 
 
 def test_opf_parse_root_and_metadata_node_selection_edges() -> None:
+    """
+    Verify opf parse root and metadata node selection edges.
+
+    Example:
+        Exercise test opf parse root and metadata node selection edges through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_edge_cases.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     with pytest.raises(opf.OpfParseError):
         opf._parse_root_from_payload(b"")
     with pytest.raises(opf.OpfParseError):
@@ -269,11 +660,36 @@ def test_opf_parse_root_and_metadata_node_selection_edges() -> None:
 
 
 def test_opf_extract_generic_metadata_unicode_identifiers_and_overrides(monkeypatch) -> None:
+    """
+    Verify opf extract generic metadata unicode identifiers and overrides.
+
+    Example:
+        Exercise test opf extract generic metadata unicode identifiers and overrides through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_edge_cases.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     root = etree.fromstring(_package_with_unicode_edges())
     calls: list[str] = []
     original = opf.canonicalize_id_name
 
     def raising_canonicalize(scheme):
+        """
+        Perform the raising canonicalize test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test opf extract generic metadata unicode identifiers and overrides.raising canonicalize through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_opf_edge_cases.py
+
+
+        :param scheme: Value supplied for scheme in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         calls.append(str(scheme))
         if str(scheme).lower() == "custom-id":
             raise RuntimeError("unknown identifier namespace")
@@ -314,6 +730,17 @@ def test_opf_extract_generic_metadata_unicode_identifiers_and_overrides(monkeypa
 
 
 def test_opf_safe_identifier_and_merge_edges() -> None:
+    """
+    Verify opf safe identifier and merge edges.
+
+    Example:
+        Exercise test opf safe identifier and merge edges through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_edge_cases.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     assert opf._iter_values(None) == []
     assert opf._iter_values("tag") == ["tag"]
     assert opf._iter_values(_BadIterable())[0].__class__ is _BadIterable
@@ -378,6 +805,19 @@ def test_opf_safe_identifier_and_merge_edges() -> None:
 
 
 def test_opf_to_liuxin_metadata_fallback_and_field_preservation(monkeypatch) -> None:
+    """
+    Verify opf to liuxin metadata fallback and field preservation.
+
+    Example:
+        Exercise test opf to liuxin metadata fallback and field preservation through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_edge_cases.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     calibre_like = _IdentifierCarrier(
         title="Fallback Convert Title",
         authors=["Åsa", "李白"],
@@ -393,9 +833,34 @@ def test_opf_to_liuxin_metadata_fallback_and_field_preservation(monkeypatch) -> 
     )
 
     def explode_from_calibre(*_args, **_kwargs):
+        """
+        Perform the explode from calibre test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test opf to liuxin metadata fallback and field preservation.explode from calibre through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_opf_edge_cases.py
+
+
+        :param _args: Value supplied for args in the focused test operation.
+        :param _kwargs: Value supplied for kwargs in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         raise RuntimeError("conversion failed")
 
     def explode_finalize(self):
+        """
+        Perform the explode finalize test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test opf to liuxin metadata fallback and field preservation.explode finalize through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_opf_edge_cases.py
+
+
+        :param self: Value supplied for self in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         raise RuntimeError("finalize failed")
 
     monkeypatch.setattr(opf.MetaData, "from_calibre", explode_from_calibre)
@@ -416,6 +881,19 @@ def test_opf_to_liuxin_metadata_fallback_and_field_preservation(monkeypatch) -> 
 
 
 def test_opf_to_liuxin_metadata_series_identifier_and_isbn_edges(monkeypatch) -> None:
+    """
+    Verify opf to liuxin metadata series identifier and isbn edges.
+
+    Example:
+        Exercise test opf to liuxin metadata series identifier and isbn edges through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_edge_cases.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     calibre_like = _IdentifierCarrier(
         title="Series Index Without Series",
         authors=["Author"],
@@ -437,7 +915,26 @@ def test_opf_to_liuxin_metadata_series_identifier_and_isbn_edges(monkeypatch) ->
     assert "isbn" not in fake_without_series.__dict__
 
     class _IdentifierRaises(_IdentifierCarrier):
+        """
+        Provide the IdentifierRaises test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test opf to liuxin metadata series identifier and isbn edges.IdentifierRaises through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_opf_edge_cases.py
+        """
         def get_identifiers(self):
+            """
+            Return identifiers from deterministic test state.
+
+            Example:
+                Exercise test opf to liuxin metadata series identifier and isbn edges.IdentifierRaises.get identifiers through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_opf_edge_cases.py
+
+
+            :return: The deterministic value, row, identity or collection described above.
+            """
             raise RuntimeError("identifier lookup failed")
 
     fake_identifier_receiver = _FakeLiuxinMetadata()
@@ -446,14 +943,54 @@ def test_opf_to_liuxin_metadata_series_identifier_and_isbn_edges(monkeypatch) ->
 
 
 def test_opf_get_metadata_fallbacks_log_and_return_safe_metadata(monkeypatch) -> None:
+    """
+    Verify opf get metadata fallbacks log and return safe metadata.
+
+    Example:
+        Exercise test opf get metadata fallbacks log and return safe metadata through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_edge_cases.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     events: list[tuple[str, str]] = []
 
     def record_log(message, err, level, *_details):
+        """
+        Perform the record log test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test opf get metadata fallbacks log and return safe metadata.record log through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_opf_edge_cases.py
+
+
+        :param message: Value supplied for message in the focused test operation.
+        :param err: Value supplied for err in the focused test operation.
+        :param level: Value supplied for level in the focused test operation.
+        :param _details: Value supplied for details in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         events.append((level, message))
 
     monkeypatch.setattr(opf.default_log, "log_exception", record_log)
 
     def explode_parser(_root):
+        """
+        Perform the explode parser test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test opf get metadata fallbacks log and return safe metadata.explode parser through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_opf_edge_cases.py
+
+
+        :param _root: Value supplied for root in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         raise RuntimeError("canonical parser failed")
 
     monkeypatch.setattr(opf, "_parse_using_opf_stack", explode_parser)

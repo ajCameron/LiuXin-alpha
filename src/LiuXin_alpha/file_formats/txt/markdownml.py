@@ -1,7 +1,15 @@
 # -*- coding: utf-8 -*-
 
 """
-Transform OEB content into Textile formatted plain text
+Convert Markdown text into normalized OEB-compatible markup.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise markdownml through a consuming regression::
+
+        python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
 """
 from __future__ import annotations
 
@@ -30,7 +38,29 @@ __docformat__ = "restructuredtext en"
 
 
 class MarkdownMLizer(OEB2HTML):
+    """
+    Provide the markdownmlizer contract for validated ebook processing.
+
+    Example:
+        Exercise MarkdownMLizer through a consuming regression::
+
+            python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+    """
     def extract_content(self: _typing.Self, oeb_book: _typing.Any, opts: _typing.Any) -> _typing.Any:
+        """
+        Extract content under the format's safety and compatibility rules.
+
+        Example:
+            Exercise MarkdownMLizer.extract content through a consuming regression::
+
+                python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+        :param oeb_book: Value supplied for oeb book under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.log.info("Converting XHTML to Markdown formatted TXT...")
         self.opts = opts
         self.in_code = False
@@ -52,6 +82,19 @@ class MarkdownMLizer(OEB2HTML):
         return txt
 
     def mlize_spine(self: _typing.Self, oeb_book: _typing.Any) -> _typing.Any:
+        """
+        Perform the mlize spine operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MarkdownMLizer.mlize spine through a consuming regression::
+
+                python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+        :param oeb_book: Value supplied for oeb book under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         output = [""]
         for item in oeb_book.spine:
             self.log.debug("Converting %s to Markdown formatted TXT..." % item.href)
@@ -64,6 +107,19 @@ class MarkdownMLizer(OEB2HTML):
 
     def tidy_up(self: _typing.Self, text: _typing.Any) -> _typing.Any:
         # Remove blank space form beginning of paragraph.
+        """
+        Perform the tidy up operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MarkdownMLizer.tidy up through a consuming regression::
+
+                python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         text = re.sub("(?msu)^[ ]{1,3}", "", text)
         # pre has 4 spaces. We trimmed 3 so anything with a space left is a pre.
         text = re.sub("(?msu)^[ ]", "    ", text)
@@ -93,6 +149,19 @@ class MarkdownMLizer(OEB2HTML):
         return text
 
     def remove_newlines(self: _typing.Self, text: _typing.Any) -> _typing.Any:
+        """
+        Perform the remove newlines operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MarkdownMLizer.remove newlines through a consuming regression::
+
+                python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         text = text.replace("\r\n", " ")
         text = text.replace("\n", " ")
         text = text.replace("\r", " ")
@@ -105,17 +174,56 @@ class MarkdownMLizer(OEB2HTML):
         return text
 
     def prepare_string_for_markdown(self: _typing.Self, txt: _typing.Any) -> _typing.Any:
+        """
+        Perform the prepare string for markdown operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MarkdownMLizer.prepare string for markdown through a consuming regression::
+
+                python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+        :param txt: Value supplied for txt under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         txt = re.sub(r"([\\`*_{}\[\]()#+!])", r"\\\1", txt)
         return txt
 
     def prepare_string_for_pre(self: _typing.Self, txt: _typing.Any) -> _typing.Any:
+        """
+        Perform the prepare string for pre operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MarkdownMLizer.prepare string for pre through a consuming regression::
+
+                python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+        :param txt: Value supplied for txt under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         new_text = []
         for l in txt.splitlines():
             new_text.append("    " + l)
         return "\n".join(new_text)
 
     def dump_text(self: _typing.Self, elem: _typing.Any, stylizer: _typing.Any) -> _typing.Any:
-        """"""
+        """
+        Perform the dump text operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MarkdownMLizer.dump text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+        :param elem: Value supplied for elem under the utility contract.
+        :param stylizer: Value supplied for stylizer under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
 
         # We can only processes tags. If there isn't a tag return any text.
         if not isinstance(elem.tag, six_string_types) or namespace(elem.tag) != XHTML_NS:

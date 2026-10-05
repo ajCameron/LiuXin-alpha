@@ -1,4 +1,11 @@
-"""Storage-cache plugin registry and builtin plugin exports."""
+"""
+Expose bundled storage backends and their shared registration helpers.
+
+The registry resolves canonical names and aliases for schema_backed,
+database_backed and numpy_vectorized. Public table/field exports are the
+canonical schema-backed implementations. Constructing a backend and loading
+its data remain separate operations.
+"""
 
 from __future__ import annotations
 

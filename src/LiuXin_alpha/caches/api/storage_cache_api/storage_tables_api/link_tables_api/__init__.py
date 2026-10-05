@@ -1,12 +1,13 @@
 
 """
-These represent a link between two tables and include methods to get info on both sides of it.
+Export directed link values and cardinality-specific table lookup contracts.
 
-Other names that where considered for these where "join tables".
-But that seemed a bit wordy and not as clear.
+Expose one-to-one, one-to-many, many-to-one and many-to-many APIs, plus
+the shared link base and Item/Calibre UUID lookup specialization. Physical
+link-row payloads and projected link values are separate return surfaces.
 """
 
-from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.link_tables_api.link_table_base import (
+from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.link_tables_api.link_table_base_api import (
     StorageCacheLinkTableBaseAPI,
 )
 from LiuXin_alpha.caches.api.storage_cache_api.storage_tables_api.link_tables_api.many_many_tables_api import (

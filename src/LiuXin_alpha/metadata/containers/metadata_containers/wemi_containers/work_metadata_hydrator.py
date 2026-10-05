@@ -1,5 +1,14 @@
 """
-Hydrator/factory for concrete :class:`WorkMetadata` objects.
+Hydrate editable work metadata from WEMI rows and mapping hints.
+
+A caller-owned read source supplies identities, descriptive links, identifiers and
+assets. Hydration performs reads only; optional collectors tolerate some schema and
+query failures.
+
+Example:
+    Exercise this contract with pytest::
+
+        python -m pytest -q tests/metadata/containers/test_work_metadata_hydrator.py
 """
 
 from __future__ import annotations
@@ -23,16 +32,37 @@ from LiuXin_alpha.utils.adaptors import _boolish_to_bool
 
 class WorkMetadataHydrator:
     """
-    Build :class:`WorkMetadata` instances from database rows or views.
+    Build work bundles from ids, works Rows or work-shaped mappings.
 
-    Supported entry points:
-    - work id
-    - live ``works`` row
-    - any mapping/row containing ``work_id`` plus optional descendant ids such
-      as ``expression_id``, ``manifestation_id``, and ``item_id``.
+    Explicit descendant hints augment traversal through expression, manifestation and
+    item rows. Duplicate keyed Row links retain the first link and its metadata; unkeyed
+    targets remain separate. Optional collectors suppress some failures, while direct
+    lookups can raise.
+
+    Example:
+        Exercise this contract with pytest::
+
+            python -m pytest -q tests/metadata/containers/test_work_metadata_hydrator.py
     """
 
     def __init__(self, database: Any) -> None:
+        """
+        Adapt the caller source and cache its table and column snapshots.
+
+        None raises ValueError. Table-list and column-map snapshot failures are
+        independently replaced with empty collections; source adaptation errors propagate.
+
+        Example:
+            >>> WorkMetadataHydrator(None)
+            Traceback (most recent call last):
+            ...
+            ValueError: WorkMetadataHydrator requires a database instance.
+
+
+        :param database: Caller-owned database or compatible metadata read source; must not
+            be None.
+        :return: None.
+        """
         if database is None:
             raise ValueError("WorkMetadataHydrator requires a database instance.")
         self.db = metadata_read_source_from(database)
@@ -46,12 +76,44 @@ class WorkMetadataHydrator:
             self._tables_and_columns = {}
 
     def from_work_id(self, work_id: int) -> WorkMetadata:
+        """
+        Resolve a works Row by integer id and hydrate its context.
+
+        Missing rows raise ValueError. Id conversion and read-source lookup errors
+        propagate.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_work_metadata_hydrator.py
+
+
+        :param work_id: Work row id converted with int before lookup.
+        :return: New concrete WorkMetadata bundle.
+        """
         work_row = self.db.get_row_from_id("works", int(work_id))
         if work_row is None:
             raise ValueError("No work found for id {}.".format(int(work_id)))
         return self._hydrate(work_row=work_row, source_row=work_row)
 
     def from_source_row(self, source_row: Mapping[str, Any] | Row) -> WorkMetadata:
+        """
+        Hydrate a direct works Row, a resolvable work id or a work-shaped mapping.
+
+        A direct works Row takes precedence. Otherwise the extracted id is looked up, then
+        recognized mappings provide a fallback if no row exists. Unresolvable inputs raise
+        ValueError; lookup failures propagate.
+
+        Example:
+            Exercise the owning hydrator regression with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py::test_level_hydrators_accept_mapping_only_identity_payloads
+
+
+        :param source_row: Row or mapping containing work identity fields and optional
+            descendant hints.
+        :return: New concrete WorkMetadata bundle.
+        """
         ids = self._extract_known_ids(source_row)
         work_row = None
         if isinstance(source_row, Row) and source_row.table == "works":
@@ -67,6 +129,20 @@ class WorkMetadataHydrator:
 
     @staticmethod
     def _mapping_from(value: Mapping[str, Any] | Row | Any) -> Mapping[str, Any]:
+        """
+        Expose Row data or return a Mapping unchanged; use an empty mapping for other inputs.
+
+        Example:
+            >>> source = {'manifestation_id': 2}
+            >>> WorkMetadataHydrator._mapping_from(source) is source
+            True
+            >>> WorkMetadataHydrator._mapping_from(object())
+            {}
+
+
+        :param value: Row, mapping or unsupported object to inspect.
+        :return: Live source mapping, or a new empty dictionary.
+        """
         if isinstance(value, Row):
             return value.row_dict
         if isinstance(value, Mapping):
@@ -74,12 +150,52 @@ class WorkMetadataHydrator:
         return {}
 
     def _has_table(self, table: str) -> bool:
+        """
+        Check either cached table-name or table-column snapshot for a table.
+
+        Example:
+            Exercise the owning hydrator regression with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py::test_hydrators_tolerate_schema_snapshot_failures
+
+
+        :param table: Exact schema table name to check.
+        :return: True when either snapshot contains the table name.
+        """
         return table in self._tables or table in self._tables_and_columns
 
     def _has_column(self, table: str, column: str) -> bool:
+        """
+        Check the cached column collection for a table without refreshing schema.
+
+        Example:
+            Exercise the owning hydrator regression with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py::test_work_hydrator_direct_fk_item_and_identifier_edge_paths
+
+
+        :param table: Exact schema table name.
+        :param column: Exact column name to find.
+        :return: True when the column occurs in the cached table columns.
+        """
         return column in set(self._tables_and_columns.get(table, []))
 
     def _looks_like_work_mapping(self, value: Mapping[str, Any] | Row | Any) -> bool:
+        """
+        Recognize a nonempty Row or mapping by work-related key presence.
+
+        Any of work_id, title_id, work_title or work_canonical_title qualifies, regardless
+        of its value.
+
+        Example:
+            Exercise the owning hydrator regression with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py::test_level_hydrators_accept_mapping_only_identity_payloads
+
+
+        :param value: Row, mapping or unsupported value to inspect.
+        :return: True for a recognized mapping, otherwise False.
+        """
         mapping = self._mapping_from(value)
         return bool(mapping) and bool(
             {"work_id", "title_id", "work_title", "work_canonical_title"} & set(mapping)
@@ -87,9 +203,39 @@ class WorkMetadataHydrator:
 
     @staticmethod
     def _extract_known_ids(source_row: Mapping[str, Any] | Row | Any) -> dict[str, Optional[int]]:
+        """
+        Read WEMI id hints using truthy aliases before integer conversion.
+
+        Work tries work_id then title_id; expression tries expression_id then
+        book_expression_id. Manifestation tries manifestation_id, item_manifestation_id then
+        book_manifestation_id. Item uses item_id alone. Invalid hints become None.
+
+        Example:
+            >>> ids = WorkMetadataHydrator._extract_known_ids({'title_id': '3', 'item_manifestation_id': '7', 'item_id': 'bad'})
+            >>> ids['work_id'], ids['manifestation_id'], ids['item_id']
+            (3, 7, None)
+
+
+        :param source_row: Row or mapping supplying graph hints; unsupported values have no
+            hints.
+        :return: Dictionary of all four id keys with integer or None values.
+        """
         mapping = WorkMetadataHydrator._mapping_from(source_row)
 
         def _as_int(value: Any) -> Optional[int]:
+            """
+            Convert a selected hint to int, suppressing conversion exceptions.
+
+            None and empty text mean missing. This helper is local to _extract_known_ids.
+
+            Example:
+                >>> WorkMetadataHydrator._extract_known_ids({'item_id': float('inf')})['item_id'] is None
+                True
+
+
+            :param value: Scalar hint selected by the outer helper.
+            :return: Integer id, or None for absent or invalid hints.
+            """
             if value in (None, ""):
                 return None
             try:
@@ -110,6 +256,28 @@ class WorkMetadataHydrator:
         work_row: Optional[Row],
         source_row: Mapping[str, Any] | Row,
     ) -> WorkMetadata:
+        """
+        Assemble work identity, descendant rows, descriptive links, assets and identifiers.
+
+        A resolved work Row supplies identity ahead of mapping fields. Otherwise a
+        recognized mapping supplies identity and a missing work_id can use the title_id
+        hint. Explicit descendant hints augment work/expression interlinks and
+        manifestation-to-item foreign keys. Sources contribute agents, genres, subjects,
+        series, tags, labels, languages, ratings, notes, comments, synopses, images and
+        folders; title relations are not collected here. Item files/images, identifiers and
+        resolved folders follow. Duplicate keyed Row links keep their first metadata. Direct
+        lookups and malformed ids can raise.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_work_metadata_hydrator.py
+
+
+        :param work_row: Resolved works Row, or None for mapping-only identity.
+        :param source_row: Original Row or mapping carrying identity and graph hints.
+        :return: New concrete WorkMetadata bundle.
+        """
         ids = self._extract_known_ids(source_row)
         source_map = self._mapping_from(source_row)
 
@@ -285,6 +453,20 @@ class WorkMetadataHydrator:
 
     @staticmethod
     def _row_key(row: Row | Any) -> tuple[str, int] | None:
+        """
+        Identify a concrete Row by table and integer row id.
+
+        Non-Rows and Rows missing either component return None. Invalid row-id conversion
+        propagates.
+
+        Example:
+            >>> WorkMetadataHydrator._row_key({'manifestation_id': 2}) is None
+            True
+
+
+        :param row: Candidate Row whose database identity should be extracted.
+        :return: Table/id tuple, or None for an unkeyed value.
+        """
         if not isinstance(row, Row):
             return None
         if row.table is None or row.row_id is None:
@@ -292,6 +474,20 @@ class WorkMetadataHydrator:
         return (str(row.table), int(row.row_id))
 
     def _dedupe_rows(self, rows: Iterable[Row]) -> list[Row]:
+        """
+        Retain the first keyed Row for each table/id pair in input order.
+
+        Unkeyed values are discarded and retained Rows remain shared.
+
+        Example:
+            Exercise the owning hydrator regression with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py::test_level_hydrator_row_helpers_cover_skip_and_duplicate_paths
+
+
+        :param rows: Iterable of candidate Rows.
+        :return: New ordered list of unique Row references.
+        """
         ordered: list[Row] = []
         seen: set[tuple[str, int]] = set()
         for row in rows:
@@ -308,6 +504,24 @@ class WorkMetadataHydrator:
         relation: str,
         links: Iterable[WorkRelationLink],
     ) -> None:
+        """
+        Append incoming links unless their keyed Row target already exists.
+
+        A duplicate Row key is skipped entirely, leaving the first link metadata unchanged.
+        Non-Row and unkeyed targets always append. The live bucket is mutated directly,
+        bypassing setter validation; incoming link objects remain shared.
+
+        Example:
+            Exercise the owning hydrator regression with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py::test_level_hydrator_row_helpers_cover_skip_and_duplicate_paths
+
+
+        :param container: Bundle whose live relation list is extended.
+        :param relation: Supported relation name or alias.
+        :param links: Iterable of links to append in order.
+        :return: None.
+        """
         existing = container.get_relation_links(relation)
         seen_rows = {
             self._row_key(link.target) for link in existing if isinstance(link.target, Row)
@@ -329,6 +543,26 @@ class WorkMetadataHydrator:
         type_hint: str,
         source_entity_type: str,
     ) -> None:
+        """
+        Add a typed Row link only when its table/id key is absent.
+
+        Unkeyed rows are ignored and existing links remain unchanged. A new WorkRelationLink
+        records the source level in extra and is added through the bundle's validated
+        helper. No lookup or primary assignment occurs.
+
+        Example:
+            Exercise the owning hydrator regression with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py::test_level_hydrator_row_helpers_cover_skip_and_duplicate_paths
+
+
+        :param container: Bundle receiving the new link.
+        :param relation: Supported relation name or alias.
+        :param row: Row target with a usable table/id key.
+        :param type_hint: Type for a newly created link.
+        :param source_entity_type: Source level stored in the extra mapping.
+        :return: None.
+        """
         key = self._row_key(row)
         if key is None:
             return
@@ -351,6 +585,26 @@ class WorkMetadataHydrator:
         secondary_table: str,
         source_entity_type: str,
     ) -> list[WorkRelationLink]:
+        """
+        Resolve interlink targets and copy link metadata into work relation links.
+
+        Missing source rows, absent tables and query/iterator errors return an empty list.
+        Schema naming failures are tolerated; unresolved target ids are skipped. Known
+        metadata fields are copied and other prefixed fields become extra entries. Primary
+        uses bool-like conversion. Invalid link mappings or later driver column lookups can
+        still raise.
+
+        Example:
+            Exercise the owning hydrator regression with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py::test_work_hydrator_collect_interlink_edge_paths
+
+
+        :param source_row: Source Row, or None for no links.
+        :param secondary_table: Related target table to resolve through interlinks.
+        :param source_entity_type: Source level recorded in each extra mapping.
+        :return: New resolved links in interlink query order, without deduplication.
+        """
         if source_row is None:
             return []
         if not self._has_table(secondary_table):
@@ -437,6 +691,23 @@ class WorkMetadataHydrator:
         return out
 
     def _collect_item_rows_from_manifestation(self, manifestation_row: Row) -> list[Row]:
+        """
+        Find item rows whose item_manifestation_id matches a manifestation Row id.
+
+        Missing schema or row ids return an empty list. Integer conversion, search and
+        iterator failures are suppressed; successful results retain their order without
+        filtering or deduplication.
+
+        Example:
+            Exercise the owning hydrator regression with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py::test_work_hydrator_direct_fk_item_and_identifier_edge_paths
+
+
+        :param manifestation_row: Manifestation Row whose id selects child items.
+        :return: Materialized query results, or an empty list on unsupported or failed
+            lookup.
+        """
         if not self._has_table("items") or not self._has_column("items", "item_manifestation_id"):
             return []
         manifestation_id = manifestation_row.row_id
@@ -461,6 +732,25 @@ class WorkMetadataHydrator:
         fk_value: int,
         type_hint: str,
     ) -> list[WorkRelationLink]:
+        """
+        Wrap non-None rows matching a direct foreign key in work relation links.
+
+        Missing table/column snapshots, integer conversion errors and query/iterator
+        failures yield an empty list. Search order is preserved; no target type check,
+        deduplication or primary assignment occurs.
+
+        Example:
+            Exercise the owning hydrator regression with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py::test_work_hydrator_direct_fk_item_and_identifier_edge_paths
+
+
+        :param table: Table to search.
+        :param fk_column: Foreign-key column to match.
+        :param fk_value: Foreign-key value converted with int inside the guarded query.
+        :param type_hint: Type assigned to each result link.
+        :return: New links with the requested type and table name as source_entity_type.
+        """
         if not self._has_table(table) or not self._has_column(table, fk_column):
             return []
         try:
@@ -485,6 +775,26 @@ class WorkMetadataHydrator:
         manifestation_rows: list[Row],
         item_rows: list[Row],
     ) -> list[WorkRelationLink]:
+        """
+        Collect item-specific identifiers followed by typed WEMI identifiers.
+
+        Typed query order is work, expression, manifestation then item. Results are filtered
+        by entity type and carry primary/provenance fields. Each query is materialized
+        within its guard, so iteration failure discards that query. Invalid outer ids and
+        malformed result mappings can raise; duplicates remain for the caller to handle.
+
+        Example:
+            Exercise the owning hydrator regression with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py::test_work_hydrator_direct_fk_item_and_identifier_edge_paths
+
+
+        :param work_rows: Work Rows supplying typed entity ids.
+        :param expression_rows: Expression Rows supplying typed entity ids.
+        :param manifestation_rows: Manifestation Rows supplying typed entity ids.
+        :param item_rows: Item Rows supplying item-specific and typed ids.
+        :return: New identifier links in query order.
+        """
         links: list[WorkRelationLink] = []
         if self._has_table("item_identifiers") and self._has_column(
             "item_identifiers",
@@ -565,6 +875,25 @@ class WorkMetadataHydrator:
         *,
         work_rows: list[Row],
     ) -> None:
+        """
+        Resolve folder Rows from linked files/images and work interlinks.
+
+        Only Row asset targets contribute file_folder_id or image_folder_id hints. Folder
+        lookup requires the cached table; id conversion and direct lookup errors propagate.
+        Candidate Rows are deduplicated before missing links are added; existing folder
+        metadata remains unchanged.
+
+        Example:
+            Exercise the owning hydrator regression with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py::test_work_hydrator_item_identifier_and_folder_resolution_paths
+
+
+        :param container: Bundle whose asset links supply hints and folders bucket receives
+            links.
+        :param work_rows: Work Rows queried for folder interlinks.
+        :return: None.
+        """
         folder_rows: list[Row] = []
 
         for relation in ("files", "images"):

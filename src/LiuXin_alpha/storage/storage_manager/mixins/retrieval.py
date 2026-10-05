@@ -1,5 +1,9 @@
 """
-Replica selection and Digital Asset retrieval workflows.
+Implement Replica ranking, Asset/Item resolution, and optional cache-copy selection.
+
+Recorded state and current stat size guide selection without fresh hashing or byte
+reads. Materialization delegates new CACHE publication to Replica lifecycle methods;
+resolution values retain routing context without owning a reader or a storage lock.
 """
 
 from __future__ import annotations
@@ -13,12 +17,16 @@ from LiuXin_alpha.storage.storage_manager.mixins._state import _StorageManagerSt
 
 class DigitalAssetRetrievalMixin(_StorageManagerState):
     """
-    Select readable Replicas and expose Asset bytes to callers.
+    Select recorded copies using Store preference, state, and current stat size, and expose their
+    routing context.
 
-    Selection uses stable preference and observation rules, then delegates the
-    actual read to the owning Store with version preconditions where available.
-    Retrieval does not create content identities or silently repair unhealthy
-    Replica metadata.
+    Selection and resolution do not open readers, recalculate digests, or update observations.
+    Materialization can delegate creation of a CACHE Replica, with publication and later
+    verification governed by the separate replication workflow. No local-filesystem requirement is
+    imposed here.
+
+    Example:
+        >>> selection = manager.resolve_digital_asset(asset_id)  # doctest: +SKIP
     """
 
     @override
@@ -31,14 +39,29 @@ class DigitalAssetRetrievalMixin(_StorageManagerState):
         require_verified: bool = False,
     ) -> api.ReplicaRecord:
         """
-        Choose a currently readable Replica using stable preference rules.
+        Find the first eligible size-matching claim after ranking Store preference, recorded state,
+        and Replica ID.
+
+        The Asset is resolved first and candidate claims are captured for the requested mode. A
+        preferred Store ranks ahead of state quality; otherwise VERIFIED, PRESENT, and UNVERIFIED
+        rank in that order, then integer Replica ID breaks ties. The shared iterator compares mode
+        by identity rather than coercing strings.
+
+        Candidates outside those three states are skipped. require_verified additionally demands the
+        VERIFIED enum singleton. Stat StorageError failures and size mismatches skip a candidate
+        without changing its observation; other errors propagate. No digest comparison, fresh
+        verification, open-read attempt, or version precondition is performed. Exhausting candidates
+        raises NoReadableReplica, including when storage errors prevented selection.
+
+        Example:
+            >>> replica = manager.select_replica(asset_id, preferred_store_ref=store_uuid, require_verified=False)  # doctest: +SKIP
 
 
-        :param digital_asset_id:
-        :param preferred_store_ref:
-        :param mode:
-        :param require_verified:
-        :return:
+        :param digital_asset_id: Registered atomic Asset identity to select.
+        :param preferred_store_ref: Optional Store UUID preferred over alternatives, without requiring an exact destination.
+        :param mode: Operational Replica mode to select, defaulting to ACTIVE.
+        :param require_verified: Whether a recorded VERIFIED state is required; selection does not itself recalculate digests.
+        :return: First ranked candidate with acceptable recorded state and matching current stat size.
         """
 
         asset_record = self.get_digital_asset_record(digital_asset_id)
@@ -88,14 +111,22 @@ class DigitalAssetRetrievalMixin(_StorageManagerState):
         require_verified: bool = False,
     ) -> api.DigitalAssetResolution:
         """
-        Pair a Digital Asset record with the selected readable Replica.
+        Read the Asset record, select a Replica with the forwarded controls, and construct their
+        resolution value.
+
+        The default selector reads the Asset again. These reads are not one atomic snapshot; the
+        resolution constructor checks only Asset-ID agreement. Selection errors propagate without
+        byte reads or observation updates.
+
+        Example:
+            >>> selection = manager.resolve_digital_asset(asset_id, mode=ReplicaMode.ARCHIVE)  # doctest: +SKIP
 
 
-        :param digital_asset_id:
-        :param preferred_store_ref:
-        :param mode:
-        :param require_verified:
-        :return:
+        :param digital_asset_id: Registered atomic Asset identity to select.
+        :param preferred_store_ref: Optional Store UUID preferred over alternatives, without requiring an exact destination.
+        :param mode: Operational Replica mode to select, defaulting to ACTIVE.
+        :param require_verified: Whether a recorded VERIFIED state is required; selection does not itself recalculate digests.
+        :return: New resolution retaining the first Asset record and the selected Replica record.
         """
 
         return api.DigitalAssetResolution(
@@ -111,11 +142,18 @@ class DigitalAssetRetrievalMixin(_StorageManagerState):
     @override
     def locate_replica(self, replica_id: api.ReplicaID) -> api.Location:
         """
-        Return the exact Location claimed by one Replica record.
+        Return the Location from an exact Replica-record lookup without checking state, Store
+        availability, or current bytes.
+
+        Deleted or unhealthy claims still expose their retained Location. Unknown IDs raise
+        ReplicaNotFound through get_replica_record.
+
+        Example:
+            >>> location = manager.locate_replica(replica_id)  # doctest: +SKIP
 
 
-        :param replica_id:
-        :return:
+        :param replica_id: Registered Replica identity to project directly, without selection.
+        :return: The exact Location retained by the resolved Replica record.
         """
 
         return self.get_replica_record(replica_id).location
@@ -132,19 +170,31 @@ class DigitalAssetRetrievalMixin(_StorageManagerState):
         verify: bool = True,
     ) -> api.DigitalAssetResolution:
         """
-        Return an existing readable copy or create one in the cache Store.
+        Reuse a readable claim in the requested cache Store or select a source and optionally
+        replicate it there.
 
-        Exact Replica selection permits materializing container members and
-        unmanaged source bytes without pretending they are ACTIVE Replicas.
+        When a cache UUID is supplied, first resolve CACHE-mode claims preferring that Store and
+        requiring recorded verification according to verify. Only NoReadableReplica is suppressed,
+        and reuse requires the returned Location to match the requested Store exactly. A hit returns
+        before validating source IDs or iterating source_modes.
+
+        Otherwise select a source. Without a cache, verify requires recorded VERIFIED state and the
+        source is returned without copying or hashing; it can be remote. With a cache, source
+        selection does not require verified state, then replicate_digital_asset publishes a CACHE
+        claim with the requested verification setting. That workflow can return an unhealthy record
+        or raise after publication, and this method adds no rollback or final health check.
+
+        Example:
+            >>> selection = manager.materialize_digital_asset(asset_id, cache_store_ref=cache_uuid, verify=True)  # doctest: +SKIP
 
 
-        :param digital_asset_id:
-        :param preferred_store_ref:
-        :param source_replica_id:
-        :param source_modes:
-        :param cache_store_ref:
-        :param verify:
-        :return:
+        :param digital_asset_id: Registered atomic Asset identity to make available through a selected copy.
+        :param preferred_store_ref: Optional preference when searching source modes; an exact source ID takes precedence.
+        :param source_replica_id: Exact source claim, or None to search the requested source modes.
+        :param source_modes: Ordered source modes or enum-value strings, defaulting to ACTIVE only.
+        :param cache_store_ref: Exact cache destination UUID, or None to return an eligible source without copying.
+        :param verify: Whether a reused/no-copy selection must be recorded VERIFIED and a new cache copy is inspected after publication.
+        :return: Resolution for an exact-cache hit, selected no-copy source, or resulting CACHE Replica.
         """
 
         if cache_store_ref is not None:
@@ -195,15 +245,29 @@ class DigitalAssetRetrievalMixin(_StorageManagerState):
         require_verified: bool,
     ) -> api.ReplicaRecord:
         """
-        Select one readable source using exact identity or ordered modes.
+        Select an exact eligible Replica or search fully normalized source modes in caller order.
+
+        An explicit ID is resolved first and must belong to the Asset, satisfy any VERIFIED-state
+        requirement, and have a VERIFIED/PRESENT/UNVERIFIED state. Its stat StorageError becomes a
+        chained NoReadableReplica; Asset lookup follows stat and the byte count must match. This
+        branch ignores Store preference and does not consume or validate source_modes.
+
+        Without an explicit ID, every source mode is materialized and converted to ReplicaMode
+        before any selection. Empty input rejects; invalid later values also reject before an
+        earlier valid mode is tried. Duplicate modes are removed in encounter order. Each mode
+        delegates to select_replica, suppressing only NoReadableReplica before trying the next. No
+        fresh digest verification occurs in either branch.
+
+        Example:
+            >>> source = manager._select_materialization_source(asset_id, preferred_store_ref=None, source_replica_id=None, source_modes=(ReplicaMode.ARCHIVE,), require_verified=False)  # doctest: +SKIP
 
 
-        :param digital_asset_id:
-        :param preferred_store_ref:
-        :param source_replica_id:
-        :param source_modes:
-        :param require_verified:
-        :return:
+        :param digital_asset_id: Expected owning Asset identity.
+        :param preferred_store_ref: Store preference forwarded only during mode-based selection.
+        :param source_replica_id: Exact claim to validate, or None to search source modes.
+        :param source_modes: Ordered modes or enum-value strings, consumed eagerly only without an exact source ID.
+        :param require_verified: Whether the selected record must carry the VERIFIED enum singleton.
+        :return: Eligible source record; exhausted modes or ineligible explicit state/stat evidence raise NoReadableReplica.
         """
 
         if source_replica_id is not None:
@@ -269,14 +333,28 @@ class DigitalAssetRetrievalMixin(_StorageManagerState):
         require_verified: bool = False,
     ) -> api.ItemDigitalAssetResolution:
         """
-        Resolve one implementation-managed Item role link.
+        Read an exact Item-role target under the lock, then resolve its Asset or Composite outside
+        that lock.
+
+        A missing target raises StorageManagementError without ID/role normalization. The
+        digital_asset kind resolves an atomic target; every other stored kind follows the Composite
+        branch. Both use the default ACTIVE selection mode and forward Store preference and
+        recorded-verification requirements.
+
+        Composite record lookup and member resolution occur separately, so later construction can
+        reject inconsistent membership after concurrent changes. ItemDigitalAssetResolution
+        validates the resulting target/relationship shape; this method adds no persistent read
+        transaction, byte assembly, or exception suppression.
+
+        Example:
+            >>> selection = manager.resolve_item_digital_asset(item_id, role="primary_payload", require_verified=True)  # doctest: +SKIP
 
 
-        :param item_id:
-        :param role:
-        :param preferred_store_ref:
-        :param require_verified:
-        :return:
+        :param item_id: Item identity whose stored role association is resolved.
+        :param role: Exact role key, defaulting to primary_payload; no stripping or case normalization is implied.
+        :param preferred_store_ref: Optional Store UUID preferred over alternatives, without requiring an exact destination.
+        :param require_verified: Whether a recorded VERIFIED state is required; selection does not itself recalculate digests.
+        :return: New Item-role resolution after all target/member lookups and result validation succeed.
         """
 
         with self._lock:

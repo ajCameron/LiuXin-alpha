@@ -1,4 +1,11 @@
-"""Core runtime, envelopes, events, and proxy entrypoints."""
+"""
+Expose the public Core runtime, direct/RPC clients, envelopes, event records, and transport helpers.
+
+Use ``create_core`` to compose a runtime and ``core_client`` to select direct or
+remote access through the shared client contract. Imports make those entry points
+available; they do not create a library/runtime or start an HTTP daemon. Legacy
+target-specific proxy names remain exported for compatibility.
+"""
 
 from __future__ import annotations
 

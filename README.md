@@ -2,6 +2,10 @@
 
 Public, development fork of LiuXin. Alpha. DO NOT USE IN PROD.
 
+Start with the [developer documentation index](dev-docs/README.md) for
+architecture, subsystem guides, testing, and CI ownership. Dated implementation
+handoffs live in the [working-memory index](working-memory/index.md).
+
 ## Local Setup
 
 LiuXin-alpha expects Python 3.12 or newer.
@@ -12,7 +16,22 @@ Create the repo-local virtual environment and install the common development ext
 bash scripts/create_venv.sh
 ```
 
-That creates `.venv/` in the repository root and installs the package in editable mode with the `test` and `search` extras.
+That creates `.venv/` in the repository root and installs the package in
+editable mode with the `test`, `search`, and `conversion` extras.
+
+The normal wheel is separately checked as an installed artifact, including
+catalogue creation and reopen rather than only imports:
+
+```bash
+python -m pip wheel --no-deps --wheel-dir dist .
+python scripts/verify_wheel_install.py dist/liuxin_alpha-0.0.0-py3-none-any.whl
+```
+
+The wheel owns its database schema and complete Calibre compatibility-resource
+bundle. Installed HTML-to-EPUB conversion is part of the packaging gate. An
+operator can overlay bundle files with `LIUXIN_CALIBRE_RESOURCES_DIR`; existing
+resource layouts below `LIUXIN_BASE_DIR` remain compatible. See
+`dev-docs/packaging.md` for the exact resolution and dependency boundaries.
 
 Activate it with:
 

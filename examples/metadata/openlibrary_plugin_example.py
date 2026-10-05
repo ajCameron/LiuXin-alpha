@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 """
-Example: use the OpenLibrary plugin to fetch book cover metadata.
+Request a cover from OpenLibrary by ISBN and report its image metadata.
 
-OpenLibrary is currently a cover-only source in LiuXin_alpha. This script shows
-how to:
-1) initialize the plugin,
-2) request cover bytes by ISBN,
-3) inspect the returned image metadata (format/width/height),
-4) optionally save the cover to disk.
+Bootstrap checkout imports, prefer the normal image-save helper with a fallback
+implementation, and retain raw-byte saving if neither import succeeds. Normalize
+ISBN when possible, request the best cover, and inspect the first queue item.
+Optional output paths are used as supplied; cover_found records queue receipt
+rather than a separate image-validity assertion.
 """
 
 from __future__ import annotations
@@ -22,6 +21,18 @@ from threading import Event
 
 
 def _bootstrap_src_path() -> None:
+    """
+    Make the checkout's src directory importable when it exists. Resolve this script's repository
+    ancestor and insert its exact src string at the front of sys.path only when absent. Do not move
+    an existing entry, create directories, reload imports, or return the repository path. This
+    helper also runs during module import.
+
+    Example:
+        >>> _bootstrap_src_path()
+
+
+    :return: None after the optional sys.path insertion.
+    """
     repo_root = Path(__file__).resolve().parents[2]
     src = repo_root / "src"
     if src.is_dir():
@@ -47,6 +58,21 @@ except Exception:
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
+    """
+    Parse explicit cover-query arguments with a required --isbn option. Optional title/authors are
+    hints; timeout is an integer defaulting to 20 seconds, with optional cover destination and
+    verbosity. ISBN validity and timeout range are not validated by this parser, and destination
+    expansion is not performed.
+
+    Example:
+        >>> args = parse_args(["--isbn", "9780131103627"])
+        >>> args.isbn, args.timeout
+        ('9780131103627', 20)
+
+
+    :param argv: Command-line tokens excluding the program name.
+    :return: Parsed argparse namespace; help, missing options, and invalid syntax raise SystemExit.
+    """
     parser = argparse.ArgumentParser(description="Fetch a cover via the OpenLibrary plugin")
     parser.add_argument("--isbn", required=True, help="ISBN to query")
     parser.add_argument("--title", default=None, help="Optional title hint")
@@ -58,6 +84,21 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 
 
 def save_cover(cover_bytes: bytes, destination: Path) -> None:
+    """
+    Create destination parents and save using the selected image helper or raw bytes. If a
+    save_cover_data_to implementation imported successfully, delegate to it with the destination
+    string; it may process the image rather than preserve identical source bytes. Otherwise call
+    destination.write_bytes. Do not expand/resolve the destination or provide an atomic-write
+    wrapper. Parent directories and partial effects can remain after failure.
+
+    Example:
+        >>> save_cover(cover_bytes, Path("cover.jpg"))  # doctest: +SKIP
+
+
+    :param cover_bytes: Downloaded cover payload passed to the image helper or raw-byte fallback.
+    :param destination: Target Path, used without tilde expansion or resolution.
+    :return: None after the chosen save operation completes; conversion and filesystem errors propagate.
+    """
     destination.parent.mkdir(parents=True, exist_ok=True)
     if save_cover_data_to is not None:
         save_cover_data_to(cover_bytes, str(destination))
@@ -66,6 +107,26 @@ def save_cover(cover_bytes: bytes, destination: Path) -> None:
 
 
 def main(argv: list[str]) -> int:
+    """
+    Fetch the first available OpenLibrary cover and print its URLs/image metadata. Parse explicit
+    arguments and use check_isbn's normalized value when truthy, otherwise forward the original ISBN
+    even when invalid. Parse authors and request get_best_cover=True using a new abort Event, result
+    queue, and captured log. Build book/cached-cover URLs from the plugin, then try one nonblocking
+    queue read without waiting for further items.
+
+    For a received item, run identify_image and record its returned format/dimensions and payload
+    length. Set cover_found based on receipt, without separately asserting valid dimensions or
+    nonempty bytes. Save to a supplied Path through save_cover when requested. Optional logs go to
+    stderr; JSON goes to stdout. No source/plugin or image errors are caught by this function beyond
+    the empty-queue outcome.
+
+    Example:
+        >>> exit_code = main(["--isbn", "9780131103627"])  # doctest: +SKIP
+
+
+    :param argv: Command-line tokens excluding the program name, passed to parse_args.
+    :return: Zero when a cover queue item was received, otherwise one; parsing and uncaught plugin/image/I/O errors propagate.
+    """
     args = parse_args(argv)
 
     normalized_isbn = check_isbn(args.isbn) or args.isbn

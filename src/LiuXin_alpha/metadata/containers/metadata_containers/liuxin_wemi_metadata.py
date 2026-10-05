@@ -1,4 +1,15 @@
-"""Item-centered LiuXin metadata slice with an attached WEMI stack."""
+"""
+Combine legacy LiuXin metadata with an item-centered WEMI bundle stack.
+
+The four bundles retain identities, relation links and provenance alongside the
+inherited flat fields. Views and diagnostic strings expose this state without
+replacing it with a single flattened representation.
+
+Example:
+    >>> metadata = LiuXinWEMIMetadata("Example")
+    >>> tuple(metadata.wemi_stack)
+    ('work', 'expression', 'manifestation', 'item')
+"""
 
 from __future__ import annotations
 
@@ -83,12 +94,18 @@ WemiRelationKey: TypeAlias = (
 
 class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
     """
-    Complete metadata slice for one item.
+    Represent one item slice with legacy fields and four separate WEMI bundles.
 
-    Legacy LiuXin/Calibre fields stay on the inherited ``_data`` surface. The
-    WEMI stack is composed as four metadata bundles so callers can still reach
-    identities, relation links, link ids, and provenance without flattening the
-    model for sidecar storage.
+    Bundle and identity properties expose live objects. Sidecar mappings preserve the
+    structured stack; Calibre conversion creates a flat compatibility copy and loses
+    relation provenance.
+
+    Example:
+        >>> metadata = LiuXinWEMIMetadata("Example")
+        >>> metadata.liuxin is metadata
+        True
+        >>> metadata.display_title
+        'Example'
     """
 
     SIDECAR_SCHEMA_NAME: ClassVar[str] = "liuxin_wemi_item_metadata"
@@ -194,6 +211,29 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         manifestation_metadata: ManifestationMetadata | None = None,
         item_metadata: ItemMetadata | None = None,
     ) -> None:
+        """
+        Create empty bundles, initialize legacy metadata, then install explicit bundle objects.
+
+        The inherited constructor merges other before applying explicit title/authors.
+        Non-None bundle arguments are retained by reference and override bundles populated
+        by that merge.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> metadata.work is None
+            True
+
+
+        :param title: Optional legacy title assigned after merging other metadata.
+        :param authors: Optional creator text or sequence assigned after merging other
+            metadata.
+        :param other: Optional compatible source metadata merged during initialization.
+        :param work_metadata: Optional work bundle retained by reference.
+        :param expression_metadata: Optional expression bundle retained by reference.
+        :param manifestation_metadata: Optional manifestation bundle retained by reference.
+        :param item_metadata: Optional item bundle retained by reference.
+        :return: None.
+        """
         object.__setattr__(self, "_work_metadata", WorkMetadata())
         object.__setattr__(self, "_expression_metadata", ExpressionMetadata())
         object.__setattr__(self, "_manifestation_metadata", ManifestationMetadata())
@@ -215,6 +255,24 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
             object.__setattr__(self, "_item_metadata", item_metadata)
 
     def __setattr__(self, key: str, value: Any) -> None:
+        """
+        Route bundle and identity assignments before the legacy metadata setter.
+
+        Names are stripped and lowercased for WEMI routing. values and text reject
+        assignment with AttributeError; assigning None to a bundle creates a fresh empty
+        bundle. Other fields use the inherited setter.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> metadata.work_metadata = None
+            >>> metadata.work is None
+            True
+
+
+        :param key: Attribute name used for WEMI routing or legacy field assignment.
+        :param value: Bundle, identity or legacy field value to store.
+        :return: None.
+        """
         normalized_key = key.lower().strip()
         if normalized_key in {"values", "text"}:
             raise AttributeError(f"{normalized_key!r} is a read-only projection view.")
@@ -237,6 +295,22 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
 
     @classmethod
     def _coerce_metadata_bundle(cls, attribute: str, value: Any) -> WemiMetadataBundle:
+        """
+        Return a supplied bundle value, or create the empty bundle for an attribute name.
+
+        Non-None values pass through without runtime type validation. An unknown attribute
+        raises KeyError only when an empty replacement is requested.
+
+        Example:
+            >>> isinstance(LiuXinWEMIMetadata._coerce_metadata_bundle('work_metadata', None), WorkMetadata)
+            True
+
+
+        :param attribute: Canonical work_metadata, expression_metadata,
+            manifestation_metadata or item_metadata name.
+        :param value: Bundle value to retain, or None to create an empty bundle.
+        :return: Supplied value or a new empty metadata bundle.
+        """
         if value is not None:
             return value
 
@@ -252,6 +326,19 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
 
     @classmethod
     def normalize_wemi_level(cls, level: str) -> WemiLevel:
+        """
+        Normalize a WEMI level name, accepting the w/e/m/i abbreviations.
+
+        Input is converted to a stripped lowercase string. Unknown levels raise KeyError.
+
+        Example:
+            >>> LiuXinWEMIMetadata.normalize_wemi_level(' W ')
+            'work'
+
+
+        :param level: Level name or single-letter abbreviation to normalize.
+        :return: Canonical work, expression, manifestation or item level.
+        """
         normalized = str(level).strip().lower()
         normalized = cls._LEVEL_ALIASES.get(normalized, normalized)
         if normalized not in cls._LEVELS:
@@ -265,18 +352,68 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
 
     @property
     def liuxin(self) -> "LiuXinWEMIMetadata":
+        """
+        Expose this object through its legacy LiuXin interface.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> metadata.liuxin is metadata
+            True
+
+
+        :return: This same metadata object.
+        """
         return self
 
     @property
     def calibre(self) -> Any:
+        """
+        Create a Calibre-compatible copy with supported WEMI projections.
+
+        The flat conversion preserves this container's legacy field storage and cannot
+        retain all relation metadata.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> metadata.calibre.title
+            'Example'
+
+
+        :return: New Calibre metadata object.
+        """
         return self.to_calibre()
 
     @property
     def work_metadata(self) -> WorkMetadata:
+        """
+        Read the live work metadata bundle.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> isinstance(metadata.work_metadata, WorkMetadata)
+            True
+
+
+        :return: Stored bundle object, without copying.
+        """
         return object.__getattribute__(self, "_work_metadata")
 
     @work_metadata.setter
     def work_metadata(self, value: WorkMetadata | None) -> None:
+        """
+        Replace the work bundle, creating an empty bundle for None.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> previous = metadata.work_metadata
+            >>> metadata.work_metadata = None
+            >>> metadata.work_metadata is previous
+            False
+
+
+        :param value: Work bundle retained by reference, or None for a fresh empty bundle.
+        :return: None.
+        """
         object.__setattr__(
             self,
             "_work_metadata",
@@ -285,10 +422,36 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
 
     @property
     def expression_metadata(self) -> ExpressionMetadata:
+        """
+        Read the live expression metadata bundle.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> isinstance(metadata.expression_metadata, ExpressionMetadata)
+            True
+
+
+        :return: Stored bundle object, without copying.
+        """
         return object.__getattribute__(self, "_expression_metadata")
 
     @expression_metadata.setter
     def expression_metadata(self, value: ExpressionMetadata | None) -> None:
+        """
+        Replace the expression bundle, creating an empty bundle for None.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> previous = metadata.expression_metadata
+            >>> metadata.expression_metadata = None
+            >>> metadata.expression_metadata is previous
+            False
+
+
+        :param value: Expression bundle retained by reference, or None for a fresh empty
+            bundle.
+        :return: None.
+        """
         object.__setattr__(
             self,
             "_expression_metadata",
@@ -297,10 +460,36 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
 
     @property
     def manifestation_metadata(self) -> ManifestationMetadata:
+        """
+        Read the live manifestation metadata bundle.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> isinstance(metadata.manifestation_metadata, ManifestationMetadata)
+            True
+
+
+        :return: Stored bundle object, without copying.
+        """
         return object.__getattribute__(self, "_manifestation_metadata")
 
     @manifestation_metadata.setter
     def manifestation_metadata(self, value: ManifestationMetadata | None) -> None:
+        """
+        Replace the manifestation bundle, creating an empty bundle for None.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> previous = metadata.manifestation_metadata
+            >>> metadata.manifestation_metadata = None
+            >>> metadata.manifestation_metadata is previous
+            False
+
+
+        :param value: Manifestation bundle retained by reference, or None for a fresh empty
+            bundle.
+        :return: None.
+        """
         object.__setattr__(
             self,
             "_manifestation_metadata",
@@ -309,10 +498,35 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
 
     @property
     def item_metadata(self) -> ItemMetadata:
+        """
+        Read the live item metadata bundle.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> isinstance(metadata.item_metadata, ItemMetadata)
+            True
+
+
+        :return: Stored bundle object, without copying.
+        """
         return object.__getattribute__(self, "_item_metadata")
 
     @item_metadata.setter
     def item_metadata(self, value: ItemMetadata | None) -> None:
+        """
+        Replace the item bundle, creating an empty bundle for None.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> previous = metadata.item_metadata
+            >>> metadata.item_metadata = None
+            >>> metadata.item_metadata is previous
+            False
+
+
+        :param value: Item bundle retained by reference, or None for a fresh empty bundle.
+        :return: None.
+        """
         object.__setattr__(
             self,
             "_item_metadata",
@@ -321,38 +535,153 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
 
     @property
     def work(self) -> WorkIdentityAPI | None:
+        """
+        Read the identity attached to the work bundle.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> metadata.work is None
+            True
+
+
+        :return: Current identity object, or None.
+        """
         return self.work_metadata.work
 
     @work.setter
     def work(self, value: WorkIdentityAPI | None) -> None:
+        """
+        Replace only the identity on the existing work bundle.
+
+        Relation buckets on that bundle remain intact.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> metadata.work = None
+            >>> metadata.work is None
+            True
+
+
+        :param value: Work identity retained by the bundle, or None to clear it.
+        :return: None.
+        """
         self.work_metadata.work = value
 
     @property
     def expression(self) -> ExpressionIdentityAPI | None:
+        """
+        Read the identity attached to the expression bundle.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> metadata.expression is None
+            True
+
+
+        :return: Current identity object, or None.
+        """
         return self.expression_metadata.expression
 
     @expression.setter
     def expression(self, value: ExpressionIdentityAPI | None) -> None:
+        """
+        Replace only the identity on the existing expression bundle.
+
+        Relation buckets on that bundle remain intact.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> metadata.expression = None
+            >>> metadata.expression is None
+            True
+
+
+        :param value: Expression identity retained by the bundle, or None to clear it.
+        :return: None.
+        """
         self.expression_metadata.expression = value
 
     @property
     def manifestation(self) -> ManifestationIdentityAPI | None:
+        """
+        Read the identity attached to the manifestation bundle.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> metadata.manifestation is None
+            True
+
+
+        :return: Current identity object, or None.
+        """
         return self.manifestation_metadata.manifestation
 
     @manifestation.setter
     def manifestation(self, value: ManifestationIdentityAPI | None) -> None:
+        """
+        Replace only the identity on the existing manifestation bundle.
+
+        Relation buckets on that bundle remain intact.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> metadata.manifestation = None
+            >>> metadata.manifestation is None
+            True
+
+
+        :param value: Manifestation identity retained by the bundle, or None to clear it.
+        :return: None.
+        """
         self.manifestation_metadata.manifestation = value
 
     @property
     def item(self) -> ItemIdentityAPI | None:
+        """
+        Read the identity attached to the item bundle.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> metadata.item is None
+            True
+
+
+        :return: Current identity object, or None.
+        """
         return self.item_metadata.item
 
     @item.setter
     def item(self, value: ItemIdentityAPI | None) -> None:
+        """
+        Replace only the identity on the existing item bundle.
+
+        Relation buckets on that bundle remain intact.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> metadata.item = None
+            >>> metadata.item is None
+            True
+
+
+        :param value: Item identity retained by the bundle, or None to clear it.
+        :return: None.
+        """
         self.item_metadata.item = value
 
     @property
     def wemi_stack(self) -> dict[WemiLevel, WemiMetadataBundle]:
+        """
+        Collect the four live bundles in WEMI order.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> metadata.wemi_stack["work"] is metadata.work_metadata
+            True
+
+
+        :return: New level-keyed dictionary referring to the existing bundles.
+        """
         return {
             "work": self.work_metadata,
             "expression": self.expression_metadata,
@@ -362,6 +691,18 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
 
     @property
     def wemi_identities(self) -> dict[WemiLevel, WemiIdentity | None]:
+        """
+        Collect current identities in WEMI order.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> metadata.wemi_identities["item"] is None
+            True
+
+
+        :return: New level-keyed dictionary referring to identities, with None for absent
+            levels.
+        """
         return {
             "work": self.work,
             "expression": self.expression,
@@ -371,6 +712,19 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
 
     @property
     def database_ids(self) -> dict[str, int | None]:
+        """
+        Read identity ids and legacy parent-id hints without resolving the graph.
+
+        These source-row hints may differ from the preferred links in relation buckets.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> len(metadata.database_ids), metadata.database_ids["work_id"]
+            (7, None)
+
+
+        :return: New dictionary of seven id fields, using None for missing values.
+        """
         work = self.work
         expression = self.expression
         manifestation = self.manifestation
@@ -395,6 +749,17 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
 
     @property
     def relation_link_ids(self) -> dict[WemiLevel, dict[str, tuple[RelationLinkID, ...]]]:
+        """
+        Collect non-None persisted link ids for every bundle relation bucket.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> tuple(metadata.relation_link_ids)
+            ('work', 'expression', 'manifestation', 'item')
+
+
+        :return: New nested level/relation dictionaries containing tuples of link ids.
+        """
         return {
             level: {
                 relation_key: tuple(
@@ -409,17 +774,69 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
 
     @property
     def values(self) -> LiuXinWEMIValuesView:
+        """
+        Create a read-only structured projection view backed by this metadata slice.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> metadata.values.primary_title
+            'Example'
+
+
+        :return: New values view referring to this object.
+        """
         return LiuXinWEMIValuesView(self)
 
     @property
     def text(self) -> LiuXinWEMITextView:
+        """
+        Create a display-text view backed by a new structured values view.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> isinstance(metadata.text, LiuXinWEMITextView)
+            True
+
+
+        :return: New text projection view.
+        """
         return LiuXinWEMITextView(self.values)
 
     def load(self, *fields: str) -> "LiuXinWEMIMetadata":
+        """
+        Return this eager slice without performing hydration work.
+
+        Field names are accepted for compatibility with lazy slices and are otherwise
+        ignored.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> metadata.load("tags") is metadata
+            True
+
+
+        :param fields: Optional projection field names accepted for eager/lazy interface
+            compatibility.
+        :return: This metadata object.
+        """
         return self
 
     @property
     def titles(self) -> tuple[str, ...]:
+        """
+        Collect unique nonblank title candidates in legacy/work/expression/item order.
+
+        Candidates are stringified and trimmed. Deduplication is case-sensitive and
+        preserves the first occurrence.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> metadata.titles
+            ('Example',)
+
+
+        :return: Ordered tuple of title strings.
+        """
         seen: set[str] = set()
         titles: list[str] = []
         for value in self._iter_title_candidates():
@@ -434,6 +851,17 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
 
     @property
     def canonical_title(self) -> str | None:
+        """
+        Prefer work_canonical_title, then work_title, then the legacy title.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> metadata.canonical_title
+            'Example'
+
+
+        :return: First truthy, nonblank candidate after stripping, or None.
+        """
         work = self.work
         for value in (
             getattr(work, "work_canonical_title", None),
@@ -446,11 +874,33 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
 
     @property
     def display_title(self) -> str | None:
+        """
+        Choose the first title candidate, falling back to the canonical title.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> metadata.display_title
+            'Example'
+
+
+        :return: Display title string, or None.
+        """
         titles = self.titles
         return titles[0] if titles else self.canonical_title
 
     @property
     def sort_title(self) -> str | None:
+        """
+        Prefer work_sort_title, then legacy title_sort, then the display title.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> metadata.sort_title
+            'Example'
+
+
+        :return: First truthy, nonblank candidate after stripping, or None.
+        """
         work = self.work
         for value in (
             getattr(work, "work_sort_title", None),
@@ -468,7 +918,25 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         include_relations: bool = True,
         include_legacy: bool = True,
     ) -> str:
-        """Return a compact human-readable view of this metadata slice."""
+        """
+        Render titles, database ids, WEMI identities and optional relation/legacy summaries.
+
+        Missing identities are labeled empty and skip relation summaries for that level.
+        include_empty controls mapping filtering; blank top-level titles are still omitted.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> metadata.pretty_string().startswith("LiuXin WEMI Metadata")
+            True
+
+
+        :param include_empty: Include empty mapping entries in the diagnostic summary when
+            True.
+        :param include_relations: Include relation counts in the diagnostic summary when
+            True.
+        :param include_legacy: Include the legacy LiuXin field mapping when True.
+        :return: Multiline diagnostic text without trailing whitespace.
+        """
         lines = ["LiuXin WEMI Metadata"]
         self._append_pretty_value(lines, "Title", self.display_title)
         self._append_pretty_value(lines, "Canonical title", self.canonical_title)
@@ -517,7 +985,22 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         include_relations: bool = True,
         include_legacy: bool = True,
     ) -> str:
-        """Alias for callers that prefer ``to_*`` serialization names."""
+        """
+        Render the diagnostic summary using the same options as pretty_string.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> metadata.to_pretty_string() == metadata.pretty_string()
+            True
+
+
+        :param include_empty: Include empty mapping entries in the diagnostic summary when
+            True.
+        :param include_relations: Include relation counts in the diagnostic summary when
+            True.
+        :param include_legacy: Include the legacy LiuXin field mapping when True.
+        :return: Multiline diagnostic description.
+        """
         return self.pretty_string(
             include_empty=include_empty,
             include_relations=include_relations,
@@ -525,12 +1008,45 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         )
 
     def __unicode__(self) -> str:
+        """
+        Render the default human-readable WEMI metadata description.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> metadata.__unicode__() == metadata.pretty_string()
+            True
+
+
+        :return: Multiline diagnostic description.
+        """
         return self.pretty_string()
 
     def __str__(self) -> str:
+        """
+        Render the Unicode diagnostic description for normal string conversion.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> str(metadata) == metadata.pretty_string()
+            True
+
+
+        :return: Multiline diagnostic description.
+        """
         return self.__unicode__()
 
     def __repr__(self) -> str:
+        """
+        Summarize the display title, item id and work id for debugging.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> repr(metadata)
+            "LiuXinWEMIMetadata(title='Example', item_id=None, work_id=None)"
+
+
+        :return: Compact LiuXinWEMIMetadata representation.
+        """
         return (
             "LiuXinWEMIMetadata(title={!r}, item_id={!r}, work_id={!r})".format(
                 self.display_title,
@@ -540,6 +1056,20 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         )
 
     def _iter_title_candidates(self) -> Iterable[str | None]:
+        """
+        Yield legacy, work, expression and item title candidates in preference order.
+
+        Values are not stripped or deduplicated here; absent identity attributes produce
+        None.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> next(iter(metadata._iter_title_candidates()))
+            'Example'
+
+
+        :return: Iterator yielding the seven raw candidates.
+        """
         legacy_title = self.get("title", None)
         work = self.work
         expression = self.expression
@@ -554,25 +1084,68 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         yield getattr(item, "item_source_name", None)
 
     def as_liuxin_metadata(self) -> "LiuXinWEMIMetadata":
+        """
+        Expose this slice through its inherited LiuXin interface.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> metadata.as_liuxin_metadata() is metadata
+            True
+
+
+        :return: This same metadata object.
+        """
         return self
 
     def as_calibre_metadata(self) -> Any:
+        """
+        Convert this slice through the WEMI-aware Calibre conversion path.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> metadata.as_calibre_metadata().title
+            'Example'
+
+
+        :return: New flat Calibre metadata object.
+        """
         return self.to_calibre()
 
     def to_calibre(self) -> Any:
         """
-        Return a Calibre-shaped metadata object with supported WEMI values projected.
+        Project supported WEMI values into a copied legacy container and convert it to Calibre.
 
-        OPF/Calibre metadata is a flat format, so this conversion intentionally
-        loses relation link ids and provenance. It still includes supported
-        relation target values from the WEMI stack without mutating this
-        container's legacy field state.
+        The source legacy fields stay unchanged. Flat Calibre output loses relation-link ids
+        and provenance; conversion or copy failures propagate.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> metadata.to_calibre().title, metadata.title
+            ('Example', 'Example')
+
+
+        :return: New Calibre-shaped metadata object.
         """
         metadata = self.deepcopy_metadata()
         metadata._sync_projection_fields_for_calibre_conversion()
         return CalibreLikeLiuXinBookMetaData.to_calibre(metadata)
 
     def _sync_projection_fields_for_calibre_conversion(self) -> None:
+        """
+        Populate this container's legacy fields from structured WEMI projections.
+
+        Fill an empty title, replace term mappings, update languages only when nonempty, and
+        add supported identifiers. This mutates its receiver and is normally called on a
+        conversion copy.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_liuxin_wemi_metadata.py
+
+
+        :return: None.
+        """
         data = object.__getattribute__(self, "_data")
         values = self.values
 
@@ -595,6 +1168,23 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
                 self.set_identifier(scheme, identifier)
 
     def _replace_conversion_terms(self, field: str, values: Iterable[str]) -> None:
+        """
+        Replace a legacy term field with ordered string keys and None row ids.
+
+        Whitespace-only strings are omitted, but retained strings keep their original
+        surrounding whitespace. Repeated keys collapse.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> metadata._replace_conversion_terms("tags", ["one", "one", " "])
+            >>> list(metadata.direct_get("tags").items())
+            [('one', None)]
+
+
+        :param field: Exact legacy storage key to replace; this helper performs no alias normalization.
+        :param values: Iterable of values to stringify as legacy term keys.
+        :return: None.
+        """
         object.__getattribute__(self, "_data")[field] = OrderedDict(
             (str(value), None)
             for value in values
@@ -611,6 +1201,30 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         source_row: Mapping[str, Any] | Row | None = None,
         replace_metadata: bool = False,
     ) -> "LiuXinWEMIMetadata":
+        """
+        Import OPF fields and optionally merge them into a database-hydrated WEMI slice.
+
+        The OPF helper can infer an item id. Its result is returned when already of the
+        requested class; otherwise it is merged into a new cls instance.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_liuxin_wemi_metadata.py
+
+
+        :param source: OPF source accepted by the OPF reader, such as bytes, a path or a
+            readable stream.
+        :param database: Optional caller-owned database/read source used when an item id or
+            source row is available.
+        :param item_id: Optional item row id; overrides an item id extracted from
+            source_row.
+        :param source_row: Database Row or source mapping supplying identity fields and
+            row-id hints.
+        :param replace_metadata: Replace supported existing metadata when True; otherwise
+            use the family merge rules.
+        :return: Imported WEMI metadata object.
+        """
         from LiuXin_alpha.metadata.opf_tools import liuxin_wemi_metadata_from_opf
 
         metadata = liuxin_wemi_metadata_from_opf(
@@ -635,6 +1249,32 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         replace: bool = False,
         mark_dirty: bool = True,
     ) -> Any:
+        """
+        Delegate supported relation-backed changes to a new WEMI writer.
+
+        The returned report can contain both changes and errors; this facade adds no
+        transaction or rollback boundary. Core identity fields and storage rows are outside
+        the writer's scope.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_liuxin_wemi_metadata.py
+
+
+        :param database: Caller-owned writable database passed to the writer.
+        :param fields: Optional supported field names; None uses the writer defaults.
+        :param target_level: Preferred WEMI level, default work; unresolved targets may fall
+            back to another level.
+        :param item_id: Optional fallback item id used when direct target and bundle resolution do not select a Row.
+        :param target_row: Optional explicit database Row or mapping with the preferred
+            level id.
+        :param replace: Treat selected values as authoritative, unlinking stale terms and
+            deleting stale entity identifiers when True.
+        :param mark_dirty: Request best-effort dirty marking after reported changes when
+            True.
+        :return: Write report containing changes, skipped operations and errors.
+        """
         from LiuXin_alpha.metadata.containers.metadata_containers.liuxin_wemi_metadata_writer import (
             LiuXinWEMIMetadataWriter,
         )
@@ -650,6 +1290,20 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         )
 
     def get_wemi_metadata(self, level: str) -> WemiMetadataBundle:
+        """
+        Normalize the WEMI level and read its stored bundle.
+
+        Full level names and w/e/m/i aliases are accepted; unknown levels raise KeyError.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> metadata.get_wemi_metadata("w") is metadata.work_metadata
+            True
+
+
+        :param level: WEMI level identifying the bundle to access.
+        :return: Live metadata bundle.
+        """
         normalized_level = self.normalize_wemi_level(level)
         return object.__getattribute__(
             self,
@@ -657,11 +1311,42 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         )
 
     def get_wemi_identity(self, level: str) -> WemiIdentity | None:
+        """
+        Read the identity from the normalized WEMI level's bundle.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> metadata.get_wemi_identity("item") is None
+            True
+
+
+        :param level: WEMI level identifying the bundle to access.
+        :return: Live identity object, or None when the bundle has no identity.
+        """
         normalized_level = self.normalize_wemi_level(level)
         identity_attr = self._IDENTITY_ATTRIBUTE_BY_LEVEL[normalized_level]
         return getattr(self.get_wemi_metadata(normalized_level), identity_attr)
 
     def get_database_id(self, name: str) -> int | None:
+        """
+        Read a named id or parent-id hint after case/whitespace and alias normalization.
+
+        Known but unset ids return None. Unknown names raise KeyError rather than returning
+        a missing-value fallback.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> metadata.get_database_id(" WORK ") is None
+            True
+            >>> metadata.get_database_id("unknown")
+            Traceback (most recent call last):
+            ...
+            KeyError: "Unknown WEMI database id name: 'unknown'"
+
+
+        :param name: Database-id key or full level alias such as work or item.
+        :return: Stored id, or None for a known but unset name.
+        """
         normalized_name = self._DATABASE_ID_ALIASES.get(
             str(name).strip().lower(),
             str(name).strip().lower(),
@@ -676,6 +1361,20 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         level: str,
         relation_key: WemiRelationKey,
     ) -> list[WemiRelationLink]:
+        """
+        Read the selected bundle's validated relation bucket.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> metadata.get_wemi_relation_links("work", "tags")
+            []
+
+
+        :param level: WEMI level identifying the bundle to access.
+        :param relation_key: normalized relation bucket key from the selected bundle's
+            ``RELATION_KEYS``.
+        :return: Live list of relation links; invalid levels or bucket names raise KeyError.
+        """
         return self.get_wemi_metadata(level).get_relation_links(relation_key)
 
     def set_wemi_relation_links(
@@ -684,6 +1383,21 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         relation_key: WemiRelationKey,
         links: Iterable[WemiRelationLink],
     ) -> None:
+        """
+        Validate and replace all links in the selected bundle relation bucket.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_liuxin_wemi_metadata.py
+
+
+        :param level: WEMI level identifying the bundle to access.
+        :param relation_key: normalized relation bucket key from the selected bundle's
+            ``RELATION_KEYS``.
+        :param links: Iterable of relation links replacing the selected bucket.
+        :return: None.
+        """
         self.get_wemi_metadata(level).set_relation_links(relation_key, links)
 
     def add_wemi_relation_link(
@@ -692,6 +1406,21 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         relation_key: WemiRelationKey,
         link: WemiRelationLink,
     ) -> None:
+        """
+        Validate and append one link through the selected bundle.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_liuxin_wemi_metadata.py
+
+
+        :param level: WEMI level identifying the bundle to access.
+        :param relation_key: normalized relation bucket key from the selected bundle's
+            ``RELATION_KEYS``.
+        :param link: Relation link to add or designate as preferred.
+        :return: None.
+        """
         self.get_wemi_metadata(level).add_relation_link(relation_key, link)
 
     def get_primary_wemi_relation_link(
@@ -699,6 +1428,20 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         level: str,
         relation_key: WemiRelationKey,
     ) -> WemiRelationLink | None:
+        """
+        Select a preferred link by primary flag, priority, index and original order.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> metadata.get_primary_wemi_relation_link("work", "tags") is None
+            True
+
+
+        :param level: WEMI level identifying the bundle to access.
+        :param relation_key: normalized relation bucket key from the selected bundle's
+            ``RELATION_KEYS``.
+        :return: Preferred link, or None for an empty bucket.
+        """
         return self.get_wemi_metadata(level).primary_relation_link(relation_key)
 
     def set_primary_wemi_relation_link(
@@ -707,6 +1450,24 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         relation_key: WemiRelationKey,
         link: WemiRelationLink,
     ) -> None:
+        """
+        Select or append a link and set primary flags within its bucket.
+
+        The bundle matches object identity, non-None link id or an id-less target, then
+        clears primary on the other links. Existing link objects can be mutated.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_liuxin_wemi_metadata.py
+
+
+        :param level: WEMI level identifying the bundle to access.
+        :param relation_key: normalized relation bucket key from the selected bundle's
+            ``RELATION_KEYS``.
+        :param link: Relation link to add or designate as preferred.
+        :return: None.
+        """
         self.get_wemi_metadata(level).set_primary_relation_link(relation_key, link)
 
     def get_wemi_related(
@@ -714,6 +1475,20 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         level: str,
         relation_key: WemiRelationKey,
     ) -> list[WemiRelationTarget]:
+        """
+        Project the target objects from the selected relation bucket.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> metadata.get_wemi_related("work", "tags")
+            []
+
+
+        :param level: WEMI level identifying the bundle to access.
+        :param relation_key: normalized relation bucket key from the selected bundle's
+            ``RELATION_KEYS``.
+        :return: New list retaining the current target objects.
+        """
         return self.get_wemi_metadata(level).get_related(relation_key)
 
     def get_primary_wemi_related(
@@ -721,6 +1496,20 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         level: str,
         relation_key: WemiRelationKey,
     ) -> WemiRelationTarget | None:
+        """
+        Read the target of the preferred link in the selected relation bucket.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> metadata.get_primary_wemi_related("work", "tags") is None
+            True
+
+
+        :param level: WEMI level identifying the bundle to access.
+        :param relation_key: normalized relation bucket key from the selected bundle's
+            ``RELATION_KEYS``.
+        :return: Preferred target, or None for an empty bucket.
+        """
         return self.get_wemi_metadata(level).primary_related(relation_key)
 
     def set_wemi_related(
@@ -729,6 +1518,24 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         relation_key: WemiRelationKey,
         values: Iterable[WemiRelationTarget],
     ) -> None:
+        """
+        Replace a bucket with new links constructed around the supplied targets.
+
+        The bundle supplies relation cardinality; previous link ids and provenance are not
+        carried over.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_liuxin_wemi_metadata.py
+
+
+        :param level: WEMI level identifying the bundle to access.
+        :param relation_key: normalized relation bucket key from the selected bundle's
+            ``RELATION_KEYS``.
+        :param values: Iterable of relation targets replacing the selected bucket.
+        :return: None.
+        """
         self.get_wemi_metadata(level).set_related(relation_key, values)
 
     def add_wemi_related(
@@ -737,6 +1544,21 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         relation_key: WemiRelationKey,
         value: WemiRelationTarget,
     ) -> None:
+        """
+        Wrap a target in the bundle's relation-link class and append it.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_liuxin_wemi_metadata.py
+
+
+        :param level: WEMI level identifying the bundle to access.
+        :param relation_key: normalized relation bucket key from the selected bundle's
+            ``RELATION_KEYS``.
+        :param value: Relation target retained by the newly constructed link.
+        :return: None.
+        """
         self.get_wemi_metadata(level).add_related(relation_key, value)
 
     def get_wemi_relation_link_ids(
@@ -744,6 +1566,20 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         level: str,
         relation_key: WemiRelationKey,
     ) -> tuple[RelationLinkID, ...]:
+        """
+        Collect persisted ids from the current links in a relation bucket.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> metadata.get_wemi_relation_link_ids("work", "tags")
+            ()
+
+
+        :param level: WEMI level identifying the bundle to access.
+        :param relation_key: normalized relation bucket key from the selected bundle's
+            ``RELATION_KEYS``.
+        :return: Tuple of non-None link ids in bucket order.
+        """
         return tuple(
             link.link_id
             for link in self.get_wemi_relation_links(level, relation_key)
@@ -751,6 +1587,17 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         )
 
     def sync_legacy_title_from_wemi(self) -> str | None:
+        """
+        Assign the selected canonical title to the legacy title field when present.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> metadata.sync_legacy_title_from_wemi()
+            'Example'
+
+
+        :return: Selected canonical title, or None when no title is available.
+        """
         title = self.canonical_title
         if title is not None:
             self.title = title
@@ -758,37 +1605,104 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
 
     def sync_legacy_tags_from_wemi(self) -> tuple[str, ...]:
         """
-        Populate legacy ``tags`` from WEMI tag relation targets.
+        Append distinct WEMI tags to the legacy tags mapping.
+
+        Existing terms are preserved and case-insensitive duplicates are skipped across all
+        levels.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> metadata.sync_legacy_tags_from_wemi()
+            ()
+
+
+        :return: Tuple of newly added term strings.
         """
         return self._sync_legacy_terms_from_wemi(field="tags", relation_key="tags")
 
     def sync_legacy_labels_from_wemi(self) -> tuple[str, ...]:
         """
-        Populate legacy ``labels`` from WEMI label relation targets.
+        Append distinct WEMI labels to the legacy labels mapping.
+
+        Existing terms are preserved and case-insensitive duplicates are skipped across all
+        levels.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> metadata.sync_legacy_labels_from_wemi()
+            ()
+
+
+        :return: Tuple of newly added term strings.
         """
         return self._sync_legacy_terms_from_wemi(field="labels", relation_key="labels")
 
     def sync_legacy_genres_from_wemi(self) -> tuple[str, ...]:
         """
-        Populate legacy ``genre`` from WEMI genre relation targets.
+        Append distinct WEMI genres to the legacy genre mapping.
+
+        Existing terms are preserved and case-insensitive duplicates are skipped across all
+        levels.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> metadata.sync_legacy_genres_from_wemi()
+            ()
+
+
+        :return: Tuple of newly added term strings.
         """
         return self._sync_legacy_terms_from_wemi(field="genre", relation_key="genres")
 
     def sync_legacy_subjects_from_wemi(self) -> tuple[str, ...]:
         """
-        Populate legacy ``subject`` from WEMI subject relation targets.
+        Append distinct WEMI subjects to the legacy subject mapping.
+
+        Existing terms are preserved and case-insensitive duplicates are skipped across all
+        levels.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> metadata.sync_legacy_subjects_from_wemi()
+            ()
+
+
+        :return: Tuple of newly added term strings.
         """
         return self._sync_legacy_terms_from_wemi(field="subject", relation_key="subjects")
 
     def sync_legacy_series_from_wemi(self) -> tuple[str, ...]:
         """
-        Populate legacy ``series`` from WEMI series relation targets.
+        Append distinct WEMI series to the legacy series mapping.
+
+        Existing terms are preserved and case-insensitive duplicates are skipped across all
+        levels.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> metadata.sync_legacy_series_from_wemi()
+            ()
+
+
+        :return: Tuple of newly added term strings.
         """
         return self._sync_legacy_terms_from_wemi(field="series", relation_key="series")
 
     def sync_legacy_identifiers_from_wemi(self) -> tuple[tuple[str, str], ...]:
         """
-        Populate legacy external identifiers from WEMI identifier relation targets.
+        Add supported WEMI identifiers across levels to the legacy identifier stores.
+
+        Case-insensitive scheme/value duplicates are skipped. A pair is reported only when
+        the inherited setter changes the saved identifier set; unsupported schemes may
+        therefore be omitted.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_liuxin_wemi_metadata.py
+
+
+        :return: Tuple of newly saved scheme/value pairs.
         """
         synced: list[tuple[str, str]] = []
         seen: set[tuple[str, str]] = {
@@ -824,6 +1738,24 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         return tuple(synced)
 
     def _sync_legacy_terms_from_wemi(self, *, field: str, relation_key: WemiRelationKey) -> tuple[str, ...]:
+        """
+        Append distinct relation terms to an existing legacy field mapping.
+
+        Traverse work through item, skip unsupported buckets and preserve the first
+        case-insensitive spelling/id. The destination field must already hold a mutable
+        mapping.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_liuxin_wemi_metadata.py
+
+
+        :param field: Exact existing legacy storage key containing the mutable destination mapping.
+        :param relation_key: normalized relation bucket key from the selected bundle's
+            ``RELATION_KEYS``.
+        :return: Tuple of newly added term strings.
+        """
         data = object.__getattribute__(self, "_data")
         terms = data[field]
         synced: list[str] = []
@@ -849,6 +1781,20 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
 
     @staticmethod
     def _wemi_tag_text(target: Any) -> str | None:
+        """
+        Choose the first nonblank supported term label from a relation target.
+
+        Rows use row_dict, mappings use keys and strings are stripped directly. Attribute
+        fallback applies only when the extracted mapping is empty.
+
+        Example:
+            >>> LiuXinWEMIMetadata._wemi_tag_text({'genre_full': ' Fiction / SF '})
+            'Fiction / SF'
+
+
+        :param target: Row, mapping, string or attribute-bearing relation target.
+        :return: Stripped term text, or None.
+        """
         mapping: Mapping[str, Any]
         if isinstance(target, Row):
             mapping = target.row_dict
@@ -888,6 +1834,20 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
 
     @staticmethod
     def _wemi_tag_id(target: Any) -> int | None:
+        """
+        Try label, genre, series, subject, tag and generic id fields in order.
+
+        Invalid integer conversions are skipped. A database Row's row_id is the final
+        fallback.
+
+        Example:
+            >>> LiuXinWEMIMetadata._wemi_tag_id({'tag_id': '7'})
+            7
+
+
+        :param target: Row, mapping, string or attribute-bearing relation target.
+        :return: First convertible id, or None.
+        """
         mapping: Mapping[str, Any]
         if isinstance(target, Row):
             mapping = target.row_dict
@@ -912,6 +1872,20 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
 
     @staticmethod
     def _wemi_identifier_pair(target: Any) -> tuple[str, str] | None:
+        """
+        Extract a stripped identifier scheme/value pair using supported field aliases.
+
+        Rows and mappings are preferred; attribute fallback is used only for an empty
+        mapping. Missing or blank components produce None.
+
+        Example:
+            >>> LiuXinWEMIMetadata._wemi_identifier_pair({'scheme': ' doi ', 'value': ' 10/example '})
+            ('doi', '10/example')
+
+
+        :param target: Row, mapping, string or attribute-bearing relation target.
+        :return: Scheme/value tuple, or None.
+        """
         mapping: Mapping[str, Any]
         if isinstance(target, Row):
             mapping = target.row_dict
@@ -958,6 +1932,20 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
 
     @classmethod
     def _is_empty_pretty_value(cls, value: Any) -> bool:
+        """
+        Treat None, empty text and empty supported collections as absent display values.
+
+        Zero and False remain meaningful values. Mapping length checks may materialize lazy
+        wrappers.
+
+        Example:
+            >>> LiuXinWEMIMetadata._is_empty_pretty_value(0)
+            False
+
+
+        :param value: Value to inspect or render.
+        :return: True for a recognized empty value.
+        """
         if value is None:
             return True
         if value == "":
@@ -972,6 +1960,21 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         mapping: Mapping[str, Any],
         include_empty: bool,
     ) -> dict[str, Any]:
+        """
+        Copy mapping entries to string keys, optionally omitting empty values.
+
+        Values remain shared with the input mapping; key stringification can collapse
+        distinct keys.
+
+        Example:
+            >>> LiuXinWEMIMetadata._filtered_mapping({'a': None, 'b': 0}, False)
+            {'b': 0}
+
+
+        :param mapping: Mapping whose current entries are read without modifying the input.
+        :param include_empty: Retain empty values or zero relation counts when True.
+        :return: New filtered dictionary.
+        """
         return {
             str(key): value
             for key, value in mapping.items()
@@ -987,6 +1990,22 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         *,
         indent: str = "",
     ) -> None:
+        """
+        Append one labeled diagnostic line when its value is nonempty.
+
+        Example:
+            >>> lines = []
+            >>> LiuXinWEMIMetadata._append_pretty_value(lines, 'Count', 0)
+            >>> lines
+            ['Count: 0']
+
+
+        :param lines: Output list extended in place with formatted lines.
+        :param label: Label placed before the rendered value.
+        :param value: Value to inspect or render.
+        :param indent: Literal indentation prefix for appended lines.
+        :return: None.
+        """
         if cls._is_empty_pretty_value(value):
             return
         lines.append(f"{indent}{label}: {cls._format_pretty_value(value)}")
@@ -999,6 +2018,23 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         *,
         indent: str,
     ) -> None:
+        """
+        Append one diagnostic line per mapping entry in iteration order.
+
+        Empty values are not filtered by this helper.
+
+        Example:
+            >>> lines = []
+            >>> LiuXinWEMIMetadata._append_pretty_mapping(lines, {'x': 1}, indent='  ')
+            >>> lines
+            ['  x: 1']
+
+
+        :param lines: Output list extended in place with formatted lines.
+        :param mapping: Mapping whose current entries are read without modifying the input.
+        :param indent: Literal indentation prefix for appended lines.
+        :return: None.
+        """
         for key, value in mapping.items():
             lines.append(f"{indent}{key}: {cls._format_pretty_value(value)}")
 
@@ -1010,6 +2046,24 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         max_items: int = 5,
         max_chars: int = 160,
     ) -> str:
+        """
+        Format bounded diagnostic text for strings, mappings and collections.
+
+        String whitespace is collapsed; mapping keys sort case-insensitively. Nested values
+        use default limits, and sets retain their iteration order. Truncation adds a spaced
+        ellipsis, so very small max_chars values are not a strict cap.
+
+        Example:
+            >>> LiuXinWEMIMetadata._format_pretty_value({'b': 2, 'a': 1}, max_items=1)
+            '{a=1, ... (+1 more)}'
+
+
+        :param value: Value to inspect or render.
+        :param max_items: Maximum entries displayed at the current collection level.
+        :param max_chars: Target character limit used to truncate the current rendered
+            value.
+        :return: Diagnostic string.
+        """
         if value is None:
             return "None"
         if isinstance(value, str):
@@ -1041,6 +2095,19 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
 
     @classmethod
     def _identity_to_mapping(cls, identity: WemiIdentity) -> dict[str, Any]:
+        """
+        Copy identity data through to_mapping, then to_dict when no callable to_mapping exists.
+
+        Conversion failures propagate; unsupported objects yield an empty dictionary.
+
+        Example:
+            >>> LiuXinWEMIMetadata._identity_to_mapping(object())
+            {}
+
+
+        :param identity: Identity object exposing to_mapping or to_dict.
+        :return: New identity dictionary.
+        """
         to_mapping = getattr(identity, "to_mapping", None)
         if callable(to_mapping):
             return dict(to_mapping())
@@ -1056,6 +2123,23 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         identity: WemiIdentity,
         include_empty: bool,
     ) -> dict[str, Any]:
+        """
+        Select the configured display fields from one identity mapping.
+
+        Only keys present in the serialized identity are considered; empty values are
+        optionally removed.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_liuxin_wemi_metadata.py
+
+
+        :param level: WEMI level identifying the bundle to access.
+        :param identity: Identity object exposing to_mapping or to_dict.
+        :param include_empty: Retain empty values or zero relation counts when True.
+        :return: New dictionary in configured display-field order.
+        """
         identity_mapping = cls._identity_to_mapping(identity)
         fields = cls._PRETTY_IDENTITY_FIELDS[level]
         preferred = {
@@ -1071,6 +2155,18 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         metadata: WemiMetadataBundle,
         include_empty: bool,
     ) -> list[str]:
+        """
+        Count links for each exposed relation bucket in order.
+
+        Example:
+            >>> LiuXinWEMIMetadata._pretty_relation_summary(WorkMetadata(), False)
+            []
+
+
+        :param metadata: WEMI bundle whose relation names and links are read.
+        :param include_empty: Retain empty values or zero relation counts when True.
+        :return: List of name: count fragments, omitting zero counts unless requested.
+        """
         summaries: list[str] = []
         for relation_key in metadata.relation_names():
             count = len(metadata.get_relation_links(relation_key))
@@ -1079,6 +2175,22 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         return summaries
 
     def _pretty_legacy_mapping(self, include_empty: bool) -> dict[str, Any]:
+        """
+        Collect configured legacy display fields and grouped identifier values.
+
+        Empty values are optionally filtered. Ordinary field values remain shared with
+        storage; identifier accessors may perform their own copying or hydration.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> metadata._pretty_legacy_mapping(False)["title"]
+            'Example'
+
+
+        :param include_empty: Include empty mapping entries in the diagnostic summary when
+            True.
+        :return: New diagnostic mapping.
+        """
         data = object.__getattribute__(self, "_data")
         preferred: dict[str, Any] = {}
         for key in self._PRETTY_LEGACY_FIELDS:
@@ -1097,6 +2209,19 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         return self._filtered_mapping(preferred, include_empty)
 
     def to_wemi_mapping(self, include_related: bool = True) -> dict[str, Any]:
+        """
+        Serialize each bundle under its canonical WEMI level name.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> tuple(metadata.to_wemi_mapping())
+            ('work', 'expression', 'manifestation', 'item')
+
+
+        :param include_related: Include relation targets and link payloads in each
+            serialized bundle when True.
+        :return: New level-to-bundle-payload dictionary.
+        """
         return {
             "work": self.work_metadata.to_mapping(include_related=include_related),
             "expression": self.expression_metadata.to_mapping(
@@ -1113,6 +2238,25 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         include_related: bool = True,
         include_legacy: bool = True,
     ) -> dict[str, Any]:
+        """
+        Build the standard sidecar mapping with schema, ids, titles and WEMI records.
+
+        Legacy fields are deep-copied when included. include_related controls bundle
+        serialization; the separate relation_link_ids summary is still emitted. No file is
+        written.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> payload = metadata.to_sidecar_mapping(include_legacy=False)
+            >>> payload["schema_version"], "liuxin" in payload
+            (1, False)
+
+
+        :param include_related: Include relation targets and link payloads in each
+            serialized bundle when True.
+        :param include_legacy: Include the legacy LiuXin field mapping when True.
+        :return: Sidecar payload dictionary.
+        """
         payload: dict[str, Any] = {
             "schema": self.SIDECAR_SCHEMA_NAME,
             "schema_version": self.SIDECAR_SCHEMA_VERSION,
@@ -1130,6 +2274,20 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         include_related: bool = True,
         include_legacy: bool = True,
     ) -> dict[str, Any]:
+        """
+        Build a sidecar payload through to_sidecar_mapping with the same options.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> metadata.to_mapping()["liuxin"]["title"]
+            'Example'
+
+
+        :param include_related: Include relation targets and link payloads in each
+            serialized bundle when True.
+        :param include_legacy: Include the legacy LiuXin field mapping when True.
+        :return: Sidecar payload dictionary.
+        """
         return self.to_sidecar_mapping(
             include_related=include_related,
             include_legacy=include_legacy,
@@ -1137,6 +2295,24 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
 
     @classmethod
     def from_mapping(cls, payload: Mapping[str, Any]) -> "LiuXinWEMIMetadata":
+        """
+        Build a slice from nested wemi payloads or a direct mapping of levels.
+
+        Existing bundle instances are retained, mapping bundles are deserialized, and
+        unsupported or absent bundles become empty. A liuxin mapping updates legacy defaults
+        by deep copy. Schema/version and summary keys are not validated or used to
+        reconstruct identities.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata.from_mapping({"liuxin": {"title": "Imported"}})
+            >>> metadata.title
+            'Imported'
+
+
+        :param payload: Sidecar mapping with optional wemi and liuxin entries, or a mapping
+            of WEMI levels.
+        :return: New metadata slice.
+        """
         wemi_payload = payload.get("wemi", payload)
         if not isinstance(wemi_payload, Mapping):
             wemi_payload = {}
@@ -1170,6 +2346,20 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
 
     @classmethod
     def from_sidecar_mapping(cls, payload: Mapping[str, Any]) -> "LiuXinWEMIMetadata":
+        """
+        Deserialize a sidecar through the standard from_mapping path.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> restored = LiuXinWEMIMetadata.from_sidecar_mapping(metadata.to_mapping())
+            >>> restored.title
+            'Example'
+
+
+        :param payload: Sidecar mapping with optional wemi and liuxin entries, or a mapping
+            of WEMI levels.
+        :return: New metadata slice.
+        """
         return cls.from_mapping(payload)
 
     @classmethod
@@ -1180,6 +2370,27 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         item_id: int | None = None,
         source_row: Mapping[str, Any] | Row | None = None,
     ) -> "LiuXinWEMIMetadata":
+        """
+        Build an eager slice using the central database hydrator.
+
+        Supply item_id or source_row. This delegates construction to the hydrator, which
+        returns LiuXinWEMIMetadata rather than constructing cls itself. The caller owns the
+        read-source lifetime.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_liuxin_wemi_metadata.py
+
+
+        :param database: Caller-owned database/read source retained for metadata access; it
+            is not closed here.
+        :param item_id: Optional item row id; overrides an item id extracted from
+            source_row.
+        :param source_row: Database Row or source mapping supplying identity fields and
+            row-id hints.
+        :return: Eager WEMI metadata slice.
+        """
         from LiuXin_alpha.metadata.containers.metadata_containers.liuxin_wemi_metadata_hydrator import (
             LiuXinWEMIMetadataHydrator,
         )
@@ -1194,6 +2405,21 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         bundle_type: type[WemiMetadataBundle],
         payload: Any,
     ) -> WemiMetadataBundle:
+        """
+        Retain an existing bundle, deserialize a mapping, or create an empty bundle.
+
+        Example:
+            >>> bundle = WorkMetadata()
+            >>> LiuXinWEMIMetadata._bundle_from_mapping(WorkMetadata, bundle) is bundle
+            True
+
+
+        :param bundle_type: Concrete bundle class with a no-argument constructor and
+            from_mapping.
+        :param payload: Existing bundle instance, mapping payload or unsupported value
+            treated as empty.
+        :return: Supplied bundle instance or a newly constructed bundle.
+        """
         if isinstance(payload, bundle_type):
             return payload
         if isinstance(payload, Mapping):
@@ -1201,6 +2427,22 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         return bundle_type()
 
     def deepcopy_metadata(self) -> "LiuXinWEMIMetadata":
+        """
+        Copy each WEMI bundle and legacy storage into a new object of this concrete type.
+
+        Separate deepcopy calls copy each bundle and the field mapping; the cleanup registry
+        is freshly initialized. Use deepcopy when a shared memo across these components is
+        required.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> copied = metadata.deepcopy_metadata()
+            >>> copied is metadata, copied.work_metadata is metadata.work_metadata
+            (False, False)
+
+
+        :return: Independent metadata object.
+        """
         metadata = type(self)(
             work_metadata=deepcopy(self.work_metadata),
             expression_metadata=deepcopy(self.expression_metadata),
@@ -1215,6 +2457,22 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         return metadata
 
     def __deepcopy__(self, memo: dict[int, Any]) -> "LiuXinWEMIMetadata":
+        """
+        Reuse a memoized clone or copy the bundles and legacy data with a shared memo.
+
+        The clone is registered after its bundle copies are constructed and before legacy
+        data is copied. The constructor initializes a fresh cleanup registry.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> copied = deepcopy(metadata)
+            >>> copied.title, copied is metadata
+            ('Example', False)
+
+
+        :param memo: Deepcopy identity memo shared with nested bundle and field values.
+        :return: Memoized or newly constructed metadata clone.
+        """
         existing = memo.get(id(self))
         if existing is not None:
             return existing
@@ -1238,6 +2496,26 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
         other: CalibreLikeLiuXinBookMetaData,
         replace_metadata: bool = False,
     ) -> None:
+        """
+        Merge legacy fields, then copy eligible incoming WEMI bundles as whole bundles.
+
+        WEMI copying applies only when other is a LiuXinWEMIMetadata instance. Replacement
+        overwrites every bundle, including empty ones; otherwise only bundles without
+        identities or links are replaced.
+
+        Example:
+            >>> metadata = LiuXinWEMIMetadata("Example")
+            >>> metadata.smart_update(LiuXinWEMIMetadata("Updated"))
+            >>> metadata.title
+            'Updated'
+
+
+        :param other: Compatible source metadata object passed first to the inherited legacy
+            merge.
+        :param replace_metadata: Replace supported existing metadata when True; otherwise
+            use the family merge rules.
+        :return: None.
+        """
         super().smart_update(other, replace_metadata=replace_metadata)
 
         if not isinstance(other, LiuXinWEMIMetadata):
@@ -1251,6 +2529,18 @@ class LiuXinWEMIMetadata(CalibreLikeLiuXinBookMetaData):
 
     @staticmethod
     def _metadata_bundle_has_content(bundle: WemiMetadataBundle) -> bool:
+        """
+        Check whether a bundle has any non-None identity or nonempty relation bucket.
+
+        Example:
+            >>> LiuXinWEMIMetadata._metadata_bundle_has_content(WorkMetadata())
+            False
+
+
+        :param bundle: Bundle exposing WEMI identities, relation_names and
+            get_relation_links.
+        :return: True for any identity or link; False for an empty bundle.
+        """
         for identity_attr in ("work", "expression", "manifestation", "item"):
             if hasattr(bundle, identity_attr) and getattr(bundle, identity_attr) is not None:
                 return True

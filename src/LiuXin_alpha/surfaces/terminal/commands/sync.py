@@ -1,4 +1,11 @@
-"""Core-backed ``sync store`` terminal command."""
+"""
+Parse store-reconciliation policy and submit the corresponding local or remote Core job.
+
+Background mode reports submission without waiting. Foreground mode polls job
+state, then optionally replays captured logs and renders the report; it does not
+stream live progress while waiting. The legacy worker name remains a forwarding
+entry point to the Core-owned implementation.
+"""
 
 from __future__ import annotations
 
@@ -18,6 +25,25 @@ from LiuXin_alpha.surfaces.terminal.commands.base import TerminalCommandAPI
 
 @dataclasses.dataclass(frozen=True)
 class _SyncStoreOptions:
+    """
+    Hold store identity, scanner policy, job controls, and report-output choices.
+
+    Scanner fields cover extension filtering, hashes, symlinks, store links and
+    refresh, request rates, rclone flags, and crawler/wget behavior. Timeout/rate
+    units are seconds/requests per hour respectively; ``None`` is forwarded for
+    omitted limits. Job/output flags select background execution, pane attachment,
+    captured output, progress cadence, and JSON rendering.
+
+    Direct construction performs no validation. Frozen attributes do not make
+    the optional extension list immutable; parser defaults and command-level
+    compatibility checks are separate from this record.
+
+    Example:
+        >>> options = _parse_sync_store_options(["12", "--background"], usage="sync store")
+        >>> options.store_ref, options.background, options.crawler_incremental_db_writes
+        ('12', True, True)
+    """
+
     store_ref: str
     source_label: str
     ebook_extensions: Optional[list[str]]
@@ -50,20 +76,44 @@ class _SyncStoreOptions:
 
 
 def _split_extensions(raw: Optional[str]) -> Optional[list[str]]:
+    """
+    Split extension text into ordered unique lowercase entries with leading dots removed.
+
+    Commas, semicolons, spaces, tabs, and newlines separate entries. Blank pieces
+    are filtered before dot removal, so a dot-only piece survives as an empty
+    string. No extension syntax or supported-format validation is performed.
+
+    Example:
+        >>> _split_extensions(".EPUB; mobi EPUB .")
+        ['epub', 'mobi', '']
+
+
+    :param raw: Optional separated extension text.
+    :return: Deduplicated normalized entries, or ``None`` for absent/empty input with no pieces.
+    """
     if raw is None:
         return None
     text = str(raw).strip()
     for separator in (";", " ", "\t", "\n"):
         text = text.replace(separator, ",")
     values = [
-        part.strip().lstrip(".").lower()
-        for part in text.split(",")
-        if part.strip()
+        part.strip().lstrip(".").lower() for part in text.split(",") if part.strip()
     ]
     return list(dict.fromkeys(values)) or None
 
 
 def _none_like(value: str) -> bool:
+    """
+    Recognize textual disabled/unbounded aliases used by numeric-limit options.
+
+    Example:
+        >>> _none_like(" INFINITE "), _none_like("0")
+        (True, False)
+
+
+    :param value: Value converted to stripped lowercase text.
+    :return: Whether text is none/off/disable/disabled/inf/infinite/unbounded.
+    """
     return str(value).strip().lower() in {
         "none",
         "off",
@@ -76,6 +126,22 @@ def _none_like(value: str) -> bool:
 
 
 def _optional_positive_float(value: str, *, option: str) -> float | None:
+    """
+    Parse a positive float or disabled alias, without an explicit finiteness check.
+
+    Parsed values are rejected only when they compare less than or equal to zero;
+    NaN and numeric infinity forms not caught by the alias helper can pass through.
+
+    Example:
+        >>> _optional_positive_float("0.5", option="--timeout"), _optional_positive_float("off", option="--timeout")
+        (0.5, None)
+
+
+    :param value: Float text or recognized disabled/unbounded alias.
+    :param option: Option spelling included in conversion/range diagnostics.
+    :return: Parsed float, or ``None`` for a recognized alias.
+    :raises ValueError: If conversion fails or the parsed value compares as nonpositive.
+    """
     if _none_like(value):
         return None
     try:
@@ -90,6 +156,19 @@ def _optional_positive_float(value: str, *, option: str) -> float | None:
 
 
 def _optional_positive_int(value: str, *, option: str) -> int | None:
+    """
+    Parse a strictly positive integer or return ``None`` for a disabled/unbounded alias.
+
+    Example:
+        >>> _optional_positive_int("3", option="--depth"), _optional_positive_int("none", option="--depth")
+        (3, None)
+
+
+    :param value: Integer text or recognized disabled/unbounded alias.
+    :param option: Option spelling used in diagnostics.
+    :return: Positive integer or ``None`` for an alias.
+    :raises ValueError: If integer conversion fails or the value is less than one.
+    """
     if _none_like(value):
         return None
     try:
@@ -108,6 +187,30 @@ def _parse_sync_store_options(
     *,
     usage: str,
 ) -> _SyncStoreOptions:
+    """
+    Parse reconciliation/job options while preserving separate dash-prefixed wget arguments.
+
+    Legacy ``to-db`` spellings are removed wherever they occur as complete tokens,
+    including option-value positions. Separate ``--wget-arg`` values are converted
+    to equals form before argparse consumes the tokens. Repeated options generally
+    use the last value; wget arguments accumulate in order.
+
+    Source must be nonblank and progress cadence positive. Optional depth/timeouts
+    use the numeric helpers. HTTP rate accepts any float without positivity or
+    finiteness validation; its disabled aliases become zero rather than ``None``.
+    Store existence and incompatible job/output combinations are checked later.
+
+    Example:
+        >>> options = _parse_sync_store_options(["12", "to-db", "--wget-arg", "--timeout=5"], usage="sync store")
+        >>> options.store_ref, options.wget_args
+        ('12', ('--timeout=5',))
+
+
+    :param args: Store reference and supported reconciliation/job/output tokens.
+    :param usage: Usage text for missing arguments or wrapped argparse failures.
+    :return: Parsed options without submitting work or inspecting the backing store.
+    :raises ValueError: If parsing, required-value checks, or configured numeric checks fail.
+    """
     if not args:
         raise ValueError("Usage: {}".format(usage))
 
@@ -163,11 +266,21 @@ def _parse_sync_store_options(
     parser.add_argument("--hash", dest="compute_hash", action="store_true")
     parser.add_argument("--no-hash", dest="compute_hash", action="store_false")
     parser.add_argument("--capture-hashes", dest="capture_hashes", action="store_true")
-    parser.add_argument("--no-capture-hashes", dest="capture_hashes", action="store_false")
-    parser.add_argument("--follow-symlinks", dest="follow_symlinks", action="store_true")
-    parser.add_argument("--no-follow-symlinks", dest="follow_symlinks", action="store_false")
-    parser.add_argument("--refresh", dest="refresh_storage_manager", action="store_true")
-    parser.add_argument("--no-refresh", dest="refresh_storage_manager", action="store_false")
+    parser.add_argument(
+        "--no-capture-hashes", dest="capture_hashes", action="store_false"
+    )
+    parser.add_argument(
+        "--follow-symlinks", dest="follow_symlinks", action="store_true"
+    )
+    parser.add_argument(
+        "--no-follow-symlinks", dest="follow_symlinks", action="store_false"
+    )
+    parser.add_argument(
+        "--refresh", dest="refresh_storage_manager", action="store_true"
+    )
+    parser.add_argument(
+        "--no-refresh", dest="refresh_storage_manager", action="store_false"
+    )
     parser.add_argument("--links", dest="attach_store_links", action="store_true")
     parser.add_argument("--no-links", dest="attach_store_links", action="store_false")
     parser.add_argument(
@@ -222,7 +335,9 @@ def _parse_sync_store_options(
     )
     parser.add_argument("--crawler-user-agent", "--wget-user-agent")
     parser.add_argument("--wget-verbose", dest="wget_no_verbose", action="store_false")
-    parser.add_argument("--wget-no-verbose", dest="wget_no_verbose", action="store_true")
+    parser.add_argument(
+        "--wget-no-verbose", dest="wget_no_verbose", action="store_true"
+    )
     parser.add_argument("--wget-arg", action="append", default=[])
     parser.add_argument(
         "--crawler-incremental-db-writes",
@@ -309,14 +424,10 @@ def _parse_sync_store_options(
         ),
         wget_no_verbose=bool(values.wget_no_verbose),
         wget_args=tuple(str(value) for value in values.wget_arg),
-        crawler_incremental_db_writes=bool(
-            values.crawler_incremental_db_writes
-        ),
+        crawler_incremental_db_writes=bool(values.crawler_incremental_db_writes),
         background=bool(values.background),
         job_backend=(
-            None
-            if values.job_backend is None
-            else str(values.job_backend).strip()
+            None if values.job_backend is None else str(values.job_backend).strip()
         ),
         job_timeout_s=(
             None
@@ -335,12 +446,35 @@ def _parse_sync_store_options(
 
 
 def run_sync_store_job(**kwargs: Any) -> dict[str, object]:
-    """Compatibility import for callers that used the former surface worker."""
+    """
+    Forward legacy surface-worker calls to the Core-owned store synchronization worker.
+
+    No arguments are rewritten or defaulted here. The Core worker owns database
+    access, scanner selection, progress output, and report serialization.
+
+    Example:
+        >>> report = run_sync_store_job(**worker_options)  # doctest: +SKIP
+
+
+    :param kwargs: Core worker keyword arguments, including database connection and reconciliation policy.
+    :return: Core worker report unchanged; argument and execution failures propagate.
+    """
 
     return _core_run_sync_store_job(**kwargs)
 
 
 def _safe_int(value: str) -> Optional[int]:
+    """
+    Parse stripped text as an integer, returning ``None`` for ordinary conversion failures.
+
+    Example:
+        >>> _safe_int("12"), _safe_int("archive")
+        (12, None)
+
+
+    :param value: Value stringified and stripped before integer conversion.
+    :return: Parsed integer without range validation, or ``None`` when conversion fails.
+    """
     try:
         return int(str(value).strip())
     except Exception:
@@ -348,6 +482,21 @@ def _safe_int(value: str) -> Optional[int]:
 
 
 def _resolve_store_row(browser, store_ref: str):
+    """
+    Resolve numeric-looking store references by ID, otherwise require one exact store-name match.
+
+    Name queries retain the stringified reference's whitespace. Numeric names
+    take the ID path and duplicate name matches must be disambiguated by ID.
+
+    Example:
+        >>> row = _resolve_store_row(browser, "12")  # doctest: +SKIP
+
+
+    :param browser: Host supplying table enumeration and store-row lookup/search.
+    :param store_ref: Integer ID text or exact registered store name.
+    :return: Existing store row selected by ID or unique name.
+    :raises ValueError: If the stores table/reference is absent or the name is ambiguous.
+    """
     if "stores" not in set(browser.db.get_tables()):
         raise ValueError("Database schema does not contain `stores` table.")
     store_id = _safe_int(store_ref)
@@ -369,11 +518,33 @@ def _resolve_store_row(browser, store_ref: str):
 
 
 def _sync_mode(store_row: Mapping[str, Any]) -> str:
+    """
+    Select wget, native, rclone, or local synchronization from ordered kind/protocol checks.
+
+    Wget recognition wins before native, then rclone; unrecognized combinations
+    fall back to local. Both mapping keys are required even if one alone could
+    determine the mode. This selects a mode without checking installed backends.
+
+    Example:
+        >>> _sync_mode({"store_kind": "wget_html_readonly", "store_access_protocol": "https"})
+        'wget'
+
+
+    :param store_row: Mapping with store kind and access-protocol fields, normalized as text.
+    :return: Canonical mode string used in the Core synchronization payload.
+    """
     kind = str(store_row["store_kind"] or "").strip().lower()
     protocol = str(store_row["store_access_protocol"] or "").strip().lower()
-    if kind in {"wget_html_readonly", "wget_http_ro", "http_spider_ro"} or protocol == "wget":
+    if (
+        kind in {"wget_html_readonly", "wget_http_ro", "http_spider_ro"}
+        or protocol == "wget"
+    ):
         return "wget"
-    if kind in {"native_html_readonly", "native_http_ro", "http_native_ro"} or protocol in {
+    if kind in {
+        "native_html_readonly",
+        "native_http_ro",
+        "http_native_ro",
+    } or protocol in {
         "native",
         "native_html",
     }:
@@ -388,6 +559,30 @@ def _sync_mode(store_row: Mapping[str, Any]) -> str:
 
 
 def _wait_for_job(browser, job_id: str) -> dict[str, Any]:
+    """
+    Poll until a recognized terminal state, then retrieve and require a successful mapping report.
+
+    Nonterminal, missing, or unrecognized states repeat indefinitely with a
+    tenth-second sleep; this loop has no independent deadline or cancellation.
+    Query errors propagate. Result retrieval requests a zero timeout after the
+    terminal state; a failed execution raises using its traceback when available.
+
+    Example:
+        >>> from unittest.mock import Mock
+        >>> host = Mock()
+        >>> host.execute_core_query.side_effect = [
+        ...     {"job": {"state": "succeeded"}},
+        ...     {"execution": {"ok": True, "result": {"inserted_files": 2}}},
+        ... ]
+        >>> _wait_for_job(host, "job-1")
+        {'inserted_files': 2}
+
+
+    :param browser: Host providing Core job-state and execution-result queries.
+    :param job_id: Identifier forwarded unchanged on every query.
+    :return: Shallow dictionary copy of the successful execution's report mapping.
+    :raises RuntimeError: If execution is not successful or its result is not a mapping.
+    """
     while True:
         response = browser.execute_core_query(
             "jobs.get",
@@ -408,9 +603,7 @@ def _wait_for_job(browser, job_id: str) -> dict[str, Any]:
     )
     execution = dict((completed or {}).get("execution", {}) or {})
     if not bool(execution.get("ok", False)):
-        raise RuntimeError(
-            str(execution.get("traceback") or "Store sync job failed.")
-        )
+        raise RuntimeError(str(execution.get("traceback") or "Store sync job failed."))
     report = execution.get("result")
     if not isinstance(report, Mapping):
         raise RuntimeError("Store sync job did not return a report.")
@@ -418,6 +611,26 @@ def _wait_for_job(browser, job_id: str) -> dict[str, Any]:
 
 
 def _emit_job_log(browser, job_id: str) -> None:
+    """
+    Read captured job output in requested one-mebibyte chunks and emit nonblank stripped text.
+
+    Starts at offset zero and follows returned offsets until EOF, defaulting to
+    EOF when the field is absent. Each chunk loses trailing whitespace, so this
+    is not byte-exact replay. There is no total size bound or stalled-offset
+    guard if the provider repeatedly returns non-EOF without advancing.
+
+    Example:
+        >>> from unittest.mock import Mock
+        >>> host = Mock()
+        >>> host.execute_core_query.return_value = {"text": "done  ", "eof": True}
+        >>> _emit_job_log(host, "job-1")
+        >>> host.emit.assert_called_once_with("done")
+
+
+    :param browser: Host supplying Core log-read queries and text output.
+    :param job_id: Identifier used for every log chunk request.
+    :return: ``None`` after the provider reports EOF; query/conversion/output errors propagate.
+    """
     offset = 0
     while True:
         response = browser.execute_core_query(
@@ -437,7 +650,17 @@ def _emit_job_log(browser, job_id: str) -> None:
 
 
 class SyncStoreCommand(TerminalCommandAPI):
-    """Reconcile one existing store through the named Core job API."""
+    """
+    Reconcile a registered store through Core, either waiting for a report or returning after submission.
+
+    Mode comes from kind/protocol metadata, not a fresh capability probe. The
+    default provenance label is adapted for remote modes. Foreground progress
+    is captured job-log replay after completion rather than live terminal updates.
+
+    Example:
+        >>> SyncStoreCommand().group_aliases
+        ('reconcile',)
+    """
 
     group = "sync"
     group_aliases = ("reconcile",)
@@ -451,6 +674,30 @@ class SyncStoreCommand(TerminalCommandAPI):
     expose_direct = False
 
     def execute(self, browser, args: list[str]) -> bool:
+        """
+        Validate mode/output choices, resolve the store, and submit its policy to ``sync.store.start``.
+
+        Background JSON is rejected, and a job pane requires background mode.
+        Background return only confirms receipt of a job ID, not job success.
+        Foreground mode waits without a local deadline, optionally replays logs,
+        and prints JSON or a human-readable report with at most five error previews.
+        Report-level file errors do not themselves fail a successful job execution.
+
+        Job timeout is forwarded to Core, separate from the waiting loop. Pane,
+        waiting, log, or output failures do not cancel or undo a submitted job.
+        The adapter forwards scanner policy but does not itself enforce request
+        rates, crawl boundaries, or rollback of database changes.
+
+        Example:
+            >>> SyncStoreCommand().execute(browser, ["12", "--background", "--job-panel"])  # doctest: +SKIP
+
+
+        :param browser: Host providing store reads, Core job operations, optional pane support, and output.
+        :param args: Store reference, optional legacy to-db token, and synchronization/job/output options.
+        :return: ``True`` after submission reporting or successful foreground report rendering.
+        :raises ValueError: If options conflict, store resolution fails, or the root URI is blank.
+        :raises RuntimeError: If Core omits a job ID or foreground execution/report validation fails.
+        """
         options = _parse_sync_store_options(args, usage=self.usage)
         if options.background and options.json_output:
             raise ValueError(
@@ -464,9 +711,7 @@ class SyncStoreCommand(TerminalCommandAPI):
         store_root_uri = str(store_row["store_root_uri"] or "").strip()
         if not store_root_uri:
             raise ValueError(
-                "Store {} has no `store_root_uri`.".format(
-                    store_row["store_id"]
-                )
+                "Store {} has no `store_root_uri`.".format(store_row["store_id"])
             )
         mode = _sync_mode(store_row)
         source_label = options.source_label
@@ -489,8 +734,7 @@ class SyncStoreCommand(TerminalCommandAPI):
                 "sync_kwargs": {
                     "mode": mode,
                     "store_root_uri": store_root_uri,
-                    "store_name": str(store_row["store_name"] or "").strip()
-                    or None,
+                    "store_name": str(store_row["store_name"] or "").strip() or None,
                     "store_kind": str(store_row["store_kind"] or "").strip()
                     or "on_disk_existing_unmanaged_drive",
                     "source_label": source_label,
@@ -549,9 +793,7 @@ class SyncStoreCommand(TerminalCommandAPI):
                 max_cell_width=120,
             )
             browser.emit(
-                "  Use `jobs show {} --wait` to inspect completion.".format(
-                    job_id
-                )
+                "  Use `jobs show {} --wait` to inspect completion.".format(job_id)
             )
             if options.job_panel:
                 if browser.supports_job_output_panel():
@@ -576,31 +818,31 @@ class SyncStoreCommand(TerminalCommandAPI):
             return True
 
         detail_sections = [
-                (
-                    "Store",
-                    [
-                        ("store_id", report.get("store_row_id", "")),
-                        ("store_name", report.get("store_name", "")),
-                        ("store_root_uri", report.get("store_root_uri", "")),
-                    ],
-                ),
-                (
-                    "Results",
-                    [
-                        ("scanned_files", report.get("scanned_files", 0)),
-                        ("ebook_candidates", report.get("ebook_candidates", 0)),
-                        (
-                            "skipped_non_ebook_files",
-                            report.get("skipped_non_ebook_files", 0),
-                        ),
-                        ("inserted_files", report.get("inserted_files", 0)),
-                        ("updated_files", report.get("updated_files", 0)),
-                        ("unchanged_files", report.get("unchanged_files", 0)),
-                        ("linked_files", report.get("linked_files", 0)),
-                        ("errors", len(report.get("errors", ()) or ())),
-                    ],
-                ),
-            ]
+            (
+                "Store",
+                [
+                    ("store_id", report.get("store_row_id", "")),
+                    ("store_name", report.get("store_name", "")),
+                    ("store_root_uri", report.get("store_root_uri", "")),
+                ],
+            ),
+            (
+                "Results",
+                [
+                    ("scanned_files", report.get("scanned_files", 0)),
+                    ("ebook_candidates", report.get("ebook_candidates", 0)),
+                    (
+                        "skipped_non_ebook_files",
+                        report.get("skipped_non_ebook_files", 0),
+                    ),
+                    ("inserted_files", report.get("inserted_files", 0)),
+                    ("updated_files", report.get("updated_files", 0)),
+                    ("unchanged_files", report.get("unchanged_files", 0)),
+                    ("linked_files", report.get("linked_files", 0)),
+                    ("errors", len(report.get("errors", ()) or ())),
+                ],
+            ),
+        ]
         if mode in {"wget", "native"}:
             detail_sections.append(
                 (

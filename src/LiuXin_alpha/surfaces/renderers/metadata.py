@@ -1,4 +1,14 @@
-"""String/markup renderers for metadata-like objects."""
+"""
+Render library metadata for presentation surfaces.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise metadata through a consuming regression::
+
+        python -m pytest -q tests/surfaces/test_renderers_calibre_metadata.py
+"""
 
 from __future__ import annotations
 
@@ -19,17 +29,59 @@ from LiuXin_alpha.utils.localization import trans as _
 
 
 def metadata_to_html(metadata: object) -> str:
-    """Render a LiuXin metadata-like object as a simple HTML table."""
+    """
+    Render a LiuXin metadata-like object as a simple HTML table.
+
+    Example:
+        Exercise metadata to html through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_renderers_calibre_metadata.py
+
+
+    :param metadata: Value supplied for metadata under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
 
     data = _metadata_mapping(metadata)
     rows: list[tuple[str, object]] = []
 
     def append_creator_rows(field_dict: Mapping[object, object], creator_role: str) -> None:
+        """
+        Perform the append creator rows operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise metadata to html.append creator rows through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_renderers_calibre_metadata.py
+
+
+        :param field_dict: Value supplied for field dict under the utility contract.
+        :param creator_role: Value supplied for creator role under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         rows.append((_("Creator_Role"), six_unicode(creator_role)))
         for person in field_dict:
             rows.append((_("Creator"), six_unicode(person)))
 
     def append_identifier_rows(identifier_values: set[object], identifier_name: str) -> None:
+        """
+        Perform the append identifier rows operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise metadata to html.append identifier rows through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_renderers_calibre_metadata.py
+
+
+        :param identifier_values: Value supplied for identifier values under the utility
+            contract.
+        :param identifier_name: Value supplied for identifier name under the utility
+            contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         rows.append((_("Identifier Type"), six_unicode(identifier_name)))
         for identifier in identifier_values:
             rows.append(("", identifier))
@@ -66,7 +118,20 @@ def series_index_to_text(
     *,
     metadata: object | None = None,
 ) -> str:
-    """Render a series index value in human-readable form."""
+    """
+    Render a series index value in human-readable form.
+
+    Example:
+        Exercise series index to text through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_renderers_calibre_metadata.py
+
+
+    :param value: Value normalized, stored, formatted or returned.
+    :param metadata: Value supplied for metadata under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
 
     if value is None and metadata is not None:
         value = _metadata_series_index(metadata)
@@ -79,6 +144,19 @@ def series_index_to_text(
 
 
 def _metadata_mapping(metadata: object) -> Mapping[str, Any]:
+    """
+    Perform the metadata mapping operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  metadata mapping through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_renderers_calibre_metadata.py
+
+
+    :param metadata: Value supplied for metadata under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if isinstance(metadata, Mapping):
         return metadata
 
@@ -100,6 +178,19 @@ def _metadata_mapping(metadata: object) -> Mapping[str, Any]:
 
 
 def _metadata_series_index(metadata: object) -> object:
+    """
+    Perform the metadata series index operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  metadata series index through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_renderers_calibre_metadata.py
+
+
+    :param metadata: Value supplied for metadata under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     series_index = getattr(metadata, "series_index", None)
     series = getattr(metadata, "series", None)
 

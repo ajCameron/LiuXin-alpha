@@ -1,4 +1,15 @@
-"""Compatibility exports for concrete non-WEMI main-table row containers."""
+"""
+Re-export each non-WEMI main-table row class and the ordered row-class registry.
+
+This compatibility surface imports implementations from their individual table
+modules. Registry entries are classes, not constructed rows or database handles.
+
+Example:
+    >>> len(NON_WEMI_MAIN_TABLE_ROW_CONTAINERS)
+    16
+    >>> LanguageRow(language="English").display_name
+    'English'
+"""
 
 from __future__ import annotations
 

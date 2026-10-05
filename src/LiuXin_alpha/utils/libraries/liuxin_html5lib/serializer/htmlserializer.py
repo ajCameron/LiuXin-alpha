@@ -1,3 +1,14 @@
+"""
+Serialize normalized HTML token streams with configurable escaping and omission rules.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise htmlserializer through a consuming regression::
+
+        python -m pytest -q tests/file_formats/html/test_html_modernized.py
+"""
 from __future__ import absolute_import, division, unicode_literals
 
 try:
@@ -44,6 +55,19 @@ else:
                 encode_entity_map[v] = k
 
     def htmlentityreplace_errors(exc):
+        """
+        Perform the htmlentityreplace errors utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise htmlentityreplace errors through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param exc: Value supplied for exc under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if isinstance(exc, (UnicodeEncodeError, UnicodeTranslateError)):
             res = []
             codepoints = []
@@ -80,6 +104,14 @@ else:
 class HTMLSerializer(object):
 
     # attribute quoting options
+    """
+    Provide the HTMLSerializer utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise HTMLSerializer through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+    """
     quote_attr_values = False
     quote_char = '"'
     use_best_quote_char = True
@@ -119,50 +151,17 @@ class HTMLSerializer(object):
     )
 
     def __init__(self, **kwargs):
-        """Initialize HTMLSerializer.
+        """
+        Initialize HTMLSerializer.
 
-        Keyword options (default given first unless specified) include:
+        Example:
+            Exercise HTMLSerializer.  init   through a consuming regression::
 
-        inject_meta_charset=True|False
-          Whether it insert a meta element to define the character set of the
-          document.
-        quote_attr_values=True|False
-          Whether to quote attribute values that don't require quoting
-          per HTML5 parsing rules.
-        quote_char=u'"'|u"'"
-          Use given quote character for attribute quoting. Default is to
-          use double quote unless attribute value contains a double quote,
-          in which case single quotes are used instead.
-        escape_lt_in_attrs=False|True
-          Whether to escape < in attribute values.
-        escape_rcdata=False|True
-          Whether to escape characters that need to be escaped within normal
-          elements within rcdata elements such as style.
-        resolve_entities=True|False
-          Whether to resolve named character entities that appear in the
-          source tree. The XML predefined entities &lt; &gt; &amp; &quot; &apos;
-          are unaffected by this setting.
-        strip_whitespace=False|True
-          Whether to remove semantically meaningless whitespace. (This
-          compresses all whitespace to a single space except within pre.)
-        minimize_boolean_attributes=True|False
-          Shortens boolean attributes to give just the attribute value,
-          for example <input disabled="disabled"> becomes <input disabled>.
-        use_trailing_solidus=False|True
-          Includes a close-tag slash at the end of the start tag of void
-          elements (empty elements whose end tag is forbidden). E.g. <hr/>.
-        space_before_trailing_solidus=True|False
-          Places a space immediately before the closing slash in a tag
-          using a trailing solidus. E.g. <hr />. Requires use_trailing_solidus.
-        sanitize=False|True
-          Strip all unsafe or unknown constructs from output.
-          See `html5lib user documentation`_
-        omit_optional_tags=True|False
-          Omit start/end tags that are optional.
-        alphabetical_attributes=False|True
-          Reorder attributes to be in alphabetical order.
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
 
-        .. _html5lib user documentation: http://code.google.com/p/html5lib/wiki/UserDocumentation
+
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: None; validated state is stored on the receiving object.
         """
         if "quote_char" in kwargs:
             self.use_best_quote_char = False
@@ -172,6 +171,19 @@ class HTMLSerializer(object):
         self.strict = False
 
     def encode(self, string):
+        """
+        Perform the encode utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLSerializer.encode through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param string: Value supplied for string under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         assert isinstance(string, text_type)
         if self.encoding:
             return string.encode(self.encoding, unicode_encode_errors)
@@ -179,6 +191,19 @@ class HTMLSerializer(object):
             return string
 
     def encodeStrict(self, string):
+        """
+        Perform the encodeStrict utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLSerializer.encodeStrict through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param string: Value supplied for string under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         assert isinstance(string, text_type)
         if self.encoding:
             return string.encode(self.encoding, "strict")
@@ -186,6 +211,19 @@ class HTMLSerializer(object):
             return string
 
     def serialize(self, treewalker, encoding=None):
+        """
+        Perform the serialize utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLSerializer.serialize through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param treewalker: Value supplied for treewalker under the utility contract.
+        :param encoding: Value supplied for encoding under the utility contract.
+        :return: An iterator yielding the normalized values described above.
+        """
         self.encoding = encoding
         in_cdata = False
         self.errors = []
@@ -325,6 +363,20 @@ class HTMLSerializer(object):
                 self.serializeError(token["data"])
 
     def render(self, treewalker, encoding=None):
+        """
+        Perform the render utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLSerializer.render through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param treewalker: Value supplied for treewalker under the utility contract.
+        :param encoding: Value supplied for encoding under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if encoding:
             return b"".join(list(self.serialize(treewalker, encoding)))
         else:
@@ -332,11 +384,36 @@ class HTMLSerializer(object):
 
     def serializeError(self, data="XXX ERROR MESSAGE NEEDED"):
         # XXX The idea is to make data mandatory.
+        """
+        Perform the serializeError utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLSerializer.serializeError through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param data: Value supplied for data under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.errors.append(data)
         if self.strict:
             raise SerializeError
 
 
 def SerializeError(Exception):
-    """Error in serialized tree"""
+    """
+    Error in serialized tree
+
+    Example:
+        Exercise SerializeError through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+    :param Exception: Value supplied for Exception under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     pass

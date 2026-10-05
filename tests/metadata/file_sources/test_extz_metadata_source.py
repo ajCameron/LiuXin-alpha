@@ -1,3 +1,14 @@
+"""
+Verify EXTZ archive metadata, member selection and cover extraction.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test extz metadata source through its owning regression module::
+
+        python -m pytest -q tests/metadata/file_sources/test_extz_metadata_source.py
+"""
 from __future__ import annotations
 
 import io
@@ -12,6 +23,18 @@ from LiuXin_alpha.metadata.utils import calibreMetaInformation
 
 
 def _values(raw):
+    """
+    Perform the values test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise values through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_extz_metadata_source.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     if raw is None:
         return []
     if isinstance(raw, Mapping):
@@ -22,6 +45,18 @@ def _values(raw):
 
 
 def _cover_tuple(raw):
+    """
+    Perform the cover tuple test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise cover tuple through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_extz_metadata_source.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     if isinstance(raw, tuple) and len(raw) == 2:
         return raw
     if isinstance(raw, Mapping):
@@ -34,6 +69,18 @@ def _cover_tuple(raw):
 
 
 def _contains_forbidden_xml_char(text: str) -> bool:
+    """
+    Perform the contains forbidden xml char test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise contains forbidden xml char through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_extz_metadata_source.py
+
+
+    :param text: Value supplied for text in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     for ch in text:
         cp = ord(ch)
         if cp == 0x7F:
@@ -51,6 +98,18 @@ def _contains_forbidden_xml_char(text: str) -> bool:
 
 
 def _container_xml(opf_path: str) -> str:
+    """
+    Perform the container xml test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise container xml through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_extz_metadata_source.py
+
+
+    :param opf_path: Value supplied for opf path in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return (
         '<?xml version="1.0" encoding="utf-8"?>'
         '<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">'
@@ -68,6 +127,22 @@ def _opf_template(
     include_cover: bool = False,
     cover_href: str = "cover.jpg",
 ) -> bytes:
+    """
+    Perform the opf template test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise opf template through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_extz_metadata_source.py
+
+
+    :param title: Value supplied for title in the focused test operation.
+    :param authors: Value supplied for authors in the focused test operation.
+    :param include_cover: Value supplied for include cover in the focused test
+        operation.
+    :param cover_href: Value supplied for cover href in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     creator_xml = "".join(f"<dc:creator>{author}</dc:creator>" for author in authors)
     cover_meta = '<meta name="cover" content="cover-item"/>' if include_cover else ""
     cover_manifest = (
@@ -93,6 +168,21 @@ def _opf_template(
 
 
 def _opf_template_with_cover_id(*, title: str = "ID Cover", author: str = "Author", cover_id: str = "coverid", cover_href: str = "images/cover.jpg") -> bytes:
+    """
+    Perform the opf template with cover id test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise opf template with cover id through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_extz_metadata_source.py
+
+
+    :param title: Value supplied for title in the focused test operation.
+    :param author: Value supplied for author in the focused test operation.
+    :param cover_id: Value supplied for cover id in the focused test operation.
+    :param cover_href: Value supplied for cover href in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     xml = (
         '<?xml version="1.0" encoding="utf-8"?>'
         '<package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="bookid">'
@@ -111,6 +201,20 @@ def _opf_template_with_cover_id(*, title: str = "ID Cover", author: str = "Autho
 
 
 def _opf_template_with_guide_cover(*, title: str = "Guide Cover", author: str = "Author", cover_href: str = "images/guide-cover.jpg") -> bytes:
+    """
+    Perform the opf template with guide cover test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise opf template with guide cover through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_extz_metadata_source.py
+
+
+    :param title: Value supplied for title in the focused test operation.
+    :param author: Value supplied for author in the focused test operation.
+    :param cover_href: Value supplied for cover href in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     xml = (
         '<?xml version="1.0" encoding="utf-8"?>'
         '<package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="bookid">'
@@ -134,6 +238,20 @@ def _opf_template_with_txtz_cover_relpath(
     author: str = "Author",
     cover_href: str = "images/txtz-cover.jpg",
 ) -> bytes:
+    """
+    Perform the opf template with txtz cover relpath test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise opf template with txtz cover relpath through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_extz_metadata_source.py
+
+
+    :param title: Value supplied for title in the focused test operation.
+    :param author: Value supplied for author in the focused test operation.
+    :param cover_href: Value supplied for cover href in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     xml = (
         '<?xml version="1.0" encoding="utf-8"?>'
         '<package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="bookid">'
@@ -150,12 +268,37 @@ def _opf_template_with_txtz_cover_relpath(
 
 
 def _build_extz_archive(path: Path, members: dict[str, bytes]) -> None:
+    """
+    Perform the build extz archive test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise build extz archive through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_extz_metadata_source.py
+
+
+    :param path: Value supplied for path in the focused test operation.
+    :param members: Value supplied for members in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     with zipfile.ZipFile(path, "w") as zf:
         for name, payload in members.items():
             zf.writestr(name, payload)
 
 
 def _opf_text(path: Path) -> str:
+    """
+    Perform the opf text test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise opf text through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_extz_metadata_source.py
+
+
+    :param path: Value supplied for path in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     with zipfile.ZipFile(path, "r") as zf:
         opf_names = [name for name in zf.namelist() if name.lower().endswith(".opf")]
         assert opf_names, "Archive missing OPF"
@@ -164,12 +307,36 @@ def _opf_text(path: Path) -> str:
 
 
 def test_extz_module_import_smoke() -> None:
+    """
+    Verify extz module import smoke.
+
+    Example:
+        Exercise test extz module import smoke through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_extz_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.extz as extz
 
     assert extz is not None
 
 
 def test_extz_all_hashed_fixtures_reader_smoke(md_test_fixtures_for_ext) -> None:
+    """
+    Verify extz all hashed fixtures reader smoke.
+
+    Example:
+        Exercise test extz all hashed fixtures reader smoke through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_extz_metadata_source.py
+
+
+    :param md_test_fixtures_for_ext: Value supplied for md test fixtures for ext in the
+        focused test operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.extz import get_metadata
 
     htmlz_fixtures = md_test_fixtures_for_ext(file_ext="htmlz", verify_hash=True)
@@ -184,6 +351,19 @@ def test_extz_all_hashed_fixtures_reader_smoke(md_test_fixtures_for_ext) -> None
 
 
 def test_extz_legacy_htmlz_expectations_via_plugin(md_test_fixture) -> None:
+    """
+    Verify extz legacy htmlz expectations via plugin.
+
+    Example:
+        Exercise test extz legacy htmlz expectations via plugin through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_extz_metadata_source.py
+
+
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.customize.builtins.metadata_readers import get_metadata_reader_plugins
 
     fixture = md_test_fixture(file_ext="htmlz", file_num=1, verify_hash=True)
@@ -199,6 +379,19 @@ def test_extz_legacy_htmlz_expectations_via_plugin(md_test_fixture) -> None:
 
 
 def test_extz_legacy_txtz_expectations(md_test_fixture) -> None:
+    """
+    Verify extz legacy txtz expectations.
+
+    Example:
+        Exercise test extz legacy txtz expectations through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_extz_metadata_source.py
+
+
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.extz import get_metadata
 
     fixture = md_test_fixture(file_ext="txtz", file_num=1, verify_hash=True)
@@ -210,6 +403,19 @@ def test_extz_legacy_txtz_expectations(md_test_fixture) -> None:
 
 
 def test_extz_reader_plugins_available(md_test_fixture) -> None:
+    """
+    Verify extz reader plugins available.
+
+    Example:
+        Exercise test extz reader plugins available through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_extz_metadata_source.py
+
+
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.customize.builtins.metadata_readers import get_metadata_reader_plugins
 
     txtz_fixture = md_test_fixture(file_ext="txtz", file_num=1, verify_hash=True)
@@ -223,6 +429,18 @@ def test_extz_reader_plugins_available(md_test_fixture) -> None:
 
 
 def test_extz_get_first_opf_name_prefers_container_target(tmp_path: Path) -> None:
+    """
+    Verify extz get first opf name prefers container target.
+
+    Example:
+        Exercise test extz get first opf name prefers container target through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_extz_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.extz import get_first_opf_name
     from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
 
@@ -240,6 +458,18 @@ def test_extz_get_first_opf_name_prefers_container_target(tmp_path: Path) -> Non
 
 
 def test_extz_get_first_opf_name_falls_back_to_top_level_sorted(tmp_path: Path) -> None:
+    """
+    Verify extz get first opf name falls back to top level sorted.
+
+    Example:
+        Exercise test extz get first opf name falls back to top level sorted through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_extz_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.extz import get_first_opf_name
     from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
 
@@ -256,6 +486,18 @@ def test_extz_get_first_opf_name_falls_back_to_top_level_sorted(tmp_path: Path) 
 
 
 def test_extz_cover_extraction_from_synthetic_archive(tmp_path: Path) -> None:
+    """
+    Verify extz cover extraction from synthetic archive.
+
+    Example:
+        Exercise test extz cover extraction from synthetic archive through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_extz_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.extz import get_metadata
 
     archive = tmp_path / "with_cover.txtz"
@@ -279,6 +521,18 @@ def test_extz_cover_extraction_from_synthetic_archive(tmp_path: Path) -> None:
 
 
 def test_extz_cover_extraction_resolves_cover_meta_id_to_manifest_href(tmp_path: Path) -> None:
+    """
+    Verify extz cover extraction resolves cover meta id to manifest href.
+
+    Example:
+        Exercise test extz cover extraction resolves cover meta id to manifest href through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_extz_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.extz import get_metadata
 
     archive = tmp_path / "cover_id.txtz"
@@ -301,6 +555,18 @@ def test_extz_cover_extraction_resolves_cover_meta_id_to_manifest_href(tmp_path:
 
 
 def test_extz_cover_extraction_falls_back_to_guide_cover_reference(tmp_path: Path) -> None:
+    """
+    Verify extz cover extraction falls back to guide cover reference.
+
+    Example:
+        Exercise test extz cover extraction falls back to guide cover reference through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_extz_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.extz import get_metadata
 
     archive = tmp_path / "guide_cover.htmlz"
@@ -323,6 +589,18 @@ def test_extz_cover_extraction_falls_back_to_guide_cover_reference(tmp_path: Pat
 
 
 def test_extz_cover_extraction_falls_back_to_txtz_cover_relpath(tmp_path: Path) -> None:
+    """
+    Verify extz cover extraction falls back to txtz cover relpath.
+
+    Example:
+        Exercise test extz cover extraction falls back to txtz cover relpath through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_extz_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.extz import get_metadata
 
     archive = tmp_path / "txtz_cover_relpath.txtz"
@@ -345,6 +623,18 @@ def test_extz_cover_extraction_falls_back_to_txtz_cover_relpath(tmp_path: Path) 
 
 
 def test_extz_set_metadata_roundtrip_path(tmp_path: Path) -> None:
+    """
+    Verify extz set metadata roundtrip path.
+
+    Example:
+        Exercise test extz set metadata roundtrip path through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_extz_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.extz import get_metadata, set_metadata
 
     archive = tmp_path / "rw_roundtrip.txtz"
@@ -374,6 +664,18 @@ def test_extz_set_metadata_roundtrip_path(tmp_path: Path) -> None:
 
 
 def test_extz_set_metadata_accepts_stream(tmp_path: Path) -> None:
+    """
+    Verify extz set metadata accepts stream.
+
+    Example:
+        Exercise test extz set metadata accepts stream through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_extz_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.extz import get_metadata, set_metadata
 
     archive = tmp_path / "rw_stream.txtz"
@@ -396,6 +698,18 @@ def test_extz_set_metadata_accepts_stream(tmp_path: Path) -> None:
 
 
 def test_extz_unicode_torture_roundtrip(tmp_path: Path) -> None:
+    """
+    Verify extz unicode torture roundtrip.
+
+    Example:
+        Exercise test extz unicode torture roundtrip through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_extz_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.extz import get_metadata, set_metadata
 
     archive = tmp_path / "unicode_torture.txtz"
@@ -426,6 +740,18 @@ def test_extz_unicode_torture_roundtrip(tmp_path: Path) -> None:
 
 
 def test_extz_set_metadata_preserves_members_replaces_cover_and_sanitizes_xml(tmp_path: Path) -> None:
+    """
+    Verify extz set metadata preserves members replaces cover and sanitizes xml.
+
+    Example:
+        Exercise test extz set metadata preserves members replaces cover and sanitizes xml through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_extz_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.extz import get_metadata, set_metadata
 
     archive = tmp_path / "container_contract.txtz"
@@ -476,6 +802,18 @@ def test_extz_set_metadata_preserves_members_replaces_cover_and_sanitizes_xml(tm
 
 
 def test_extz_broken_encoding_in_opf_is_tolerated(tmp_path: Path) -> None:
+    """
+    Verify extz broken encoding in opf remains tolerated.
+
+    Example:
+        Exercise test extz broken encoding in opf is tolerated through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_extz_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.extz import get_metadata
 
     opf = (
@@ -495,11 +833,40 @@ def test_extz_broken_encoding_in_opf_is_tolerated(tmp_path: Path) -> None:
 
 
 def test_extz_get_metadata_invalid_zip_raises_by_default_and_can_opt_into_fallback(monkeypatch) -> None:
+    """
+    Verify extz get metadata invalid zip raises by default and can opt into fallback.
+
+    Example:
+        Exercise test extz get metadata invalid zip raises by default and can opt into fallback through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_extz_metadata_source.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.extz import ExtzFormatError, get_metadata
 
     events: list[tuple[str, str]] = []
 
     def _log_exception(base, exc, level, *pairs, **kwargs):
+        """
+        Perform the log exception test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test extz get metadata invalid zip raises by default and can opt into fallback.log exception through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_extz_metadata_source.py
+
+
+        :param base: Value supplied for base in the focused test operation.
+        :param exc: Value supplied for exc in the focused test operation.
+        :param level: Value supplied for level in the focused test operation.
+        :param pairs: Value supplied for pairs in the focused test operation.
+        :param kwargs: Keyword values forwarded by the test double.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         events.append((str(base), str(exc)))
         return str(base)
 
@@ -517,6 +884,18 @@ def test_extz_get_metadata_invalid_zip_raises_by_default_and_can_opt_into_fallba
 def test_extz_get_metadata_missing_opf_with_credible_htmlz_content_returns_fallback(
     tmp_path: Path,
 ) -> None:
+    """
+    Verify extz get metadata missing opf with credible htmlz content returns fallback.
+
+    Example:
+        Exercise test extz get metadata missing opf with credible htmlz content returns fallback through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_extz_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.extz import get_metadata
 
     archive = tmp_path / "no_opf.htmlz"
@@ -527,11 +906,40 @@ def test_extz_get_metadata_missing_opf_with_credible_htmlz_content_returns_fallb
 
 
 def test_extz_set_metadata_invalid_zip_logs_and_raises(monkeypatch) -> None:
+    """
+    Verify extz set metadata invalid zip logs and raises.
+
+    Example:
+        Exercise test extz set metadata invalid zip logs and raises through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_extz_metadata_source.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.extz import set_metadata
 
     events: list[tuple[str, str]] = []
 
     def _log_exception(base, exc, level, *pairs, **kwargs):
+        """
+        Perform the log exception test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test extz set metadata invalid zip logs and raises.log exception through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_extz_metadata_source.py
+
+
+        :param base: Value supplied for base in the focused test operation.
+        :param exc: Value supplied for exc in the focused test operation.
+        :param level: Value supplied for level in the focused test operation.
+        :param pairs: Value supplied for pairs in the focused test operation.
+        :param kwargs: Keyword values forwarded by the test double.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         events.append((str(base), str(exc)))
         return str(base)
 
@@ -544,6 +952,20 @@ def test_extz_set_metadata_invalid_zip_logs_and_raises(monkeypatch) -> None:
 
 
 def test_extz_set_metadata_missing_opf_logs_and_raises(tmp_path: Path, monkeypatch) -> None:
+    """
+    Verify extz set metadata missing opf logs and raises.
+
+    Example:
+        Exercise test extz set metadata missing opf logs and raises through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_extz_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.extz import set_metadata
 
     archive = tmp_path / "set_missing_opf.htmlz"
@@ -552,6 +974,22 @@ def test_extz_set_metadata_missing_opf_logs_and_raises(tmp_path: Path, monkeypat
     events: list[tuple[str, str]] = []
 
     def _log_exception(base, exc, level, *pairs, **kwargs):
+        """
+        Perform the log exception test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test extz set metadata missing opf logs and raises.log exception through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_extz_metadata_source.py
+
+
+        :param base: Value supplied for base in the focused test operation.
+        :param exc: Value supplied for exc in the focused test operation.
+        :param level: Value supplied for level in the focused test operation.
+        :param pairs: Value supplied for pairs in the focused test operation.
+        :param kwargs: Keyword values forwarded by the test double.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         events.append((str(base), str(exc)))
         return str(base)
 

@@ -1,3 +1,14 @@
+"""
+Define canonical ebook, archive and document extension groups.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise file extensions through a consuming regression::
+
+        python -m pytest -q tests/test_constants.py
+"""
 from __future__ import print_function
 
 # Todo: Standardize how you deal with extensions

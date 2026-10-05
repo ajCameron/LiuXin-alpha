@@ -1,3 +1,14 @@
+"""
+Provide test lit end to end and unicode torture utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test lit end to end and unicode torture through a consuming regression::
+
+        python -m pytest -q tests/file_formats/lit/test_lit_end_to_end_and_unicode_torture.py
+"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -15,6 +26,20 @@ from tests.support.file_format_unicode import assert_no_replacement_chars
 
 
 def _lit_paths(md_test_files_by_ext: dict[str, list[Path]]) -> list[Path]:
+    """
+    Perform the lit paths operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  lit paths through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_end_to_end_and_unicode_torture.py
+
+
+    :param md_test_files_by_ext: Value supplied for md test files by ext under the
+        utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     paths = list(md_test_files_by_ext.get("lit", []))
     if not paths:
         pytest.skip("No .lit fixtures found in optional LiuXin_alpha_data corpus")
@@ -22,6 +47,20 @@ def _lit_paths(md_test_files_by_ext: dict[str, list[Path]]) -> list[Path]:
 
 
 def test_lit_input_end_to_end_on_real_fixtures(md_test_files_by_ext: dict[str, list[Path]]) -> None:
+    """
+    Perform the test lit input end to end on real fixtures operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test lit input end to end on real fixtures through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_end_to_end_and_unicode_torture.py
+
+
+    :param md_test_files_by_ext: Value supplied for md test files by ext under the
+        utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.conversion.plugins.lit_input import LITInput
 
     for lit_path in _lit_paths(md_test_files_by_ext):
@@ -47,6 +86,20 @@ def test_lit_input_end_to_end_on_real_fixtures(md_test_files_by_ext: dict[str, l
 def test_lit_input_recovers_when_opf_spine_is_empty_after_prune(
     md_test_files_by_ext: dict[str, list[Path]]
 ) -> None:
+    """
+    Perform the test lit input recovers when opf spine is empty after prune operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test lit input recovers when opf spine is empty after prune through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_end_to_end_and_unicode_torture.py
+
+
+    :param md_test_files_by_ext: Value supplied for md test files by ext under the
+        utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.conversion.plugins.lit_input import LITInput
 
     target = next((p for p in _lit_paths(md_test_files_by_ext) if p.name == "lit_md_test_file_1.lit"), None)
@@ -65,6 +118,20 @@ def test_lit_input_recovers_when_opf_spine_is_empty_after_prune(
 def test_lit_reader_best_effort_drm_mode_blocks_encrypted_sections(
     md_test_files_by_ext: dict[str, list[Path]]
 ) -> None:
+    """
+    Perform the test lit reader best effort drm mode blocks encrypted sections operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test lit reader best effort drm mode blocks encrypted sections through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_end_to_end_and_unicode_torture.py
+
+
+    :param md_test_files_by_ext: Value supplied for md test files by ext under the
+        utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     target = next((p for p in _lit_paths(md_test_files_by_ext) if p.name == "lit_md_test_file_2.lit"), None)
     if target is None:
         pytest.skip("Fixture lit_md_test_file_2.lit not available")
@@ -80,6 +147,21 @@ def test_lit_reader_best_effort_drm_mode_blocks_encrypted_sections(
 def test_lit_input_reports_clear_error_for_broken_manifest_utf8(
     tmp_path: Path, md_test_files_by_ext: dict[str, list[Path]]
 ) -> None:
+    """
+    Perform the test lit input reports clear error for broken manifest utf8 operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test lit input reports clear error for broken manifest utf8 through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_end_to_end_and_unicode_torture.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param md_test_files_by_ext: Value supplied for md test files by ext under the
+        utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.conversion.plugins.lit_input import LITInput
 
     source = next((p for p in _lit_paths(md_test_files_by_ext) if p.name == "lit_md_test_file_2.lit"), None)
@@ -118,6 +200,20 @@ def test_lit_input_reports_clear_error_for_broken_manifest_utf8(
     ],
 )
 def test_lit_utf8_torture_valid_sequences(payload: bytes, expected: str) -> None:
+    """
+    Perform the test lit utf8 torture valid sequences operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test lit utf8 torture valid sequences through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_end_to_end_and_unicode_torture.py
+
+
+    :param payload: Value supplied for payload under the utility contract.
+    :param expected: Value supplied for expected under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     ch, pos = read_utf8_char(payload, 0)
     assert ch == expected
     assert pos == len(payload)
@@ -138,11 +234,36 @@ def test_lit_utf8_torture_valid_sequences(payload: bytes, expected: str) -> None
     ],
 )
 def test_lit_utf8_torture_invalid_sequences(payload: bytes) -> None:
+    """
+    Perform the test lit utf8 torture invalid sequences operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test lit utf8 torture invalid sequences through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_end_to_end_and_unicode_torture.py
+
+
+    :param payload: Value supplied for payload under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     with pytest.raises(LitError):
         read_utf8_char(payload, 0)
 
 
 def test_lit_consume_sized_utf8_string_unicode_torture() -> None:
+    """
+    Perform the test lit consume sized utf8 string unicode torture operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test lit consume sized utf8 string unicode torture through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_end_to_end_and_unicode_torture.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     text = "Åß漢🙂e\u0301Ωж🧪"
     payload = lit_sized_utf8(text, zpad=True) + b"TAIL"
     parsed, remainder = consume_sized_utf8_string(payload, zpad=True)
@@ -159,5 +280,18 @@ def test_lit_consume_sized_utf8_string_unicode_torture() -> None:
     ],
 )
 def test_lit_consume_sized_utf8_string_broken_encoding_raises(payload: bytes) -> None:
+    """
+    Perform the test lit consume sized utf8 string broken encoding raises operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test lit consume sized utf8 string broken encoding raises through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_end_to_end_and_unicode_torture.py
+
+
+    :param payload: Value supplied for payload under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     with pytest.raises(LitError):
         consume_sized_utf8_string(payload)

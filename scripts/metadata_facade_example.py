@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
-"""Example workflow for the top-level metadata facade."""
+"""
+Provide metadata facade example utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise metadata facade example through a consuming regression::
+
+        python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+"""
 
 from __future__ import annotations
 
@@ -11,6 +21,18 @@ from LiuXin_alpha.databases.database import Database
 
 
 def main() -> int:
+    """
+    Perform the main operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise main through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     parser = argparse.ArgumentParser(
         description="Hydrate metadata, round-trip it through OPF, and optionally write a changed tag back.",
     )

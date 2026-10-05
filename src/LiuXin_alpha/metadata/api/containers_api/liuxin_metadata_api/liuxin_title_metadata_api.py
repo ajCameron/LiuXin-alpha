@@ -1,20 +1,15 @@
 
 """
-Metadata container focused around the title as the fundamental object.
+Describe the legacy title-oriented LiuXin metadata interface and its supporting row/database shapes.
 
-The aim here is "calibre metadata plus".
-Focussed around the single title of the work.
-Provides title focused metadata methods.
+The container presents a combined book view with multi-value creators, identifiers
+and relation ids rather than individual WEMI entities. Protocol methods declare
+interfaces without providing behavior or runtime validation.
 
-The concept of a "title" in WEMI is derivwd from components from
- - work
- - expression
- - manifestation
- - item
-Together into a single string.
+Example:
+    Exercise the owning behavior with pytest::
 
-You can think of this as the entire metadata for a manifestation.
-An actual thing which exists and you can hand to people.
+        python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
 """
 
 
@@ -53,28 +48,91 @@ from LiuXin_alpha.metadata.api.containers_api.metadata_write_api import (
 
 
 class LiuXinMetadataDatabaseAPI(Protocol):
-    """Database methods used by legacy ``MetaData.from_title_row``."""
+    """
+    Declare the table-categorization and display-column methods of the legacy database contract.
 
-    def get_categorized_tables(self) -> Mapping[str, Sequence[str]]: ...
+    This small protocol does not enumerate every capability of concrete hydration paths;
+    the legacy factory also uses linked-row lookup and a driver wrapper.
 
-    def get_display_column(self, table: str) -> str: ...
+    Example:
+        Exercise the owning behavior with pytest::
+
+            python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+    """
+
+    def get_categorized_tables(self) -> Mapping[str, Sequence[str]]:
+        """
+        Return database table names grouped by their schema categories.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+        :return: Category-name-to-table-name-sequence mapping.
+        """
+        ...
+
+    def get_display_column(self, table: str) -> str:
+        """
+        Resolve the display-value column name for a database table.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+        :param table: Database table name to inspect.
+        :return: Column name used to display rows of the table.
+        """
+        ...
 
 
 class LiuXinTitleRowAPI(Protocol):
-    """Database row shape accepted by legacy ``MetaData.from_title_row``."""
+    """
+    Describe a title-row object with a database reference and keyed column access.
+
+    The contract supplies no row storage or loading implementation.
+
+    Example:
+        Exercise the owning behavior with pytest::
+
+            python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+    """
 
     db: LiuXinMetadataDatabaseAPI
 
-    def __getitem__(self, item: str) -> LiuXinFieldValue: ...
+    def __getitem__(self, item: str) -> LiuXinFieldValue:
+        """
+        Retrieve a named column from the title row.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+        :param item: Exact database column name.
+        :return: Column value in the supported LiuXin field-value shapes.
+        """
+        ...
 
 
 class LiuXinMetadataAPI(Protocol):
     """
-    Structural API for ``LiuXin.metadata.metadata.MetaData``.
+    Specify legacy extended book metadata with creators, identifiers, optional row ids, and payloads.
 
-    This captures the pre-alpha extended metadata object: Calibre-compatible
-    enough for plugin workflows, but richer around creators, ids, database row
-    ids, original files, covers, and title-row hydration.
+    Implementing objects provide storage, normalization, copying, cleanup and adapters.
+    This protocol is not runtime-checkable; its declared types do not validate inputs or
+    repair legacy container differences.
+
+    Example:
+        >>> from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import CalibreLikeLiuXinBookMetaData
+        >>> book: LiuXinMetadataAPI = CalibreLikeLiuXinBookMetaData('Example', ['Writer'])
+        >>> book.get_authors_copy()
+        ['Writer']
     """
 
     title: str | None
@@ -121,19 +179,35 @@ class LiuXinMetadataAPI(Protocol):
     @classmethod
     def from_calibre(cls, calibre_md: CalibreMetadataInputAPI) -> Self:
         """
-        Factory method to produce a LiuXin metadata object from a calibre one.
+        Construct this metadata family from a Calibre-readable source.
 
-        :param calibre_md:
-        :return:
+        Only supported fields are imported; additional source attributes may be used when
+        available.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+        :param calibre_md: Calibre-readable metadata source exposing title, authors, and
+            identifiers.
+        :return: New instance of the implementing class.
         """
 
     def setattr(self, key: str, value: LiuXinFieldValue) -> None:
         """
-        Set aan attribute for the metadata object.
+        Assign one field through the implementing container's normal metadata setter.
 
-        :param key:
-        :param value:
-        :return:
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+        :param key: Metadata storage key.
+        :param value: Value to store using the operation's field rules.
+        :return: None.
         """
 
     def get(
@@ -142,11 +216,19 @@ class LiuXinMetadataAPI(Protocol):
         default: LiuXinFieldValue = None,
     ) -> LiuXinFieldValue:
         """
-        Get the current metadata value from the container.
+        Read a field with a caller-supplied fallback for an unavailable value.
 
-        :param field:
-        :param default:
-        :return:
+        Copying and null/default handling follow the concrete container's read policy.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+        :param field: Metadata field name.
+        :param default: Fallback used by the implementation for a missing value.
+        :return: Field value or fallback.
         """
 
     def get_extra(
@@ -155,27 +237,52 @@ class LiuXinMetadataAPI(Protocol):
         default: LiuXinFieldValue = None,
     ) -> LiuXinFieldValue:
         """
-        Get the extra value for the given value for the container.
+        Read a custom-field auxiliary value using the container's compatibility policy.
 
-        :param field:
-        :param default:
-        :return:
+        The legacy LiuXin container returns the whole user-metadata entry and can signal an
+        undefined field with AttributeError.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+        :param field: Metadata field name.
+        :param default: Fallback used by the implementation for a missing value.
+        :return: Custom-field result or fallback where the implementation supports it.
         """
 
     def read_creators(self, creators_dict: Mapping[str, str | Sequence[str]]) -> None:
         """
-        Read the creators content from a creators dictionary.
+        Read role-to-name values through the container's ordinary creator assignment path.
 
-        :param creators_dict:
-        :return:
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+        :param creators_dict: Role-to-creator mapping, in the form required by this
+            operation.
+        :return: None.
         """
 
     def direct_get(self, item: str) -> LiuXinFieldValue:
         """
-        Get the value of an item from the metadata.
+        Read an exact internal metadata entry without the normal field conversion layer.
 
-        :param item:
-        :return:
+        The legacy implementation exposes mutable storage and signals unknown names with
+        AttributeError.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+        :param item: Exact field or column lookup name.
+        :return: Stored field value; callers must account for possible shared mutable data.
         """
 
     def write_to_database(
@@ -190,24 +297,40 @@ class LiuXinMetadataAPI(Protocol):
         mark_dirty: bool = True,
     ) -> MetadataWriteReportAPI:
         """
-        Write metadata from the object out to the database.
+        Persist supported relation-backed fields through the metadata writer.
 
-        :param database:
-        :param fields:
-        :param target_level:
-        :param item_id:
-        :param target_row:
-        :param replace:
-        :param mark_dirty:
-        :return:
+        The implementation resolves the WEMI target from explicit row/item information or
+        available database ids and reports changes, skips, and errors.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+        :param database: Caller-owned database used by the WEMI writer for persistence; this
+            method does not close it.
+        :param fields: Optional relation-field iterable; None selects writer defaults.
+        :param target_level: WEMI level for the target relations, defaulting to work.
+        :param item_id: Optional LiuXin item id used to resolve the write target.
+        :param target_row: Optional explicit row or mapping identifying the write target.
+        :param replace: Whether to replace selected existing relations.
+        :param mark_dirty: Whether the writer should mark changed metadata dirty.
+        :return: MetadataWriteReportAPI describing the attempted persistence.
         """
 
     def to_opf_bytes(self, *, default_lang: str | None = None) -> bytes:
         """
-        Render the metadata object out to an OPF file, in the form of bytes.
+        Serialize this metadata as an OPF document.
 
-        :param default_lang:
-        :return:
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+        :param default_lang: Optional default language forwarded to OPF serialization.
+        :return: Serialized OPF bytes.
         """
 
     def write_to_opf(
@@ -217,102 +340,182 @@ class LiuXinMetadataAPI(Protocol):
         default_lang: str | None = None,
     ) -> Path:
         """
-        Write the metadata object out to an OPF file.
+        Serialize this metadata to an OPF destination path.
 
-        :param path:
-        :param default_lang:
-        :return:
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+        :param path: Destination OPF path; the shared adapter creates parents and overwrites
+            the file.
+        :param default_lang: Optional default language forwarded to OPF serialization.
+        :return: Path of the written OPF file.
         """
 
     def __getitem__(self, item: str) -> LiuXinFieldValue:
         """
-        Retrieve a metadata value from the container.
+        Retrieve an exact stored metadata key using mapping-style access.
 
-        :param item:
-        :return:
+        The legacy container returns the live value and signals missing keys with KeyError.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+        :param item: Exact field or column lookup name.
+        :return: Stored field value, possibly shared.
         """
 
     def __iter__(self) -> Iterable[str]:
         """
-        Iterate over the keys in the container.
+        Iterate top-level metadata storage names.
 
-        :return:
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+        :return: Iterable of field keys.
         """
 
     def nullify(self, field: str) -> None:
         """
-        Set a field value to null in the container.
+        Reset a field or supported grouped creator/identifier collection to its null state.
 
-        :param field:
-        :return:
+        Recognized fields and unknown-key handling are defined by the implementation.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+        :param field: Metadata field name.
+        :return: None.
         """
 
     def get_identifiers(self) -> CalibreIdentifierSnapshot:
         """
-        Return the identifiers stored within the metadata container.
+        Return an external-identifier snapshot keyed by scheme.
 
-        Contains both the internal and external identifiers.
+        The value shape may be a string or collection; consumers should not assume a single
+        identifier per scheme.
 
-        :return:
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+        :return: Identifier snapshot; the legacy LiuXin implementation returns copied sets.
         """
 
     def get_internal_identifiers(self) -> CalibreIdentifierSnapshot:
         """
-        Return the internal identifiers stored for this item in the metadata container.
+        Return an internal-identifier snapshot separately from external bibliographic identifiers.
 
-        These could include
-         - system assigned UUID(s)
-         - system assigned ID(s)
-         - hashes
-        :return:
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+        :return: Internal scheme-to-values snapshot.
         """
 
     def read_identifiers(self, identifiers: CalibreIdentifierMapping) -> None:
         """
-        Read an identifiers container into the metadata container.
+        Read external identifiers through the implementing container's identifier setter.
 
-        Identifiers are appending to the existing, stored identifier.
-        :param identifiers:
-        :return:
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+        :param identifiers: Scheme-to-value mapping using the supported string, sequence,
+            set, or value-to-id forms.
+        :return: None.
         """
 
     def set_identifiers(self, identifiers: CalibreIdentifierMapping) -> None:
         """
-        Completely replace the stored identifiers in the object with new ones.
+        Apply a mapping of external identifiers according to the container's update policy.
 
-        :param identifiers:
-        :return:
+        The legacy LiuXin implementation adds strings/collections and only uses its optional
+        update flag to replace OrderedDict values; it does not clear unmentioned schemes.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+        :param identifiers: Scheme-to-value mapping using the supported string, sequence,
+            set, or value-to-id forms.
+        :return: None.
         """
 
     def set_identifier(self, typ: str, val: CalibreIdentifierValue) -> None:
         """
-        Set the primary identifier of the given type.
+        Set an identifier under a normalized scheme, or clear that scheme for a supported null value.
 
-        :param typ:
-        :param val:
-        :return:
+        Concrete containers differ in accepted value shapes and deletion rules.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+        :param typ: Identifier scheme name or supported alias.
+        :param val: Identifier or field value accepted by the implementing container.
+        :return: None.
         """
 
     def has_identifier(self, typ: str) -> bool:
         """
-        Checks to see if the container has any instances of the given identifier.
+        Test whether the requested identifier scheme has a stored value.
 
-        :param typ:
-        :return:
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+        :param typ: Identifier scheme name or supported alias.
+        :return: Whether the scheme has identifier content.
         """
 
     def get_authors_copy(self) -> list[str]:
         """
-        Convenience method - gets a list of the authors of the container.
+        Copy author names without their database row information.
 
-        :return:
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+        :return: Independent list of author names.
         """
 
     def get_creators_dump(self) -> LiuXinCreatorDump:
         """
-        Get all the creators in the form of a mapping of mappings.
+        Return creator-role mappings including each name's row identifier information.
 
-        :return:
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+        :return: Role-to-value-to-id snapshot.
         """
 
     def direct_add(
@@ -322,12 +525,21 @@ class LiuXinMetadataAPI(Protocol):
         key_check: bool = True,
     ) -> None:
         """
-        Directly add a key-value to the metadata.
+        Insert or replace an internal value while bypassing normal field conversion.
 
-        :param key:
-        :param value:
-        :param key_check:
-        :return:
+        This operation may retain the supplied object directly; key_check requests
+        existing-key validation.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+        :param key: Metadata storage key.
+        :param value: Value to store using the operation's field rules.
+        :param key_check: Whether direct insertion must reject keys absent from storage.
+        :return: None.
         """
 
     def add_cover(
@@ -337,12 +549,21 @@ class LiuXinMetadataAPI(Protocol):
         cover_id: int | None = None,
     ) -> None:
         """
-        We're adding a cover object to the metadata container.
+        Validate and add a cover payload with its type marker and optional database id.
 
-        :param data:
-        :param typ:
-        :param cover_id:
-        :return:
+        Legacy implementations consume readable inputs without closing the original stream;
+        explicit cleanup registration controls later ownership.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+        :param data: File/cover path, bytes, or binary-readable payload.
+        :param typ: Payload type marker, defaulting to path.
+        :param cover_id: Optional database id associated with the cover payload.
+        :return: None.
         """
 
     def add_file(
@@ -352,150 +573,294 @@ class LiuXinMetadataAPI(Protocol):
         file_id: int | None = None,
     ) -> None:
         """
-        Add a file to the metadata container.
+        Add a file payload with a type marker and optional database id.
 
-        :param data:
-        :param typ:
-        :param file_id:
-        :return:
+        Legacy implementations consume readable inputs to bytes without closing the original
+        stream. Register that stream separately when the metadata owner should close it.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+        :param data: File/cover path, bytes, or binary-readable payload.
+        :param typ: Payload type marker, defaulting to path.
+        :param file_id: Optional database id associated with the file payload.
+        :return: None.
         """
 
     def record_path_and_file_name(self, file_path: CalibrePath) -> None:
         """
-        Add a file path to the metadata container.
+        Record an original path and basename as metadata history without adding a file payload.
 
-        :param file_path:
-        :return:
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+        :param file_path: Original path to record along with its basename.
+        :return: None.
         """
 
     def set_doc_type(self, doc_type: str) -> None:
         """
-        Set the document type of the container.
+        Validate and store the document-type label for this metadata container.
 
-        :param doc_type:
-        :return:
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+        :param doc_type: Document type label to validate and store.
+        :return: None.
         """
 
     def add_creators(self, creators: Mapping[str, str | Sequence[str]]) -> None:
         """
-        Add creators from a dict to the metadata container.
+        Add creator names grouped by role.
 
-        :param creators:
-        :return:
+        The legacy implementation stops after a single string without ampersands; list
+        values support processing multiple roles in one call.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+        :param creators: Role-to-name-or-name-sequence mapping.
+        :return: None.
         """
 
     def update_creators(self, creators_dict: LiuXinCreatorDump) -> None:
         """
-        Update the creators dict using an input container.
+        Merge already normalized role-to-name/id mappings into creator storage.
 
-        :param creators_dict:
-        :return:
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+        :param creators_dict: Role-to-creator mapping, in the form required by this
+            operation.
+        :return: None.
         """
 
     def add_identifiers(self, identifiers: CalibreIdentifierMapping) -> None:
         """
-        Add identifiers to the metadata container from an identifier mapping.
+        Add external identifiers from a scheme mapping.
 
-        Identifiers can be of internal or external type.
-        :param identifiers:
-        :return:
+        The legacy implementation returns after a scalar string entry; iterable entries
+        allow later schemes to be processed.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+        :param identifiers: Scheme-to-value mapping using the supported string, sequence,
+            set, or value-to-id forms.
+        :return: None.
         """
 
     def add_internal_identifiers(self, identifiers: CalibreIdentifierMapping) -> None:
         """
-        Add internal identifiers to the metadata container.
+        Add internal identifiers from a scheme mapping.
 
-        :param identifiers:
-        :return:
+        Internal scheme validation and accepted payload forms belong to the implementation.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+        :param identifiers: Scheme-to-value mapping using the supported string, sequence,
+            set, or value-to-id forms.
+        :return: None.
         """
 
     def __unicode__(self) -> str:
         """
-        Unicode representation of the object.
+        Render a Unicode diagnostic description for legacy compatibility.
 
-        :return:
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+        :return: Metadata description string.
         """
 
     def __str__(self) -> str:
         """
-        String representation of the object.
+        Render a human-readable diagnostic summary of the metadata.
 
-        :return:
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+        :return: Metadata description string.
         """
 
     @staticmethod
     def standard_field_keys() -> LiuXinFieldKeys:
         """
-        Standard field keys for this class of metadata.
+        Return the metadata family's standard field names, including unset fields.
 
-        :return:
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+        :return: Set of standard field names.
         """
 
     def user_metadata_keys(self) -> LiuXinFieldKeys:
         """
-        User set metadata keys for this class of metadata.
+        Return the lookup names of user-defined fields on this container.
 
-        :return:
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+        :return: Set of user-metadata names.
         """
 
     def all_field_keys(self) -> LiuXinFieldKeys:
         """
-        All recognized field keys for this class of metadata.
+        Collect recognized top-level fields, creator roles and identifier schemes.
 
-        :return:
+        The legacy implementation does not expand nested user-metadata keys.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+        :return: Set of recognized field names.
         """
 
     def all_set_fields(self) -> LiuXinFieldMapping:
         """
-        All fields which have been set for this metadata object.
+        Return the legacy compatibility field selection.
 
-        :return:
+        The concrete implementation delegates to all_non_none_fields, which currently
+        selects null fields despite the method names.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+        :return: Selected field-to-value mapping.
         """
 
     def all_non_none_fields(self) -> LiuXinFieldMapping:
         """
-        All fields which do not have a value which is identifiably zero.
+        Return the legacy compatibility field selection.
 
-        :return:
+        The concrete implementation retains fields satisfying is_null; callers must not
+        infer non-null filtering from the name.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+        :return: Selected field-to-value mapping.
         """
 
     def is_null(self, field: str) -> bool:
         """
-        Check if a given field is null.
+        Test whether a field is absent, false or equal to its metadata default.
 
-        :param field:
-        :return:
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+        :param field: Legacy metadata field name; supported aliases are normalized by the
+            implementation.
+        :return: True for null/default fields, including failed legacy lookups.
         """
 
     def dict_add(self, more_metadata: LiuXinMetadataAPI) -> None:
         """
-        Add metadata from a dictionary to the container.
+        Add fields absent from this container using another container's data.
 
-        :param more_metadata:
-        :return:
+        Existing keys remain unchanged, even when their values are empty.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+        :param more_metadata: Compatible metadata container whose copied data supplies
+            absent keys.
+        :return: None.
         """
 
     def get_all_attr(self, copy: bool = True) -> LiuXinFieldMapping:
         """
-        Get all attributes of the container.
+        Return the stored field mapping using the requested copy policy.
 
-        :param copy:
-        :return:
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+        :param copy: Return independent copies when True; return the live field mapping when
+            False.
+        :return: Field-to-value mapping; mutations affect the container when copy is False.
         """
 
     def get_data(self, rtn_deepcopy: bool = True) -> LiuXinFieldMapping:
         """
-        Get all the metadata from the container as a dictionary.
+        Expose the stored metadata as a mapping, deep-copying it by default.
 
-        :param rtn_deepcopy:
-        :return:
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+        :param rtn_deepcopy: Deep-copy the stored field mapping when True; otherwise expose
+            the live mapping.
+        :return: Copied or live field-to-value mapping.
         """
 
     def deepcopy_metadata(self) -> Self:
         """
-        Return a deep copy of the container.
+        Create an independent metadata container of the same concrete family.
 
-        :return:
+        The legacy implementation copies field storage and starts with an empty cleanup
+        registry.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+        :return: Independent metadata container.
         """
 
     def smart_update(
@@ -504,74 +869,147 @@ class LiuXinMetadataAPI(Protocol):
         replace_metadata: bool = False,
     ) -> None:
         """
-        Preform a smart update of the container.
+        Merge another compatible container using field-specific replacement rules.
 
-        :param other:
-        :param replace_metadata:
-        :return:
+        Empty source values need not clear existing values; the legacy implementation merges
+        mappings and deduplicates list entries when replacement is disabled.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+        :param other: Compatible metadata container supplying fields to merge.
+        :param replace_metadata: Replace supported existing metadata when True; otherwise
+            use the family merge rules.
+        :return: None.
         """
 
     def clean(self) -> None:
         """
-        Preform a clean of the metadata.
+        Normalize stored titles, creators, tags and supported identifiers in place.
 
-        Does things like
-         - normalize identifiers
-         - normalize and dedupe tags
-        :return:
+        Normalization follows the concrete metadata family and can collapse duplicate keys.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+        :return: None.
         """
 
     def get_all_user_metadata(self, make_copy: bool) -> CalibreUserMetadata:
         """
-        Return all user metadata from the container.
+        Return user-defined field descriptors with an explicit copy policy.
 
-        :param make_copy:
-        :return:
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+        :param make_copy: Deep-copy user metadata when True; otherwise expose its stored
+            mapping.
+        :return: User-metadata mapping, copied when requested.
         """
 
     def from_title_row(self, title_row: LiuXinTitleRowAPI) -> None:
         """
-        Populate this object from a title row.
+        Populate legacy metadata from a title Row and its linked database rows.
 
-        :param title_row:
-        :return:
+        The row supplies the database context; relation lookup and conversion errors
+        propagate. This call does not close the database.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+        :param title_row: Title Row with row_dict and a database capable of resolving linked
+            metadata rows.
+        :return: None.
         """
 
     def finalize(self) -> Self:
         """
-        Bring the metadata into final form.
+        Apply final compatibility conversions and return the metadata container.
 
-        Last method which should be called before a write out.
-        :return:
+        This normalizes cached Calibre fields and tags without preventing later mutation.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+        :return: This metadata container after normalization.
         """
 
     def to_calibre(self) -> CalibreMetadataAPI:
         """
-        Transform this metadata object into a CalibreMetadataObject.
+        Create a flat Calibre-compatible metadata object.
 
-        :return:
+        The legacy conversion is lossy: multiple values and database relation provenance
+        cannot all be represented.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+        :return: New Calibre metadata object.
         """
 
     def register_file_for_cleanup(self, file_pointer: CalibreCloseableAPI) -> None:
         """
-        Register a file pointer for cleanup.
+        Retain a closeable object for later cleanup.
 
-        :param file_pointer:
-        :return:
+        Registration does not close the object or deduplicate earlier registrations.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+        :param file_pointer: Closeable object retained in the cleanup registry.
+        :return: None.
         """
 
     def close_cleanup_files(self) -> None:
         """
-        Go through and close all the cleanup file pointers.
+        Call close on each registered cleanup object.
 
-        :return:
+        The legacy implementation ignores AttributeError, propagates other failures, and
+        retains the registry after closing.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+        :return: None.
         """
 
     @staticmethod
     def explain_field(key: str) -> str:
         """
-        String explanation of the field.
+        Look up a human-readable explanation for an exact metadata field key.
 
-        :param key:
-        :return:
+        Unknown keys raise ValueError in the legacy implementation.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/api/test_liuxin_metadata_api.py
+
+
+        :param key: Exact metadata field key whose explanation is requested.
+        :return: Field explanation string.
         """

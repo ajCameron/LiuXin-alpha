@@ -1,5 +1,12 @@
 """
-Normalized same-table column updates for catalog writers.
+Represent one immutable catalog column mutation.
+
+The module keeps validation, normalization and host mutation boundaries explicit.
+
+Example:
+    Exercise column update through its owning regression module::
+
+        python -m pytest -q tests/catalog/test_writer_factory.py
 """
 
 from __future__ import annotations
@@ -20,6 +27,17 @@ if TYPE_CHECKING:
 
 
 def _empty_values[ValueT]() -> dict[SrcTableID, ValueT]:
+    """
+    Return whether an update payload explicitly clears its target value.
+
+    Example:
+        Exercise empty values through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return {}
 
 
@@ -28,13 +46,10 @@ class CatalogColumnUpdate[ValueT]:
     """
     Describe one bulk update to a column stored on its source table.
 
-    The caller-owned value mapping is copied during construction. Applying an
-    empty update is a no-op; otherwise the database performs one bulk column
-    update and the stable value mapping is returned.
+    Example:
+        Exercise CatalogColumnUpdate through its owning regression module::
 
-    :param table_spec: Table containing both source IDs and destination column.
-    :param column_spec: Destination column to update.
-    :param values: New column values keyed by source-table ID.
+            python -m pytest -q tests/catalog/test_writer_factory.py
     """
 
     table_spec: StorageTableSpec
@@ -45,10 +60,13 @@ class CatalogColumnUpdate[ValueT]:
         """
         Validate and materialize the update request.
 
-        :return: None.
-        :raises TypeError: If specifications or values have invalid types.
-        :raises ValueError: If the column does not belong to the table or is
-            its primary key.
+        Example:
+            Exercise CatalogColumnUpdate.post init through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+        :return: None; the function records state or raises through its assertions.
         """
 
         if not isinstance(self.table_spec, StorageTableSpec):
@@ -74,8 +92,14 @@ class CatalogColumnUpdate[ValueT]:
         """
         Apply this update through the database's bulk-column operation.
 
-        :param database: Catalog database handle.
-        :return: Stable written values keyed by source-table ID.
+        Example:
+            Exercise CatalogColumnUpdate.write through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+        :param database: Value supplied for database under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         if not self.values:

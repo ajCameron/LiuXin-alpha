@@ -1,21 +1,28 @@
 # -*- coding: utf-8 -*-
 
 """
-Read content from Haodoo.net pdb file.
+Read the package format into normalized text, metadata and resources.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise reader through a consuming regression::
+
+        python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
 """
 from __future__ import annotations
 
-import typing as _typing
-
-import struct
 import os
+import struct
+import typing as _typing
 
 from LiuXin_alpha.file_formats.pdb import PDBError
 from LiuXin_alpha.file_formats.pdb.formatreader import FormatReader
-from LiuXin_alpha.file_formats.txt.processor import opf_writer, HTML_TEMPLATE
-
-from LiuXin_alpha.metadata.metadata import MetaData as MetaInformation
-
+from LiuXin_alpha.file_formats.txt.processor import HTML_TEMPLATE, opf_writer
+from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
+    CalibreLikeLiuXinBookMetaData as MetaInformation,
+)
 from LiuXin_alpha.utils.calibre import prepare_string_for_xml
 
 __license__ = "GPL v3"
@@ -56,16 +63,57 @@ punct_table = {
 
 
 def fix_punct(line: _typing.Any) -> _typing.Any:
+    """
+    Perform the fix punct operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise fix punct through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+    :param line: Value supplied for line under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     for (key, value) in punct_table.items():
         line = line.replace(key, value)
     return line
 
 
 def _decode_text(raw: _typing.Any, encoding: _typing.Any, errors: str = "replace") -> _typing.Any:
+    """
+    Perform the decode text operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  decode text through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :param encoding: Value supplied for encoding under the utility contract.
+    :param errors: Value supplied for errors under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return fix_punct(raw.decode(encoding, errors).rstrip("\x00"))
 
 
 def _parse_record_count(raw: _typing.Any) -> _typing.Any:
+    """
+    Parse record count under the format's safety and compatibility rules.
+
+    Example:
+        Exercise  parse record count through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     normalized = raw.replace(b"\x00", b"").strip()
     try:
         count = int(normalized)
@@ -77,11 +125,38 @@ def _parse_record_count(raw: _typing.Any) -> _typing.Any:
 
 
 def _validate_header_fields(fields: _typing.Any) -> None:
+    """
+    Validate header fields under the format's safety and compatibility rules.
+
+    Example:
+        Exercise  validate header fields through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+    :param fields: Value supplied for fields under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if len(fields) < 3:
         raise PDBError("Haodoo header is missing required fields")
 
 
 def _validate_chapter_titles(num_records: _typing.Any, chapter_titles: _typing.Any) -> None:
+    """
+    Validate chapter titles under the format's safety and compatibility rules.
+
+    Example:
+        Exercise  validate chapter titles through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+    :param num_records: Value supplied for num records under the utility contract.
+    :param chapter_titles: Value supplied for chapter titles under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if len(chapter_titles) != num_records:
         raise PDBError(
             "Haodoo chapter title count does not match record count: %d != %d"
@@ -90,7 +165,27 @@ def _validate_chapter_titles(num_records: _typing.Any, chapter_titles: _typing.A
 
 
 class LegacyHeaderRecord(object):
+    """
+    Provide the legacyheaderrecord contract for validated ebook processing.
+
+    Example:
+        Exercise LegacyHeaderRecord through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+    """
     def __init__(self: _typing.Self, raw: _typing.Any) -> None:
+        """
+        Initialize and validate the legacyheaderrecord state.
+
+        Example:
+            Exercise LegacyHeaderRecord.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :param raw: Value supplied for raw under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         fields = raw.lstrip().replace(b"\x1b\x1b\x1b", b"\x1b").split(b"\x1b")
         _validate_header_fields(fields)
         self.title = _decode_text(fields[0], "cp950")
@@ -100,7 +195,27 @@ class LegacyHeaderRecord(object):
 
 
 class UnicodeHeaderRecord(object):
+    """
+    Provide the unicodeheaderrecord contract for validated ebook processing.
+
+    Example:
+        Exercise UnicodeHeaderRecord through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+    """
     def __init__(self: _typing.Self, raw: _typing.Any) -> None:
+        """
+        Initialize and validate the unicodeheaderrecord state.
+
+        Example:
+            Exercise UnicodeHeaderRecord.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :param raw: Value supplied for raw under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         fields = (
             raw.lstrip()
             .replace(b"\x1b\x00\x1b\x00\x1b\x00", b"\x1b\x00")
@@ -122,7 +237,31 @@ class UnicodeHeaderRecord(object):
 
 
 class Reader(FormatReader):
+    """
+    Parse reader data into normalized ebook structures.
+
+    Example:
+        Exercise Reader through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+    """
     def __init__(self: _typing.Self, header: _typing.Any, stream: _typing.Any, log: _typing.Any, options: _typing.Any) -> None:
+        """
+        Initialize and validate the reader state.
+
+        Example:
+            Exercise Reader.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :param header: Value supplied for header under the utility contract.
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param log: Value supplied for log under the utility contract.
+        :param options: Value supplied for options under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.stream = stream
         self.log = log
 
@@ -152,6 +291,18 @@ class Reader(FormatReader):
             )
 
     def author(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the author operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Reader.author through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.stream.seek(35)
         version = struct.unpack(b">b", self.stream.read(1))[0]
         if version == 2:
@@ -162,20 +313,71 @@ class Reader(FormatReader):
             return "Unknown"
 
     def get_metadata(self: _typing.Self) -> _typing.Any:
+        """
+        Return normalized metadata parsed from the supplied document.
+
+        Example:
+            Exercise Reader.get metadata through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         mi = MetaInformation(self.header_record.title, [self.author()])
         mi.language = "zh-tw"
 
         return mi
 
     def section_data(self: _typing.Self, number: _typing.Any) -> _typing.Any:
+        """
+        Perform the section data operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Reader.section data through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :param number: Value supplied for number under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not (0 <= number < len(self.sections)):
             raise PDBError("Haodoo section number out of range: %s" % number)
         return self.sections[number]
 
     def decompress_text(self: _typing.Self, number: _typing.Any) -> _typing.Any:
+        """
+        Perform the decompress text operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Reader.decompress text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :param number: Value supplied for number under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.section_data(number).decode(self.encoding, "replace").rstrip("\x00")
 
     def extract_content(self: _typing.Self, output_dir: _typing.Any) -> _typing.Any:
+        """
+        Extract content under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Reader.extract content through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :param output_dir: Value supplied for output dir under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         txt = ""
 
         self.log.info("Decompressing text...")

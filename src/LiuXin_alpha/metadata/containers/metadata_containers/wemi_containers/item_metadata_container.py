@@ -1,8 +1,13 @@
-"""Core WEMI item metadata-bundle implementation containers.
+"""
+Implement editable relation bundles surrounding an optional item identity.
 
-Category: core WEMI metadata bundle.
-This module implements the editable metadata surface around an item, not the item
-identity object and not a read-side query result.
+Bundles hold shared relation-link targets, expose structured and text projections,
+and delegate database access to their hydrator and writer.
+
+Example:
+    >>> metadata = ItemMetadata(item=ItemIdentity(item_id=3))
+    >>> metadata.item.item_id
+    3
 """
 from __future__ import annotations
 
@@ -30,10 +35,16 @@ from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.projec
 
 class ItemMetadata(ItemMetadataAPI):
     """
-    Provide the editable relationship bundle surrounding an Item identity.
+    Collect a item identity and relation-keyed metadata links.
 
-    Targets in relation links are usually live database :class:`Row` objects,
-    but plain mappings are also supported for round-tripping/tests.
+    Targets commonly contain live Rows, while plain mappings support serialization and
+    tests. Identity and link objects remain shared. Each relation bucket has its own
+    list, exposed live by get_relation_links.
+
+    Example:
+        >>> metadata = ItemMetadata(item=ItemIdentity(item_id=3))
+        >>> metadata.get_relation_links('identifiers')
+        []
     """
 
     def __init__(
@@ -42,6 +53,23 @@ class ItemMetadata(ItemMetadataAPI):
         item: Optional[ItemIdentityAPI] = None,
         relation_links: Optional[Mapping[str, Iterable[ItemRelationLink]]] = None,
     ) -> None:
+        """
+        Retain the optional item identity and initialize every supported relation bucket.
+
+        Supplied keys are normalized and link collections validated through
+        set_relation_links. Unknown relation keys raise KeyError.
+
+        Example:
+            >>> metadata = ItemMetadata(item=ItemIdentity(item_id=3))
+            >>> metadata.get_relation_links('identifiers')
+            []
+
+
+        :param item: Optional identity object retained by reference.
+        :param relation_links: Optional mapping of supported relation names or aliases to
+            link iterables.
+        :return: None.
+        """
         self._item = item
         self._relation_links: dict[ItemRelationKey, list[ItemRelationLink]] = {
             relation_key: [] for relation_key in self.RELATION_KEYS
@@ -52,29 +80,120 @@ class ItemMetadata(ItemMetadataAPI):
 
     @property
     def item(self) -> Optional[ItemIdentityAPI]:
+        """
+        Return the linked item identity by reference.
+
+        Example:
+            >>> metadata = ItemMetadata(item=ItemIdentity(item_id=3))
+            >>> metadata.item.item_id
+            3
+
+
+        :return: Stored identity, or None.
+        """
         return self._item
 
     @item.setter
     def item(self, value: Optional[ItemIdentityAPI]) -> None:
+        """
+        Replace the item identity without modifying relation buckets.
+
+        Example:
+            >>> metadata = ItemMetadata(item=ItemIdentity(item_id=3))
+            >>> metadata.item = None
+            >>> metadata.item is None
+            True
+
+
+        :param value: New shared identity object, or None to unlink it.
+        :return: None.
+        """
         self._item = value
 
     @property
     def values(self) -> MetadataValuesView:
+        """
+        Create a structured value view backed by this metadata bundle.
+
+        Example:
+            >>> metadata = ItemMetadata(item=ItemIdentity(item_id=3))
+            >>> isinstance(metadata.values, MetadataValuesView), metadata.values is metadata.values
+            (True, False)
+
+
+        :return: New MetadataValuesView referencing this bundle.
+        """
         return MetadataValuesView(self)
 
     @property
     def text(self) -> MetadataTextView:
+        """
+        Create a text view backed by a fresh value projection of this bundle.
+
+        Example:
+            >>> metadata = ItemMetadata(item=ItemIdentity(item_id=3))
+            >>> isinstance(metadata.text, MetadataTextView)
+            True
+
+
+        :return: New MetadataTextView.
+        """
         return MetadataTextView(self.values)
 
     def get_relation_links(self, relation_key: ItemRelationKey) -> list[ItemRelationLink]:
+        """
+        Return the live list for a normalized relation key.
+
+        Unknown keys raise KeyError. Mutating the returned list bypasses setter validation.
+
+        Example:
+            >>> metadata = ItemMetadata(item=ItemIdentity(item_id=3))
+            >>> metadata.get_relation_links('identifier') is metadata.get_relation_links('identifiers')
+            True
+
+
+        :param relation_key: Supported relation bucket name or alias, normalized by
+            validate_relation_name.
+        :return: Stored mutable list of relation links.
+        """
         relation_key = self.validate_relation_name(relation_key)
         return self._relation_links[relation_key]
 
     def set_relation_links(self, relation_key: ItemRelationKey, links: Iterable[ItemRelationLink]) -> None:
+        """
+        Validate relation name and local cardinality before replacing the stored list.
+
+        Validation materializes a new list while retaining link objects. Validation failures
+        leave the existing bucket assigned.
+
+        Example:
+            >>> metadata = ItemMetadata(item=ItemIdentity(item_id=3))
+            >>> link = ItemRelationLink(target={'entity_identifier_value': 'local-3'})
+            >>> metadata.set_relation_links('identifiers', [link])
+            >>> metadata.get_relation_links('identifiers')[0] is link
+            True
+
+
+        :param relation_key: Supported relation bucket name or alias, normalized by
+            validate_relation_name.
+        :param links: Iterable of relation-link objects to validate and retain.
+        :return: None.
+        """
         relation_key = self.validate_relation_name(relation_key)
         self._relation_links[relation_key] = self.validate_relation_links(relation_key, links)
 
     def __str__(self) -> str:
+        """
+        Render the item identity and populated relation counts as a diagnostic summary.
+
+        Example:
+            >>> metadata = ItemMetadata(item=ItemIdentity(item_id=3))
+            >>> 'ItemMetadata' in str(metadata)
+            True
+
+
+        :return: Human-readable bundle summary.
+        """
         return metadata_bundle_string(
             self,
             identity_name="item",
@@ -92,6 +211,29 @@ class ItemMetadata(ItemMetadataAPI):
         replace: bool = False,
         mark_dirty: bool = True,
     ) -> Any:
+        """
+        Delegate supported metadata writes to the WEMI writer at item level.
+
+        The writer resolves targets and applies incremental changes, returning its write
+        report. This wrapper adds no transaction or rollback boundary. Field selection,
+        replacement and failures follow writer policy.
+
+        Example:
+            Exercise bundle write delegation with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_item_metadata_hydrator.py
+
+
+        :param database: Caller-owned database accepted by LiuXinWEMIMetadataWriter.
+        :param fields: Optional field names to write; None uses the writer default
+            selection.
+        :param item_id: Optional item id supplied for writer target resolution.
+        :param target_row: Optional Row or mapping supplied for item target resolution.
+        :param replace: Use replacement semantics for supported fields when True; otherwise
+            append.
+        :param mark_dirty: Request best-effort dirty marking after changes when True.
+        :return: Writer report describing applied, skipped and failed work.
+        """
         from LiuXin_alpha.metadata.containers.metadata_containers.liuxin_wemi_metadata_writer import (
             LiuXinWEMIMetadataWriter,
         )
@@ -108,6 +250,22 @@ class ItemMetadata(ItemMetadataAPI):
 
     @staticmethod
     def _serialize_target(target: Any) -> Any:
+        """
+        Serialize a target from Row data, a to_mapping method or a shallow mapping copy.
+
+        A callable to_mapping takes precedence over generic Mapping handling. None and
+        unsupported values are returned unchanged.
+
+        Example:
+            >>> original = {'manifestation_id': 2}
+            >>> result = ItemMetadata._serialize_target(original)
+            >>> result == original and result is not original
+            True
+
+
+        :param target: Relation target to serialize.
+        :return: Serialized target, potentially retaining shared nested values.
+        """
         if target is None:
             return None
         if isinstance(target, Row):
@@ -121,6 +279,21 @@ class ItemMetadata(ItemMetadataAPI):
 
     @staticmethod
     def _deserialize_target(target: Any) -> Any:
+        """
+        Reconstruct item identity mappings and shallow-copy other mappings.
+
+        Presence of item_id or item_manifestation_id qualifies, even for a None value.
+        Nonmapping targets are retained.
+
+        Example:
+            >>> target = ItemMetadata._deserialize_target({'item_id': 3})
+            >>> target.item_id
+            3
+
+
+        :param target: Target value from a serialized relation link.
+        :return: New identity, copied mapping or unchanged target.
+        """
         if isinstance(target, Mapping):
             if "item_id" in target or "item_manifestation_id" in target:
                 return ItemIdentity.from_mapping(target)
@@ -128,6 +301,25 @@ class ItemMetadata(ItemMetadataAPI):
         return target
 
     def to_mapping(self, include_related: bool = True) -> dict[str, Any]:
+        """
+        Serialize identity and, by default, every supported relation bucket.
+
+        Link cardinality becomes its enum value and extra is shallow-copied. Other link
+        fields retain their values; target conversion follows _serialize_target. This is not
+        a deep copy or persistence operation.
+
+        Example:
+            >>> metadata = ItemMetadata(item=ItemIdentity(item_id=3))
+            >>> metadata.to_mapping(include_related=False)['item']['item_id']
+            3
+            >>> 'relations' in metadata.to_mapping(include_related=False)
+            False
+
+
+        :param include_related: Include every supported relation bucket and its link
+            payloads when True.
+        :return: New payload with item and optional relations entries.
+        """
         payload: dict[str, Any] = {
             "item": self.item.to_mapping() if self.item is not None else None,
         }
@@ -160,6 +352,23 @@ class ItemMetadata(ItemMetadataAPI):
 
     @classmethod
     def from_mapping(cls, payload: Mapping[str, Any]) -> "ItemMetadata":
+        """
+        Reconstruct a item bundle from identity and relation payloads.
+
+        Existing identity and link instances are retained. Link mappings produce new links
+        with shallow extra copies; unknown relation keys and unsupported link entries are
+        ignored. Recognized buckets undergo constructor validation.
+
+        Example:
+            >>> metadata = ItemMetadata(item=ItemIdentity(item_id=3))
+            >>> restored = ItemMetadata.from_mapping(metadata.to_mapping())
+            >>> restored.item.item_id
+            3
+
+
+        :param payload: Mapping with optional item and relations entries.
+        :return: New ItemMetadata instance of the requested class.
+        """
         item_payload = payload.get("item")
         item: Optional[ItemIdentityAPI]
         if isinstance(item_payload, ItemIdentityAPI):
@@ -205,6 +414,24 @@ class ItemMetadata(ItemMetadataAPI):
         item_id: Optional[int] = None,
         source_row: Optional[Mapping[str, Any] | Row] = None,
     ) -> "ItemMetadata":
+        """
+        Hydrate item metadata from an explicit id or source row.
+
+        The explicit id takes precedence. The hydrator is constructed before checking
+        inputs; if neither entry point is supplied, ValueError is raised. The concrete
+        hydrator result is returned even when called on a subclass.
+
+        Example:
+            Exercise database hydration with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_item_metadata_hydrator.py
+
+
+        :param database: Caller-owned database or compatible metadata read source.
+        :param item_id: Optional item id, converted with int and preferred over source_row.
+        :param source_row: Optional Row or mapping used when no explicit id is supplied.
+        :return: Hydrated ItemMetadata bundle.
+        """
         from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_hydrator import (
             ItemMetadataHydrator,
         )

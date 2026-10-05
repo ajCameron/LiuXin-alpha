@@ -1,4 +1,15 @@
-"""Concrete row container for the ``org_agent_relations`` main table."""
+"""
+Provide the concrete org_agent_relations row value used by metadata callers.
+
+The OrgAgentRelationRow dataclass stores database-shaped fields in memory and
+inherits column mapping and diagnostic-string helpers. Creating or editing it
+performs no database write.
+
+Example:
+    >>> row = OrgAgentRelationRow(org_agent_relation_type='subsidiary')
+    >>> row.org_agent_relation_type
+    'subsidiary'
+"""
 
 from __future__ import annotations
 
@@ -11,7 +22,18 @@ from ._row_base import MetadataTableRow
 @dataclass(slots=True, kw_only=True)
 class OrgAgentRelationRow(MetadataTableRow):
     """
-    Represent a dated parent-child relationship between organisational Agents.
+    Store a dated parent-child relation between organizational agents.
+
+    Child/parent agent ids, relation type, date strings and note remain independent
+    fields. Construction does not enforce chronology or detect cycles.
+
+    Fields are keyword-only, mutable and default to None. from_mapping ignores unknown
+    columns; to_mapping returns the stored fields without persisting them.
+
+    Example:
+        >>> row = OrgAgentRelationRow.from_mapping({'org_agent_relation_id': 7, 'org_agent_relation_type': 'subsidiary'})
+        >>> row.primary_id, row.to_mapping()['org_agent_relation_type']
+        (7, 'subsidiary')
     """
     TABLE_NAME: ClassVar[str] = "org_agent_relations"
     ID_COLUMN: ClassVar[str] = "org_agent_relation_id"

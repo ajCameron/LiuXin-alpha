@@ -1,9 +1,15 @@
-"""Canonical controlled vocabularies for metadata container families.
+"""
+Define string enums shared by editable metadata containers and their APIs.
 
-These enums are shared by the editable metadata-container implementations and
-their matching API modules. They are *not* database-enforced vocabularies; DB
-constrained sets such as identifier schemes belong in ``LiuXin_alpha.databases``
-and core WEMI / agent typing belongs in ``LiuXin_alpha.metadata.metadata_types``.
+These labels describe titles, notes, relations, language/date/rating/resource
+attachments, and identifier status. They do not enforce database constraints or
+replace core WEMI/agent types. Construct enums from their exact stored string
+values; invalid values raise ValueError.
+
+Example:
+    Exercise the owning behavior with pytest::
+
+        python -m pytest -q tests/metadata/containers/test_relation_container_contracts.py
 """
 from __future__ import annotations
 
@@ -12,7 +18,13 @@ from enum import StrEnum
 
 class TitleKind(StrEnum):
     """
-    Controlled kinds for title strings.
+    Classify the role of a title string, such as main, subtitle, sort, or translated.
+
+    Example:
+        >>> str(TitleKind.MAIN)
+        'main'
+        >>> TitleKind('main') is TitleKind.MAIN
+        True
     """
 
     MAIN = "main"
@@ -31,7 +43,13 @@ class TitleKind(StrEnum):
 
 class NoteKind(StrEnum):
     """
-    Controlled kinds for long-form notes.
+    Classify the purpose of a long-form note, such as description, review, provenance, or internal.
+
+    Example:
+        >>> str(NoteKind.DESCRIPTION)
+        'description'
+        >>> NoteKind('description') is NoteKind.DESCRIPTION
+        True
     """
 
     DESCRIPTION = "description"
@@ -49,7 +67,15 @@ class NoteKind(StrEnum):
 
 class NoteFormat(StrEnum):
     """
-    Storage or rendering format for note body text.
+    Declare the stored text format of a note body: plain text, Markdown, or HTML.
+
+    The enum records a format label; it does not parse or sanitize the body.
+
+    Example:
+        >>> str(NoteFormat.MARKDOWN)
+        'markdown'
+        >>> NoteFormat('markdown') is NoteFormat.MARKDOWN
+        True
     """
 
     PLAIN_TEXT = "plain_text"
@@ -59,7 +85,15 @@ class NoteFormat(StrEnum):
 
 class NoteVisibility(StrEnum):
     """
-    Audience / exposure level for notes.
+    Label a note's intended audience as private, staff, or public.
+
+    Access enforcement is the responsibility of consumers.
+
+    Example:
+        >>> str(NoteVisibility.STAFF)
+        'staff'
+        >>> NoteVisibility('staff') is NoteVisibility.STAFF
+        True
     """
 
     PRIVATE = "private"
@@ -68,7 +102,15 @@ class NoteVisibility(StrEnum):
 
 
 class LabelKind(StrEnum):
-    """Controlled kinds for short-form labels and tag-like metadata."""
+    """
+    Classify short labels and tag-like metadata by role, including topics, places, audiences, and awards.
+
+    Example:
+        >>> str(LabelKind.TAG)
+        'tag'
+        >>> LabelKind('tag') is LabelKind.TAG
+        True
+    """
 
     TAG = "tag"
     GENRE = "genre"
@@ -84,7 +126,15 @@ class LabelKind(StrEnum):
 
 
 class GenreKind(StrEnum):
-    """Controlled kinds for genre-style terms."""
+    """
+    Distinguish genre, subgenre, form, mode, and movement terms.
+
+    Example:
+        >>> str(GenreKind.SUBGENRE)
+        'subgenre'
+        >>> GenreKind('subgenre') is GenreKind.SUBGENRE
+        True
+    """
 
     GENRE = "genre"
     SUBGENRE = "subgenre"
@@ -94,7 +144,15 @@ class GenreKind(StrEnum):
 
 
 class SubjectKind(StrEnum):
-    """Controlled kinds for subject-style metadata."""
+    """
+    Classify subject attachments as topics, characters, places, or periods.
+
+    Example:
+        >>> str(SubjectKind.TOPIC)
+        'topic'
+        >>> SubjectKind('topic') is SubjectKind.TOPIC
+        True
+    """
 
     TOPIC = "topic"
     CHARACTER = "character"
@@ -103,7 +161,15 @@ class SubjectKind(StrEnum):
 
 
 class LanguageKind(StrEnum):
-    """Controlled kinds for language attachments."""
+    """
+    Classify a language attachment by its relation to content, translation, subtitles, or interface.
+
+    Example:
+        >>> str(LanguageKind.ORIGINAL)
+        'original'
+        >>> LanguageKind('original') is LanguageKind.ORIGINAL
+        True
+    """
 
     CONTENT = "content"
     ORIGINAL = "original"
@@ -115,7 +181,15 @@ class LanguageKind(StrEnum):
 
 
 class DateKind(StrEnum):
-    """Controlled kinds for date attachments."""
+    """
+    Identify the event described by a date attachment, such as creation, issue, acquisition, or copyright.
+
+    Example:
+        >>> str(DateKind.PUBLISHED)
+        'published'
+        >>> DateKind('published') is DateKind.PUBLISHED
+        True
+    """
 
     CREATED = "created"
     ISSUED = "issued"
@@ -130,7 +204,17 @@ class DateKind(StrEnum):
 
 
 class RatingKind(StrEnum):
-    """Controlled kinds for rating attachments."""
+    """
+    Classify a rating by its overall, user, critic, internal, or community role.
+
+    These values do not specify a numeric rating scale.
+
+    Example:
+        >>> str(RatingKind.USER)
+        'user'
+        >>> RatingKind('user') is RatingKind.USER
+        True
+    """
 
     OVERALL = "overall"
     USER = "user"
@@ -140,7 +224,15 @@ class RatingKind(StrEnum):
 
 
 class SeriesKind(StrEnum):
-    """Controlled kinds for series-style attachments."""
+    """
+    Distinguish a series, subseries, arc, or collection attachment.
+
+    Example:
+        >>> str(SeriesKind.ARC)
+        'arc'
+        >>> SeriesKind('arc') is SeriesKind.ARC
+        True
+    """
 
     SERIES = "series"
     SUBSERIES = "subseries"
@@ -149,7 +241,17 @@ class SeriesKind(StrEnum):
 
 
 class ResourceKind(StrEnum):
-    """Controlled kinds for external resource attachments."""
+    """
+    Classify an external resource link by purpose, such as authority, full text, preview, or purchase.
+
+    The kind does not fetch or validate a linked resource.
+
+    Example:
+        >>> str(ResourceKind.PREVIEW)
+        'preview'
+        >>> ResourceKind('preview') is ResourceKind.PREVIEW
+        True
+    """
 
     AUTHORITY = "authority"
     CATALOGUE = "catalogue"
@@ -163,7 +265,17 @@ class ResourceKind(StrEnum):
 
 
 class IdentifierStatus(StrEnum):
-    """Lifecycle / trust state for a bibliographic identifier."""
+    """
+    Label the lifecycle or trust state of a bibliographic identifier.
+
+    Status assignment does not itself validate an identifier or its scheme.
+
+    Example:
+        >>> str(IdentifierStatus.ACTIVE)
+        'active'
+        >>> IdentifierStatus('active') is IdentifierStatus.ACTIVE
+        True
+    """
 
     ACTIVE = "active"
     INVALID = "invalid"

@@ -1,7 +1,13 @@
 """
-Base class for the cache.
+Provide cached library metadata reads, writes and invalidation.
 
-All caches declared for LiuXin - including via plugins - should descend from here.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise base cache through a consuming regression::
+
+        python -m pytest -q tests/customize/test_customize_base.py
 """
 
 from typing import Iterable, Optional, Callable, Union, BinaryIO, Any, TypeVar, Literal
@@ -18,14 +24,24 @@ class CacheAPI:
     """
     Base class for LiuXin cache objects - part of the cache plugin system.
 
-    An caches you define should inherit from this.
-    Provided they have the appropriate API at cache level, the internal workings don't really matter.
+    Example:
+        Exercise CacheAPI through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     def __init__(self, backend):
         """
         Add a backend to the cache class
-        :param backend:
+
+        Example:
+            Exercise CacheAPI.  init   through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param backend: Value supplied for backend under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         # The backend of the backend is the actual connection out to the database
         self.backend = backend
@@ -38,9 +54,14 @@ class CacheAPI:
         """
         Initialize the cache with data from the backend.
 
-        Does any other generic startup tasks.
-        At the end of this operation, the cache should be ready to use.
-        :return:
+        Example:
+            Exercise CacheAPI.init through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -48,9 +69,14 @@ class CacheAPI:
         """
         Reading the table definitions from the backend to produce table objects.
 
-        Data is not read into the tables at this stage - it just defined the tables which will, eventually, need to be
-        populated.
-        :return:
+        Example:
+            Exercise CacheAPI.read tables through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -58,7 +84,14 @@ class CacheAPI:
         """
         Read data off the backend tables into the cache itself.
 
-        :return:
+        Example:
+            Exercise CacheAPI.initialize tables through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -66,7 +99,14 @@ class CacheAPI:
         """
         Set up the custom columns.
 
-        :return:
+        Example:
+            Exercise CacheAPI.initialize custom columns through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -74,8 +114,14 @@ class CacheAPI:
         """
         Initialize any additional dynamic categories which need to be read.
 
-        Placeholder - should be overridden to actually have function.
-        :return:
+        Example:
+            Exercise CacheAPI. initialize dynamic categories through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
 
     #
@@ -86,8 +132,14 @@ class CacheAPI:
         """
         Returns the field metadata object stored in the backend.
 
-        This defines metadata for the individual fields.
-        :return:
+        Example:
+            Exercise CacheAPI.field metadata through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError(f"Have to override this on an implementational level")
 
@@ -96,9 +148,15 @@ class CacheAPI:
         """
         Field Metadata cannot be directly set.
 
-        You need to change the fields defined on the database and then reload.
-        :param value:
-        :return:
+        Example:
+            Exercise CacheAPI.field metadata through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param value: Value normalized, stored, formatted or returned.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise ValueError(f"field_metadata cannot be set to {value=} - change the database and reload")
 
@@ -111,7 +169,14 @@ class CacheAPI:
         """
         Legacy compatibility - returns a self reference.
 
-        :return:
+        Example:
+            Exercise CacheAPI.new api through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self
 
@@ -120,7 +185,14 @@ class CacheAPI:
         """
         Returns the library id - WILL CURRENTLY FAIL, UNLESS WORK IS DONE TO THE DATABASE.
 
-        :return:
+        Example:
+            Exercise CacheAPI.library id through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.backend.library_id
 
@@ -129,16 +201,14 @@ class CacheAPI:
         """
         A safe read lock is a lock that does nothing if the thread already has a write lock.
 
-        Otherwise it acquires a read lock.
-        This is necessary to prevent DowngradeLockErrors, which can happen when updating the search cache in
-        the presence of composite columns. Updating the search cache holds an exclusive lock, but searching a composite
-        column involves reading field values via ProxyMetadata which tries to get a shared lock.
+        Example:
+            Exercise CacheAPI.safe read lock through a consuming regression::
 
-        There may be other scenarios that trigger this as well.
+                python -m pytest -q tests/customize/test_customize_base.py
 
-        This property returns a new lock object on every access. This lock object is not recursive (for performance) and
-        must only be used in a with statement as ``with cache.safe_read_lock:`` otherwise bad things will happen.
-        :return:
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -147,8 +217,14 @@ class CacheAPI:
         """
         Read the dirtied books/objects out of the database and add the user defined dynamic categories.
 
-        dirtied books are books/objects whose
-        :return:
+        Example:
+            Exercise CacheAPI.initialize dynamic through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -156,12 +232,34 @@ class CacheAPI:
     def initialize_template_cache(self):
         """
         Setup the formatter template cache and start it as an empty set.
-        :return:
+
+        Example:
+            Exercise CacheAPI.initialize template cache through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
     @write_api
     def set_user_template_functions(self, user_template_functions):
+        """
+        Set user template functions under the format's safety and compatibility rules.
+
+        Example:
+            Exercise CacheAPI.set user template functions through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param user_template_functions: Value supplied for user template functions under the
+            utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raise NotImplementedError
 
     @write_api
@@ -169,13 +267,33 @@ class CacheAPI:
         """
         Clear caches for the composite tables - tables whose values are composed of more than one field.
 
-        :param book_ids:
-        :return:
+        Example:
+            Exercise CacheAPI.clear composite caches through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_ids: Book identities included in the batched read operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
     @write_api
     def clear_search_caches(self, book_ids=None):
+        """
+        Perform the clear search caches operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CacheAPI.clear search caches through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_ids: Book identities included in the batched read operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raise NotImplementedError
 
     @read_api
@@ -183,7 +301,14 @@ class CacheAPI:
         """
         When was the last change made to the database?
 
-        :return:
+        Example:
+            Exercise CacheAPI.last modified through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -192,10 +317,17 @@ class CacheAPI:
         """
         Front end for clear internal caches in the cache.
 
-        :param book_ids: Clear the format metadata cache for the given book book_ids.
-        :param template_cache: Clear the template cache?
-        :param search_cache: Clear the search_cache
-        :return:
+        Example:
+            Exercise CacheAPI.clear caches through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_ids: Book identities included in the batched read operation.
+        :param template_cache: Value supplied for template cache under the utility contract.
+        :param search_cache: Value supplied for search cache under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -204,9 +336,15 @@ class CacheAPI:
         """
         Reload all internally stored cache data from the database.
 
-        After this, it should be as if the cache has been freshly loaded.
-        :param clear_caches:
-        :return:
+        Example:
+            Exercise CacheAPI.reload from db through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param clear_caches: Value supplied for clear caches under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -215,8 +353,14 @@ class CacheAPI:
         """
         Returns the field metadata object stored in the backend.
 
-        Use with care - and please try not to change unless you know what you're doing.
-        :return:
+        Example:
+            Exercise CacheAPI.field metadata through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -230,12 +374,17 @@ class CacheAPI:
         """
         Return a list of sorted book book_ids. If ids_to_sort is None, all book book_ids are returned.
 
-        Fields must be a list of 2-tuples of the form (field_name, ascending=True or False). The most significant field
-        is the first 2-tuple.
-        :param fields:
-        :param ids_to_sort:
-        :param virtual_fields:
-        :return:
+        Example:
+            Exercise CacheAPI.multisort through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param fields: Value supplied for fields under the utility contract.
+        :param ids_to_sort: Value supplied for ids to sort under the utility contract.
+        :param virtual_fields: Value supplied for virtual fields under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -244,13 +393,18 @@ class CacheAPI:
         """
         Search the database for the specified query, returning a set of matched book book_ids.
 
-        :param restriction: A restriction that is ANDed to the specified query. Note that
-            restrictions are cached, therefore the search for a AND b will be slower than a with restriction b.
-        :param virtual_fields: Used internally (virtual fields such as on_device to search over).
-        :param book_ids: If not None, a set of book book_ids for which books will be searched instead of searching all books.
-        :param query:
-        :param restriction:
-        :return:
+        Example:
+            Exercise CacheAPI.search through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param query: Search expression parsed or evaluated by the utility.
+        :param restriction: Value supplied for restriction under the utility contract.
+        :param virtual_fields: Value supplied for virtual fields under the utility contract.
+        :param book_ids: Book identities included in the batched read operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -259,7 +413,14 @@ class CacheAPI:
         """
         Search strings can be assigned names - this method returns all the ones currently set.
 
-        :return:
+        Example:
+            Exercise CacheAPI.saved search names through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -268,13 +429,33 @@ class CacheAPI:
         """
         Retrieve a saved search by name.
 
-        :param name:
-        :return:
+        Example:
+            Exercise CacheAPI.saved search lookup through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
     @write_api
     def saved_search_set_all(self, smap):
+        """
+        Perform the saved search set all operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CacheAPI.saved search set all through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param smap: Value supplied for smap under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raise NotImplementedError
 
     @write_api
@@ -282,8 +463,15 @@ class CacheAPI:
         """
         Remove a saved search from the map by name.
 
-        :param name:
-        :return:
+        Example:
+            Exercise CacheAPI.saved search delete through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -292,10 +480,16 @@ class CacheAPI:
         """
         Add a value to a saved search.
 
-        named search must exist in the map or KeyError will be raised.
-        :param name:
-        :param val:
-        :return:
+        Example:
+            Exercise CacheAPI.saved search add through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -304,10 +498,16 @@ class CacheAPI:
         """
         Change the name of a saved search.
 
-        named search must exist in the map or KeyError will be raised.
-        :param old_name:
-        :param new_name:
-        :return:
+        Example:
+            Exercise CacheAPI.saved search rename through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param old_name: Value supplied for old name under the utility contract.
+        :param new_name: Value supplied for new name under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -316,8 +516,15 @@ class CacheAPI:
         """
         Not sure what this does.
 
-        :param newlocs:
-        :return:
+        Example:
+            Exercise CacheAPI.change search locations through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param newlocs: Value supplied for newlocs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -326,7 +533,14 @@ class CacheAPI:
         """
         Not sure what this does.
 
-        :return:
+        Example:
+            Exercise CacheAPI.refresh search locations through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -341,18 +555,17 @@ class CacheAPI:
         """
         Return the value of the field ``name`` for the book identified by ``book_id``.
 
-        If no such book exists or it has no defined value for the field ``name`` or no such field exists, then
-        ``default_value`` is returned.
-        ``default_value`` is not used for title, title_sort, authors, author_sort and series_index. This is because
-        these always have values in the db.
-        ``default_value`` is used for all custom columns.
-        The returned value for is_multiple fields are always tuples, even when no values are found (in other words,
-        default_value is ignored). The exception is identifiers for which the returned value is always a dict.
-        The returned tuples are always in link order, that is, the order in which they were created.
-        :param name:
-        :param book_id:
-        :param default_value:
-        :return:
+        Example:
+            Exercise CacheAPI.field for through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param book_id: Value supplied for book id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -361,12 +574,17 @@ class CacheAPI:
         """
         Same as field_for, except that it avoids the extra lookup to get the field object.
 
-        You have to have the field object in hand before you can use this method - you can get it from the fields
-        property.
-        :param field_obj: The field object representing that database field
-        :param book_id: The id of the book to look up the field value for
-        :param default_value: Return this if the lookup fails
-        :return:
+        Example:
+            Exercise CacheAPI.fast field for through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param field_obj: Value supplied for field obj under the utility contract.
+        :param book_id: Value supplied for book id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -375,10 +593,16 @@ class CacheAPI:
         """
         Return the book_ids (as a tuple) for the values that the field ``name`` has on the book identified by ``book_id``.
 
-        If there are no values, or no such book, or no such field, an empty tuple is returned.
-        :param name: The name of the field to return for
-        :param book_id: The id of the book to return the value for
-        :return field_ids_tuple: A tuple book_ids in the linked field
+        Example:
+            Exercise CacheAPI.field ids for through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -387,10 +611,17 @@ class CacheAPI:
         """
         Same as field_for, except that it operates on multiple books at once.
 
-        :param field:
-        :param book_ids:
-        :param default_value: This value will be added to the map if there isn't another value to record.
-        :return book_id_val_map:
+        Example:
+            Exercise CacheAPI.all field for through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param field: Metadata or template field addressed by the operation.
+        :param book_ids: Book identities included in the batched read operation.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -399,11 +630,18 @@ class CacheAPI:
         """
         Return the value for a composite field for the specified book id.
 
-        :param name:
-        :param book_id:
-        :param mi:
-        :param default_value:
-        :return:
+        Example:
+            Exercise CacheAPI.composite for through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param book_id: Value supplied for book id under the utility contract.
+        :param mi: Metadata object exposed to the template function.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -412,10 +650,16 @@ class CacheAPI:
         """
         Return the book_ids (as a tuple) for the values that the field ``name`` has on the book identified by ``book_id``.
 
-        If there are no values, or no such book, or no such field, an empty tuple is returned.
-        :param name: The name of the field to return for
-        :param book_id: The id of the book to return the value for
-        :return field_ids_tuple: A tuple book_ids in the linked field
+        Example:
+            Exercise CacheAPI.field ids for through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -424,10 +668,16 @@ class CacheAPI:
         """
         Return all the books lined to the item identified by ``item_id``, where the item belongs to the field ``name``.
 
-        Returned value is a set of book book_ids, or the empty set if the item or the field does not exist.
-        :param name:
-        :param item_id:
-        :return:
+        Example:
+            Exercise CacheAPI.books for field through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param item_id: Value supplied for item id under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -436,8 +686,15 @@ class CacheAPI:
         """
         Return all book book_ids in an instance of the given type.
 
-        :param rtn_type: e.g. frozenset
-        :return:
+        Example:
+            Exercise CacheAPI.all book ids through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param rtn_type: Value supplied for rtn type under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -446,8 +703,15 @@ class CacheAPI:
         """
         Frozen set of book_ids for all values in the field ``name``.
 
-        :param name: The name of the field to return
-        :return:
+        Example:
+            Exercise CacheAPI.all field ids through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -456,10 +720,15 @@ class CacheAPI:
         """
         Frozen set of all fields names.
 
-        All duplicates will be removed by adding the values to a frozen set.
-        i.e. all the values of those fields.
-        :param field:
-        :return:
+        Example:
+            Exercise CacheAPI.all field names through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param field: Metadata or template field addressed by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -468,10 +737,15 @@ class CacheAPI:
         """
         Return a mapping of id to usage count for all values of the specified field
 
-        This should be a many-one or many-many field.
-        You can get it for a one-to-one field, but the results will (probably) not be what you want.
-        :param field: The name of the field to return the count for
-        :return field_val_usage_count_map: Keyed with the id of the resource and valued with how often it's been used.
+        Example:
+            Exercise CacheAPI.get usage count by id through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param field: Metadata or template field addressed by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -480,9 +754,15 @@ class CacheAPI:
         """
         Return a mapping of book_ids to values for the specified field.
 
-        The field must be a many-one or many-many field (or title), otherwise a ValueError is raised.
-        :param field:
-        :return item_id_to_val_map:
+        Example:
+            Exercise CacheAPI.get id map through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param field: Metadata or template field addressed by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -491,13 +771,16 @@ class CacheAPI:
         """
         Return the item name for the item specified by item_id in the specified field.
 
-        See also :meth:`get_id_map`.
-        The field must be a many-one or many-many field, otherwise a ValueError is raised.
-        Note - in calibre, this would raise a AttributeError - this has been changed to Value to be consistent with
-        the get_id_map function.
-        :param field:
-        :param item_id:
-        :return:
+        Example:
+            Exercise CacheAPI.get item name through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param field: Metadata or template field addressed by the operation.
+        :param item_id: Value supplied for item id under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -506,9 +789,16 @@ class CacheAPI:
         """
         Return the item id for item_name (case-insensitive).
 
-        :param field:
-        :param item_name:
-        :return:
+        Example:
+            Exercise CacheAPI.get item id through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param field: Metadata or template field addressed by the operation.
+        :param item_name: Value supplied for item name under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -517,9 +807,16 @@ class CacheAPI:
         """
         Return the item book_ids for the given item names.
 
-        :param field: Search in this field
-        :param item_names: Iterable of names to look for
-        :return item_name_id_map: Keyed with the item name and valued with the id found for the item
+        Example:
+            Exercise CacheAPI.get item ids through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param field: Metadata or template field addressed by the operation.
+        :param item_names: Value supplied for item names under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -530,16 +827,20 @@ class CacheAPI:
         """
         Set the values of the field specified by ``name``.
 
-        Returns the set of all book book_ids that were affected by the change.
-        :param name:
-        :param book_id_to_val_map: Mapping of book_ids to values that should be applied.
-        :param allow_case_change: If True, the case of many-one or many-many fields will be changed.
-            For example, if a  book has the tag ``tag1`` and you set the tag for another book to ``Tag1``
-            then the both books will have the tag ``Tag1`` if allow_case_change is True, otherwise they will
-            both have the tag ``tag1``.
-        :param do_path_update: Used internally, you should never change it.
-                               Should the db path be updated as a consequence of this change.
-        :return:
+        Example:
+            Exercise CacheAPI.set field through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param book_id_to_val_map: Value supplied for book id to val map under the utility
+            contract.
+        :param allow_case_change: Value supplied for allow case change under the utility
+            contract.
+        :param do_path_update: Value supplied for do path update under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -548,8 +849,14 @@ class CacheAPI:
         """
         Return data suitable for use in :meth:`has_book`.
 
-        This can be used for an implementation of :meth:`has_book` in a worker process without access to the db.
-        :return:
+        Example:
+            Exercise CacheAPI.data for has book through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -558,10 +865,14 @@ class CacheAPI:
         """
         Return True iff the database contains an entry with the same title as the passed in Metadata object.
 
-        The comparison is case-insensitive.
-        See also :meth:`data_for_has_book`.
-        :param mi:
-        :return:
+        Example:
+            Exercise CacheAPI.has book through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param mi: Metadata object exposed to the template function.
+        :return: True when the documented condition holds; otherwise False.
         """
         raise NotImplementedError
 
@@ -570,8 +881,14 @@ class CacheAPI:
         """
         Return True iff the specified book_id exists in the db.
 
-        :param book_id:
-        :return:
+        Example:
+            Exercise CacheAPI.has id through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: True when the documented condition holds; otherwise False.
         """
         raise NotImplementedError
 
@@ -586,17 +903,20 @@ class CacheAPI:
         """
         Rename items in one-to-many and many-to-one tables e.g. series and tags.
 
-        Cannot handle one-to-one fields - such as titles - but this seems to be a flaw which should be fixed.
-        :param field: The field to update the items for
-        :type field: str
-        :param item_id_to_new_name_map: Keyed with the id of the item (as an int) and valued with the new name that
-                                        the field should be changed to.
-                                        Thus - if you where updating the names of a tag - would be keyed with the id of
-                                        the tag your updating and valued with the new name for the tag.
-        :param change_index: When renaming in a series-like field also change the series_index values.
-        :param restrict_to_book_ids: An optional set of book book_ids for which the rename is to be performed, defaults to
-                                     all books. Used when there's an active virtual library.
-        :return:
+        Example:
+            Exercise CacheAPI.rename items through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param field: Metadata or template field addressed by the operation.
+        :param item_id_to_new_name_map: Value supplied for item id to new name map under the
+            utility contract.
+        :param change_index: Value supplied for change index under the utility contract.
+        :param restrict_to_book_ids: Value supplied for restrict to book ids under the
+            utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -605,20 +925,38 @@ class CacheAPI:
         """
         Delete all items in the specified field with the specified book_ids.
 
-        Returns the set of affected book book_ids.
-        ``restrict_to_book_ids`` is an optional set of books book_ids.
-        If specified the items will only be removed from those books.
-        This is intended to be used with a virtual library - the entries will only be removed from the books in the
-        virtual library.
-        :param field:
-        :param item_ids:
-        :param restrict_to_book_ids:
-        :return:
+        Example:
+            Exercise CacheAPI.remove items through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param field: Metadata or template field addressed by the operation.
+        :param item_ids: Value supplied for item ids under the utility contract.
+        :param restrict_to_book_ids: Value supplied for restrict to book ids under the
+            utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
     @read_api
     def get_books_for_category(self, category, item_id_or_composite_value):
+        """
+        Return books for category under the format's safety and compatibility rules.
+
+        Example:
+            Exercise CacheAPI.get books for category through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param category: Value supplied for category under the utility contract.
+        :param item_id_or_composite_value: Value supplied for item id or composite value
+            under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raise NotImplementedError
 
     #
@@ -634,15 +972,19 @@ class CacheAPI:
         """
         Return metadata for the book identified by book_id as specilized object.
 
-        A :class:`calibre.ebooks.metadata.book.base.Metadata` object, in particular.
+        Example:
+            Exercise CacheAPI.get metadata through a consuming regression::
 
-        Note that the list of formats is not verified. If get_cover is True, the cover is returned, either a path to
-        temp file as mi.cover or if cover_as_data is True then as mi.cover_data.
-        :param book_id: The id of the book to retrieve the cover for
-        :param get_cover: If True then tries to read the cover - else ignored the cover
-        :param get_user_categories: If True then tries to retrieve the user categories
-        :param cover_as_data: If True returns the cover as a stream - else returns the cover as a path
-        :return:
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param get_cover: Value supplied for get cover under the utility contract.
+        :param get_user_categories: Value supplied for get user categories under the utility
+            contract.
+        :param cover_as_data: Value supplied for cover as data under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -651,11 +993,15 @@ class CacheAPI:
         """
         Like :meth:`get_metadata` except that it returns a ProxyMetadata object.
 
-        This only reads values from the database on demand.
-        This is much faster than get_metadata when only a small number of fields need to be accessed from the returned
-        metadata object.
-        :param book_id:
-        :return:
+        Example:
+            Exercise CacheAPI.get proxy metadata through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -664,8 +1010,15 @@ class CacheAPI:
         """
         Return all the metadata needed for a dump of the metadata to the contained book folder.
 
-        :param book_id:
-        :return:
+        Example:
+            Exercise CacheAPI.get metadata for dump through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -683,21 +1036,22 @@ class CacheAPI:
         """
         Set metadata for the book `id` from the `Metadata` object `mi`.
 
-        Setting force_changes=True will force set_metadata to update fields even if mi contains empty values.
-        In this case, 'None' is distinguished from 'empty'. If mi.XXX is None, the XXX is not replaced, otherwise it is.
-        The tags, identifiers, and cover attributes are special cases. Tags and identifiers cannot be set to None so
-        then will always be replaced if force_changes is true.
-        You must ensure that mi contains the values you want the book to have.
-        Covers are always changed if a new cover is provided, but are never deleted.
-        Also note that force_changes has no effect on setting title or authors.
-        :param book_id:
-        :param mi:
-        :param ignore_errors:
-        :param force_changes:
-        :param set_title:
-        :param set_authors:
-        :param allow_case_change:
-        :return:
+        Example:
+            Exercise CacheAPI.set metadata through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param mi: Metadata object exposed to the template function.
+        :param ignore_errors: Value supplied for ignore errors under the utility contract.
+        :param force_changes: Value supplied for force changes under the utility contract.
+        :param set_title: Value supplied for set title under the utility contract.
+        :param set_authors: Value supplied for set authors under the utility contract.
+        :param allow_case_change: Value supplied for allow case change under the utility
+            contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -715,13 +1069,21 @@ class CacheAPI:
         """
         Create a new entry in the books table - accepts as input either a LiuXin or calibre metadata object.
 
-        :param mi: The metadata for the new book
-        :param cover: The cover for the new book
-        :param add_duplicates: Should the book add even if duplicate detection trips?
-        :param force_id: If force_if then the book is guaranteed to have a specified id
-        :param apply_import_tags: Should i,port tags be applied to the book before it's added
-        :param preserve_uuid: Use the uuid from the metadata instead of coming up with a new one.
-        :return:
+        Example:
+            Exercise CacheAPI.create book entry through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param mi: Metadata object exposed to the template function.
+        :param cover: Value supplied for cover under the utility contract.
+        :param add_duplicates: Value supplied for add duplicates under the utility contract.
+        :param force_id: Value supplied for force id under the utility contract.
+        :param apply_import_tags: Value supplied for apply import tags under the utility
+            contract.
+        :param preserve_uuid: Value supplied for preserve uuid under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -738,39 +1100,39 @@ class CacheAPI:
         """
         Add the specified books to the library.
 
-        Books should be an iterable of 2-tuples, each 2-tuple of the form :code:`(mi, format_map)` where mi is a
-        Metadata object and format_map is a dictionary of the form :code:`{fmt: path_or_stream}`,
-        for example: :code:`{'EPUB': '/path/to/file.epub'}`.
+        Example:
+            Exercise CacheAPI.add books through a consuming regression::
 
-        If you want to add multiple examples of the same fmt to the book at the same time you can pass an iterable
-        of paths as the value for the fmt map.
-        for example :code:`{'EPUB': ['/path/to/file.epub', 'another/path/to/another_file.epub']}`.
+                python -m pytest -q tests/customize/test_customize_base.py
 
-        Returns a pair of lists: :code:`book_ids, duplicates`. ``book_ids`` contains the book book_ids for all newly created books in
-        the database. ``duplicates`` contains the :code:`(mi, format_map)` for all books that already exist in the
-        database as per the simple duplicate detection heuristic used by :meth:`has_book`
 
-        Modifies the given fmt map as it goes.
-        As entries are processed adds new entries keyed with the lower case fmt that's being added and valued with the
-        either the name of the resource that was copied in or <stream> if the resource was a stream.
-        :param books:
-        :param add_duplicates: If True, then no effort will be made to find duplicates in the added books
-        :param apply_import_tags: Apply the new book tags (stored in preferences)
-        :param preserve_uuid: Keep the UUID stored in the metadata object
-        :param run_hooks: Run the import and post import hooks
-        :param dbapi: For internal use
-        :return:
+        :param books: Value supplied for books under the utility contract.
+        :param add_duplicates: Value supplied for add duplicates under the utility contract.
+        :param apply_import_tags: Value supplied for apply import tags under the utility
+            contract.
+        :param preserve_uuid: Value supplied for preserve uuid under the utility contract.
+        :param run_hooks: Value supplied for run hooks under the utility contract.
+        :param dbapi: Value supplied for dbapi under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
     @write_api
     def remove_books(self, book_ids: Iterable[int], permanent: bool = False):
         """
-        Remove the books specified by the book_ids from the database and delete their format files.
-        If ``permanent`` is False, then the format files are not deleted.
-        :param book_ids:
-        :param permanent:
-        :return:
+        Remove the books specified by the book_ids from the database and delete their format files. If ``permanent`` is False, then the format files are not deleted.
+
+        Example:
+            Exercise CacheAPI.remove books through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_ids: Book identities included in the batched read operation.
+        :param permanent: Value supplied for permanent under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -779,9 +1141,14 @@ class CacheAPI:
         """
         Return data that can be used to implement :meth:`find_identical_books` without access to the db.
 
-        E.g. in a seperate worker thread.
-        See databases.utils for an implementation.
-        :return:
+        Example:
+            Exercise CacheAPI.data for find identical books through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -790,9 +1157,16 @@ class CacheAPI:
         """
         Update the data for find identicle books.
 
-        :param book_id:
-        :param data:
-        :return:
+        Example:
+            Exercise CacheAPI.update data for find identical books through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param data: Value supplied for data under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -801,11 +1175,18 @@ class CacheAPI:
         """
         Finds books that have a superset of the authors in mi and the same title (title is fuzzy matched).
 
-        See also :meth:`data_for_find_identical_books`.
-        :param mi:
-        :param search_restriction:
-        :param book_ids:
-        :return:
+        Example:
+            Exercise CacheAPI.find identical books through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param mi: Metadata object exposed to the template function.
+        :param search_restriction: Value supplied for search restriction under the utility
+            contract.
+        :param book_ids: Book identities included in the batched read operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -820,9 +1201,15 @@ class CacheAPI:
         """
         Return author data as a dictionary keyed with the author id and valued with a tuple of name, sort, link.
 
-        Defaults to returning data for all authors.
-        :param author_ids:
-        :return:
+        Example:
+            Exercise CacheAPI.author data through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param author_ids: Value supplied for author ids under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -831,8 +1218,15 @@ class CacheAPI:
         """
         Return a map keyed with the book_id and valued with a tuple of the author sorts for all the given books.
 
-        :param book_ids:
-        :return:
+        Example:
+            Exercise CacheAPI.author sort strings for books through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_ids: Book identities included in the batched read operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -841,10 +1235,16 @@ class CacheAPI:
         """
         Given a list of authors, return the author_sort string for the authors.
 
-        Preferring the author sort associated with the author over the computed string.
-        :param authors:
-        :param key_func:
-        :return:
+        Example:
+            Exercise CacheAPI.author sort from authors through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param authors: Value supplied for authors under the utility contract.
+        :param key_func: Value supplied for key func under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -853,9 +1253,17 @@ class CacheAPI:
         """
         Sets the sort field for any referenced authors.
 
-        :param author_id_to_sort_map: Keyed with the author id, valued with the new sort string
-        :param update_books:
-        :return changed_books:
+        Example:
+            Exercise CacheAPI.set sort for authors through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param author_id_to_sort_map: Value supplied for author id to sort map under the
+            utility contract.
+        :param update_books: Value supplied for update books under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -864,8 +1272,16 @@ class CacheAPI:
         """
         Update the link field for the given authors.
 
-        :param author_id_to_link_map:
-        :return changed_books:
+        Example:
+            Exercise CacheAPI.set link for authors through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param author_id_to_link_map: Value supplied for author id to link map under the
+            utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -879,9 +1295,16 @@ class CacheAPI:
         """
         Updates the last modified date for the given book_ids - if :param now: is None, will default to utcnow().
 
-        :param book_ids:
-        :param now:
-        :return:
+        Example:
+            Exercise CacheAPI.update last modified through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_ids: Book identities included in the batched read operation.
+        :param now: Value supplied for now under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -895,7 +1318,14 @@ class CacheAPI:
         """
         Refresh the ondevice field.
 
-        :return:
+        Example:
+            Exercise CacheAPI.refresh ondevice through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -910,12 +1340,16 @@ class CacheAPI:
         """
         Return the hash of the specified format for the specified book.
 
-        The kind of hash is backend dependent, but is usually SHA-256.
-        Multiple hashes may be stored for any given book.
-        The hash should now be LiuXin's custom hash - (SHA-512 + length of file in bytes)
-        :param book_id:
-        :param fmt:
-        :return:
+        Example:
+            Exercise CacheAPI.format hash through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -924,17 +1358,18 @@ class CacheAPI:
         """
         Return the path, size and mtime for the specified format for the specified book.
 
-        The path is a LiuXin Location object - which should contain all the information needed to actually get the file.
-        You should not use path unless you absolutely have to, since accessing it directly breaks the threadsafe
-        guarantees of this API. Instead use the :meth:`copy_format_to` method - this also ensures that there is a local
-        copy of the file - as, by default, the FolderStore in question might not offer local file access.
-        :param book_id: The book_id to search in
-        :param fmt: The format to look for
-        :param allow_cache: If ``True`` cached values are used, otherwise a
-                            slow filesystem access is done. The cache values could be out of date
-                            if access was performed to the filesystem outside of this API.
-        :param update_db: If ``True`` The max_size field of the database is updates for this book.
-        :return:
+        Example:
+            Exercise CacheAPI.format metadata through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :param allow_cache: Value supplied for allow cache under the utility contract.
+        :param update_db: Value supplied for update db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -943,9 +1378,15 @@ class CacheAPI:
         """
         Return the fmt_priorities available for a given book.
 
-        Returns then as a tuple, ordered by priority.
-        :param book_id:
-        :return:
+        Example:
+            Exercise CacheAPI.book formats through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -954,11 +1395,15 @@ class CacheAPI:
         """
         Returns a map keyed with the format name and valued with the file names.
 
-        Keys will be the fmt_priority - value will be the name of that format file.
-        e.g. :code:`{"EPUB_1": "some_book_by_x.epub", "EPUB_2": "another_version_of_x_by_y.epub"}`
-        :param book_id: Retrieve the formats for this book
-        :type book_id: int
-        :return:
+        Example:
+            Exercise CacheAPI.format files through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -967,10 +1412,15 @@ class CacheAPI:
         """
         Return True iff the book has the specified format.
 
-        If the format is bare - e.g. "EPUB" then this method
-        :param book_id:
-        :param fmt:
-        :return:
+        Example:
+            Exercise CacheAPI.has format through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :return: True when the documented condition holds; otherwise False.
         """
         raise NotImplementedError
 
@@ -979,7 +1429,14 @@ class CacheAPI:
         """
         Reload the format cache from the database.
 
-        :return:
+        Example:
+            Exercise CacheAPI.refresh format cache through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -993,11 +1450,18 @@ class CacheAPI:
         """
         Return the next series index for the given series using all series next value preferences.
 
-        There are a number of preferences which can control the next number generation.
-        :param series:
-        :param field: The series-like field (defaults to the builtin series column)
-        :param current_indices: If True, returns a mapping of book_id to current series_index value instead.
-        :return:
+        Example:
+            Exercise CacheAPI.get next series num for through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param series: Value supplied for series under the utility contract.
+        :param field: Metadata or template field addressed by the operation.
+        :param current_indices: Value supplied for current indices under the utility
+            contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1013,14 +1477,19 @@ class CacheAPI:
         """
         Return the book_ids of all books having the tag ``tag`` that are older than the specified time.
 
-        tag comparison is case insensitive.
-        Used extensively internally with the tag browser.
-        :param tag:
-        :param delta: A timedelta object or None. If None, then all book_ids with the tag are returned.
-        :param must_have_tag: If not None the list of matches will be restricted to books that have this tag
-        :param must_have_authors: A list of authors. If not None the list of matches will be restricted to books that
-                                  have these authors (case insensitive).
-        :return:
+        Example:
+            Exercise CacheAPI.tags older than through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param delta: Value supplied for delta under the utility contract.
+        :param must_have_tag: Value supplied for must have tag under the utility contract.
+        :param must_have_authors: Value supplied for must have authors under the utility
+            contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1034,9 +1503,15 @@ class CacheAPI:
         """
         UUID -> book_id.
 
-        The UUID for the given book is stored in the books table.
-        :param uuid:
-        :return:
+        Example:
+            Exercise CacheAPI.lookup by uuid through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param uuid: Value supplied for uuid under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1053,17 +1528,20 @@ class CacheAPI:
         """
         Copy the format ``fmt`` to the file like object ``dest``.
 
-        If the specified format does not exist, raises :class:`NoSuchFormat` error.
+        Example:
+            Exercise CacheAPI.copy format to through a consuming regression::
 
-        dest can also be a path, in which case the format is copied to it, iff the path is different from the current
-        path (taking case sensitivity into account).
-        :param book_id: The id of the book to copy from
-        :param fmt: The name of the format to copy (must be a format priority string e.g. "EPUB_1")
-                    Use ``copy_formats_to`` if you want all the formats.
-        :param dest: The destination to copy the format to
-        :param use_hardlink:
-        :param report_file_size:
-        :return status: True if successful, False otherwise.
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :param dest: Value supplied for dest under the utility contract.
+        :param use_hardlink: Value supplied for use hardlink under the utility contract.
+        :param report_file_size: Value supplied for report file size under the utility
+            contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1074,17 +1552,20 @@ class CacheAPI:
         """
         Copy the format ``fmt`` to the file like object ``dest``.
 
-        If the specified format does not exist, raises :class:`NoSuchFormat` error.
+        Example:
+            Exercise CacheAPI.copy formats to through a consuming regression::
 
-        dest can also be a path, in which case the format is copied to it, iff the path is different from the current
-        path (taking case sensitivity into account).
-        :param book_id: The id of the book to copy from
-        :param fmt: The name of the format to copy (must be a format priority string e.g. "EPUB_1")
-                    Use copy_formats_to if you want all the formats.
-        :param dest: The destination to copy the format to
-        :param use_hardlink:
-        :param report_file_size:
-        :return:
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :param dest: Value supplied for dest under the utility contract.
+        :param use_hardlink: Value supplied for use hardlink under the utility contract.
+        :param report_file_size: Value supplied for report file size under the utility
+            contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1093,23 +1574,16 @@ class CacheAPI:
         """
         Return a path to the ebook file of format `format`.
 
-        You should almost never use this, as it breaks the threadsafe promise of this API.
-        Instead, use, :meth:`copy_format_to` to get a local copy of the file that you can then manipulate.
+        Example:
+            Exercise CacheAPI.format abspath through a consuming regression::
 
-        Currently, used only in calibredb list, the viewer, edit book, compare_format to original format, open with and
-        the catalogs (via get_data_as_dict()).
-        Apart from the viewer, open with and edit book, I don't believe any of the others do any file write I/O with the
-        results of this call.
-        Edit will be moved over to editing a copy - this is a calibre compatibility thing.
+                python -m pytest -q tests/customize/test_customize_base.py
 
-        WARNING! In calibre, this function will return a path to the actual book.
-        In LiuXin this method returns a copy in a scratch folder.
-        You will need to upload the book back to the folder store after you've finished IO with it.
-        There was no good way to expose books across different types of folder stores.
-        This technique seems to be the least bad - but I would not defend it as good.
-        :param book_id:
-        :param fmt:
-        :return:
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1118,13 +1592,16 @@ class CacheAPI:
         """
         Save a copy of the specified format as ORIGINAL_FORMAT, overwriting any existing ORIGINAL_FORMAT.
 
-        ORIGINAL_FMT is added to the cache.
-        Reference will be made the format that was originally backed up - EPUB_1 would be backed up as
-        ORIGINAL_EPUB_1.
-        Calling this method with a bare format, e.g. "EPUB" will return a copy of the highest priority epub file.
-        :param book_id:
-        :param fmt:
-        :return status: Was the backup successful?
+        Example:
+            Exercise CacheAPI.save original format through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1134,24 +1611,34 @@ class CacheAPI:
         """
         Restore the specified format from the previously saved ORIGINAL_FORMAT, if any.
 
-        Return True on success.
-        The ORIGINAL_FORMAT is deleted after a successful restore.
-        ORIGINAL_FMT should be an ORIGINAL_FMT string - e.g. something of the form ORIGINAL_EPUB_1 e.t.c
-        If just "ORIGINAL_EPUB" is passed, this method will fail as it's ambiguous.
-        :param book_id:
-        :param original_fmt:
-        :return:
+        Example:
+            Exercise CacheAPI.restore original format through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param original_fmt: Value supplied for original fmt under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
     @read_api
     def formats(self, book_id, verify_formats=True):
         """
-        Return tuple of all formats for the specified book. If verify_formats is True, verifies that the files exist on
-        disk.
-        :param book_id: The book to return the formats list for
-        :param verify_formats:
-        :return:
+        Return tuple of all formats for the specified book. If verify_formats is True, verifies that the files exist on disk.
+
+        Example:
+            Exercise CacheAPI.formats through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param verify_formats: Value supplied for verify formats under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1162,17 +1649,20 @@ class CacheAPI:
         """
         Return the ebook format as a bytestring or `None` if it doesn't exist, or we can't read the file.
 
-        E.g. if we do not have read permissions on the file.
-        :param book_id: Id of the book to read the format from.
-        :param fmt: Format string - bare or with priority.
-        :param as_file: If True the ebook format is returned as a file object. Note that the file object is a
-                        SpooledTemporaryFile, so if what you want to do is copy the format to another file, use
-                        :meth:`copy_format_to` instead for performance.
-        :param as_path: Copies the format file to a temp file and returns the path to the temp file
-        :param preserve_filename: If True and returning a path the filename is the same as that used in the library.
-                                  Note that using this means that repeated calls yield the same temp file
-                                  (which is re-created each time)
-        :return:
+        Example:
+            Exercise CacheAPI.format through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :param as_file: Value supplied for as file under the utility contract.
+        :param as_path: Value supplied for as path under the utility contract.
+        :param preserve_filename: Value supplied for preserve filename under the utility
+            contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1189,23 +1679,20 @@ class CacheAPI:
         """
         Add a format to the specified book.
 
-        Return True of the format was added successfully.
-        Format will be added to the book with the highest priority - all other formats will be relegated.
-        If the fmt is given in the form of a priority fmt (e.g EPUB_1) then, if replace is True, that fmt will be
-        replaced. If not returns False.
+        Example:
+            Exercise CacheAPI.add format through a consuming regression::
 
-        :param replace: If True replace the existing highest priority fmt - unless another format is specified.
-                        E.g. calling with "EPUB" will replace "EPUB_1"
-                        E.g. calling with "EPUB_3" will replace "EPUB_3" - if it exists.
-        :param run_hooks: If True, file type plugins are run on the format before and after being added.
-        :param dbapi: Internal use only.
-        :param book_id:
-        :param fmt:
-        :param stream_or_path:
-        :param replace:
-        :param run_hooks:
-        :param dbapi:
-        :return:
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :param stream_or_path: Value supplied for stream or path under the utility contract.
+        :param replace: Value supplied for replace under the utility contract.
+        :param run_hooks: Value supplied for run hooks under the utility contract.
+        :param dbapi: Value supplied for dbapi under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1215,11 +1702,16 @@ class CacheAPI:
         """
         Remove the specified formats from the specified books.
 
-        :param formats_map: A mapping of book_id to a list of formats to be removed from the book.
-        :param db_only: If True, only remove the record for the format from the db, do not delete the actual format file
-                        from the FolderStore.
-                        Files removed in this way will be marked as "untracked".
-        :return status: Was the operation successful?
+        Example:
+            Exercise CacheAPI.remove formats through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param formats_map: Value supplied for formats map under the utility contract.
+        :param db_only: Value supplied for db only under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1234,9 +1726,17 @@ class CacheAPI:
         """
         Run update on the given books to take into account any metadata changes which might affect their position.
 
-        :param book_ids:
-        :param mark_as_dirtied:
-        :return status: Did the operation succeed?
+        Example:
+            Exercise CacheAPI.update path through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_ids: Book identities included in the batched read operation.
+        :param mark_as_dirtied: Value supplied for mark as dirtied under the utility
+            contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1252,14 +1752,18 @@ class CacheAPI:
         """
         Return the cover image or None.
 
-        By default, returns the cover as a bytestring.
-        WARNING: Using as_path will copy the cover to a temp file and return the path to the temp file.
-        You should delete the temp file when you are done with it.
-        :param book_id:
-        :param as_file: If True return the image as an open file object (a SpooledTemporaryFile)
-        :param as_image: If True return the image as a QImage object
-        :param as_path: If True return the image as a path pointing to a temporary file
-        :return:
+        Example:
+            Exercise CacheAPI.cover through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param as_file: Value supplied for as file under the utility contract.
+        :param as_image: Value supplied for as image under the utility contract.
+        :param as_path: Value supplied for as path under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1268,10 +1772,16 @@ class CacheAPI:
         """
         Provides a tuple of information as to if to read from the cache or read from the folder store cache.
 
-        See backend.cover_or_cache method.
-        :param book_id:
-        :param timestamp: Internally, LiuXin uses epoch time in nanoseconds.
-        :return (read_status, cover_data, new_timestamp):
+        Example:
+            Exercise CacheAPI.cover or cache through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param timestamp: Value supplied for timestamp under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1280,8 +1790,15 @@ class CacheAPI:
         """
         When was the primary cover for a given book last modified.
 
-        :param book_id:
-        :return timestamp: Timestamp of last modification in epoch time.
+        Example:
+            Exercise CacheAPI.cover last modified through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1292,14 +1809,19 @@ class CacheAPI:
         """
         Copy the cover to the file like object ``dest``.
 
-        Returns False if no cover exists or dest is the same file as the current cover.
-        dest can also be a path in which case the cover is copied to it if and only if the path is different from the
-        current path (taking case sensitivity into account).
-        :param book_id:
-        :param dest:
-        :param use_hardlink:
-        :param report_file_size:
-        :return:
+        Example:
+            Exercise CacheAPI.copy cover to through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param dest: Value supplied for dest under the utility contract.
+        :param use_hardlink: Value supplied for use hardlink under the utility contract.
+        :param report_file_size: Value supplied for report file size under the utility
+            contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1308,10 +1830,16 @@ class CacheAPI:
         """
         Set the covers for a number of books.
 
-        data can be either a QImage, QPixmap, file object or bytestring.
-        It can also be None, in which case any existing cover is removed.
-        :param book_id_data_map:
-        :return status:
+        Example:
+            Exercise CacheAPI.set cover through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_id_data_map: Value supplied for book id data map under the utility
+            contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1320,9 +1848,15 @@ class CacheAPI:
         """
         Adds a cover_cache object to the set of internal cover caches.
 
-        Allows multiple cover caches to be used at the same time. Which ... could be useful. I guess?
-        :param cover_cache:
-        :return status: Was the cover cache successfully registered?
+        Example:
+            Exercise CacheAPI.add cover cache through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param cover_cache: Value supplied for cover cache under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1331,8 +1865,15 @@ class CacheAPI:
         """
         Remove a registered cover cache from the system.
 
-        :param cover_cache:
-        :return status: Was the cover cache successfully de-registered?
+        Example:
+            Exercise CacheAPI.remove cover cache through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param cover_cache: Value supplied for cover cache under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1346,10 +1887,16 @@ class CacheAPI:
         """
         Return the value for the specified preference or ``default`` if the preference is not set.
 
-        Raises KeyError if the name of the preference is not known to the system.
-        :param name: Name of the preference to return
-        :param default:
-        :return:
+        Example:
+            Exercise CacheAPI.pref through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param default: Value supplied for default under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1358,10 +1905,16 @@ class CacheAPI:
         """
         Set the specified preference to the specified value.
 
-        See also :meth:`pref`.
-        :param name:
-        :param val:
-        :return:
+        Example:
+            Exercise CacheAPI.set pref through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1374,9 +1927,18 @@ class CacheAPI:
     def books_in_virtual_library(self, vl, search_restriction=None) -> set[int]:
         """
         Return the set of books in the specified virtual library
-        :param vl:
-        :param search_restriction:
-        :return:
+
+        Example:
+            Exercise CacheAPI.books in virtual library through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param vl: Value supplied for vl under the utility contract.
+        :param search_restriction: Value supplied for search restriction under the utility
+            contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1391,11 +1953,20 @@ class CacheAPI:
     ):
         """
         Used internally to implement the Tag Browser
-        :param sort:
-        :param book_ids:
-        :param already_fixed:
-        :param first_letter_sort:
-        :return:
+
+        Example:
+            Exercise CacheAPI.get categories through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param sort: Value supplied for sort under the utility contract.
+        :param book_ids: Book identities included in the batched read operation.
+        :param already_fixed: Value supplied for already fixed under the utility contract.
+        :param first_letter_sort: Value supplied for first letter sort under the utility
+            contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1409,8 +1980,15 @@ class CacheAPI:
         """
         Note that the following books are dirtied on the database.
 
-        :param book_ids:
-        :return status: Where the given book book_ids successfully marked as dirty?
+        Example:
+            Exercise CacheAPI.mark as dirty through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_ids: Book identities included in the batched read operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1419,7 +1997,14 @@ class CacheAPI:
         """
         Write the current dirtied cache out of the database.
 
-        :return: Did the database update write successfully?
+        Example:
+            Exercise CacheAPI.commit dirty cache through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1428,8 +2013,14 @@ class CacheAPI:
         """
         Return a dirty book randomly selected from the dirtied_cache.
 
-        Used by the maintenance methods.
-        :return book_id: The id of a dirtied book
+        Example:
+            Exercise CacheAPI.get a dirtied book through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1438,11 +2029,16 @@ class CacheAPI:
         """
         Clear the dirtied indicator for the given book.
 
-        This is used when fetching metadata, creating an OPF, and writing a file e.t.c. are separated into steps.
-        The last step is clearing the indicator
-        :param book_id:
-        :param sequence:
-        :return:
+        Example:
+            Exercise CacheAPI.clear dirtied through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param sequence: Value supplied for sequence under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1451,7 +2047,14 @@ class CacheAPI:
         """
         The current size of the dirtied cache.
 
-        :return:
+        Example:
+            Exercise CacheAPI.dirty queue length through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1465,9 +2068,16 @@ class CacheAPI:
         """
         Write backup metadata into the book's folder.
 
-        :param book_id:
-        :param raw:
-        :return:
+        Example:
+            Exercise CacheAPI.write backup through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param raw: Value supplied for raw under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1476,8 +2086,15 @@ class CacheAPI:
         """
         Return the OPF metadata backup for the book's folder as a bytestring or None if no such backup exists.
 
-        :param book_id:
-        :return:
+        Example:
+            Exercise CacheAPI.read backup through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1488,12 +2105,18 @@ class CacheAPI:
         """
         Write metadata for each record to an individual OPF file.
 
-        If callback is not None, it is called once at the beginning with the number of book_ids being processed.
-        And once for every book_id, with arguments (book_id, mi, ok).
-        :param book_ids:
-        :param remove_from_dirtied:
-        :param callback:
-        :return status: True if all writes succeeded - False otherwise
+        Example:
+            Exercise CacheAPI.dump metadata through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_ids: Book identities included in the batched read operation.
+        :param remove_from_dirtied: Value supplied for remove from dirtied under the utility
+            contract.
+        :param callback: Value supplied for callback under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1502,12 +2125,20 @@ class CacheAPI:
         """
         Restore the book entry in the database for a book that already exists on the filesystem
 
-        :param book_id:
-        :param mi:
-        :param last_modified:
-        :param path:
-        :param formats:
-        :return:
+        Example:
+            Exercise CacheAPI.restore book through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param mi: Metadata object exposed to the template function.
+        :param last_modified: Value supplied for last modified under the utility contract.
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :param formats: Value supplied for formats under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1521,11 +2152,17 @@ class CacheAPI:
         """
         Add data for name where val_map is a map of book_ids to values.
 
-        If delete_first is True, all previously stored data for name will be removed.
-        :param name: The name of the custom data to write
-        :param val_map: Keyed with the id of the book and valued with its value
-        :param delete_first:
-        :return status: True if writing succeeded, False otherwise
+        Example:
+            Exercise CacheAPI.add custom book data through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param val_map: Value supplied for val map under the utility contract.
+        :param delete_first: Value supplied for delete first under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1536,12 +2173,17 @@ class CacheAPI:
         """
         Get data from the given book_ids for the given custom value name.
 
-        By default, returns data for _all_ book_ids, pass in a list of book book_ids if you only want some data.
-        Returns a map of book_id to values. If a particular value could not be decoded, uses default for it.
-        :param name: The name of the
-        :param book_ids:
-        :param default:
-        :return book_id_custom_val_map:
+        Example:
+            Exercise CacheAPI.get custom book data through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param book_ids: Book identities included in the batched read operation.
+        :param default: Value supplied for default under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1550,11 +2192,16 @@ class CacheAPI:
         """
         Delete data for name.
 
-        Defaults to deleting all data, if you only want to delete data for some book book_ids, pass in a
-        list of book book_ids.
-        :param name:
-        :param book_ids:
-        :return status: Did deletion go through?
+        Example:
+            Exercise CacheAPI.delete custom book data through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param book_ids: Book identities included in the batched read operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1563,8 +2210,15 @@ class CacheAPI:
         """
         Return the set of book book_ids for which name has data.
 
-        :param name:
-        :return book_ids_with_data:
+        Example:
+            Exercise CacheAPI.get ids for custom book data through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1578,9 +2232,16 @@ class CacheAPI:
         """
         Return the conversion options for a given book_id of a given format - default to fmt='PIPE'
 
-        :param book_id:
-        :param fmt:
-        :return:
+        Example:
+            Exercise CacheAPI.conversion options through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1589,9 +2250,15 @@ class CacheAPI:
         """
         Check to see if the given books have a designated conversion option.
 
-        :param book_ids:
-        :param fmt:
-        :return:
+        Example:
+            Exercise CacheAPI.has conversion options through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_ids: Book identities included in the batched read operation.
+        :param fmt: Date, number or template format specification.
+        :return: True when the documented condition holds; otherwise False.
         """
         raise NotImplementedError
 
@@ -1600,9 +2267,16 @@ class CacheAPI:
         """
         Remove the conversion options from the given book_ids.
 
-        :param book_ids:
-        :param fmt:
-        :return:
+        Example:
+            Exercise CacheAPI.delete conversion options through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_ids: Book identities included in the batched read operation.
+        :param fmt: Date, number or template format specification.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1611,9 +2285,16 @@ class CacheAPI:
         """
         Options must be a map of the form {book_id : conversion_options}.
 
-        :param options:
-        :param fmt:
-        :return:
+        Example:
+            Exercise CacheAPI.set conversion options through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param options: Value supplied for options under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1630,15 +2311,20 @@ class CacheAPI:
         """
         Make a custom column for the books table.
 
-        :param label: You can uniquely identify the column either through a label, or it's number.
-                      This allows you to declare the label for the column.
-        :param name: The name of the column.
-        :param datatype: The datatype of the column - must be one of the SQLite datatypes.
-        :param is_multiple: Is the custom column multiple?
-                            (multiple values for each book)
-        :param editable: Is the column editable?
-        :param display:
-        :return column_num: Either the column number of the new column or False
+        Example:
+            Exercise CacheAPI.create custom column through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param label: Value supplied for label under the utility contract.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param datatype: Value supplied for datatype under the utility contract.
+        :param is_multiple: Value supplied for is multiple under the utility contract.
+        :param editable: Value supplied for editable under the utility contract.
+        :param display: Value supplied for display under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1656,15 +2342,21 @@ class CacheAPI:
         """
         Update the changeable metadata for a custom column.
 
-        :param num: The number of the custom column.
-                    This serves as the id of the custom column.
-                    It might be better to call it "column_id" or something, but we're aiming for calibre compatibility.
-        :param name: New name for the column - or None if there isn't going to be an update.
-        :param label: New label for the column - or None if there isn't going to be an update.
-        :param is_editable: Set the column as editable or not.
-        :param display: Optionally set the display name for the column.
-        :param update_last_modified:
-        :return status: Did the update go through?
+        Example:
+            Exercise CacheAPI.set custom column metadata through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param num: Value supplied for num under the utility contract.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param label: Value supplied for label under the utility contract.
+        :param is_editable: Value supplied for is editable under the utility contract.
+        :param display: Value supplied for display under the utility contract.
+        :param update_last_modified: Value supplied for update last modified under the
+            utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1673,11 +2365,16 @@ class CacheAPI:
         """
         Remove a custom column set for the books table.
 
-        You must provide either of the label or the num.
-        If you provide both, they should be consistent.
-        :param label: The label identifying the custom column.
-        :param num: The number identifying the custom column
-        :return:
+        Example:
+            Exercise CacheAPI.delete custom column through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param label: Value supplied for label under the utility contract.
+        :param num: Value supplied for num under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1691,7 +2388,14 @@ class CacheAPI:
         """
         Not sure that there is a good way to implement this - and if a plugin is using this I have questions.
 
-        :return:
+        Example:
+            Exercise CacheAPI.get top level move items through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1700,10 +2404,17 @@ class CacheAPI:
         """
         Not sure that there is a good way to implement this - and if a plugin is using this I have questions.
 
-        :param newloc:
-        :param progress:
-        :param abort:
-        :return:
+        Example:
+            Exercise CacheAPI.move library to through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param newloc: Value supplied for newloc under the utility contract.
+        :param progress: Value supplied for progress under the utility contract.
+        :param abort: Value supplied for abort under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1717,11 +2428,16 @@ class CacheAPI:
         """
         Dump the database to disk and restore it.
 
-        Can fix consistency problems.
-        Does not always make sense with every database backend - or might be a really bad idea.
-        :param callback: Progress indicator.
-        :param sql:
-        :return:
+        Example:
+            Exercise CacheAPI.dump and restore through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param callback: Value supplied for callback under the utility contract.
+        :param sql: Value supplied for sql under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1730,7 +2446,14 @@ class CacheAPI:
         """
         Preforming vacuum (or equivalent) - an SQL maintenance task.
 
-        :return status: Did the vacuum succeed?
+        Example:
+            Exercise CacheAPI.vacuum through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1739,7 +2462,14 @@ class CacheAPI:
         """
         Close the database connection.
 
-        :return status: Did we manage to close the database?
+        Example:
+            Exercise CacheAPI.close through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1748,11 +2478,18 @@ class CacheAPI:
         """
         Save the database in some format - this will depend on the exporter function used.
 
-        :param library_key:
-        :param exporter:
-        :param progress:
-        :param abort:
-        :return:
+        Example:
+            Exercise CacheAPI.export library through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param library_key: Value supplied for library key under the utility contract.
+        :param exporter: Value supplied for exporter under the utility contract.
+        :param progress: Value supplied for progress under the utility contract.
+        :param abort: Value supplied for abort under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1766,8 +2503,15 @@ class CacheAPI:
         """
         Return all the virtual libraries that the given books are in.
 
-        :param book_ids:
-        :return:
+        Example:
+            Exercise CacheAPI.virtual libraries for books through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_ids: Book identities included in the batched read operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1781,13 +2525,17 @@ class CacheAPI:
         """
         Return the user categories for the specified books.
 
-        User categories are a custom thing which can be set on a book by book basis.
-        proxy_metadata_map is optional and is useful for a
-        performance boost, in contexts where a ProxyMetadata object for the books already exists.
-        It should be a mapping of book_ids to their corresponding ProxyMetadata objects.
-        :param book_ids:
-        :param proxy_metadata_map:
-        :return:
+        Example:
+            Exercise CacheAPI.user categories for books through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_ids: Book identities included in the batched read operation.
+        :param proxy_metadata_map: Value supplied for proxy metadata map under the utility
+            contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1803,15 +2551,19 @@ class CacheAPI:
         """
         Update metadata in all formats of the specified book_ids to current metadata in the database.
 
-        Changes the files on disk to include the new metadata.
-        :param book_ids: The books to update with the new metadata
-        :param only_fmts: Only preform updates for specific formats within those books.
-                          Can be a collectio of format strings e.g. ("EPUB_1", ) - in which case only the highest
-                          priority epub will be updated.
-                          Or can be a generic format string e.g. ("EPUB", ) - in which case all EPUBs will be updated.
-        :param report_error: A callback system to report on errors if something goes wrong.
-        :param report_progress: A callback to report progress
-        :return status: Did the embed run complete without error?
+        Example:
+            Exercise CacheAPI.embed metadata through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_ids: Book identities included in the batched read operation.
+        :param only_fmts: Value supplied for only fmts under the utility contract.
+        :param report_error: Value supplied for report error under the utility contract.
+        :param report_progress: Value supplied for report progress under the utility
+            contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1820,11 +2572,17 @@ class CacheAPI:
         """
         Return the stored last read position for the book.
 
-        Used to return to your last position on some devices and the ebook reader.
-        :param book_id: The book to update
-        :param fmt: The format in that book - must be a format string
-        :param user:
-        :return:
+        Example:
+            Exercise CacheAPI.get last read positions through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :param user: Value supplied for user under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1833,14 +2591,21 @@ class CacheAPI:
         """
         Update the last read position of a book on the database.
 
-        :param book_id:
-        :param fmt:
-        :param user:
-        :param device:
-        :param cfi:
-        :param epoch:
-        :param pos_frac:
-        :return:
+        Example:
+            Exercise CacheAPI.set last read position through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :param user: Value supplied for user under the utility contract.
+        :param device: Value supplied for device under the utility contract.
+        :param cfi: Value supplied for cfi under the utility contract.
+        :param epoch: Value supplied for epoch under the utility contract.
+        :param pos_frac: Value supplied for pos frac under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1852,9 +2617,16 @@ class CacheAPI:
         """
         Return the value for the specified preference or ``default`` if the preference is not set.
 
-        :param name: The name of the preference to get
-        :param default: The default value for the preference - or None
-        :return:
+        Example:
+            Exercise CacheAPI.pref through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param default: Value supplied for default under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -1863,18 +2635,41 @@ class CacheAPI:
         """
         Set the specified preference to the specified value. See also :meth:`pref`.
 
-        :param name:
-        :param val:
-        :return:
+        Example:
+            Exercise CacheAPI.set pref through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
 
 class BaseCache(CacheAPI):
+    """
+    Provide the basecache contract for validated ebook processing.
+
+    Example:
+        Exercise BaseCache through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
+    """
     def __init__(self, backend):
         """
         Add a backend to the cache class
-        :param backend:
+
+        Example:
+            Exercise BaseCache.  init   through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param backend: Value supplied for backend under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         super().__init__(backend=backend)
 
@@ -1919,13 +2714,14 @@ class BaseCache(CacheAPI):
         """
         A safe read lock does nothing if the thread already has a write lock, otherwise it acquires a read lock.
 
-        This is necessary to prevent DowngradeLockErrors, which can happen when updating the search cache in
-        the presence of composite columns. Updating the search cache holds an exclusive lock, but searching a composite
-        column involves reading field values via ProxyMetadata which tries to get a shared lock.
-        There may be other scenarios that trigger this as well.
-        This property returns a new lock object on every access. This lock object is not recursive (for performance) and
-        must only be used in a with statement as ``with cache.safe_read_lock:`` otherwise bad things will happen.
-        :return:
+        Example:
+            Exercise BaseCache.safe read lock through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return SafeReadLock(self.read_lock)
 

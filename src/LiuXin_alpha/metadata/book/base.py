@@ -1,6 +1,18 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Store and format Calibre-compatible book metadata with custom fields and identifier aliases.
+
+calibreMetadata separates standard data from arbitrary instance attributes, keeps
+custom field descriptors alongside their values, and lazily evaluates composite
+templates. OPF and WEMI persistence are delegated to the metadata adapters.
+
+Example:
+    Exercise the owning behavior with pytest::
+
+        python -m pytest -q tests/metadata/book/test_book_metadata_base.py
+"""
 import copy
 import traceback
 
@@ -38,10 +50,16 @@ __docformat__ = "restructuredtext en"
 
 def human_readable(size, precision=2):
     """
-    Convert a size in bytes into megabytes.
-    :param size:
-    :param precision:
-    :return:
+    Format a byte count as a fixed-precision binary-megabyte value suffixed MB.
+
+    Example:
+        >>> human_readable(2 * 1024 * 1024)
+        '2.00MB'
+
+
+    :param size: Numeric byte count.
+    :param precision: Decimal places inserted into the percent-format specifier.
+    :return: Formatted string.
     """
     return ("%." + str(precision) + "f" + "MB") % ((size / (1024.0 * 1024.0)),)
 
@@ -67,42 +85,67 @@ field_metadata = FieldMetadata()
 
 def reset_field_metadata():
     """
-    Ensures that the global field_metadata object is set and is an empty instance of FieldMetadata
-    :return:
+    Replace the module-wide field metadata registry with a fresh FieldMetadata instance.
+
+    Existing external references to the old registry are not updated.
+
+    Example:
+        Exercise the owning behavior with pytest::
+
+            python -m pytest -q tests/metadata/book/test_book_metadata_base.py
+
+
+    :return: None.
     """
     global field_metadata
     field_metadata = FieldMetadata()
 
 
 def ck(typ):
+    """
+    Normalize an identifier scheme by case folding, trimming, and removing colons and commas.
+
+    Example:
+        >>> ck(' DOI: ')
+        'doi'
+
+
+    :param typ: Identifier scheme string.
+    :return: Normalized scheme string.
+    """
     return icu_lower(typ).strip().replace(":", "").replace(",", "")
 
 
 def cv(val):
+    """
+    Trim an identifier value and replace commas with vertical bars.
+
+    Example:
+        >>> cv(' 10.1/a,b ')
+        '10.1/a|b'
+
+
+    :param val: Identifier value string.
+    :return: Cleaned identifier value.
+    """
     return val.strip().replace(",", "|")
 
 
 # Todo: Include all calibre fields, marked as such
 class calibreMetadata(object):
     """
-    A class representing some of the metadata for a book. The various standard metadata fields are available as
-    attributes of this object. You can also stick arbitrary attributes onto this object.
+    Represent one book using Calibre-compatible standard fields and custom columns.
 
-    Metadata from custom columns should be accessed via the get() method, passing in the lookup name for the column,
-    for example: "#mytags".
+    Standard fields are attributes; custom lookup names such as #labels work through
+    get/set and custom metadata descriptors. is_null recognizes empty/default values,
+    including zero. Composite values are evaluated and cached on first access. Arbitrary
+    attributes are allowed, but method names remain reserved. Use deepcopy_metadata for
+    a clone of stored metadata alone.
 
-    Use the :meth:`is_null` method to test if a field is null.
-
-    This object also has functions to format fields into strings.
-
-    The list of standard metadata fields grows with time is in
-    :data:`STANDARD_METADATA_FIELDS`.
-
-    Please keep the method based API of this class to a minimum. Every method becomes a reserved field name.
-
-    This is the original calibre version. It cannot handle as much ambiguity as the LiuXin metadata object (located at
-    LiuXin.metadata.metadata) - but a number of the methods ported from calibre need this - it's also made available to
-    make porting calibre plugins more painless.
+    Example:
+        >>> book = calibreMetadata('  Example  ', ['Writer'])
+        >>> book.title, book.authors
+        ('Example', ['Writer'])
     """
 
     __name__ = "calibre Metadata object"
@@ -116,12 +159,23 @@ class calibreMetadata(object):
         formatter=None,
     ):
         """
-        Generate a new metadata object.
-        :param title:
-        :param authors:
-        :param other:
-        :param template_cache:
-        :param formatter:
+        Initialize independent null defaults, then set title/authors or merge another metadata object.
+
+        When other is supplied, title and authors arguments are ignored. A missing formatter
+        creates SafeFormat; the template cache is retained as supplied.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/book/test_book_metadata_base.py
+
+
+        :param title: Initial title; a false value leaves the localized Unknown default.
+        :param authors: Initial author iterable; a false value leaves defaults.
+        :param other: Source metadata object with the attributes required by this operation.
+        :param template_cache: Optional cache passed to composite formatting.
+        :param formatter: Formatter instance to retain, or None to create SafeFormat.
+        :return: None.
         """
         _data = copy.deepcopy(NULL_VALUES)
         _data.pop("language")
@@ -143,14 +197,17 @@ class calibreMetadata(object):
 
     def is_null(self, field):
         """
-        Return True if the value of field is null in this object.
-        'null' means it is unknown or evaluates to False. So a title of
-        _('Unknown') is null or a language of 'und' is null.
+        Test whether a field is absent, false, or equal to its configured null value.
 
-        Be careful with numeric fields since this will return True for zero as
-        well as None.
+        Zero counts as null. Any exception during the lookup also produces True.
 
-        Also returns True if the field does not exist.
+        Example:
+            >>> calibreMetadata('Example').is_null('tags')
+            True
+
+
+        :param field: Standard field, custom lookup name, or attribute name.
+        :return: Whether the field is considered null.
         """
         try:
             null_val = NULL_VALUES.get(field, None)
@@ -161,6 +218,22 @@ class calibreMetadata(object):
 
     def __getattribute__(self, field):
 
+        """
+        Read standard data, identifier aliases, language, custom columns, or ordinary attributes.
+
+        Composite columns are evaluated once and cached, with a recursion sentinel installed
+        before formatting. A custom series _index suffix resolves through get_extra. Unknown
+        names raise AttributeError.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/book/test_book_metadata_base.py
+
+
+        :param field: Standard field, custom lookup name, or attribute name.
+        :return: Resolved value; mutable values can be the stored objects.
+        """
         _data = object.__getattribute__(self, "_data")
 
         if field in SIMPLE_GET:
@@ -207,6 +280,25 @@ class calibreMetadata(object):
 
     def __setattr__(self, field, val, extra=None):
         # Never want trailing whitespace to hang around
+        """
+        Assign metadata using standard defaults, cleaned identifiers, and custom value/extra slots.
+
+        Strings are stripped. language maps to the first-language list, and und clears it.
+        Unknown names become ordinary instance attributes. Container inputs are generally
+        retained rather than deep-copied.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/book/test_book_metadata_base.py
+
+
+        :param field: Standard field, custom lookup name, or attribute name.
+        :param val: Value to assign; strings are trimmed and standard None values use field
+            defaults.
+        :param extra: Optional custom-field auxiliary value, such as a series index.
+        :return: None.
+        """
         if isinstance(val, basestring):
             val = val.strip()
 
@@ -241,28 +333,67 @@ class calibreMetadata(object):
 
     def set_attr(self, field, val, extra=None):
         """
-        Convenience front end for __setattr__.
-        :param field:
-        :param val:
-        :param extra:
-        :return:
+        Assign a field and optional custom extra through the metadata attribute setter.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/book/test_book_metadata_base.py
+
+
+        :param field: Standard field, custom lookup name, or attribute name.
+        :param val: Value to assign; strings are trimmed and standard None values use field
+            defaults.
+        :param extra: Optional custom-field auxiliary value, such as a series index.
+        :return: None.
         """
         self.__setattr__(field, val, extra)
 
     def __iter__(self):
+        """
+        Iterate keys currently present in the internal metadata dictionary.
+
+        Custom column names are nested under user_metadata and are not expanded here.
+
+        Example:
+            >>> 'tags' in set(calibreMetadata('Example'))
+            True
+
+
+        :return: Iterator over stored top-level keys.
+        """
         return iterkeys(object.__getattribute__(self, "_data"))
 
     def has_key(self, key):
+        """
+        Check direct membership in the internal metadata dictionary.
+
+        Example:
+            >>> calibreMetadata('Example').has_key('tags')
+            True
+
+
+        :param key: Field lookup key.
+        :return: Whether the stored top-level key exists.
+        """
         return key in object.__getattribute__(self, "_data")
 
     def deepcopy(self, class_generator=lambda: calibreMetadata(None)):
         """
-        Do not use this method unless you know what you are doing, if you
-        want to create a simple clone of this object, use :meth:`deepcopy_metadata`
-        instead. Class_generator must be a function that returns an instance
-        of Metadata or a subclass of it.
-        :param class_generator:
-        :return:
+        Clone the entire instance dictionary into an object created by a supplied factory.
+
+        This includes arbitrary attributes and formatter state. Prefer deepcopy_metadata
+        when only stored metadata should be copied.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/book/test_book_metadata_base.py
+
+
+        :param class_generator: Zero-argument factory creating calibreMetadata or a
+            subclass.
+        :return: Clone, or None if the factory does not return a calibreMetadata instance.
         """
         m = class_generator()
         if not isinstance(m, calibreMetadata):
@@ -271,24 +402,76 @@ class calibreMetadata(object):
         return m
 
     def deepcopy_metadata(self):
+        """
+        Deep-copy stored metadata into a fresh base calibreMetadata instance.
+
+        Arbitrary attributes, a custom formatter, and a custom template cache are not
+        copied.
+
+        Example:
+            >>> book = calibreMetadata('Example')
+            >>> clone = book.deepcopy_metadata()
+            >>> clone.tags.append('new')
+            >>> book.tags
+            []
+
+
+        :return: Independent base metadata object.
+        """
         m = calibreMetadata(None)
         object.__setattr__(m, "_data", copy.deepcopy(object.__getattribute__(self, "_data")))
         return m
 
     def get_data(self):
         """
-        Returns the _data dictionary - mostly used for diagnostics.
-        :return:
+        Return an independent deep copy of the internal metadata dictionary for inspection.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/book/test_book_metadata_base.py
+
+
+        :return: Copied stored data; ordinary instance attributes are excluded.
         """
         return copy.deepcopy(object.__getattribute__(self, "_data"))
 
     def get(self, field, default=None):
+        """
+        Read a metadata field, returning a fallback only when lookup raises AttributeError.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/book/test_book_metadata_base.py
+
+
+        :param field: Standard field, custom lookup name, or attribute name.
+        :param default: Fallback for an unknown field.
+        :return: Resolved value or default; a stored None remains None.
+        """
         try:
             return self.__getattribute__(field)
         except AttributeError:
             return default
 
     def get_extra(self, field, default=None):
+        """
+        Read the auxiliary value of a defined custom field.
+
+        A missing or unreadable extra returns the fallback. An undefined custom field raises
+        AttributeError.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/book/test_book_metadata_base.py
+
+
+        :param field: Standard field, custom lookup name, or attribute name.
+        :param default: Fallback if the defined field has no readable #extra# value.
+        :return: Stored extra or default.
+        """
         _data = object.__getattribute__(self, "_data")
         if field in iterkeys(_data["user_metadata"]):
             try:
@@ -298,10 +481,41 @@ class calibreMetadata(object):
         raise AttributeError("Metadata object has no attribute named: " + repr(field))
 
     def set(self, field, val, extra=None):
+        """
+        Assign a field and custom extra through the metadata attribute setter.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/book/test_book_metadata_base.py
+
+
+        :param field: Standard field, custom lookup name, or attribute name.
+        :param val: Value to assign; strings are trimmed and standard None values use field
+            defaults.
+        :param extra: Optional custom-field auxiliary value, such as a series index.
+        :return: None.
+        """
         self.__setattr__(field, val, extra)
 
     @classmethod
     def from_opf(cls, source):
+        """
+        Read OPF through the shared adapter and return this metadata class.
+
+        The base class returns the adapter result directly; subclasses are constructed from
+        its title, authors, and other metadata.
+
+        Example:
+            Exercise OPF conversion with pytest::
+
+                python -m pytest -q tests/metadata/test_opf_tools.py
+
+
+        :param source: OPF path, bytes, XML text, or readable stream accepted by the
+            adapter; caller streams remain open.
+        :return: Populated calibreMetadata or requested subclass.
+        """
         from LiuXin_alpha.metadata.opf_tools import calibre_metadata_from_opf
 
         metadata = calibre_metadata_from_opf(source)
@@ -310,11 +524,37 @@ class calibreMetadata(object):
         return cls(metadata.title, metadata.authors, other=metadata)
 
     def to_opf_bytes(self, *, default_lang=None):
+        """
+        Serialize this book through the shared OPF adapter.
+
+        Example:
+            Exercise OPF conversion with pytest::
+
+                python -m pytest -q tests/metadata/test_opf_tools.py
+
+
+        :param default_lang: Optional default language forwarded to OPF serialization.
+        :return: UTF-8 OPF bytes.
+        """
         from LiuXin_alpha.metadata.opf_tools import metadata_to_opf_bytes
 
         return metadata_to_opf_bytes(self, default_lang=default_lang)
 
     def write_to_opf(self, path, *, default_lang=None):
+        """
+        Serialize this book and write the OPF file through the shared adapter.
+
+        Example:
+            Exercise OPF conversion with pytest::
+
+                python -m pytest -q tests/metadata/test_opf_tools.py
+
+
+        :param path: Destination path; the adapter creates parent directories and overwrites
+            the file.
+        :param default_lang: Optional default language forwarded to OPF serialization.
+        :return: Path returned by the OPF file adapter.
+        """
         from LiuXin_alpha.metadata.opf_tools import metadata_to_opf_file
 
         return metadata_to_opf_file(self, path, default_lang=default_lang)
@@ -331,11 +571,28 @@ class calibreMetadata(object):
         mark_dirty=True,
     ):
         """
-        Persist supported relation-backed fields through the WEMI metadata writer.
+        Persist supported relation fields through the WEMI metadata writer.
 
-        Calibre-shaped metadata can only identify the target database row when
-        ``item_id``/``target_row`` is supplied or ``db_id``/``application_id``
-        contains the LiuXin item id.
+        Supply item_id or target_row to select a LiuXin target, or store a LiuXin item id in
+        db_id/application_id. Writer validation, skip/error reporting, and transaction
+        behavior are delegated.
+
+        Example:
+            Exercise writer delegation with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_item_metadata_hydrator.py
+
+
+        :param database: Caller-owned database used by the metadata writer for persistence;
+            this method does not close it.
+        :param fields: Optional iterable of supported relation fields to write; None uses
+            writer defaults.
+        :param target_level: WEMI level for relation writes, defaulting to work.
+        :param item_id: Optional item identifier forwarded to the hydrator or OPF adapter.
+        :param target_row: Optional explicit target row or row mapping.
+        :param replace: Whether to replace existing relations for selected fields.
+        :param mark_dirty: Whether to mark changed target metadata dirty.
+        :return: MetadataWriteReport describing changes, skipped operations, and errors.
         """
         from LiuXin_alpha.metadata.containers.metadata_containers.liuxin_wemi_metadata_writer import (
             LiuXinWEMIMetadataWriter,
@@ -353,9 +610,15 @@ class calibreMetadata(object):
 
     def get_identifiers(self):
         """
-        Return a copy of the identifiers dictionary.
-        The dict is small, and the penalty for using a reference where a copy is needed is large.
-        Also, we don't want any manipulations of the returned dict to show up in the book.
+        Deep-copy the identifier dictionary so callers can edit the result independently.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/book/test_book_metadata_base.py
+
+
+        :return: Independent scheme-to-value dictionary.
         """
         ans = object.__getattribute__(self, "_data")["identifiers"]
         if not ans:
@@ -363,6 +626,19 @@ class calibreMetadata(object):
         return copy.deepcopy(ans)
 
     def _clean_identifier(self, typ, val):
+        """
+        Clean a truthy scheme and value using ck and cv; retain false inputs.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/book/test_book_metadata_base.py
+
+
+        :param typ: Identifier scheme string.
+        :param val: Identifier string or false value for deletion.
+        :return: Pair of cleaned scheme and value.
+        """
         if typ:
             typ = ck(typ)
         if val:
@@ -371,18 +647,38 @@ class calibreMetadata(object):
 
     def set_identifiers(self, identifiers):
         """
-        Set all identifiers. Note that if you previously set ISBN, calling this method will delete it.
-        :param identifiers:
+        Replace all identifiers with cleaned nonempty input pairs.
+
+        This also replaces any ISBN previously set through the top-level alias.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/book/test_book_metadata_base.py
+
+
+        :param identifiers: Mapping of scheme strings to value strings; false keys or values
+            are omitted.
+        :return: None.
         """
         cleaned = {ck(k): cv(v) for k, v in iteritems(identifiers) if k and v}
         object.__getattribute__(self, "_data")["identifiers"] = cleaned
 
     def set_identifier(self, typ, val):
         """
-        If val is empty, deletes identifier of type typ
-        :param typ:
-        :param val:
-        :return:
+        Replace one cleaned identifier, or delete it when the value is false.
+
+        An empty cleaned scheme is ignored.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/book/test_book_metadata_base.py
+
+
+        :param typ: Identifier scheme string.
+        :param val: Identifier value string, or a false value to delete the scheme.
+        :return: None.
         """
         typ, val = self._clean_identifier(typ, val)
         if not typ:
@@ -394,6 +690,18 @@ class calibreMetadata(object):
             identifiers[typ] = val
 
     def has_identifier(self, typ):
+        """
+        Check whether an exact scheme key is stored without normalizing it.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/book/test_book_metadata_base.py
+
+
+        :param typ: Identifier scheme string.
+        :return: Whether the scheme is present.
+        """
         identifiers = object.__getattribute__(self, "_data")["identifiers"]
         return typ in identifiers
 
@@ -401,28 +709,59 @@ class calibreMetadata(object):
 
     def standard_field_keys(self):
         """
-        return a list of all default keys, even if this book doesn't have them
+        Return all standard field names, including fields unset on this instance.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/book/test_book_metadata_base.py
+
+
+        :return: Shared immutable STANDARD_METADATA_FIELDS set.
         """
         return STANDARD_METADATA_FIELDS
 
     def custom_field_keys(self):
         """
-        return a list of the custom fields in this book
+        Iterate custom column lookup names currently defined on this book.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/book/test_book_metadata_base.py
+
+
+        :return: Iterator over user_metadata keys.
         """
         return iterkeys(object.__getattribute__(self, "_data")["user_metadata"])
 
     def all_field_keys(self):
         """
-        All field keys known by this instance, even if their value is None
+        Collect all built-in metadata names and this instance's custom column names.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/book/test_book_metadata_base.py
+
+
+        :return: New frozenset of known field names.
         """
         _data = object.__getattribute__(self, "_data")
         return frozenset(ALL_METADATA_FIELDS.union(iterkeys(_data["user_metadata"])))
 
     def metadata_for_field(self, key):
         """
-        return metadata describing a standard or custom field.
-        :param key:
-        :return:
+        Look up a standard or custom field descriptor without copying it.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/book/test_book_metadata_base.py
+
+
+        :param key: Field lookup key.
+        :return: Stored descriptor mapping or None for an unknown field.
         """
         if key not in self.custom_field_keys():
             return self.get_standard_metadata(key, make_copy=False)
@@ -430,7 +769,19 @@ class calibreMetadata(object):
 
     def all_non_none_fields(self):
         """
-        Return a dictionary containing all non-None metadata fields, including the custom ones.
+        Collect non-None standard and custom values, including identifier aliases.
+
+        Empty containers and other false values are retained. Custom composites may be
+        evaluated, and non-None custom series also expose their _index key. Mutable values
+        remain shared with this object.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/book/test_book_metadata_base.py
+
+
+        :return: New field-to-value dictionary containing references to the selected values.
         """
         result = {}
         _data = object.__getattribute__(self, "_data")
@@ -460,12 +811,17 @@ class calibreMetadata(object):
 
     def get_standard_metadata(self, field, make_copy):
         """
-        return field metadata from the field if it is there. Otherwise return
-        None. field is the key name, not the label. Return a copy if requested,
-        just in case the user wants to change values in the dict.
-        :param field:
-        :param make_copy:
-        :return:
+        Read a standard descriptor only when its registry kind is field.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/book/test_book_metadata_base.py
+
+
+        :param field: Standard field, custom lookup name, or attribute name.
+        :param make_copy: True for a deep copy; False for the stored object itself.
+        :return: Descriptor, optional deep copy, or None.
         """
         if field in field_metadata and field_metadata[field]["kind"] == "field":
             if make_copy:
@@ -476,10 +832,20 @@ class calibreMetadata(object):
     @staticmethod
     def get_all_standard_metadata(make_copy):
         """
-        return a dict containing all the standard field metadata associated with
-        the book.
-        :param make_copy:
-        :return:
+        Expose the global registry or deep-copy its entries whose kind is field.
+
+        The no-copy form returns the complete FieldMetadata registry, including non-field
+        entries.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/book/test_book_metadata_base.py
+
+
+        :param make_copy: True for a deep copy; False for the stored object itself.
+        :return: Shared registry when make_copy is false, otherwise a plain dictionary of
+            copied field descriptors.
         """
         if not make_copy:
             return field_metadata
@@ -491,9 +857,16 @@ class calibreMetadata(object):
 
     def get_all_user_metadata(self, make_copy):
         """
-        return a dict containing all the custom field metadata associated with the book.
-        :param make_copy:
-        :return:
+        Expose or deep-copy all custom field descriptors and their stored values.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/book/test_book_metadata_base.py
+
+
+        :param make_copy: True for a deep copy; False for the stored object itself.
+        :return: User metadata dictionary, copied when requested.
         """
         _data = object.__getattribute__(self, "_data")
         user_metadata = _data["user_metadata"]
@@ -506,12 +879,17 @@ class calibreMetadata(object):
 
     def get_user_metadata(self, field, make_copy):
         """
-        return field metadata from the object if it is there. Otherwise return
-        None. field is the key name, not the label. Return a copy if requested,
-        just in case the user wants to change values in the dict.
-        :param field:
-        :param make_copy:
-        :return:
+        Read a custom field descriptor, optionally making a deep copy.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/book/test_book_metadata_base.py
+
+
+        :param field: Standard field, custom lookup name, or attribute name.
+        :param make_copy: True for a deep copy; False for the stored object itself.
+        :return: Descriptor mapping or None if undefined.
         """
         _data = object.__getattribute__(self, "_data")
         _data = _data["user_metadata"]
@@ -523,9 +901,21 @@ class calibreMetadata(object):
 
     def set_all_user_metadata(self, metadata):
         """
-        store custom field metadata into the object. Field is the key name not the label
-        :param metadata:
-        :return:
+        Replace custom metadata with shallow copies of the supplied descriptors.
+
+        Missing #value# becomes [] for multiple text or None otherwise. Nested descriptor
+        objects remain shared. None prints a diagnostic stack and leaves current metadata
+        unchanged.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/book/test_book_metadata_base.py
+
+
+        :param metadata: Mapping of lookup names to descriptor mappings, or None for the
+            diagnostic no-op.
+        :return: None.
         """
         if metadata is None:
             traceback.print_stack()
@@ -545,10 +935,21 @@ class calibreMetadata(object):
 
     def set_user_metadata(self, field, metadata):
         """
-        store custom field metadata for one column into the object. Field is the key name not the label
-        :param field:
-        :param metadata:
-        :return:
+        Store a shallow copy of one custom column descriptor and supply a missing default value.
+
+        A non-None field must begin with # or AttributeError is raised. None as the field is
+        ignored; None as metadata prints a diagnostic stack. Nested values remain shared.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/book/test_book_metadata_base.py
+
+
+        :param field: Standard field, custom lookup name, or attribute name.
+        :param metadata: Descriptor with datatype/is_multiple and optional #value#; None
+            triggers diagnostics.
+        :return: None.
         """
         if field is not None:
             if not field.startswith("#"):
@@ -572,12 +973,22 @@ class calibreMetadata(object):
 
     def template_to_attribute(self, other, ops):
         """
-        Takes a list [(src,dest), (src,dest)], evaluates the template in the
-        context of other, then copies the result to self[dest]. This is on a
-        best-efforts basis. Some assignments can make no sense.
-        :param other:
-        :param ops:
-        :return:
+        Evaluate plugboard templates against another book and assign their output here.
+
+        Split tag output on commas and author output on ampersands, trimming empty entries.
+        Other outputs are assigned as strings. Per-operation failures are suppressed, with
+        tracebacks only when DEBUG is enabled.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/book/test_book_metadata_base.py
+
+
+        :param other: Source metadata object with the attributes required by this operation.
+        :param ops: Iterable of (template, destination-field) pairs; a false value does
+            nothing.
+        :return: None.
         """
         if not ops:
             return
@@ -601,6 +1012,17 @@ class calibreMetadata(object):
 
     # Old Metadata API {{{
     def print_all_attributes(self):
+        """
+        Print standard values, defined custom descriptors, and a separator for diagnostics.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/book/test_book_metadata_base.py
+
+
+        :return: None.
+        """
         for x in STANDARD_METADATA_FIELDS:
             prints("%s:" % x, getattr(self, x, "None"))
         for x in self.custom_field_keys():
@@ -611,14 +1033,44 @@ class calibreMetadata(object):
 
     def smart_update(self, other, replace_metadata=False):
         """
-        Merge the information in `other` into self. In case of conflicts, the information
-        in `other` takes precedence, unless the information in `other` is NULL.
-        :param other:
-        :param replace_metadata:
-        :return:
+        Merge another book into this one using field-specific replacement rules.
+
+        A known source title and usable authors take precedence. Normal merging deep-copies
+        non-null ordinary fields, combines tags and multiple custom text case-insensitively
+        while adopting source spelling, prefers larger cover payloads and longer stripped
+        comments, and overlays identifiers. Replacement copies ordinary fields even when
+        null and replaces tags, cover data, custom metadata, and identifiers; selected
+        optional fields still copy only non-null values. Some replacement containers are
+        shared. Meaningful source languages replace the current list, and an absent series
+        clears series_index.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/book/test_book_metadata_base.py
+
+
+        :param other: Source metadata object with the attributes required by this operation.
+        :param replace_metadata: Whether to use replacement behavior for the selected field
+            groups.
+        :return: None.
         """
 
         def copy_not_none(dest, src, attr):
+            """
+            Deep-copy one source attribute unless it is None or equals its field null sentinel.
+
+            Example:
+                Exercise the owning behavior with pytest::
+
+                    python -m pytest -q tests/metadata/book/test_book_metadata_base.py
+
+
+            :param dest: Metadata object receiving the copied attribute.
+            :param src: Source object inspected with getattr.
+            :param attr: Attribute name and NULL_VALUES lookup key.
+            :return: None.
+            """
             v = getattr(src, attr, None)
             if v not in (None, NULL_VALUES.get(attr, None)):
                 setattr(dest, attr, copy.deepcopy(v))
@@ -744,9 +1196,16 @@ class calibreMetadata(object):
 
     def format_series_index(self, val=None):
         """
-        Return the series index in a nicely formatted manner.
-        :param val:
-        :return:
+        Format a supplied or stored series index through fmt_sidx, defaulting invalid values to one.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/book/test_book_metadata_base.py
+
+
+        :param val: Explicit numeric value; None reads this book's series_index.
+        :return: Formatted series index string.
         """
         from LiuXin_alpha.metadata import fmt_sidx
 
@@ -759,9 +1218,16 @@ class calibreMetadata(object):
 
     def authors_from_string(self, raw):
         """
-        Takes a string - tries to split it down into the individual authors mentioned in it.
-        :param raw:
-        :return:
+        Split author text with the shared parser and replace the authors list.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/book/test_book_metadata_base.py
+
+
+        :param raw: Author string accepted by string_to_authors.
+        :return: None.
         """
         from LiuXin_alpha.metadata.utils import string_to_authors
 
@@ -769,8 +1235,15 @@ class calibreMetadata(object):
 
     def format_authors(self):
         """
-        Returns the authors as a string.
-        :return:
+        Join author names using the shared ampersand-escaping convention.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/book/test_book_metadata_base.py
+
+
+        :return: Formatted author string.
         """
         from LiuXin_alpha.metadata.utils import authors_to_string
 
@@ -778,17 +1251,34 @@ class calibreMetadata(object):
 
     def format_tags(self):
         """
-        Returns the tags as a csv list.
-        :return:
+        Sort tags with the locale sort key and join their text forms with comma-space.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/book/test_book_metadata_base.py
+
+
+        :return: Formatted tag string; the stored order is unchanged.
         """
         return ", ".join([six_unicode(t) for t in sorted(self.tags, key=sort_key)])
 
     def format_rating(self, v=None, divide_by=1.0):
         """
-        Returns the rating as a string.
-        :param v:
-        :param divide_by:
-        :return:
+        Convert an explicit or stored rating to text after dividing by the requested scale.
+
+        A missing stored rating renders as the literal None string. Division errors are not
+        suppressed.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/book/test_book_metadata_base.py
+
+
+        :param v: Explicit rating, or None to use this book's rating.
+        :param divide_by: Numeric divisor, normally 1.0 or 2.0.
+        :return: Rating string.
         """
         if v is None:
             if self.rating is not None:
@@ -798,20 +1288,40 @@ class calibreMetadata(object):
 
     def format_field(self, key, series_with_index=True):
         """
-        Returns the tuple (display_name, formatted_value)
-        :param key:
-        :param series_with_index:
-        :return:
+        Return the display name and formatted value from format_field_extended.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/book/test_book_metadata_base.py
+
+
+        :param key: Field lookup key.
+        :param series_with_index: Whether to append a formatted index to series names.
+        :return: Pair of display name and value; unknown fields yield (None, None).
         """
         name, val, ign, ign = self.format_field_extended(key, series_with_index)
         return name, val
 
     def format_field_extended(self, key, series_with_index=True):
         """
-        returns the tuple (display_name, formatted_value, original_value, field_metadata)
-        :param key:
-        :param series_with_index:
-        :return:
+        Format a field using its standard or custom descriptor.
+
+        Handle identifiers, custom series indices, composites, multiple values, dates,
+        booleans, ratings and numeric displays. Unknown fields yield four None values. Empty
+        values retain their name but generally omit original value and metadata. Returned
+        original values and descriptors are shared, and composite lookup may populate its
+        cache.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/book/test_book_metadata_base.py
+
+
+        :param key: Field lookup key.
+        :param series_with_index: Whether series displays include their index.
+        :return: Tuple (display_name, formatted_value, original_value, field_metadata).
         """
         from LiuXin_alpha.metadata.utils import authors_to_string
         from LiuXin_alpha.utils.date import format_date
@@ -904,7 +1414,18 @@ class calibreMetadata(object):
 
     def __unicode__(self):
         """
-        A string representation of this object, suitable for printing to console
+        Render populated book metadata as labeled lines for console output.
+
+        Include selected standard fields and truthy custom fields. Ratings are displayed on
+        the five-point scale; comments are included as stored.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/book/test_book_metadata_base.py
+
+
+        :return: Multiline Unicode string.
         """
         from LiuXin_alpha.metadata.ebook_metadata_tools import authors_to_string
         from LiuXin_alpha.utils.date import isoformat
@@ -912,6 +1433,19 @@ class calibreMetadata(object):
         ans = []
 
         def fmt(x, y):
+            """
+            Append one aligned label/value line to the enclosing console output buffer.
+
+            Example:
+                Exercise the owning behavior with pytest::
+
+                    python -m pytest -q tests/metadata/book/test_book_metadata_base.py
+
+
+            :param x: Label converted to text and padded to at least 20 characters.
+            :param y: Value converted to text.
+            :return: None.
+            """
             ans.append("%-20s: %s" % (six_unicode(x), six_unicode(y)))
 
         fmt("Title", self.title)
@@ -958,7 +1492,15 @@ class calibreMetadata(object):
 
     def to_html(self):
         """
-        A HTML representation of this object.
+        Delegate the HTML summary to the surfaces Calibre metadata renderer.
+
+        Example:
+            Exercise HTML rendering with pytest::
+
+                python -m pytest -q tests/metadata/book/test_formatter_and_render.py
+
+
+        :return: HTML string returned by calibre_metadata_to_html.
         """
         from LiuXin_alpha.surfaces.renderers.calibre_metadata import (
             calibre_metadata_to_html,
@@ -967,9 +1509,32 @@ class calibreMetadata(object):
         return calibre_metadata_to_html(self)
 
     def __str__(self):
+        """
+        Return the console metadata rendering supplied by __unicode__.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/book/test_book_metadata_base.py
+
+
+        :return: Multiline string.
+        """
         return self.__unicode__()
 
     def __nonzero__(self):
+        """
+        Evaluate the legacy truth hook from title, author, comments, and tags.
+
+        This Python 2 hook is not a Python 3 __bool__ implementation.
+
+        Example:
+            >>> calibreMetadata('Example').__nonzero__()
+            True
+
+
+        :return: Whether any of those attributes is truthy.
+        """
         return bool(self.title or self.author or self.comments or self.tags)
 
     # }}}
@@ -977,12 +1542,23 @@ class calibreMetadata(object):
 
 def field_from_string(field, raw, field_metadata):
     """
-    Parse the string raw to return an object that is suitable for calling
-    set() on a Metadata object.
-    :param field:
-    :param raw:
-    :param field_metadata:
-    :return:
+    Parse editable field text according to its metadata datatype.
+
+    Convert numbers, double five-point ratings, parse dates, and recognize true/yes/y or
+    false/no/n booleans. Unknown boolean text raises ValueError. Multiple text uses
+    ui_to_list, with special identifier-pair and canonical language handling. Other
+    datatypes retain the raw text; conversion errors propagate.
+
+    Example:
+        >>> field_from_string('rating', '3.5', {'datatype': 'rating'})
+        7.0
+
+
+    :param field: Standard field, custom lookup name, or attribute name.
+    :param raw: Input string to parse.
+    :param field_metadata: Descriptor containing datatype and, for text, is_multiple
+        separators.
+    :return: Parsed field value suitable for set().
     """
     dt = field_metadata["datatype"]
     val = object

@@ -1,3 +1,14 @@
+"""
+Serialize Markdown element trees as normalized HTML or XHTML.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise serializers through a consuming regression::
+
+        python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+"""
 from __future__ import unicode_literals
 from __future__ import absolute_import
 from __future__ import annotations
@@ -91,10 +102,37 @@ _namespace_map = {
 
 
 def _raise_serialization_error(text: _typing.Any) -> None:
+    """
+    Perform the raise serialization error operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  raise serialization error through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+    :param text: Text parsed, normalized or rendered.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     raise TypeError("cannot serialize %r (type %s)" % (text, type(text).__name__))
 
 
 def _encode(text: _typing.Any, encoding: _typing.Any) -> _typing.Any:
+    """
+    Perform the encode operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  encode through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+    :param text: Text parsed, normalized or rendered.
+    :param encoding: Value supplied for encoding under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         return text.encode(encoding, "xmlcharrefreplace")
     except (TypeError, AttributeError):
@@ -103,6 +141,19 @@ def _encode(text: _typing.Any, encoding: _typing.Any) -> _typing.Any:
 
 def _escape_cdata(text: _typing.Any) -> _typing.Any:
     # escape character data
+    """
+    Perform the escape cdata operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  escape cdata through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+    :param text: Text parsed, normalized or rendered.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         # it's worth avoiding do-nothing calls for strings that are
         # shorter than 500 character, or so.  assume that's, by far,
@@ -120,6 +171,19 @@ def _escape_cdata(text: _typing.Any) -> _typing.Any:
 
 def _escape_attrib(text: _typing.Any) -> _typing.Any:
     # escape attribute value
+    """
+    Perform the escape attrib operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  escape attrib through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+    :param text: Text parsed, normalized or rendered.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         if "&" in text:
             text = text.replace("&", "&amp;")
@@ -138,6 +202,19 @@ def _escape_attrib(text: _typing.Any) -> _typing.Any:
 
 def _escape_attrib_html(text: _typing.Any) -> _typing.Any:
     # escape attribute value
+    """
+    Perform the escape attrib html operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  escape attrib html through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+    :param text: Text parsed, normalized or rendered.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         if "&" in text:
             text = text.replace("&", "&amp;")
@@ -153,6 +230,23 @@ def _escape_attrib_html(text: _typing.Any) -> _typing.Any:
 
 
 def _serialize_html(write: _typing.Any, elem: _typing.Any, qnames: _typing.Any, namespaces: _typing.Any, format: _typing.Any) -> None:
+    """
+    Serialize html under the format's safety and compatibility rules.
+
+    Example:
+        Exercise  serialize html through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+    :param write: Value supplied for write under the utility contract.
+    :param elem: Value supplied for elem under the utility contract.
+    :param qnames: Value supplied for qnames under the utility contract.
+    :param namespaces: Value supplied for namespaces under the utility contract.
+    :param format: Value supplied for format under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     tag = elem.tag
     text = elem.text
     if tag is Comment:
@@ -209,6 +303,23 @@ def _serialize_html(write: _typing.Any, elem: _typing.Any, qnames: _typing.Any, 
 
 
 def _write_html(root: _typing.Any, encoding: _typing.Any = None, default_namespace: _typing.Any = None, format: str = "html") -> _typing.Any:
+    """
+    Write html under the format's safety and compatibility rules.
+
+    Example:
+        Exercise  write html through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param encoding: Value supplied for encoding under the utility contract.
+    :param default_namespace: Value supplied for default namespace under the utility
+        contract.
+    :param format: Value supplied for format under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     assert root is not None
     data = []
     write = data.append
@@ -228,6 +339,21 @@ def _namespaces(elem: _typing.Any, default_namespace: _typing.Any = None) -> tup
     # identify namespaces used in this tree
 
     # maps qnames to *encoded* prefix:local names
+    """
+    Perform the namespaces operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  namespaces through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+    :param elem: Value supplied for elem under the utility contract.
+    :param default_namespace: Value supplied for default namespace under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     qnames = {None: None}
 
     # maps uri:s to prefixes
@@ -237,6 +363,19 @@ def _namespaces(elem: _typing.Any, default_namespace: _typing.Any = None) -> tup
 
     def add_qname(qname: _typing.Any) -> None:
         # calculate serialized qname representation
+        """
+        Perform the add qname operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  namespaces.add qname through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param qname: Value supplied for qname under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         try:
             if qname[:1] == "{":
                 uri, tag = qname[1:].split("}", 1)
@@ -283,8 +422,34 @@ def _namespaces(elem: _typing.Any, default_namespace: _typing.Any = None) -> tup
 
 
 def to_html_string(element: _typing.Any) -> _typing.Any:
+    """
+    Perform the to html string operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise to html string through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+    :param element: Value supplied for element under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return _write_html(ElementTree(element).getroot(), format="html")
 
 
 def to_xhtml_string(element: _typing.Any) -> _typing.Any:
+    """
+    Perform the to xhtml string operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise to xhtml string through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+    :param element: Value supplied for element under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return _write_html(ElementTree(element).getroot(), format="xhtml")

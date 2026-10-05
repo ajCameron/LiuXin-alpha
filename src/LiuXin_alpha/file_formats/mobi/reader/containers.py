@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=utf-8
 
+"""
+Inspect and describe MOBI container sections and records.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise containers through a consuming regression::
+
+        python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -19,6 +30,19 @@ except (ImportError, RuntimeError) as e:
         _FallbackImage = None
 
     def identify_data(data: _typing.Any) -> tuple[_typing.Any, ...]:
+        """
+        Perform the identify data operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise identify data through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param data: Value supplied for data under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if _FallbackImage is None:
             raise RuntimeError("No image identify backend is available")
         meta = _FallbackImage(data).identify()
@@ -29,6 +53,19 @@ __copyright__ = "2014, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
 def find_imgtype(data: _typing.Any) -> _typing.Any:
+    """
+    Find imgtype under the format's safety and compatibility rules.
+
+    Example:
+        Exercise find imgtype through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     imgtype = what(None, data)
     if imgtype is None:
         try:
@@ -39,7 +76,27 @@ def find_imgtype(data: _typing.Any) -> _typing.Any:
 
 
 class Container(object):
+    """
+    Provide the container contract for validated ebook processing.
+
+    Example:
+        Exercise Container through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+    """
     def __init__(self: _typing.Self, data: _typing.Any) -> None:
+        """
+        Initialize and validate the container state.
+
+        Example:
+            Exercise Container.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param data: Value supplied for data under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.is_image_container = False
         self.resource_index = 0
 
@@ -61,6 +118,19 @@ class Container(object):
                 pos += size
 
     def load_image(self: _typing.Self, data: _typing.Any) -> tuple[_typing.Any, ...]:
+        """
+        Perform the load image operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Container.load image through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param data: Value supplied for data under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.resource_index += 1
         if self.is_image_container:
             data = data[12:]

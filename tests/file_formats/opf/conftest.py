@@ -1,10 +1,13 @@
 """
-Local fixtures for OPF tests.
+Provide conftest utility behavior.
 
-We provide an *optional* legacy alias shim for `import LiuXin...` to keep
-functional tests runnable while the library is being cleaned up.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
 
-This fixture is not autouse: the import-smoke tests intentionally run *without* it.
+Example:
+    Exercise conftest through a consuming regression::
+
+        python -m pytest -q tests/file_formats/opf/conftest.py
 """
 
 from __future__ import annotations
@@ -17,10 +20,17 @@ import pytest
 @pytest.fixture()
 def legacy_liuxin_alias(monkeypatch):
     """
-    Provide a minimal `LiuXin.file_formats.BeautifulSoup` module that exports
-    BeautifulSoup from bs4, to satisfy legacy imports.
+    Provide a minimal `LiuXin.file_formats.BeautifulSoup` module that exports BeautifulSoup from bs4, to satisfy legacy imports.
 
-    This is intended as a temporary compatibility shim while wiring is fixed.
+    Example:
+        Exercise legacy liuxin alias through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/conftest.py
+
+
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     # Create a package-ish module hierarchy: LiuXin, LiuXin.file_formats, LiuXin.file_formats.BeautifulSoup
     liuxin = types.ModuleType("LiuXin")

@@ -1,5 +1,16 @@
 # tests/metadata/containers/calibre_like_book_metadata/test_metadata_files_and_covers.py
 
+"""
+Verify file, format and cover metadata normalization.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test metadata files and covers through its owning regression module::
+
+        python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_files_and_covers.py
+"""
 from __future__ import annotations
 
 import io
@@ -11,16 +22,59 @@ from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import CalibreL
 
 
 class _CloseTracker(io.BytesIO):
+    """
+    Provide the CloseTracker test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise CloseTracker through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_files_and_covers.py
+    """
     def __init__(self, initial: bytes = b"") -> None:
+        """
+        Initialize the CloseTracker test double.
+
+        Example:
+            Exercise CloseTracker.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_files_and_covers.py
+
+
+        :param initial: Value supplied for initial in the focused test operation.
+        :return: None; the function records state or raises through its assertions.
+        """
         super().__init__(initial)
         self.closed_flag = False
 
     def close(self) -> None:
+        """
+        Mark the cache double closed for lifecycle assertions.
+
+        Example:
+            Exercise CloseTracker.close through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_files_and_covers.py
+
+
+        :return: None; the function records state or raises through its assertions.
+        """
         self.closed_flag = True
         super().close()
 
 
 def test_add_file_path_and_record_path_and_filename(tmp_path: Path) -> None:
+    """
+    Verify add file path and record path and filename.
+
+    Example:
+        Exercise test add file path and record path and filename through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_files_and_covers.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     md = CalibreLikeLiuXinBookMetaData()
     p = tmp_path / "subdir" / "book.pdf"
     p.parent.mkdir(parents=True, exist_ok=True)
@@ -36,6 +90,17 @@ def test_add_file_path_and_record_path_and_filename(tmp_path: Path) -> None:
 
 
 def test_add_file_bytes_and_filelike_and_cleanup_closing() -> None:
+    """
+    Verify add file bytes and filelike and cleanup closing.
+
+    Example:
+        Exercise test add file bytes and filelike and cleanup closing through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_files_and_covers.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     md = CalibreLikeLiuXinBookMetaData()
 
     md.add_file(b"hello", typ="bytes")
@@ -51,6 +116,18 @@ def test_add_file_bytes_and_filelike_and_cleanup_closing() -> None:
 
 
 def test_add_cover_path_and_bytes(tmp_path: Path) -> None:
+    """
+    Verify add cover path and bytes.
+
+    Example:
+        Exercise test add cover path and bytes through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_files_and_covers.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     md = CalibreLikeLiuXinBookMetaData()
 
     c = tmp_path / "cover.jpg"

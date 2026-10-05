@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=utf-8
 
+"""
+Exercise coordinated OEB polishing operations and failure handling.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise main through a consuming regression::
+
+        python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -20,6 +31,18 @@ import unittest
 
 
 def find_tests() -> _typing.Any:
+    """
+    Find tests under the format's safety and compatibility rules.
+
+    Example:
+        Exercise find tests through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return unittest.defaultTestLoader.discover(os.path.dirname(os.path.abspath(__file__)), pattern="*.py")
 
 

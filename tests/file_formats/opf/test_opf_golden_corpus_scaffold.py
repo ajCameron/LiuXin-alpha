@@ -1,3 +1,14 @@
+"""
+Provide test opf golden corpus scaffold utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test opf golden corpus scaffold through a consuming regression::
+
+        python -m pytest -q tests/file_formats/opf/test_opf_golden_corpus_scaffold.py
+"""
 from __future__ import annotations
 
 import importlib
@@ -17,14 +28,54 @@ _MANIFEST_PATH = _GOLDEN_DIR / "manifest.json"
 
 @pytest.fixture()
 def opf_mod(legacy_liuxin_alias):
+    """
+    Perform the opf mod operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise opf mod through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf_golden_corpus_scaffold.py
+
+
+    :param legacy_liuxin_alias: Value supplied for legacy liuxin alias under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return importlib.import_module("LiuXin_alpha.file_formats.opf.opf")
 
 
 def _load_manifest() -> dict:
+    """
+    Perform the load manifest operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  load manifest through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf_golden_corpus_scaffold.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return json.loads(_MANIFEST_PATH.read_text(encoding="utf-8"))
 
 
 def _sha256_file(path: Path) -> str:
+    """
+    Perform the sha256 file operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  sha256 file through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf_golden_corpus_scaffold.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     h = hashlib.sha256()
     with path.open("rb") as stream:
         while True:
@@ -36,12 +87,38 @@ def _sha256_file(path: Path) -> str:
 
 
 def _case_ids() -> list[str]:
+    """
+    Perform the case ids operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  case ids through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf_golden_corpus_scaffold.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     manifest = _load_manifest()
     return [str(case["name"]) for case in manifest.get("cases", [])]
 
 
 @pytest.mark.parametrize("case_name", _case_ids())
 def test_golden_opf_corpus_scaffold(case_name: str, opf_mod) -> None:
+    """
+    Perform the test golden opf corpus scaffold operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test golden opf corpus scaffold through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf_golden_corpus_scaffold.py
+
+
+    :param case_name: Value supplied for case name under the utility contract.
+    :param opf_mod: Value supplied for opf mod under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     manifest = _load_manifest()
     cases = {str(case["name"]): case for case in manifest.get("cases", [])}
     case = cases[case_name]
@@ -67,6 +144,18 @@ def test_golden_opf_corpus_scaffold(case_name: str, opf_mod) -> None:
 
 
 def test_golden_manifest_has_unique_names_and_paths() -> None:
+    """
+    Perform the test golden manifest has unique names and paths operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test golden manifest has unique names and paths through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf_golden_corpus_scaffold.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     manifest = _load_manifest()
     cases = manifest.get("cases", [])
     names = [str(case["name"]) for case in cases]

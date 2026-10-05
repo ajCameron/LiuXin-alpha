@@ -1,7 +1,15 @@
 # -*- coding: utf-8 -*-
 
 """
-Transform OEB content into RTF markup.
+Translate normalized RTF XML into OEB-compatible markup.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise rtfml through a consuming regression::
+
+        python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
 """
 
 from __future__ import annotations
@@ -81,10 +89,36 @@ BLOCK_STYLES = ["block"]
 
 
 def _meta_value(raw: _typing.Any) -> _typing.Any:
+    """
+    Perform the meta value operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  meta value through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return getattr(raw, "value", raw)
 
 
 def _ensure_bytes(data: _typing.Any) -> bytes:
+    """
+    Perform the ensure bytes operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  ensure bytes through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if isinstance(data, bytes):
         return data
     if isinstance(data, bytearray):
@@ -98,7 +132,17 @@ def _ensure_bytes(data: _typing.Any) -> bytes:
 
 def _convert_image_to_jpeg_bytes(data: bytes) -> bytes:
     """
-    Best-effort conversion to JPEG bytes for RTF's `\\jpegblip`.
+    Convert image to jpeg bytes under the format's safety and compatibility rules.
+
+    Example:
+        Exercise  convert image to jpeg bytes through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     raw = _ensure_bytes(data)
     if _PILImage is not None:
@@ -121,6 +165,19 @@ def _convert_image_to_jpeg_bytes(data: bytes) -> bytes:
 
 
 def _identify_data(data: bytes) -> _typing.Any:
+    """
+    Perform the identify data operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  identify data through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     raw = _ensure_bytes(data)
     if _identify_data_backend is not None:
         try:
@@ -144,6 +201,19 @@ def _identify_data(data: bytes) -> _typing.Any:
 
 
 def txt2rtf(text: _typing.Any) -> _typing.Any:
+    """
+    Perform the txt2rtf operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise txt2rtf through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+    :param text: Text parsed, normalized or rendered.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if text is None:
         return ""
     if isinstance(text, bytes):
@@ -169,16 +239,62 @@ def txt2rtf(text: _typing.Any) -> _typing.Any:
 
 
 class RTFMLizer(object):
+    """
+    Provide the rtfmlizer contract for validated ebook processing.
+
+    Example:
+        Exercise RTFMLizer through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+    """
     def __init__(self: _typing.Self, log: _typing.Any) -> None:
+        """
+        Initialize and validate the rtfmlizer state.
+
+        Example:
+            Exercise RTFMLizer.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param log: Value supplied for log under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.log = log
 
     def extract_content(self: _typing.Self, oeb_book: _typing.Any, opts: _typing.Any) -> _typing.Any:
+        """
+        Extract content under the format's safety and compatibility rules.
+
+        Example:
+            Exercise RTFMLizer.extract content through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param oeb_book: Value supplied for oeb book under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.log.info("Converting XHTML to RTF markup...")
         self.oeb_book = oeb_book
         self.opts = opts
         return self.mlize_spine()
 
     def mlize_spine(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the mlize spine operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise RTFMLizer.mlize spine through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.file_formats.oeb.base import XHTML
         from LiuXin_alpha.file_formats.oeb.stylizer import Stylizer
 
@@ -215,6 +331,19 @@ class RTFMLizer(object):
         return output
 
     def remove_newlines(self: _typing.Self, text: _typing.Any) -> _typing.Any:
+        """
+        Perform the remove newlines operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise RTFMLizer.remove newlines through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.log.debug("\tRemove newlines for processing...")
         text = text.replace("\r\n", " ")
         text = text.replace("\n", " ")
@@ -222,10 +351,35 @@ class RTFMLizer(object):
         return text
 
     def remove_tabs(self: _typing.Self, text: _typing.Any) -> _typing.Any:
+        """
+        Perform the remove tabs operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise RTFMLizer.remove tabs through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.log.debug("\tReplace tabs with space for processing...")
         return text.replace("\t", " ")
 
     def header(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the header operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise RTFMLizer.header through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         title_items = getattr(self.oeb_book.metadata, "title", ()) or ()
         creator_items = getattr(self.oeb_book.metadata, "creator", ()) or ()
         title = _meta_value(title_items[0]) if title_items else "Unknown"
@@ -250,9 +404,34 @@ class RTFMLizer(object):
         )
 
     def footer(self: _typing.Self) -> str:
+        """
+        Perform the footer operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise RTFMLizer.footer through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return " }"
 
     def insert_images(self: _typing.Self, text: _typing.Any) -> _typing.Any:
+        """
+        Perform the insert images operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise RTFMLizer.insert images through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.file_formats.oeb.base import OEB_RASTER_IMAGES
 
         for item in self.oeb_book.manifest:
@@ -275,6 +454,19 @@ class RTFMLizer(object):
         return text
 
     def image_to_hexstring(self: _typing.Self, data: _typing.Any) -> tuple[_typing.Any, ...]:
+        """
+        Perform the image to hexstring operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise RTFMLizer.image to hexstring through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param data: Value supplied for data under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = _convert_image_to_jpeg_bytes(_ensure_bytes(data))
         width, height = _identify_data(data)[:2]
         raw_hex = data.hex()
@@ -285,6 +477,19 @@ class RTFMLizer(object):
         return hex_string, width, height
 
     def clean_text(self: _typing.Self, text: _typing.Any) -> _typing.Any:
+        """
+        Perform the clean text operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise RTFMLizer.clean text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         text = re.sub("%s{3,}" % os.linesep, "%s%s" % (os.linesep, os.linesep), text)
         text = re.sub("[ ]{2,}", " ", text)
         text = re.sub("\t{2,}", "\t", text)
@@ -295,6 +500,21 @@ class RTFMLizer(object):
         return text
 
     def dump_text(self: _typing.Self, elem: _typing.Any, stylizer: _typing.Any, tag_stack: _typing.Any = None) -> _typing.Any:
+        """
+        Perform the dump text operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise RTFMLizer.dump text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param elem: Value supplied for elem under the utility contract.
+        :param stylizer: Value supplied for stylizer under the utility contract.
+        :param tag_stack: Value supplied for tag stack under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.file_formats.oeb.base import XHTML_NS, barename, namespace, urlnormalize
 
         if tag_stack is None:

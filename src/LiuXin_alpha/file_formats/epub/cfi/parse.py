@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=utf-8
 
+"""
+Parse and serialize EPUB Canonical Fragment Identifiers.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise parse through a consuming regression::
+
+        python -m pytest -q tests/file_formats/epub/test_epub_modernized.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -29,14 +40,27 @@ is_narrow_build = sys.maxunicode < 0x10FFFF
 class Parser(object):
 
     """
-    See epubcfi.ebnf for the specification that this parser tries to
-    follow. I have implemented it manually, since I dont want to depend on
-    grako, and the grammar is pretty simple. This parser is thread-safe, i.e.
-    it can be used from multiple threads simulataneously.
+    See epubcfi.ebnf for the specification that this parser tries to follow. I have implemented it manually, since I dont want to depend on grako, and the grammar is pretty simple. This parser is thread-safe, i.e. it can be used from multiple threads simulataneously.
+
+    Example:
+        Exercise Parser through a consuming regression::
+
+            python -m pytest -q tests/file_formats/epub/test_epub_modernized.py
     """
 
     def __init__(self: _typing.Self) -> None:
         # All allowed unicode characters + escaped special characters
+        """
+        Initialize and validate the parser state.
+
+        Example:
+            Exercise Parser.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/epub/test_epub_modernized.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         special_char = r"[\[\](),;=^]"
         if _HAS_REGEX and is_narrow_build:
             unescaped_char = "[[\t\n\r -\ud7ff\ue000-\ufffd]--%s]" % special_char
@@ -55,6 +79,19 @@ class Parser(object):
         number = r"(?:[1-9][0-9]*(?:{0})?)|(?:0{0})|(?:0)".format(frac)
 
         def c(x: _typing.Any) -> _typing.Any:
+            """
+            Perform the c operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Parser.  init  .c through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/epub/test_epub_modernized.py
+
+
+            :param x: Value supplied for x under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             if _HAS_REGEX:
                 return _regex.compile(x, flags=_regex.VERSION1)
             return _regex.compile(x, flags=_regex.UNICODE)
@@ -86,8 +123,16 @@ class Parser(object):
     def parse_epubcfi(self: _typing.Self, raw: _typing.Any) -> _typing.Any:
         """
         Parse a full epubcfi of the form epubcfi(path [ , path , path ])
-        :param raw:
-        :return:
+
+        Example:
+            Exercise Parser.parse epubcfi through a consuming regression::
+
+                python -m pytest -q tests/file_formats/epub/test_epub_modernized.py
+
+
+        :param raw: Value supplied for raw under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         null = {}, {}, {}, raw
         if not raw.startswith("epubcfi("):
@@ -113,8 +158,16 @@ class Parser(object):
     def parse_path(self: _typing.Self, raw: _typing.Any) -> tuple[_typing.Any, ...]:
         """
         Parse the path component of an epubcfi of the form /step...
-        :param raw:
-        :return:
+
+        Example:
+            Exercise Parser.parse path through a consuming regression::
+
+                python -m pytest -q tests/file_formats/epub/test_epub_modernized.py
+
+
+        :param raw: Value supplied for raw under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         path = {"steps": []}
         raw = self._parse_path(raw, path)
@@ -123,12 +176,40 @@ class Parser(object):
         return path, raw
 
     def do_match(self: _typing.Self, pat: _typing.Any, raw: _typing.Any) -> tuple[_typing.Any, ...]:
+        """
+        Perform the do match operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Parser.do match through a consuming regression::
+
+                python -m pytest -q tests/file_formats/epub/test_epub_modernized.py
+
+
+        :param pat: Value supplied for pat under the utility contract.
+        :param raw: Value supplied for raw under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         m = pat.match(raw)
         if m is not None:
             raw = raw[len(m.group()) :]
         return m, raw
 
     def _parse_path(self: _typing.Self, raw: _typing.Any, ans: _typing.Any) -> _typing.Any:
+        """
+        Parse path under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Parser. parse path through a consuming regression::
+
+                python -m pytest -q tests/file_formats/epub/test_epub_modernized.py
+
+
+        :param raw: Value supplied for raw under the utility contract.
+        :param ans: Value supplied for ans under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         m, raw = self.do_match(self.step_pat, raw)
         if m is None:
             return raw
@@ -144,6 +225,20 @@ class Parser(object):
             return self._parse_path(raw, ans) if remaining_raw is None else remaining_raw
 
     def parse_offset(self: _typing.Self, raw: _typing.Any, ans: _typing.Any) -> _typing.Any:
+        """
+        Parse offset under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Parser.parse offset through a consuming regression::
+
+                python -m pytest -q tests/file_formats/epub/test_epub_modernized.py
+
+
+        :param raw: Value supplied for raw under the utility contract.
+        :param ans: Value supplied for ans under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         m, raw = self.do_match(self.text_offset_pat, raw)
         if m is not None:
             ans["text_offset"] = int(m.group(1))
@@ -164,6 +259,20 @@ class Parser(object):
             return raw
 
     def parse_text_assertion(self: _typing.Self, raw: _typing.Any, ans: _typing.Any) -> _typing.Any:
+        """
+        Parse text assertion under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Parser.parse text assertion through a consuming regression::
+
+                python -m pytest -q tests/file_formats/epub/test_epub_modernized.py
+
+
+        :param raw: Value supplied for raw under the utility contract.
+        :param ans: Value supplied for ans under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         oraw = raw
         if not raw.startswith("["):
             return oraw
@@ -204,6 +313,20 @@ class Parser(object):
         return raw[1:]
 
     def consume_chars(self: _typing.Self, raw: _typing.Any, stop_chars: _typing.Any) -> tuple[_typing.Any, ...]:
+        """
+        Perform the consume chars operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Parser.consume chars through a consuming regression::
+
+                python -m pytest -q tests/file_formats/epub/test_epub_modernized.py
+
+
+        :param raw: Value supplied for raw under the utility contract.
+        :param stop_chars: Value supplied for stop chars under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         out = []
         idx = 0
         while idx < len(raw):
@@ -228,6 +351,19 @@ class Parser(object):
         return token, raw[idx:]
 
     def parse_params_without_regex(self: _typing.Self, raw: _typing.Any) -> tuple[_typing.Any, ...]:
+        """
+        Parse params without regex under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Parser.parse params without regex through a consuming regression::
+
+                python -m pytest -q tests/file_formats/epub/test_epub_modernized.py
+
+
+        :param raw: Value supplied for raw under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         params = {}
         while raw.startswith(";"):
             raw = raw[1:]
@@ -259,6 +395,18 @@ _parser = None
 
 
 def parser() -> _typing.Any:
+    """
+    Perform the parser operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise parser through a consuming regression::
+
+            python -m pytest -q tests/file_formats/epub/test_epub_modernized.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     global _parser
     if _parser is None:
         _parser = Parser()
@@ -266,6 +414,19 @@ def parser() -> _typing.Any:
 
 
 def get_steps(pcfi: _typing.Any) -> _typing.Any:
+    """
+    Return steps under the format's safety and compatibility rules.
+
+    Example:
+        Exercise get steps through a consuming regression::
+
+            python -m pytest -q tests/file_formats/epub/test_epub_modernized.py
+
+
+    :param pcfi: Value supplied for pcfi under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     ans = tuple(pcfi["steps"])
     if "redirect" in pcfi:
         ans += get_steps(pcfi["redirect"])
@@ -273,6 +434,20 @@ def get_steps(pcfi: _typing.Any) -> _typing.Any:
 
 
 def cfi_sort_key(cfi: _typing.Any, only_path: bool = True) -> tuple[_typing.Any, ...]:
+    """
+    Perform the cfi sort key operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise cfi sort key through a consuming regression::
+
+            python -m pytest -q tests/file_formats/epub/test_epub_modernized.py
+
+
+    :param cfi: Value supplied for cfi under the utility contract.
+    :param only_path: Value supplied for only path under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     p = parser()
     try:
         if only_path:

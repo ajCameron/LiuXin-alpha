@@ -1,5 +1,8 @@
 # Read-only Surface Appliance Startup
 
+See the [developer documentation index](README.md) for architecture and related
+operational guides.
+
 This note is the operational startup checklist for bringing up the four
 read-only LiuXin surfaces against one library database:
 
@@ -15,10 +18,10 @@ all default to `8080`.
 
 ## Preflight
 
-1. Start from the repository root:
+1. Start from your repository root (replace the example checkout location):
 
    ```bash
-   cd /mnt/c/dev/LiuXin-alpha
+   cd /path/to/LiuXin-alpha
    ```
 
 2. Create or refresh the repo-local virtual environment:

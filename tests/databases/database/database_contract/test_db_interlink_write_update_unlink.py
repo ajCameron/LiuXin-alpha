@@ -1,23 +1,14 @@
-"""Database contract: interlink write/update/unlink methods (chunk 09).
+"""
+Check interlink insertion, updates, priority changes, and unlink operations across database backends.
 
-This slice focuses on the *write* surface for many-to-many (interlink) tables:
+Use dynamically discovered shapes and schema-dependent skips. Registration helpers
+trim type labels without lowercasing them; the multi-link helper skips any
+DatabaseIntegrityError raised during insertion.
 
-* Database.interlink_rows()
-* Database.update_interlink()
-* Database.update_interlink_priority()
-* Database.unlink_interlink()
-* Database.unlink_all()
+Example:
+    Run with pytest::
 
-These tests intentionally exercise:
-* priority behaviours (highest/lowest/numeric/None/not_set/invalid)
-* optional type column behaviours
-* duplicate-link cleanup on uniqueness errors
-* link-row extra column writing via **col_value_pairs
-* unlink behaviours, including type_filter
-
-The contract DB used for these tests is intentionally sparse (test_db_13). We
-therefore create fresh rows + links during each test, so behaviour is
-deterministic across driver backends.
+        python -m pytest -q tests/databases/database/database_contract/test_db_interlink_write_update_unlink.py
 """
 
 from __future__ import annotations
@@ -46,6 +37,14 @@ PREFERRED_INTERLINK_PAIRS: tuple[tuple[str, str], ...] = (
 
 @dataclass(frozen=True)
 class InterlinkShape:
+    """
+    Hold immutable table, endpoint, and optional priority/type column names for an interlink.
+
+    Example:
+        >>> sh = InterlinkShape('a', 'b', 'a_b', 'a_id', 'b_id', 'a_fk', 'b_fk', None, None)
+        >>> (sh.primary_table, sh.type_link_col)
+        ('a', None)
+    """
     primary_table: str
     secondary_table: str
     link_table: str
@@ -59,16 +58,26 @@ class InterlinkShape:
 
 
 def _pick_text_like_column(cols: Iterable[str], *, base: str, exclude: set[str]) -> str:
-    """Pick a column suitable for stuffing an arbitrary unicode payload.
+    """
+    Choose a payload column using name heuristics, without validating SQL types or constraints.
 
-    Contract tests need to be able to create "distinct" rows in arbitrary tables.
-    Some tables begin with FK/id columns (e.g. folder_store_id), so a naive "first
-    non-excluded" choice will violate foreign keys when we write text into it.
+    Prefer keyword-bearing non-ID, non-time names, then base-name candidates, other safe
+    names, non-ID names, and finally any remaining column. If exclusion removes
+    everything, re-read cols and take its first element: this can select an excluded
+    column or raise IndexError for an empty or exhausted iterable.
 
-    Heuristics:
-    - never pick *_id / *_fk columns unless there is no alternative
-    - avoid timestamp-ish columns
-    - prefer name/title/text/payload/comment/json/path/value-like columns
+    Example:
+        >>> _pick_text_like_column(['book_id', 'book_timestamp', 'book_title'], base='book', exclude=set())
+        'book_title'
+        >>> _pick_text_like_column(['book_id'], base='book', exclude={'book_id'})
+        'book_id'
+
+
+    :param cols: Column names in schema order; a reusable sequence is needed for the
+        all-excluded fallback.
+    :param base: Table base name used to construct candidate payload column names.
+    :param exclude: Column names to exclude from the main candidate list.
+    :return: Chosen column name.
     """
     cols_list = [c for c in cols if c not in exclude]
     if not cols_list:
@@ -76,10 +85,34 @@ def _pick_text_like_column(cols: Iterable[str], *, base: str, exclude: set[str])
         return list(cols)[0]
 
     def is_id_like(c: str) -> bool:
+        """
+        Recognize id itself and names ending in _id or _fk.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database/database_contract/test_db_interlink_write_update_unlink.py
+
+
+        :param c: Column name to classify case-insensitively.
+        :return: True when the lowercased name matches one of the ID conventions.
+        """
         cl = c.lower()
         return cl.endswith('_id') or cl.endswith('_fk') or cl == 'id'
 
     def is_time_like(c: str) -> bool:
+        """
+        Recognize timestamp/datestamp substrings and the supported epoch suffixes.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database/database_contract/test_db_interlink_write_update_unlink.py
+
+
+        :param c: Column name to classify case-insensitively.
+        :return: True when the lowercased name resembles a timestamp column.
+        """
         cl = c.lower()
         return (
             'timestamp' in cl
@@ -116,10 +149,42 @@ def _pick_text_like_column(cols: Iterable[str], *, base: str, exclude: set[str])
 
 
 def _pick_interlink_shape(open_db) -> InterlinkShape:
-    """Pick an interlinkable (primary, secondary) table pair that exists."""
+    """
+    Return the first resolvable preferred table pair, then search main-table pairs.
+
+    Try both directions without preferring typed links or inspecting uniqueness indexes.
+    If discovery fails or no main tables exist, attempt the legacy pytest.SkipTest
+    fallback.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_interlink_write_update_unlink.py
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: Discovered InterlinkShape.
+    """
     dw = open_db.driver_wrapper
 
     def resolve_pair(a: str, b: str) -> Optional[InterlinkShape]:
+        """
+        Resolve one directed table pair into endpoint and link columns.
+
+        Return None without a link-table name. Required ID/endpoint lookup errors propagate;
+        optional priority/type lookup errors become None.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database/database_contract/test_db_interlink_write_update_unlink.py
+
+
+        :param a: Candidate primary table name.
+        :param b: Candidate secondary table name.
+        :return: InterlinkShape for the pair, or None when no link table is found.
+        """
         link_table = dw.get_link_table_name(a, b)
         if not link_table:
             return None
@@ -170,7 +235,26 @@ def _pick_interlink_shape(open_db) -> InterlinkShape:
 
 
 def _create_distinct_row(open_db, table: str, *, payload: str) -> Row:
-    """Create a writable row and set a stable 'text-like' column to payload."""
+    """
+    Select a seeded languages row by CRC32 offset, or create and sync a row using a payload-column heuristic.
+
+    The writable-table branch excludes ID and scratch columns, without inspecting
+    foreign keys. The languages branch requires a nonempty table, performs no write, and
+    may select the same row for different payloads.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_interlink_write_update_unlink.py
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param table: Trusted test table name, interpolated into SQL where needed.
+    :param payload: Unicode text used to distinguish test rows; languages uses it as a
+        deterministic selection key.
+    :return: Synced payload Row or an existing languages Row.
+    """
     dw = open_db.driver_wrapper
 
     # Some tables are intentionally read-only constants (e.g. `languages`).
@@ -205,6 +289,21 @@ def _create_distinct_row(open_db, table: str, *, payload: str) -> Row:
 
 
 def _has_priority_support(open_db, sh: InterlinkShape) -> bool:
+    """
+    Check that the shape names a priority column present in current link-table headings.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_interlink_write_update_unlink.py
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param sh: Discovered table pair and its interlink column names.
+    :return: False for a missing column name or a headings-query error; otherwise
+        membership in the headings.
+    """
     if sh.priority_link_col is None:
         return False
     # Some wrappers return a string but the column may not exist on the link table (defensive).
@@ -216,6 +315,21 @@ def _has_priority_support(open_db, sh: InterlinkShape) -> bool:
 
 
 def _has_type_support(open_db, sh: InterlinkShape) -> bool:
+    """
+    Check that the shape names a type column present in current link-table headings.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_interlink_write_update_unlink.py
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param sh: Discovered table pair and its interlink column names.
+    :return: False for a missing column name or a headings-query error; otherwise
+        membership in the headings.
+    """
     if sh.type_link_col is None:
         return False
     try:
@@ -226,7 +340,20 @@ def _has_type_support(open_db, sh: InterlinkShape) -> bool:
 
 
 def _pick_type_registry_column(open_db, registry_table: str) -> str:
-    """Return the column name that stores the link type in a registry table."""
+    """
+    Choose type, then a non-ID _type heading, then any non-ID heading, then the first heading.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_interlink_write_update_unlink.py
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param registry_table: Trusted registry table name whose headings are inspected.
+    :return: Selected column name; an empty headings sequence raises IndexError.
+    """
     headings = list(open_db.driver_wrapper.get_column_headings(registry_table))
     if "type" in headings:
         return "type"
@@ -238,7 +365,20 @@ def _pick_type_registry_column(open_db, registry_table: str) -> str:
 
 
 def _type_registry_for_interlink(open_db, link_table: str) -> tuple[str, str] | None:
-    """Return (registry_table, type_col) for this link table, or None if absent."""
+    """
+    Refresh table names and prefer the modern __types registry over the legacy allowed_types__ registry.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_interlink_write_update_unlink.py
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param link_table: Trusted interlink or intralink table name.
+    :return: Registry-table/type-column tuple, or None when neither table exists.
+    """
     dw = open_db.driver_wrapper
     tables = set(dw.get_tables(force_refresh=True) or [])
     types_table = f"{link_table}__types"
@@ -251,11 +391,23 @@ def _type_registry_for_interlink(open_db, link_table: str) -> tuple[str, str] | 
 
 
 def _ensure_interlink_type_registered(open_db, sh: InterlinkShape, link_type: str) -> None:
-    """If schema enforces allowed interlink types, ensure `link_type` is registered.
+    """
+    Insert the stripped string label into a discovered type registry with INSERT OR IGNORE.
 
-    Some generated schemas use triggers checking membership in `{link_table}__types`
-    (or legacy `allowed_types__{link_table}`) tables. Production code may not seed
-    those registries, so contract tests do so explicitly.
+    Return without writing when the shape has no type column or no registry exists.
+    Preserve letter case and issue no explicit commit.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_interlink_write_update_unlink.py
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param sh: Discovered table pair and its interlink column names.
+    :param link_type: Type label to register or pass to the link operation.
+    :return: None; may insert a registry row.
     """
     if sh.type_link_col is None:
         return
@@ -273,6 +425,26 @@ def _ensure_interlink_type_registered(open_db, sh: InterlinkShape, link_type: st
 
 
 def _interlink_or_skip(open_db, sh: InterlinkShape, *, primary_row: Row, secondary_row: Row, **kwargs):
+    """
+    Call interlink_rows and convert any DatabaseIntegrityError into a pytest skip.
+
+    The skip message describes a multi-link schema limitation, but the caught error need
+    not have that cause. Other exceptions propagate.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_interlink_write_update_unlink.py
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param sh: Discovered table pair and its interlink column names.
+    :param primary_row: Saved Row on the primary side.
+    :param secondary_row: Saved Row on the secondary side.
+    :param kwargs: Additional keyword arguments forwarded unchanged to interlink_rows.
+    :return: Result of interlink_rows when insertion succeeds.
+    """
     try:
         return open_db.interlink_rows(primary_row=primary_row, secondary_row=secondary_row, **kwargs)
     except DatabaseIntegrityError as exc:
@@ -284,9 +456,22 @@ def _interlink_or_skip(open_db, sh: InterlinkShape, *, primary_row: Row, seconda
 
 
 def _pick_extra_link_column_base(open_db, sh: InterlinkShape) -> Optional[tuple[str, str]]:
-    """Pick a link-table column we can set via **col_value_pairs.
+    """
+    Find a resolvable extra link column after excluding endpoint, ID, scratch, type, and priority columns.
 
-    Returns (base_name_to_pass, resolved_column_name) or None if none is suitable.
+    Try full headings first, then conventional short bases; ignore resolution errors. Do
+    not inspect column types or validate that arbitrary text can be stored.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_interlink_write_update_unlink.py
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param sh: Discovered table pair and its interlink column names.
+    :return: Accepted base/resolved-column tuple, or None.
     """
     dw = open_db.driver_wrapper
     headings = list(dw.get_column_headings(sh.link_table))
@@ -344,6 +529,19 @@ UNICODE_TORTURE_PAYLOADS: tuple[str, ...] = (
 
 
 def test_interlink_rows_rejects_rows_without_ids(open_db):
+    """
+    Check interlink_rows rejects a primary Row with no persisted ID.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_interlink_write_update_unlink.py::test_interlink_rows_rejects_rows_without_ids
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     sh = _pick_interlink_shape(open_db)
 
     # Construct a Row-like object that *identifies* as the primary table but has no id column.
@@ -362,6 +560,22 @@ def test_interlink_rows_rejects_rows_without_ids(open_db):
 
 
 def test_interlink_rows_rejects_unlinkable_tables_when_possible(open_db):
+    """
+    Find two main tables with no link table in either direction and check linking raises InputIntegrityError.
+
+    Skip when no such pair exists; an empty main-table list uses the legacy
+    pytest.SkipTest fallback.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_interlink_write_update_unlink.py::test_interlink_rows_rejects_unlinkable_tables_when_possible
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     dw = open_db.driver_wrapper
     mains = list(getattr(open_db, "main_tables", []))
     if not mains:
@@ -390,6 +604,21 @@ def test_interlink_rows_rejects_unlinkable_tables_when_possible(open_db):
 
 @pytest.mark.parametrize("payload", UNICODE_TORTURE_PAYLOADS[:6])
 def test_interlink_rows_creates_link_row_basic(open_db, payload: str):
+    """
+    Create a link between payload-bearing Rows and check the returned table and endpoint IDs.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_interlink_write_update_unlink.py::test_interlink_rows_creates_link_row_basic
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param payload: Unicode text used to distinguish test rows; languages uses it as a
+        deterministic selection key.
+    :return: None; failed expectations raise AssertionError.
+    """
     sh = _pick_interlink_shape(open_db)
     p = _create_distinct_row(open_db, sh.primary_table, payload=f"p:{payload}")
     s = _create_distinct_row(open_db, sh.secondary_table, payload=f"s:{payload}")
@@ -402,6 +631,21 @@ def test_interlink_rows_creates_link_row_basic(open_db, payload: str):
 
 
 def test_interlink_rows_duplicate_link_cleanup_on_uniqueness_error(open_db):
+    """
+    Check a rejected duplicate leaves the original link count intact.
+
+    Skip when the schema allows a second link; unexpected count changes fail the test.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_interlink_write_update_unlink.py::test_interlink_rows_duplicate_link_cleanup_on_uniqueness_error
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     sh = _pick_interlink_shape(open_db)
     p = _create_distinct_row(open_db, sh.primary_table, payload="p-dup")
     s = _create_distinct_row(open_db, sh.secondary_table, payload="s-dup")
@@ -428,6 +672,19 @@ def test_interlink_rows_duplicate_link_cleanup_on_uniqueness_error(open_db):
 
 
 def test_interlink_rows_type_column_roundtrips_when_supported(open_db):
+    """
+    Register a multilingual type label, create a link, and check its stored value; skip absent type support.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_interlink_write_update_unlink.py::test_interlink_rows_type_column_roundtrips_when_supported
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     sh = _pick_interlink_shape(open_db)
     if not _has_type_support(open_db, sh):
         pytest.skip("Link table has no usable type column")
@@ -443,6 +700,19 @@ def test_interlink_rows_type_column_roundtrips_when_supported(open_db):
 
 
 def test_interlink_rows_sets_extra_columns_via_col_value_pairs_when_available(open_db):
+    """
+    Write a Unicode value to a discovered extra link column and check it is returned; skip when none is available.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_interlink_write_update_unlink.py::test_interlink_rows_sets_extra_columns_via_col_value_pairs_when_available
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     sh = _pick_interlink_shape(open_db)
     picked = _pick_extra_link_column_base(open_db, sh)
     if picked is None:
@@ -459,6 +729,21 @@ def test_interlink_rows_sets_extra_columns_via_col_value_pairs_when_available(op
 
 @pytest.mark.parametrize("priority", [None, 0, 7, -3, 2.25])
 def test_interlink_rows_priority_numeric_and_none_when_supported(open_db, priority):
+    """
+    Check numeric priorities persist unchanged and None becomes zero; skip absent priority support.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_interlink_write_update_unlink.py::test_interlink_rows_priority_numeric_and_none_when_supported
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param priority: Parametrized priority: None, zero, a positive or negative integer,
+        or a fractional value.
+    :return: None; failed expectations raise AssertionError.
+    """
     sh = _pick_interlink_shape(open_db)
     if not _has_priority_support(open_db, sh):
         pytest.skip("Link table has no usable priority column")
@@ -475,6 +760,23 @@ def test_interlink_rows_priority_numeric_and_none_when_supported(open_db, priori
 
 @pytest.mark.parametrize("mode", ["highest", "lowest"])
 def test_interlink_rows_priority_highest_lowest_follows_get_max_min_contract(open_db, mode: str):
+    """
+    Compare a new highest/lowest priority with the previous column maximum/minimum plus or minus one.
+
+    Use one for an empty table if the prior value cannot be converted to int; skip an
+    unconvertible nonempty-table baseline.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_interlink_write_update_unlink.py::test_interlink_rows_priority_highest_lowest_follows_get_max_min_contract
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param mode: Parametrized highest or lowest priority sentinel.
+    :return: None; failed expectations raise AssertionError.
+    """
     sh = _pick_interlink_shape(open_db)
     if not _has_priority_support(open_db, sh):
         pytest.skip("Link table has no usable priority column")
@@ -507,6 +809,19 @@ def test_interlink_rows_priority_highest_lowest_follows_get_max_min_contract(ope
 
 
 def test_interlink_rows_priority_invalid_string_raises(open_db):
+    """
+    Check banana is rejected as a priority with InputIntegrityError; skip absent priority support.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_interlink_write_update_unlink.py::test_interlink_rows_priority_invalid_string_raises
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     sh = _pick_interlink_shape(open_db)
     if not _has_priority_support(open_db, sh):
         pytest.skip("Link table has no usable priority column")
@@ -519,6 +834,19 @@ def test_interlink_rows_priority_invalid_string_raises(open_db):
 
 
 def test_interlink_rows_priority_not_set_leaves_default_when_supported(open_db):
+    """
+    Compare an omitted link priority with the value of a separately created blank link row; skip absent support.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_interlink_write_update_unlink.py::test_interlink_rows_priority_not_set_leaves_default_when_supported
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     sh = _pick_interlink_shape(open_db)
     if not _has_priority_support(open_db, sh):
         pytest.skip("Link table has no usable priority column")
@@ -534,6 +862,19 @@ def test_interlink_rows_priority_not_set_leaves_default_when_supported(open_db):
 
 
 def test_update_interlink_updates_priority_numeric_when_supported(open_db):
+    """
+    Update a link priority from one to forty-two and check repeating forty-two preserves it; skip absent support.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_interlink_write_update_unlink.py::test_update_interlink_updates_priority_numeric_when_supported
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     sh = _pick_interlink_shape(open_db)
     if not _has_priority_support(open_db, sh):
         pytest.skip("Link table has no usable priority column")
@@ -552,6 +893,21 @@ def test_update_interlink_updates_priority_numeric_when_supported(open_db):
 
 
 def test_update_interlink_priority_highest_lowest_when_supported(open_db):
+    """
+    Check highest and lowest updates move beyond the previous global maximum and minimum.
+
+    Skip absent priority support or insertions rejected by the multi-link helper.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_interlink_write_update_unlink.py::test_update_interlink_priority_highest_lowest_when_supported
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     sh = _pick_interlink_shape(open_db)
     if not _has_priority_support(open_db, sh):
         pytest.skip("Link table has no usable priority column")
@@ -574,6 +930,19 @@ def test_update_interlink_priority_highest_lowest_when_supported(open_db):
 
 
 def test_update_interlink_updates_extra_cols_when_available(open_db):
+    """
+    Update a discovered extra link column from old to new and check the stored value; skip when none is available.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_interlink_write_update_unlink.py::test_update_interlink_updates_extra_cols_when_available
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     sh = _pick_interlink_shape(open_db)
     picked = _pick_extra_link_column_base(open_db, sh)
     if picked is None:
@@ -589,6 +958,19 @@ def test_update_interlink_updates_extra_cols_when_available(open_db):
 
 
 def test_update_interlink_errors_if_no_link_exists(open_db):
+    """
+    Check updating a missing link raises an exception without requiring a particular exception class.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_interlink_write_update_unlink.py::test_update_interlink_errors_if_no_link_exists
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     sh = _pick_interlink_shape(open_db)
     p = _create_distinct_row(open_db, sh.primary_table, payload="p-nolink")
     s = _create_distinct_row(open_db, sh.secondary_table, payload="s-nolink")
@@ -598,6 +980,19 @@ def test_update_interlink_errors_if_no_link_exists(open_db):
 
 
 def test_update_interlink_rejects_invalid_priority_type(open_db):
+    """
+    Check a dictionary priority raises InputIntegrityError; skip absent priority support.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_interlink_write_update_unlink.py::test_update_interlink_rejects_invalid_priority_type
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     sh = _pick_interlink_shape(open_db)
     if not _has_priority_support(open_db, sh):
         pytest.skip("Link table has no usable priority column")
@@ -612,6 +1007,21 @@ def test_update_interlink_rejects_invalid_priority_type(open_db):
 
 
 def test_update_interlink_priority_reorders_ids_list_and_tuple_when_supported(open_db):
+    """
+    Reorder three linked IDs with list and tuple inputs and check the first three returned IDs.
+
+    Skip absent priority support or insertions rejected by the multi-link helper.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_interlink_write_update_unlink.py::test_update_interlink_priority_reorders_ids_list_and_tuple_when_supported
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     sh = _pick_interlink_shape(open_db)
     if not _has_priority_support(open_db, sh):
         pytest.skip("Link table has no usable priority column")
@@ -643,6 +1053,19 @@ def test_update_interlink_priority_reorders_ids_list_and_tuple_when_supported(op
 
 
 def test_update_interlink_priority_length_mismatch_asserts(open_db):
+    """
+    Check a one-ID ordering for two existing links raises AssertionError; skip unsupported priority or multi-link cases.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_interlink_write_update_unlink.py::test_update_interlink_priority_length_mismatch_asserts
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     sh = _pick_interlink_shape(open_db)
     if not _has_priority_support(open_db, sh):
         pytest.skip("Link table has no usable priority column")
@@ -659,6 +1082,19 @@ def test_update_interlink_priority_length_mismatch_asserts(open_db):
 
 
 def test_unlink_interlink_removes_link(open_db):
+    """
+    Check unlink_interlink changes a present pair to a missing link.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_interlink_write_update_unlink.py::test_unlink_interlink_removes_link
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     sh = _pick_interlink_shape(open_db)
     p = _create_distinct_row(open_db, sh.primary_table, payload="p-unlink")
     s = _create_distinct_row(open_db, sh.secondary_table, payload="s-unlink")
@@ -671,6 +1107,19 @@ def test_unlink_interlink_removes_link(open_db):
 
 
 def test_unlink_interlink_errors_on_missing_link(open_db):
+    """
+    Check unlinking a missing pair raises an exception without requiring its class.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_interlink_write_update_unlink.py::test_unlink_interlink_errors_on_missing_link
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     sh = _pick_interlink_shape(open_db)
     p = _create_distinct_row(open_db, sh.primary_table, payload="p-unlink-miss")
     s = _create_distinct_row(open_db, sh.secondary_table, payload="s-unlink-miss")
@@ -680,6 +1129,19 @@ def test_unlink_interlink_errors_on_missing_link(open_db):
 
 
 def test_unlink_all_removes_all_links(open_db):
+    """
+    Create three links and check unlink_all leaves no links for the primary; skip rejected multi-link insertion.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_interlink_write_update_unlink.py::test_unlink_all_removes_all_links
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     sh = _pick_interlink_shape(open_db)
     p = _create_distinct_row(open_db, sh.primary_table, payload="p-unlink-all")
 
@@ -698,6 +1160,19 @@ def test_unlink_all_removes_all_links(open_db):
 
 
 def test_unlink_all_type_filter_removes_only_matching_type_when_supported(open_db):
+    """
+    Create two alpha links and one beta link, remove alpha, and check only the beta secondary ID remains.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_interlink_write_update_unlink.py::test_unlink_all_type_filter_removes_only_matching_type_when_supported
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     sh = _pick_interlink_shape(open_db)
     if not _has_type_support(open_db, sh):
         pytest.skip("Link table has no usable type column")
@@ -722,6 +1197,21 @@ def test_unlink_all_type_filter_removes_only_matching_type_when_supported(open_d
 
 
 def test_unlink_all_type_filter_can_handle_multiple_links_per_pair_when_possible(open_db):
+    """
+    Create alpha and beta links for one pair, remove alpha, and check one beta link remains.
+
+    Skip missing type support or a second insertion rejected by uniqueness constraints.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_interlink_write_update_unlink.py::test_unlink_all_type_filter_can_handle_multiple_links_per_pair_when_possible
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     sh = _pick_interlink_shape(open_db)
     if not _has_type_support(open_db, sh):
         pytest.skip("Link table has no usable type column")

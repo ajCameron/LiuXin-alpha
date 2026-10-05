@@ -1,3 +1,14 @@
+"""
+Provide test zip project utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test zip project through a consuming regression::
+
+        python -m pytest -q tests/utils/test_zip_project.py
+"""
 from __future__ import annotations
 
 import os
@@ -10,6 +21,19 @@ import pytest
 
 
 def test_matches_any_glob_and_should_exclude_path(tmp_path: Path) -> None:
+    """
+    Perform the test matches any glob and should exclude path utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test matches any glob and should exclude path through a consuming regression::
+
+            python -m pytest -q tests/utils/test_zip_project.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.utils.zip_project import matches_any_glob, should_exclude_path
 
     assert matches_any_glob("foo.pyc", ["*.pyc"])
@@ -22,6 +46,19 @@ def test_matches_any_glob_and_should_exclude_path(tmp_path: Path) -> None:
 
 
 def test_iter_files_fallback_prunes_and_include_filter(tmp_path: Path) -> None:
+    """
+    Perform the test iter files fallback prunes and include filter utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test iter files fallback prunes and include filter through a consuming regression::
+
+            python -m pytest -q tests/utils/test_zip_project.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.utils.zip_project import iter_files_fallback
 
     (tmp_path / "src").mkdir()
@@ -43,6 +80,19 @@ def test_iter_files_fallback_prunes_and_include_filter(tmp_path: Path) -> None:
 
 
 def test_zip_files_dry_run_and_real_zip(tmp_path: Path) -> None:
+    """
+    Perform the test zip files dry run and real zip utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test zip files dry run and real zip through a consuming regression::
+
+            python -m pytest -q tests/utils/test_zip_project.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.utils.zip_project import zip_files
 
     root = tmp_path / "proj"
@@ -69,6 +119,19 @@ def test_zip_files_dry_run_and_real_zip(tmp_path: Path) -> None:
 
 
 def test_inside_git_repo_none_when_not_repo(tmp_path: Path) -> None:
+    """
+    Perform the test inside git repo none when not repo utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test inside git repo none when not repo through a consuming regression::
+
+            python -m pytest -q tests/utils/test_zip_project.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.utils.zip_project import inside_git_repo
 
     assert inside_git_repo(tmp_path) is None
@@ -76,6 +139,19 @@ def test_inside_git_repo_none_when_not_repo(tmp_path: Path) -> None:
 
 @pytest.mark.skipif(shutil.which("git") is None, reason="git not available")
 def test_git_file_list_returns_tracked_and_untracked(tmp_path: Path) -> None:
+    """
+    Perform the test git file list returns tracked and untracked utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test git file list returns tracked and untracked through a consuming regression::
+
+            python -m pytest -q tests/utils/test_zip_project.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.utils.zip_project import git_file_list
 
     # init repo
@@ -108,6 +184,19 @@ def test_git_file_list_returns_tracked_and_untracked(tmp_path: Path) -> None:
 
 @pytest.mark.skipif(shutil.which("git") is None, reason="git not available")
 def test_main_includes_nested_data_repo_but_not_git_internals(tmp_path: Path) -> None:
+    """
+    Perform the test main includes nested data repo but not git internals utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test main includes nested data repo but not git internals through a consuming regression::
+
+            python -m pytest -q tests/utils/test_zip_project.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.utils.zip_project import main
 
     # init main repo

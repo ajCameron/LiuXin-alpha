@@ -1,9 +1,20 @@
 # -*- coding: utf-8 -*-
 
+"""
+Convert TXT content into the normalized ebook conversion pipeline.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise txt input through a consuming regression::
+
+        python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+"""
 from __future__ import annotations
 
-import typing as _typing
 import os
+import typing as _typing
 
 from LiuXin_alpha.customize.conversion import InputFormatPlugin, OptionRecommendation
 from LiuXin_alpha.file_formats.conversion.plugins._workdir import (
@@ -13,7 +24,6 @@ from LiuXin_alpha.file_formats.conversion.report import (
     ConversionLossSample,
     ensure_conversion_report,
 )
-
 from LiuXin_alpha.utils.calibre import CurrentDir, _ent_pat, walk, xml_entity_to_unicode
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory
@@ -36,6 +46,22 @@ MD_EXTENSIONS = {
 
 
 def _decode_text_payload(raw: _typing.Any, encoding: _typing.Any, options: _typing.Any, source_format: _typing.Any) -> _typing.Any:
+    """
+    Perform the decode text payload operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  decode text payload through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :param encoding: Value supplied for encoding under the utility contract.
+    :param options: Value supplied for options under the utility contract.
+    :param source_format: Value supplied for source format under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     decoded = raw.decode(encoding, "replace")
     try:
         raw.decode(encoding, "strict")
@@ -65,6 +91,14 @@ def _decode_text_payload(raw: _typing.Any, encoding: _typing.Any, options: _typi
 
 class TXTInput(InputFormatPlugin):
 
+    """
+    Convert txtinput sources into the normalized OEB pipeline model.
+
+    Example:
+        Exercise TXTInput through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+    """
     name = "TXT Input"
     author = "John Schember"
     description = "Convert TXT files to HTML"
@@ -138,25 +172,45 @@ class TXTInput(InputFormatPlugin):
 
     def convert(self: _typing.Self, stream: _typing.Any, options: _typing.Any, file_ext: _typing.Any, log: _typing.Any, accelerators: _typing.Any) -> _typing.Any:
 
+        """
+        Convert the supplied source into the stage's normalized output representation.
+
+        Example:
+            Exercise TXTInput.convert through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param options: Value supplied for options under the utility contract.
+        :param file_ext: Value supplied for file ext under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :param accelerators: Value supplied for accelerators under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         import codecs
 
-        from LiuXin_alpha.file_formats.chardet import detect
-        from LiuXin_alpha.file_formats.conversion.preprocess import DocAnalysis, Dehyphenator
+        from LiuXin_alpha.file_formats.conversion.preprocess import (
+            Dehyphenator,
+            DocAnalysis,
+        )
         from LiuXin_alpha.file_formats.txt.processor import (
+            block_to_single_line,
             convert_basic,
             convert_markdown,
-            separate_paragraphs_single_line,
-            separate_paragraphs_print_formatted,
-            preserve_spaces,
-            detect_paragraph_type,
-            detect_formatting_type,
-            normalize_line_endings,
             convert_textile,
+            detect_formatting_type,
+            detect_paragraph_type,
+            normalize_line_endings,
+            preserve_spaces,
             remove_indents,
-            block_to_single_line,
             separate_hard_scene_breaks,
+            separate_paragraphs_print_formatted,
+            separate_paragraphs_single_line,
         )
-
+        from LiuXin_alpha.utils.libraries.calibre_chardet import detect
         from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
 
         self.log = log
@@ -263,7 +317,9 @@ class TXTInput(InputFormatPlugin):
                 txt = separate_paragraphs_print_formatted(txt)
                 txt = block_to_single_line(txt)
             elif options.paragraph_type == "unformatted":
-                from LiuXin_alpha.file_formats.conversion.utils import HeuristicProcessor
+                from LiuXin_alpha.file_formats.conversion.utils import (
+                    HeuristicProcessor,
+                )
 
                 # unwrap lines based on punctuation
                 docanalysis = DocAnalysis("txt", txt)
@@ -353,6 +409,21 @@ class TXTInput(InputFormatPlugin):
             return oeb
 
     def postprocess_book(self: _typing.Self, oeb: _typing.Any, opts: _typing.Any, log: _typing.Any) -> None:
+        """
+        Perform the postprocess book operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TXTInput.postprocess book through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param oeb: Value supplied for oeb under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for item in oeb.spine:
             if hasattr(item.data, "xpath"):
                 for title in item.data.xpath('//*[local-name()="title"]'):

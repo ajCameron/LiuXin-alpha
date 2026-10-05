@@ -1,3 +1,14 @@
+"""
+Cover metadata utility parsing, normalization, formatting and identifier edge cases.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test utils coverage through its owning regression module::
+
+        python -m pytest -q tests/metadata/test_utils_coverage.py
+"""
 from __future__ import annotations
 
 import io
@@ -14,6 +25,17 @@ from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 
 
 def test_numeric_author_and_title_helpers_cover_edge_shapes() -> None:
+    """
+    Verify numeric author and title helpers cover edge shapes.
+
+    Example:
+        Exercise test numeric author and title helpers cover edge shapes through its owning regression module::
+
+            python -m pytest -q tests/metadata/test_utils_coverage.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     assert utils.soft_float_to_int(3.0) == 3
     assert utils.soft_float_to_int("3.5") == 3.5
 
@@ -46,6 +68,17 @@ def test_numeric_author_and_title_helpers_cover_edge_shapes() -> None:
 
 
 def test_roman_series_identifier_and_doi_helpers() -> None:
+    """
+    Verify roman series identifier and doi helpers.
+
+    Example:
+        Exercise test roman series identifier and doi helpers through its owning regression module::
+
+            python -m pytest -q tests/metadata/test_utils_coverage.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     assert utils.roman(4) == "IV"
     assert utils.roman(0) == "0"
     assert utils.roman(4000) == "4000"
@@ -83,6 +116,18 @@ def test_roman_series_identifier_and_doi_helpers() -> None:
 
 
 def test_calibre_metadata_resource_and_collection_helpers(tmp_path) -> None:
+    """
+    Verify calibre metadata resource and collection helpers.
+
+    Example:
+        Exercise test calibre metadata resource and collection helpers through its owning regression module::
+
+            python -m pytest -q tests/metadata/test_utils_coverage.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     source = utils.calibreMetaInformation("Title", ["Author"])
     source.publisher = "Publisher"
     copied = utils.calibreMetaInformation(source)
@@ -147,6 +192,18 @@ def test_calibre_metadata_resource_and_collection_helpers(tmp_path) -> None:
 
 
 def test_opf_version_parse_manifest_and_language_helpers(tmp_path) -> None:
+    """
+    Verify opf version parse manifest and language helpers.
+
+    Example:
+        Exercise test opf version parse manifest and language helpers through its owning regression module::
+
+            python -m pytest -q tests/metadata/test_utils_coverage.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     assert utils.parse_opf_version("3.0") == utils.OPFVersion(3, 0, 0)
     assert utils.parse_opf_version("bad") == utils.OPFVersion(2, 0, 0)
     assert utils.parse_opf_version("4.bad") == utils.OPFVersion(4, 0, 0)
@@ -201,6 +258,17 @@ def test_opf_version_parse_manifest_and_language_helpers(tmp_path) -> None:
 
 
 def test_ebook_metadata_tools_timestamp_and_identifier_helpers() -> None:
+    """
+    Verify ebook metadata tools timestamp and identifier helpers.
+
+    Example:
+        Exercise test ebook metadata tools timestamp and identifier helpers through its owning regression module::
+
+            python -m pytest -q tests/metadata/test_utils_coverage.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     now = datetime(2020, 1, 1, tzinfo=timezone.utc)
 
     with pytest.raises(TypeError):
@@ -251,6 +319,19 @@ def test_ebook_metadata_tools_timestamp_and_identifier_helpers() -> None:
 
 
 def test_ebook_metadata_tools_author_title_and_name_helpers(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Verify ebook metadata tools author title and name helpers.
+
+    Example:
+        Exercise test ebook metadata tools author title and name helpers through its owning regression module::
+
+            python -m pytest -q tests/metadata/test_utils_coverage.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     monkeypatch.setattr(
         ebook_metadata_tools,
         "load_names",
@@ -283,6 +364,18 @@ def test_ebook_metadata_tools_author_title_and_name_helpers(monkeypatch: pytest.
 
 
 def test_unicode_and_foreign_language_torture_for_metadata_helpers(tmp_path) -> None:
+    """
+    Verify unicode and foreign language torture for metadata helpers.
+
+    Example:
+        Exercise test unicode and foreign language torture for metadata helpers through its owning regression module::
+
+            python -m pytest -q tests/metadata/test_utils_coverage.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     authors = ["李 白", "山田 太郎", "أحمد & سارة", "שרה"]
 
     assert utils.authors_to_string(authors) == "李 白 & 山田 太郎 & أحمد && سارة & שרה"

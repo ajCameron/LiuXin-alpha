@@ -1,4 +1,14 @@
-"""Tests for schema-driven catalog writer construction."""
+"""
+Verify test writer factory behavior against the public catalog contracts.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test writer factory through its owning regression module::
+
+        python -m pytest -q tests/catalog/test_writer_factory.py
+"""
 
 from __future__ import annotations
 
@@ -36,6 +46,20 @@ def _column(
     *,
     primary_key: bool = False,
 ) -> StorageColumnSpec:
+    """
+    Perform the column test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise column through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+    :param name: Value supplied for name under the catalog contract.
+    :param ordinal: Value supplied for ordinal under the catalog contract.
+    :param primary_key: Value supplied for primary key under the catalog contract.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return StorageColumnSpec(
         name=name,
         ordinal=ordinal,
@@ -49,6 +73,20 @@ def _table(
     *columns: StorageColumnSpec,
     is_link_table: bool = False,
 ) -> StorageTableSpec:
+    """
+    Perform the table test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise table through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+    :param name: Value supplied for name under the catalog contract.
+    :param columns: Value supplied for columns under the catalog contract.
+    :param is_link_table: Value supplied for is link table under the catalog contract.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return StorageTableSpec(
         name=name,
         relation_kind=RelationKind.TABLE,
@@ -62,6 +100,18 @@ def _table(
 def _link_spec(
     cardinality: LinkCardinality = LinkCardinality.MANY_TO_MANY,
 ) -> StorageLinkSpec:
+    """
+    Perform the link spec test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise link spec through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+    :param cardinality: Value supplied for cardinality under the catalog contract.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return StorageLinkSpec(
         primary_table="books",
         secondary_table="tags",
@@ -79,6 +129,19 @@ def _schema(
     *tables: StorageTableSpec,
     link_spec: StorageLinkSpec | None = None,
 ) -> StorageSchemaSpec:
+    """
+    Perform the schema test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise schema through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+    :param tables: Value supplied for tables under the catalog contract.
+    :param link_spec: Value supplied for link spec under the catalog contract.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return StorageSchemaSpec(
         tables={table.name: table for table in tables},
         interlinks=() if link_spec is None else (link_spec,),
@@ -87,17 +150,50 @@ def _schema(
 
 
 class _Wrapper:
+    """
+    Provide the Wrapper test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise Wrapper through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_writer_factory.py
+    """
     def __init__(
         self,
         schema: StorageSchemaSpec,
         link_spec: StorageLinkSpec | None = None,
     ) -> None:
+        """
+        Initialize the Wrapper test double.
+
+        Example:
+            Exercise Wrapper.init through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+        :param schema: Value supplied for schema under the catalog contract.
+        :param link_spec: Value supplied for link spec under the catalog contract.
+        :return: None; the function records state or raises through its assertions.
+        """
         self.schema = schema
         self.link_spec = link_spec
         self.schema_refreshes: list[bool] = []
         self.link_requests: list[tuple[str, str, bool]] = []
 
     def get_schema_spec(self, *, force_refresh: bool = False) -> StorageSchemaSpec:
+        """
+        Return schema spec from deterministic test state.
+
+        Example:
+            Exercise Wrapper.get schema spec through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+        :param force_refresh: Value supplied for force refresh under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.schema_refreshes.append(force_refresh)
         return self.schema
 
@@ -108,6 +204,21 @@ class _Wrapper:
         *,
         force_refresh: bool = False,
     ) -> StorageLinkSpec | None:
+        """
+        Return link spec from deterministic test state.
+
+        Example:
+            Exercise Wrapper.get link spec through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+        :param source_table: Value supplied for source table under the catalog contract.
+        :param destination_table: Value supplied for destination table under the catalog
+            contract.
+        :param force_refresh: Value supplied for force refresh under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.link_requests.append(
             (source_table, destination_table, force_refresh)
         )
@@ -115,7 +226,26 @@ class _Wrapper:
 
 
 class _Macros:
+    """
+    Provide the Macros test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise Macros through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_writer_factory.py
+    """
     def __init__(self) -> None:
+        """
+        Initialize the Macros test double.
+
+        Example:
+            Exercise Macros.init through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+        :return: None; the function records state or raises through its assertions.
+        """
         self.ensured: list[tuple[str, str, Any, str | None]] = []
         self.found: list[tuple[str, str, Any, str | None]] = []
         self.owned_writes: list[
@@ -130,6 +260,21 @@ class _Macros:
         *,
         id_column: str | None = None,
     ) -> int:
+        """
+        Perform the ensure table value test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Macros.ensure table value through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+        :param table: Value supplied for table under the catalog contract.
+        :param column: Value supplied for column under the catalog contract.
+        :param value: Public or stored value to normalize, compare or write.
+        :param id_column: Value supplied for id column under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.ensured.append((table, column, value, id_column))
         return {"Science Fiction": 20, "Classic": 21, 5: 22}[value]
 
@@ -141,6 +286,21 @@ class _Macros:
         *,
         id_column: str | None = None,
     ) -> int | None:
+        """
+        Perform the find table value test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Macros.find table value through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+        :param table: Value supplied for table under the catalog contract.
+        :param column: Value supplied for column under the catalog contract.
+        :param value: Public or stored value to normalize, compare or write.
+        :param id_column: Value supplied for id column under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.found.append((table, column, value, id_column))
         return {"Science Fiction": 20, "Classic": 21, 5: 22}.get(value)
 
@@ -151,6 +311,20 @@ class _Macros:
         *,
         link_type: object,
     ) -> dict[int, tuple[LinkRow, ...]]:
+        """
+        Return link rows bulk from deterministic test state.
+
+        Example:
+            Exercise Macros.get link rows bulk through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+        :param _link_spec: Value supplied for link spec under the catalog contract.
+        :param primary_ids: Value supplied for primary ids under the catalog contract.
+        :param link_type: Optional typed relation value carried by the link.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return {source_id: () for source_id in primary_ids}  # type: ignore[union-attr]
 
     def replace_owned_one_to_one_values_bulk(
@@ -159,6 +333,20 @@ class _Macros:
         value_column: str,
         replacements: Mapping[int, Any | None],
     ) -> dict[int, tuple[LinkRow, ...]]:
+        """
+        Perform the replace owned one to one values bulk test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Macros.replace owned one to one values bulk through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+        :param link_spec: Value supplied for link spec under the catalog contract.
+        :param value_column: Value supplied for value column under the catalog contract.
+        :param replacements: Value supplied for replacements under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         materialized = dict(replacements)
         self.owned_writes.append((link_spec, value_column, materialized))
         return {
@@ -172,7 +360,27 @@ class _Macros:
 
 
 class _Database:
+    """
+    Provide an in-memory database double with explicit row and relation queries.
+
+    Example:
+        Exercise Database through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_writer_factory.py
+    """
     def __init__(self, wrapper: _Wrapper) -> None:
+        """
+        Initialize the Database test double.
+
+        Example:
+            Exercise Database.init through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+        :param wrapper: Value supplied for wrapper under the catalog contract.
+        :return: None; the function records state or raises through its assertions.
+        """
         self.driver_wrapper = wrapper
         self.macros = _Macros()
         self.column_writes: list[tuple[dict[int, Any], str, str]] = []
@@ -183,15 +391,50 @@ class _Database:
         field: str,
         table: str,
     ) -> None:
+        """
+        Perform the update columns test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Database.update columns through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+        :param values_map: Value supplied for values map under the catalog contract.
+        :param field: Field metadata or field name selecting the catalog operation.
+        :param table: Value supplied for table under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.column_writes.append((dict(values_map), field, table))
 
 
 class _Catalog:
+    """
+    Provide the Catalog test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise Catalog through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_writer_factory.py
+    """
     def __init__(
         self,
         schema: StorageSchemaSpec,
         link_spec: StorageLinkSpec | None = None,
     ) -> None:
+        """
+        Initialize the Catalog test double.
+
+        Example:
+            Exercise Catalog.init through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+        :param schema: Value supplied for schema under the catalog contract.
+        :param link_spec: Value supplied for link spec under the catalog contract.
+        :return: None; the function records state or raises through its assertions.
+        """
         self.db = _Database(_Wrapper(schema, link_spec))
         self.column_updates: list[CatalogColumnUpdate[Any]] = []
         self.link_updates: list[LinkUpdate] = []
@@ -201,6 +444,18 @@ class _Catalog:
         self,
         update: CatalogColumnUpdate[Any],
     ) -> Mapping[int, Any]:
+        """
+        Perform the write column update test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Catalog.write column update through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+        :param update: Prepared catalog update to validate or apply.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.column_updates.append(update)
         return update.write(self.db)  # type: ignore[arg-type]
 
@@ -208,6 +463,18 @@ class _Catalog:
         self,
         update: LinkUpdate,
     ) -> Mapping[int, tuple[LinkRow, ...]]:
+        """
+        Perform the write link update test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Catalog.write link update through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+        :param update: Prepared catalog update to validate or apply.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.link_updates.append(update)
         return {
             source_id: tuple(
@@ -221,11 +488,34 @@ class _Catalog:
         self,
         update: CatalogOwnedRowUpdate[Any],
     ) -> Mapping[int, tuple[LinkRow, ...]]:
+        """
+        Perform the write owned row update test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Catalog.write owned row update through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+        :param update: Prepared catalog update to validate or apply.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.owned_updates.append(update)
         return update.write(self.db.macros)  # type: ignore[arg-type]
 
 
 def test_factory_creates_and_writes_a_same_table_column_writer() -> None:
+    """
+    Verify factory creates and writes a same table column writer.
+
+    Example:
+        Exercise test factory creates and writes a same table column writer through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     books = _table(
         "books",
         _column("book_id", 0, primary_key=True),
@@ -253,6 +543,17 @@ def test_factory_creates_and_writes_a_same_table_column_writer() -> None:
 
 
 def test_factory_prefers_a_column_on_the_source_table() -> None:
+    """
+    Verify factory prefers a column on the source table.
+
+    Example:
+        Exercise test factory prefers a column on the source table through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     books = _table(
         "books",
         _column("book_id", 0, primary_key=True),
@@ -286,6 +587,18 @@ def test_factory_prefers_a_column_on_the_source_table() -> None:
 def test_factory_creates_a_link_writer_for_every_cardinality(
     cardinality: LinkCardinality,
 ) -> None:
+    """
+    Verify factory creates a link writer for every cardinality.
+
+    Example:
+        Exercise test factory creates a link writer for every cardinality through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+    :param cardinality: Value supplied for cardinality under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
     books = _table("books", _column("book_id", 0, primary_key=True))
     tags = _table(
         "tags",
@@ -339,6 +652,17 @@ def test_factory_creates_a_link_writer_for_every_cardinality(
 
 
 def test_factory_rejects_ambiguous_destination_columns() -> None:
+    """
+    Verify factory rejects ambiguous destination columns.
+
+    Example:
+        Exercise test factory rejects ambiguous destination columns through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     books = _table("books", _column("book_id", 0, primary_key=True))
     tags = _table(
         "tags",
@@ -360,6 +684,17 @@ def test_factory_rejects_ambiguous_destination_columns() -> None:
 
 
 def test_factory_does_not_infer_ownership_from_one_to_one_cardinality() -> None:
+    """
+    Verify factory does not infer ownership from one to one cardinality.
+
+    Example:
+        Exercise test factory does not infer ownership from one to one cardinality through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     books = _table("books", _column("book_id", 0, primary_key=True))
     tags = _table(
         "tags",
@@ -391,6 +726,17 @@ def test_factory_does_not_infer_ownership_from_one_to_one_cardinality() -> None:
 
 
 def test_factory_rejects_owned_plural_links() -> None:
+    """
+    Verify factory rejects owned plural links.
+
+    Example:
+        Exercise test factory rejects owned plural links through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     books = _table("books", _column("book_id", 0, primary_key=True))
     tags = _table(
         "tags",
@@ -419,6 +765,17 @@ def test_factory_rejects_owned_plural_links() -> None:
 
 
 def test_factory_link_writer_treats_integer_scalars_as_column_values() -> None:
+    """
+    Verify factory link writer treats integer scalars as column values.
+
+    Example:
+        Exercise test factory link writer treats integer scalars as column values through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     books = _table("books", _column("book_id", 0, primary_key=True))
     tags = _table(
         "tags",
@@ -455,6 +812,17 @@ def test_factory_link_writer_treats_integer_scalars_as_column_values() -> None:
 
 
 def test_shared_value_link_deletions_find_without_ensuring() -> None:
+    """
+    Verify shared value link deletions find without ensuring.
+
+    Example:
+        Exercise test shared value link deletions find without ensuring through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     books = _table("books", _column("book_id", 0, primary_key=True))
     tags = _table(
         "tags",
@@ -498,6 +866,17 @@ def test_shared_value_link_deletions_find_without_ensuring() -> None:
 
 
 def test_factory_rejects_an_unlinked_destination_table() -> None:
+    """
+    Verify factory rejects an unlinked destination table.
+
+    Example:
+        Exercise test factory rejects an unlinked destination table through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     books = _table("books", _column("book_id", 0, primary_key=True))
     tags = _table(
         "tags",
@@ -528,6 +907,21 @@ def test_factory_rejects_invalid_minimal_identifiers(
     error: type[Exception],
     message: str,
 ) -> None:
+    """
+    Verify factory rejects invalid minimal identifiers.
+
+    Example:
+        Exercise test factory rejects invalid minimal identifiers through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+    :param src_table: Value supplied for src table under the catalog contract.
+    :param dst_column: Value supplied for dst column under the catalog contract.
+    :param error: Value supplied for error under the catalog contract.
+    :param message: Value supplied for message under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
     books = _table(
         "books",
         _column("book_id", 0, primary_key=True),
@@ -543,6 +937,18 @@ def test_factory_rejects_invalid_minimal_identifiers(
 
 
 def test_factory_same_table_writer_round_trips_through_real_database(db) -> None:
+    """
+    Verify factory same table writer round trips through real database.
+
+    Example:
+        Exercise test factory same table writer round trips through real database through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+    :param db: Value supplied for db under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
     db.driver_wrapper.executescript(
         """
         CREATE TABLE catalog_factory_sources (
@@ -586,6 +992,18 @@ def test_factory_same_table_writer_round_trips_through_real_database(db) -> None
 
 
 def test_factory_link_writer_round_trips_through_real_database(db) -> None:
+    """
+    Verify factory link writer round trips through real database.
+
+    Example:
+        Exercise test factory link writer round trips through real database through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+    :param db: Value supplied for db under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
     db.driver_wrapper.executescript(
         """
         CREATE TABLE factory_sources (
@@ -692,6 +1110,18 @@ def test_factory_link_writer_round_trips_through_real_database(db) -> None:
 
 
 def test_factory_link_writer_enforces_the_live_allowed_type_registry(db) -> None:
+    """
+    Verify factory link writer enforces the live allowed type registry.
+
+    Example:
+        Exercise test factory link writer enforces the live allowed type registry through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+    :param db: Value supplied for db under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
     db.driver_wrapper.executescript(
         """
         CREATE TABLE typed_sources (
@@ -816,6 +1246,18 @@ def test_factory_link_writer_enforces_the_live_allowed_type_registry(db) -> None
 
 
 def test_factory_shared_link_writer_deletes_without_creating_values(db) -> None:
+    """
+    Verify factory shared link writer deletes without creating values.
+
+    Example:
+        Exercise test factory shared link writer deletes without creating values through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+    :param db: Value supplied for db under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
     db.driver_wrapper.executescript(
         """
         CREATE TABLE shared_sources (

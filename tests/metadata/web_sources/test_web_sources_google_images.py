@@ -1,3 +1,14 @@
+"""
+Verify Google Images markup parsing, browser fallback and image validation.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test web sources google images through its owning regression module::
+
+        python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+"""
 from __future__ import annotations
 
 import queue
@@ -5,32 +16,133 @@ from threading import Event
 
 
 class _Log:
+    """
+    Provide the Log test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise Log through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+    """
     def __init__(self) -> None:
+        """
+        Initialize the Log test double.
+
+        Example:
+            Exercise Log.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+        :return: None; the function records state or raises through its assertions.
+        """
         self.events = []
 
     def __call__(self, *parts):
+        """
+        Perform the call test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.call through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("call", parts))
 
     def info(self, *parts):
+        """
+        Perform the info test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.info through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("info", parts))
 
     def warning(self, *parts):
+        """
+        Perform the warning test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.warning through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("warning", parts))
 
     def error(self, *parts):
+        """
+        Perform the error test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.error through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("error", parts))
 
     def exception(self, *parts):
+        """
+        Perform the exception test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.exception through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("exception", parts))
 
 
 def test_web_sources_google_images_import_smoke() -> None:
+    """
+    Verify web sources google images import smoke.
+
+    Example:
+        Exercise test web sources google images import smoke through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.google_images as google_images
 
     assert google_images is not None
 
 
 def test_parse_google_markup_extracts_and_deduplicates_urls() -> None:
+    """
+    Verify parse google markup extracts and deduplicates urls.
+
+    Example:
+        Exercise test parse google markup extracts and deduplicates urls through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.google_images import parse_google_markup
 
     html = """
@@ -58,6 +170,17 @@ def test_parse_google_markup_extracts_and_deduplicates_urls() -> None:
 
 
 def test_parse_google_markup_extracts_rendered_google_thumbnail_urls() -> None:
+    """
+    Verify parse google markup extracts rendered google thumbnail urls.
+
+    Example:
+        Exercise test parse google markup extracts rendered google thumbnail urls through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.google_images import parse_google_markup
 
     html = """
@@ -75,27 +198,125 @@ def test_parse_google_markup_extracts_rendered_google_thumbnail_urls() -> None:
 
 
 def test_google_images_get_image_urls_retries_transient_errors(monkeypatch) -> None:
+    """
+    Verify google images get image urls retries transient errors.
+
+    Example:
+        Exercise test google images get image urls retries transient errors through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.google_images import GoogleImages
 
     class _Transient(Exception):
+        """
+        Provide the Transient test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test google images get image urls retries transient errors.Transient through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+        """
         @staticmethod
         def getcode():
+            """
+            Perform the getcode test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test google images get image urls retries transient errors.Transient.getcode through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+            :return: The deterministic value, row, identity or collection described above.
+            """
             return 503
 
     class _Resp:
+        """
+        Provide the Resp test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test google images get image urls retries transient errors.Resp through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+        """
         @staticmethod
         def read():
+            """
+            Perform the read test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test google images get image urls retries transient errors.Resp.read through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+            :return: The deterministic value, row, identity or collection described above.
+            """
             return b'<script>{"imgurl":"https://img.example/cover-a.jpg"}</script>'
 
     class _Browser:
+        """
+        Provide the Browser test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test google images get image urls retries transient errors.Browser through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+        """
         def __init__(self):
+            """
+            Initialize the Browser test double.
+
+            Example:
+                Exercise test google images get image urls retries transient errors.Browser.init through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+            :return: None; the function records state or raises through its assertions.
+            """
             self.calls = 0
             self.cookies = []
 
         def set_simple_cookie(self, name, value, domain, path="/"):
+            """
+            Perform the set simple cookie test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test google images get image urls retries transient errors.Browser.set simple cookie through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+            :param name: Value supplied for name in the focused test operation.
+            :param value: Value stored, compared or projected by the operation.
+            :param domain: Value supplied for domain in the focused test operation.
+            :param path: Value supplied for path in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             self.cookies.append((name, value, domain, path))
 
         def open_novisit(self, url, timeout=30):
+            """
+            Perform the open novisit test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test google images get image urls retries transient errors.Browser.open novisit through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+            :param url: Value supplied for url in the focused test operation.
+            :param timeout: Value supplied for timeout in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             del url, timeout
             self.calls += 1
             if self.calls < 3:
@@ -119,20 +340,88 @@ def test_google_images_get_image_urls_retries_transient_errors(monkeypatch) -> N
 
 
 def test_google_images_get_image_urls_logs_response_markers_when_empty(monkeypatch) -> None:
+    """
+    Verify google images get image urls logs response markers when empty.
+
+    Example:
+        Exercise test google images get image urls logs response markers when empty through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.google_images import GoogleImages
 
     class _Resp:
+        """
+        Provide the Resp test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test google images get image urls logs response markers when empty.Resp through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+        """
         @staticmethod
         def read():
+            """
+            Perform the read test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test google images get image urls logs response markers when empty.Resp.read through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+            :return: The deterministic value, row, identity or collection described above.
+            """
             return b"<html><title>Before you continue</title><body>Enable JavaScript</body></html>"
 
     class _Browser:
+        """
+        Provide the Browser test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test google images get image urls logs response markers when empty.Browser through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+        """
         @staticmethod
         def set_simple_cookie(name, value, domain, path="/"):
+            """
+            Perform the set simple cookie test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test google images get image urls logs response markers when empty.Browser.set simple cookie through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+            :param name: Value supplied for name in the focused test operation.
+            :param value: Value stored, compared or projected by the operation.
+            :param domain: Value supplied for domain in the focused test operation.
+            :param path: Value supplied for path in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             del name, value, domain, path
 
         @staticmethod
         def open_novisit(url, timeout=30):
+            """
+            Perform the open novisit test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test google images get image urls logs response markers when empty.Browser.open novisit through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+            :param url: Value supplied for url in the focused test operation.
+            :param timeout: Value supplied for timeout in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             del url, timeout
             return _Resp()
 
@@ -154,6 +443,17 @@ def test_google_images_get_image_urls_logs_response_markers_when_empty(monkeypat
 
 
 def test_google_images_response_markers_detect_search_guard() -> None:
+    """
+    Verify google images response markers detect search guard.
+
+    Example:
+        Exercise test google images response markers detect search guard through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.google_images import _diagnostic_markers
 
     markers = _diagnostic_markers(
@@ -176,17 +476,80 @@ def test_google_images_response_markers_detect_search_guard() -> None:
 
 
 def test_google_images_get_image_urls_tries_fallback_search_shapes(monkeypatch) -> None:
+    """
+    Verify google images get image urls tries fallback search shapes.
+
+    Example:
+        Exercise test google images get image urls tries fallback search shapes through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.google_images import GoogleImages
 
     class _Resp:
+        """
+        Provide the Resp test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test google images get image urls tries fallback search shapes.Resp through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+        """
         def __init__(self, payload):
+            """
+            Initialize the Resp test double.
+
+            Example:
+                Exercise test google images get image urls tries fallback search shapes.Resp.init through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+            :param payload: Value supplied for payload in the focused test operation.
+            :return: None; the function records state or raises through its assertions.
+            """
             self.payload = payload
 
         def read(self):
+            """
+            Perform the read test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test google images get image urls tries fallback search shapes.Resp.read through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+            :return: The deterministic value, row, identity or collection described above.
+            """
             return self.payload
 
     class _Browser:
+        """
+        Provide the Browser test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test google images get image urls tries fallback search shapes.Browser through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+        """
         def __init__(self):
+            """
+            Initialize the Browser test double.
+
+            Example:
+                Exercise test google images get image urls tries fallback search shapes.Browser.init through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+            :return: None; the function records state or raises through its assertions.
+            """
             self.requests = []
             self.payloads = [
                 b"<html><title>Google Search</title></html>",
@@ -195,9 +558,37 @@ def test_google_images_get_image_urls_tries_fallback_search_shapes(monkeypatch) 
 
         @staticmethod
         def set_simple_cookie(name, value, domain, path="/"):
+            """
+            Perform the set simple cookie test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test google images get image urls tries fallback search shapes.Browser.set simple cookie through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+            :param name: Value supplied for name in the focused test operation.
+            :param value: Value stored, compared or projected by the operation.
+            :param domain: Value supplied for domain in the focused test operation.
+            :param path: Value supplied for path in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             del name, value, domain, path
 
         def open_novisit(self, url, timeout=30):
+            """
+            Perform the open novisit test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test google images get image urls tries fallback search shapes.Browser.open novisit through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+            :param url: Value supplied for url in the focused test operation.
+            :param timeout: Value supplied for timeout in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             del timeout
             self.requests.append(url)
             return _Resp(self.payloads.pop(0))
@@ -222,23 +613,102 @@ def test_google_images_get_image_urls_tries_fallback_search_shapes(monkeypatch) 
 
 
 def test_google_images_get_image_urls_continues_after_bad_variant(monkeypatch) -> None:
+    """
+    Verify google images get image urls continues after bad variant.
+
+    Example:
+        Exercise test google images get image urls continues after bad variant through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from urllib.error import HTTPError
 
     from LiuXin_alpha.metadata.web_sources.google_images import GoogleImages
 
     class _Resp:
+        """
+        Provide the Resp test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test google images get image urls continues after bad variant.Resp through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+        """
         def read(self):
+            """
+            Perform the read test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test google images get image urls continues after bad variant.Resp.read through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+            :return: The deterministic value, row, identity or collection described above.
+            """
             return b'<script>{"imgurl":"https://img.example/recovered.jpg"}</script>'
 
     class _Browser:
+        """
+        Provide the Browser test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test google images get image urls continues after bad variant.Browser through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+        """
         def __init__(self):
+            """
+            Initialize the Browser test double.
+
+            Example:
+                Exercise test google images get image urls continues after bad variant.Browser.init through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+            :return: None; the function records state or raises through its assertions.
+            """
             self.requests = []
 
         @staticmethod
         def set_simple_cookie(name, value, domain, path="/"):
+            """
+            Perform the set simple cookie test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test google images get image urls continues after bad variant.Browser.set simple cookie through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+            :param name: Value supplied for name in the focused test operation.
+            :param value: Value stored, compared or projected by the operation.
+            :param domain: Value supplied for domain in the focused test operation.
+            :param path: Value supplied for path in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             del name, value, domain, path
 
         def open_novisit(self, url, timeout=30):
+            """
+            Perform the open novisit test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test google images get image urls continues after bad variant.Browser.open novisit through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+            :param url: Value supplied for url in the focused test operation.
+            :param timeout: Value supplied for timeout in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             del timeout
             self.requests.append(url)
             if len(self.requests) == 1:
@@ -263,20 +733,88 @@ def test_google_images_get_image_urls_continues_after_bad_variant(monkeypatch) -
 
 
 def test_google_images_get_image_urls_uses_rendered_fallback(monkeypatch) -> None:
+    """
+    Verify google images get image urls uses rendered fallback.
+
+    Example:
+        Exercise test google images get image urls uses rendered fallback through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.google_images import GoogleImages
 
     class _Resp:
+        """
+        Provide the Resp test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test google images get image urls uses rendered fallback.Resp through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+        """
         @staticmethod
         def read():
+            """
+            Perform the read test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test google images get image urls uses rendered fallback.Resp.read through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+            :return: The deterministic value, row, identity or collection described above.
+            """
             return b"<html><title>Google Search</title></html>"
 
     class _Browser:
+        """
+        Provide the Browser test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test google images get image urls uses rendered fallback.Browser through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+        """
         @staticmethod
         def set_simple_cookie(name, value, domain, path="/"):
+            """
+            Perform the set simple cookie test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test google images get image urls uses rendered fallback.Browser.set simple cookie through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+            :param name: Value supplied for name in the focused test operation.
+            :param value: Value stored, compared or projected by the operation.
+            :param domain: Value supplied for domain in the focused test operation.
+            :param path: Value supplied for path in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             del name, value, domain, path
 
         @staticmethod
         def open_novisit(url, timeout=30):
+            """
+            Perform the open novisit test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test google images get image urls uses rendered fallback.Browser.open novisit through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+            :param url: Value supplied for url in the focused test operation.
+            :param timeout: Value supplied for timeout in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             del url, timeout
             return _Resp()
 
@@ -285,6 +823,21 @@ def test_google_images_get_image_urls_uses_rendered_fallback(monkeypatch) -> Non
     rendered_urls = []
 
     def _render(log, abort, url, timeout):
+        """
+        Perform the render test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test google images get image urls uses rendered fallback.render through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+        :param log: Value supplied for log in the focused test operation.
+        :param abort: Value supplied for abort in the focused test operation.
+        :param url: Value supplied for url in the focused test operation.
+        :param timeout: Value supplied for timeout in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         del log, abort, timeout
         rendered_urls.append(url)
         return '<img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:rendered-cover&amp;usqp=CAU">'
@@ -303,6 +856,17 @@ def test_google_images_get_image_urls_uses_rendered_fallback(monkeypatch) -> Non
 
 
 def test_google_images_builds_broader_static_search_variants() -> None:
+    """
+    Verify google images builds broader static search variants.
+
+    Example:
+        Exercise test google images builds broader static search variants through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.google_images import GoogleImages
 
     plugin = GoogleImages()
@@ -318,6 +882,17 @@ def test_google_images_builds_broader_static_search_variants() -> None:
 
 
 def test_google_images_builds_rendered_search_variants() -> None:
+    """
+    Verify google images builds rendered search variants.
+
+    Example:
+        Exercise test google images builds rendered search variants through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from urllib.parse import parse_qs, urlparse
 
     from LiuXin_alpha.metadata.web_sources.google_images import GoogleImages
@@ -337,6 +912,20 @@ def test_google_images_builds_rendered_search_variants() -> None:
 
 
 def test_google_images_rendered_browser_path_and_profile(monkeypatch, tmp_path) -> None:
+    """
+    Verify google images rendered browser path and profile.
+
+    Example:
+        Exercise test google images rendered browser path and profile through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.google_images import GoogleImages
 
     plugin = GoogleImages()
@@ -353,6 +942,20 @@ def test_google_images_rendered_browser_path_and_profile(monkeypatch, tmp_path) 
 
 
 def test_google_images_windows_browser_profile_uses_windows_accessible_root(monkeypatch, tmp_path) -> None:
+    """
+    Verify google images windows browser profile uses windows accessible root.
+
+    Example:
+        Exercise test google images windows browser profile uses windows accessible root through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.google_images import GoogleImages, _wsl_path_to_windows
 
     plugin = GoogleImages()
@@ -370,10 +973,32 @@ def test_google_images_windows_browser_profile_uses_windows_accessible_root(monk
 
 
 def test_google_images_render_search_page_invokes_headless_browser(monkeypatch, tmp_path) -> None:
+    """
+    Verify google images render search page invokes headless browser.
+
+    Example:
+        Exercise test google images render search page invokes headless browser through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.google_images as google_images
     from LiuXin_alpha.metadata.web_sources.google_images import GoogleImages
 
     class _Completed:
+        """
+        Provide the Completed test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test google images render search page invokes headless browser.Completed through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+        """
         returncode = 0
         stdout = b"<html>rendered</html>"
         stderr = b""
@@ -381,6 +1006,22 @@ def test_google_images_render_search_page_invokes_headless_browser(monkeypatch, 
     calls = []
 
     def _run(command, stdout, stderr, timeout, check):
+        """
+        Perform the run test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test google images render search page invokes headless browser.run through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+        :param command: Value supplied for command in the focused test operation.
+        :param stdout: Value supplied for stdout in the focused test operation.
+        :param stderr: Value supplied for stderr in the focused test operation.
+        :param timeout: Value supplied for timeout in the focused test operation.
+        :param check: Value supplied for check in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         del stdout, stderr, timeout, check
         calls.append(command)
         return _Completed()
@@ -408,15 +1049,45 @@ def test_google_images_render_search_page_invokes_headless_browser(monkeypatch, 
 
 
 def test_google_images_render_search_page_retries_failed_browser_launch(monkeypatch, tmp_path) -> None:
+    """
+    Verify google images render search page retries failed browser launch.
+
+    Example:
+        Exercise test google images render search page retries failed browser launch through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.google_images as google_images
     from LiuXin_alpha.metadata.web_sources.google_images import GoogleImages
 
     class _Failed:
+        """
+        Provide the Failed test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test google images render search page retries failed browser launch.Failed through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+        """
         returncode = 21
         stdout = b""
         stderr = b"profile locked"
 
     class _Passed:
+        """
+        Provide the Passed test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test google images render search page retries failed browser launch.Passed through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+        """
         returncode = 0
         stdout = b"<html>rendered</html>"
         stderr = b""
@@ -424,6 +1095,22 @@ def test_google_images_render_search_page_retries_failed_browser_launch(monkeypa
     calls = []
 
     def _run(command, stdout, stderr, timeout, check):
+        """
+        Perform the run test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test google images render search page retries failed browser launch.run through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+        :param command: Value supplied for command in the focused test operation.
+        :param stdout: Value supplied for stdout in the focused test operation.
+        :param stderr: Value supplied for stderr in the focused test operation.
+        :param timeout: Value supplied for timeout in the focused test operation.
+        :param check: Value supplied for check in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         del stdout, stderr, timeout, check
         calls.append(command)
         return _Failed() if len(calls) == 1 else _Passed()
@@ -452,6 +1139,19 @@ def test_google_images_render_search_page_retries_failed_browser_launch(monkeypa
 
 
 def test_google_images_download_image_puts_result(monkeypatch) -> None:
+    """
+    Verify google images download image puts result.
+
+    Example:
+        Exercise test google images download image puts result through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.google_images import GoogleImages
 
     plugin = GoogleImages()
@@ -470,6 +1170,19 @@ def test_google_images_download_image_puts_result(monkeypatch) -> None:
 
 
 def test_google_images_download_cover_uses_multiple_cover_downloader(monkeypatch) -> None:
+    """
+    Verify google images download cover uses multiple cover downloader.
+
+    Example:
+        Exercise test google images download cover uses multiple cover downloader through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.google_images import GoogleImages
 
     plugin = GoogleImages()
@@ -477,6 +1190,26 @@ def test_google_images_download_cover_uses_multiple_cover_downloader(monkeypatch
     called = {}
 
     def _download_multiple_covers(title, authors, urls, get_best_cover, timeout, result_queue, abort, log):
+        """
+        Perform the download multiple covers test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test google images download cover uses multiple cover downloader.download multiple covers through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+        :param title: Value supplied for title in the focused test operation.
+        :param authors: Value supplied for authors in the focused test operation.
+        :param urls: Value supplied for urls in the focused test operation.
+        :param get_best_cover: Value supplied for get best cover in the focused test
+            operation.
+        :param timeout: Value supplied for timeout in the focused test operation.
+        :param result_queue: Value supplied for result queue in the focused test operation.
+        :param abort: Value supplied for abort in the focused test operation.
+        :param log: Value supplied for log in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         called["title"] = title
         called["authors"] = authors
         called["urls"] = urls

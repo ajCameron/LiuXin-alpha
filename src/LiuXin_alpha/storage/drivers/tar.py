@@ -1,5 +1,11 @@
 """
-Safe local TAR archive storage drivers with atomic whole-file mutation.
+Read bounded TAR projections and publish normalized whole-container rebuilds.
+
+Compression-aware wrappers bound decompressed positions and parser requests.
+Archive-wide filesystem signatures provide version evidence, while member reads
+own their archive resources. Writers validate candidate inventories before replacing
+the container; declared-byte copying, metadata normalization, and failures after
+publication have explicit limits rather than implied rollback or content proofs.
 """
 
 from __future__ import annotations
@@ -89,7 +95,21 @@ DEFAULT_MAX_TAR_SINGLE_METADATA_RECORD_BYTES = 16 * 1024 * 1024
 
 
 class _BoundedTarStream(io.RawIOBase):
-    """Bound decompressed TAR position and individual parser allocations."""
+    """
+    Wrap a decompressed TAR stream with position and individual-read bounds.
+
+    Bounds constrain requested allocations and observed positions, not cumulative decompression
+    work. Source shape and constructor limits are trusted. The owners tuple controls cleanup
+    independently of the source reference.
+
+    Example:
+        >>> source = io.BytesIO(b"book")
+        >>> with _BoundedTarStream(source, owners=(source,), max_stream_bytes=4, max_read_bytes=2) as stream:
+        ...     stream.read(2)
+        b'bo'
+        >>> source.closed
+        True
+    """
 
     def __init__(
         self,
@@ -99,29 +119,113 @@ class _BoundedTarStream(io.RawIOBase):
         max_stream_bytes: int,
         max_read_bytes: int,
     ) -> None:
+        """
+        Retain the source, cleanup owners, and caller-supplied bounds without opening or validating
+        them.
+
+        Example:
+            >>> stream = _BoundedTarStream(source, owners=(source,), max_stream_bytes=4096, max_read_bytes=512)  # doctest: +SKIP
+
+
+        :param source: Decompressed binary stream implementing tell, seek, read, and fileno for downstream consumers.
+        :param owners: Resources to close in tuple order; the source is not implicitly added.
+        :param max_stream_bytes: Largest permitted decompressed position, supplied without a lower-bound check.
+        :param max_read_bytes: Largest nonnegative read request permitted by read.
+        :return: None after retaining the references and limits.
+        """
         self._source = source
         self._owners = owners
         self._max_stream_bytes = max_stream_bytes
         self._max_read_bytes = max_read_bytes
 
     def readable(self) -> bool:
+        """
+        Advertise reads without consulting the source or closed state.
+
+        Example:
+            >>> stream.readable()  # doctest: +SKIP
+            True
+
+
+        :return: True.
+        """
         return True
 
     def seekable(self) -> bool:
+        """
+        Advertise seeking without checking whether the wrapped stream can seek.
+
+        Example:
+            >>> stream.seekable()  # doctest: +SKIP
+            True
+
+
+        :return: True.
+        """
         return True
 
     def fileno(self) -> int:
+        """
+        Delegate descriptor lookup to the wrapped decompressed stream.
+
+        For the supported compression wrappers this identifies the underlying archive; missing or
+        failing methods propagate.
+
+        Example:
+            >>> descriptor = stream.fileno()  # doctest: +SKIP
+
+
+        :return: Descriptor returned by the source.
+        """
         return self._source.fileno()
 
     def tell(self) -> int:
+        """
+        Return the source's reported position without checking the stream bound.
+
+        Example:
+            >>> position = stream.tell()  # doctest: +SKIP
+
+
+        :return: Current position reported by the wrapped stream.
+        """
         return self._source.tell()
 
     def seek(self, offset: int, whence: int = os.SEEK_SET) -> int:
+        """
+        Seek the source, then reject a reported position outside the configured range.
+
+        A failing bounds check does not undo the source movement; compressed seeks may already have
+        performed decompression.
+
+        Example:
+            >>> stream.seek(0)  # doctest: +SKIP
+            0
+
+
+        :param offset: Offset passed unchanged to the source seek method.
+        :param whence: Seek origin, defaulting to absolute positioning.
+        :return: Source-reported position when it lies between zero and max_stream_bytes inclusive.
+        """
         position = self._source.seek(offset, whence)
         self._check_position(position)
         return position
 
     def read(self, size: int = -1) -> bytes:
+        """
+        Check a bounded read request and prospective position, then read and recheck position.
+
+        The default negative size is rejected, as are requests exceeding the per-read cap. The
+        request is not clipped to the remaining stream allowance. Returned type/length are not
+        independently checked, and underlying failures are not translated here.
+
+        Example:
+            >>> stream.read(2)  # doctest: +SKIP
+
+
+        :param size: Nonnegative requested bytes, no larger than max_read_bytes; -1 does not mean read-all for this wrapper.
+        :return: Payload returned by the source after its resulting position passes the stream bound.
+        """
         if size < 0 or size > self._max_read_bytes:
             raise StorageUnsupportedOperation(
                 "TAR parser requested an oversized metadata or payload allocation."
@@ -136,17 +240,52 @@ class _BoundedTarStream(io.RawIOBase):
         return payload
 
     def readinto(self, buffer) -> int:
+        """
+        Read up to the destination length and assign the returned bytes into its prefix.
+
+        The read method supplies request/position checks. Buffer mutability and source response
+        shape are left to normal slice/length operations.
+
+        Example:
+            >>> count = stream.readinto(bytearray(8))  # doctest: +SKIP
+
+
+        :param buffer: Writable byte-slice destination whose length becomes the requested read size.
+        :return: Length of the copied payload; assignment or source failures propagate.
+        """
         payload = self.read(len(buffer))
         buffer[: len(payload)] = payload
         return len(payload)
 
     def _check_position(self, position: int) -> None:
+        """
+        Reject a negative reported position or one beyond the configured stream limit.
+
+        Example:
+            >>> stream._check_position(0)  # doctest: +SKIP
+
+
+        :param position: Observed or seek-returned decompressed position to validate.
+        :return: None within bounds; otherwise raises StorageUnsupportedOperation.
+        """
         if position < 0 or position > self._max_stream_bytes:
             raise StorageUnsupportedOperation(
                 "TAR decompressed stream exceeds its configured expansion budget."
             )
 
     def close(self) -> None:
+        """
+        Close recorded owners in order and always attempt base stream closure.
+
+        Already closed wrappers return immediately. Owner OSErrors are suppressed; another exception
+        stops later owner cleanup but still enters the base-close finally block.
+
+        Example:
+            >>> stream.close()  # doctest: +SKIP
+
+
+        :return: None after owner and base closure attempts complete.
+        """
         if self.closed:
             return
         try:
@@ -162,7 +301,9 @@ class _BoundedTarStream(io.RawIOBase):
 @dataclasses.dataclass(slots=True, frozen=True)
 class TarObjectAddress(ArchiveObjectAddress):
     """
-    Canonical member path scoped to one TAR driver.
+    Carry a TAR member key and its owning UUID without applying driver path rules.
+
+    Inherited basic record checks do not establish canonical path syntax, depth, or encoding.
 
     Example:
         >>> TarObjectAddress("books/novel.epub", UUID(int=1)).value
@@ -172,7 +313,11 @@ class TarObjectAddress(ArchiveObjectAddress):
 
 class TarStorageDriver(StorageDriverAPI[TarObjectAddress]):
     """
-    Read and completely enumerate regular files in one TAR archive.
+    Expose a bounded regular-file projection of a local TAR container.
+
+    Compression is detected from magic bytes. Indexing checks member topology, declared sizes,
+    aggregate ratio, and bounded parser operations. Reads can decompress from earlier positions;
+    versions are filesystem metadata for the whole archive, not payload digests.
 
     Example:
         >>> driver = TarStorageDriver(path, address_space_uuid=UUID(int=1))  # doctest: +SKIP
@@ -194,22 +339,26 @@ class TarStorageDriver(StorageDriverAPI[TarObjectAddress]):
         max_single_metadata_record_bytes: int = DEFAULT_MAX_TAR_SINGLE_METADATA_RECORD_BYTES,
     ) -> None:
         """
-        Configure bounded reads for one existing TAR archive.
+        Resolve an existing regular file and initialize TAR limits, ownership, and an empty cache.
+
+        The file check precedes numeric validation; no archive parsing occurs here. Positive
+        integer-like limits are converted after lower-bound checks. Stream bounds combine total
+        regular bytes with an extra metadata allowance.
 
         Example:
-            >>> driver = TarStorageDriver(path, address_space_uuid=UUID(int=1))  # doctest: +SKIP
+            >>> driver = TarStorageDriver(path, address_space_uuid=UUID(int=1), max_member_bytes=1024)  # doctest: +SKIP
 
 
-        :param archive_path:
-        :param address_space_uuid:
-        :param max_inventory_entries:
-        :param max_member_bytes:
-        :param max_depth:
-        :param max_total_uncompressed_bytes:
-        :param max_compression_ratio:
-        :param max_metadata_bytes:
-        :param max_single_metadata_record_bytes:
-        :return:
+        :param archive_path: Local container filename expanded and resolved by the driver.
+        :param address_space_uuid: Identity required by this driver's TarObjectAddress checker.
+        :param max_inventory_entries: Positive maximum parser-yielded member count, including directories but not hidden extension headers.
+        :param max_member_bytes: Positive maximum declared uncompressed bytes per regular member, further bounded by the total-byte cap.
+        :param max_depth: Positive maximum slash-separated key component count; no encoded path-byte cap is applied.
+        :param max_total_uncompressed_bytes: Positive maximum sum of declared regular-member sizes.
+        :param max_compression_ratio: Finite ratio of at least one bounding total declared regular-member bytes against container size.
+        :param max_metadata_bytes: Positive extra stream-position allowance added to the total-byte cap for metadata, headers, and padding.
+        :param max_single_metadata_record_bytes: Positive maximum individual parser read request in bytes, including payload requests through the wrapper.
+        :return: None after configuring the index lock and initial unavailable status.
         """
 
         self._archive_path = pathlib.Path(archive_path).expanduser().resolve(strict=False)
@@ -262,13 +411,14 @@ class TarStorageDriver(StorageDriverAPI[TarObjectAddress]):
     @property
     def archive_path(self) -> pathlib.Path:
         """
-        Return the resolved local TAR path.
+        Return the local path resolved during construction without checking it again.
 
         Example:
-            >>> driver.archive_path  # doctest: +SKIP
+            >>> driver.archive_path.is_absolute()  # doctest: +SKIP
+            True
 
 
-        :return:
+        :return: Resolved Path naming the TAR container.
         """
 
         return self._archive_path
@@ -276,13 +426,15 @@ class TarStorageDriver(StorageDriverAPI[TarObjectAddress]):
     @property
     def object_address_checker(self):
         """
-        Return the checker that enforces TAR address type and Store scope.
+        Expose the checker requiring TAR address type and this driver's UUID.
+
+        Checking a typed record does not reparse its member path.
 
         Example:
-            >>> driver.object_address_checker  # doctest: +SKIP
+            >>> driver.object_address_checker.address_space_uuid  # doctest: +SKIP
 
 
-        :return:
+        :return: Retained scoped checker for TarObjectAddress values.
         """
 
         return self._checker
@@ -290,14 +442,16 @@ class TarStorageDriver(StorageDriverAPI[TarObjectAddress]):
     @property
     def root_uri(self) -> str:
         """
-        Return the archive's local file URI.
+        Render the resolved container path as a file URI.
+
+        This root label does not enable parsing external member URIs.
 
         Example:
             >>> driver.root_uri.startswith("file:")  # doctest: +SKIP
             True
 
 
-        :return:
+        :return: File URI of the container path, without a member suffix.
         """
 
         return self._archive_path.as_uri()
@@ -305,14 +459,16 @@ class TarStorageDriver(StorageDriverAPI[TarObjectAddress]):
     @property
     def capabilities(self) -> DriverCapabilities:
         """
-        Advertise complete, conditional, ranged TAR reads.
+        Describe range/conditional reads, complete hierarchical inventory, and concurrency.
+
+        These are implementation capabilities, independent of the most recent probe. External
+        address URI parsing/rendering is not advertised.
 
         Example:
-            >>> driver.capabilities.range_reads  # doctest: +SKIP
-            True
+            >>> driver.capabilities.conditional_read  # doctest: +SKIP
 
 
-        :return:
+        :return: Read-only driver capabilities with four concurrent reads and thread-safe operation advertised.
         """
 
         return DriverCapabilities(
@@ -331,14 +487,17 @@ class TarStorageDriver(StorageDriverAPI[TarObjectAddress]):
     @property
     def storage_characteristics(self) -> StorageCharacteristics:
         """
-        Describe read-only TAR limits and compressed-range cost.
+        Describe read-only TAR projection limits and the cost of compressed ranges.
+
+        Reads require no complete-member staging here. Declared expansion and parser bounds do not
+        supply a cumulative nested-container budget.
 
         Example:
             >>> driver.storage_characteristics.publication_model  # doctest: +SKIP
             <StoragePublicationModel.READ_ONLY: 'read_only'>
 
 
-        :return:
+        :return: Read-only characteristics with effective member-size and key-depth limits.
         """
 
         return StorageCharacteristics(
@@ -373,28 +532,31 @@ class TarStorageDriver(StorageDriverAPI[TarObjectAddress]):
 
     def startup(self) -> DriverStatus:
         """
-        Validate the archive and return its current operational status.
+        Run the current probe implementation and return its result.
+
+        Writable subclasses use their own probe through this dispatch.
 
         Example:
             >>> driver.startup().available  # doctest: +SKIP
             True
 
 
-        :return:
+        :return: Status returned by probe; probe failures propagate.
         """
 
         return self.probe()
 
     def probe(self) -> DriverStatus:
         """
-        Re-index the TAR and report projection warnings.
+        Force a fresh index and cache an available read-only status with projection warnings.
+
+        A parsing or filesystem failure propagates without replacing the previously cached status.
 
         Example:
             >>> driver.probe().object_count  # doctest: +SKIP
-            1
 
 
-        :return:
+        :return: Successful probe snapshot with regular-member count and archive/format details.
         """
 
         index = self._get_index(force=True)
@@ -415,27 +577,30 @@ class TarStorageDriver(StorageDriverAPI[TarObjectAddress]):
 
     def status(self) -> DriverStatus:
         """
-        Return the most recently observed TAR status.
+        Return the last successful probe result, or the initial unavailable snapshot.
+
+        No filesystem access, freshness check, or probe is performed.
 
         Example:
-            >>> driver.status().available  # doctest: +SKIP
-            True
+            >>> status = driver.status()  # doctest: +SKIP
 
 
-        :return:
+        :return: Cached DriverStatus, which may no longer describe the current container.
         """
 
         return self._last_status
 
     def close(self) -> None:
         """
-        Complete lifecycle cleanup; each read owns its archive handle.
+        Finish the driver lifecycle hook without changing cached state or closing readers.
+
+        Each open reader owns its containing archive and must be closed by its caller.
 
         Example:
             >>> driver.close()  # doctest: +SKIP
 
 
-        :return:
+        :return: None; this hook performs no cleanup work.
         """
 
         return None
@@ -445,15 +610,19 @@ class TarStorageDriver(StorageDriverAPI[TarObjectAddress]):
         identifier: DriverObjectAddressInput[TarObjectAddress],
     ) -> TarObjectAddress:
         """
-        Validate one canonical member path in this TAR address space.
+        Check a typed address or validate a relative TAR member key.
+
+        Typed records undergo ownership/type checks without reparsing. Text uses canonical path and
+        configured depth validation without an encoded-byte limit, so encoding is not checked here.
+        Parsing requires no member existence.
 
         Example:
-            >>> str(driver.parse_object_address("books/novel.epub"))  # doctest: +SKIP
-            'books/novel.epub'
+            >>> str(driver.parse_object_address("books/雪.epub"))  # doctest: +SKIP
+            'books/雪.epub'
 
 
-        :param identifier:
-        :return:
+        :param identifier: Owned TAR address or relative key text; no external URI decoding is performed.
+        :return: Owned TarObjectAddress containing the retained key spelling.
         """
 
         if isinstance(identifier, DriverObjectAddress):
@@ -467,15 +636,18 @@ class TarStorageDriver(StorageDriverAPI[TarObjectAddress]):
 
     def join_object_address(self, *tokens: str) -> TarObjectAddress:
         """
-        Join TAR path components without weakening canonical validation.
+        Join one or more stringified key fragments with slashes, then parse the result.
+
+        Fragments are not trimmed or normalized before validation; empty fragments can therefore
+        produce an invalid key.
 
         Example:
-            >>> str(driver.join_object_address("books", "novel.epub"))  # doctest: +SKIP
+            >>> driver.join_object_address("books", "novel.epub").value  # doctest: +SKIP
             'books/novel.epub'
 
 
-        :param tokens:
-        :return:
+        :param tokens: One or more member-key fragments, in path order.
+        :return: Owned TAR address; an empty argument list or invalid combined key raises StorageInvalidAddress.
         """
 
         if not tokens:
@@ -487,15 +659,14 @@ class TarStorageDriver(StorageDriverAPI[TarObjectAddress]):
         object_address: TarObjectAddress,
     ) -> DriverObjectInfo[TarObjectAddress]:
         """
-        Return indexed member size, timestamp, version, and hints.
+        Look up an owned member in a current index snapshot without reading its body.
 
         Example:
-            >>> driver.stat(address).size  # doctest: +SKIP
-            42
+            >>> info = driver.stat(driver.parse_object_address("book.epub"))  # doctest: +SKIP
 
 
-        :param object_address:
-        :return:
+        :param object_address: Owned TarObjectAddress selecting a regular member.
+        :return: Indexed size/time, archive-wide version, and hints; a missing key raises StorageNotFound.
         """
 
         checked = self.check_object_address(object_address)
@@ -514,19 +685,24 @@ class TarStorageDriver(StorageDriverAPI[TarObjectAddress]):
         if_version: str | None = None,
     ) -> BinaryIO:
         """
-        Open an exact member range tied to the containing TAR version.
+        Open a member range after indexed existence and archive-version checks.
+
+        Negative ranges fail. Zero-length or past-EOF reads return empty bytes without reopening the
+        archive, after existence/version checks. Other reads reopen the TAR, check descriptor
+        identity, and return a buffered member reader owning the archive. Missing extractfile data
+        and reader positioning lie outside some opening/cleanup guards; later source failures may
+        still occur during reads.
 
         Example:
-            >>> with driver.open_read(address, offset=2, length=4) as source:  # doctest: +SKIP
-            ...     source.read()
-            b'book'
+            >>> with driver.open_read(address, offset=2, length=4, if_version=version) as source:  # doctest: +SKIP
+            ...     payload = source.read()
 
 
-        :param object_address:
-        :param offset:
-        :param length:
-        :param if_version:
-        :return:
+        :param object_address: Owned regular-member address.
+        :param offset: Nonnegative member byte offset; at or beyond indexed size returns an empty stream.
+        :param length: Nonnegative maximum bytes, clipped to the indexed remainder, or None for all remaining bytes.
+        :param if_version: Required whole-archive version, or None to omit that precondition.
+        :return: Caller-owned binary range stream, with compressed seeking potentially doing earlier decompression.
         """
 
         checked = self.check_object_address(object_address)
@@ -575,14 +751,17 @@ class TarStorageDriver(StorageDriverAPI[TarObjectAddress]):
         prefix: TarObjectAddress | None = None,
     ) -> Iterator[DriverInventoryEntry[TarObjectAddress]]:
         """
-        Yield the complete regular-file TAR inventory under an optional prefix.
+        Yield sorted regular-member observations from one index/signature snapshot.
+
+        A prefix includes its exact key and descendants separated by slash, rather than arbitrary
+        lexical matches. No member body is read or hashed during enumeration.
 
         Example:
-            >>> list(driver.iter_inventory())  # doctest: +SKIP
+            >>> keys = [str(item.object_address) for item in driver.iter_inventory()]  # doctest: +SKIP
 
 
-        :param prefix:
-        :return:
+        :param prefix: Owned TAR address restricting the exact key and its descendants, or None for the entire index.
+        :return: Iterator of size/time/version observations and hints for the selected regular members.
         """
 
         prefix_key = None if prefix is None else str(self.check_object_address(prefix))
@@ -606,16 +785,19 @@ class TarStorageDriver(StorageDriverAPI[TarObjectAddress]):
         signature: ArchiveSignature,
     ) -> DriverObjectInfo[TarObjectAddress]:
         """
-        Project one indexed TAR member into driver metadata.
+        Project one indexed member into public driver information.
+
+        Filename and MIME hints derive from the key. The TAR format and member metadata are
+        observations; no body read or fresh filesystem check occurs.
 
         Example:
             >>> info = driver._info(address, entry, signature)  # doctest: +SKIP
 
 
-        :param address:
-        :param entry:
-        :param signature:
-        :return:
+        :param address: Member address to attach to the information record.
+        :param entry: Indexed size/time and metadata for that member.
+        :param signature: Whole-container metadata signature used to render the version.
+        :return: DriverObjectInfo containing the supplied address and indexed facts.
         """
 
         return DriverObjectInfo(
@@ -632,14 +814,19 @@ class TarStorageDriver(StorageDriverAPI[TarObjectAddress]):
 
     def _get_index(self, *, force: bool = False) -> dict[str, ArchiveEntry]:
         """
-        Return a current index, rebuilding it when the TAR identity changes.
+        Return a shallow index copy, rebuilding when forced or container metadata changes.
+
+        An instance lock covers cache access, parsing, and the before/after stat comparison. A
+        changed signature during indexing raises StorageUnavailable. Only a successful build
+        replaces cached index, inspection, and signature; entries in returned copies remain shared
+        records. Metadata comparison does not pin file contents or exclude all external races.
 
         Example:
-            >>> driver._get_index()  # doctest: +SKIP
+            >>> index = driver._get_index(force=True)  # doctest: +SKIP
 
 
-        :param force:
-        :return:
+        :param force: True to parse even when the current filesystem signature matches the cached one.
+        :return: New dictionary mapping canonical regular-member keys to retained ArchiveEntry records.
         """
 
         with self._index_lock:
@@ -679,13 +866,20 @@ class TarStorageDriver(StorageDriverAPI[TarObjectAddress]):
 
     def _build_index(self) -> tuple[dict[str, ArchiveEntry], ArchiveInspection]:
         """
-        Parse and validate the bounded regular-file TAR projection.
+        Parse TAR members under stream/allocation bounds and validate the regular-file projection.
+
+        Count parser-yielded members, not every hidden extension header. Canonical keys and topology
+        are checked before directories are omitted; directory sizes have no separate check here.
+        Links and other non-regular members are rejected. Regular sizes and total bytes are bounded,
+        with sparse/PAX/permission/ownership facts recorded as loss reasons. After parsing, total
+        regular bytes are checked against container size for the aggregate ratio. Selected parser
+        and OS failures are translated; this is not a payload digest pass.
 
         Example:
             >>> index, inspection = driver._build_index()  # doctest: +SKIP
 
 
-        :return:
+        :return: New regular-member dictionary and inspection, without updating the driver cache.
         """
 
         index: dict[str, ArchiveEntry] = {}
@@ -832,7 +1026,24 @@ class TarStorageDriver(StorageDriverAPI[TarObjectAddress]):
         implicit_directory_keys: set[str],
         operation: str,
     ) -> None:
-        """Reject duplicate names and file/directory overwrite aliases."""
+        """
+        Reject duplicate and file/directory aliases, then update the shared topology sets.
+
+        Parents cannot already be files, and a new file cannot replace an implicit directory. All
+        checks precede updates for this member. Canonical syntax validation belongs to the caller.
+
+        Example:
+            >>> driver._record_member_topology("books/a.epub", is_directory=False, seen_keys={}, file_keys=set(), implicit_directory_keys=set(), operation="build inventory")  # doctest: +SKIP
+
+
+        :param key: Already canonical member key, without a directory's trailing slash.
+        :param is_directory: Whether this entry is an explicit directory rather than a file.
+        :param seen_keys: Mutable map of previously encountered keys to file/directory labels.
+        :param file_keys: Mutable set of previous file keys.
+        :param implicit_directory_keys: Mutable set of ancestor keys required by previous entries.
+        :param operation: Operation label included in integrity diagnostics.
+        :return: None after adding this entry and its ancestors; conflicting topology raises StorageIntegrityError.
+        """
 
         kind = "directory" if is_directory else "file"
         previous_kind = seen_keys.get(key)
@@ -872,13 +1083,14 @@ class TarStorageDriver(StorageDriverAPI[TarObjectAddress]):
         self,
     ) -> tuple[dict[str, ArchiveEntry], ArchiveSignature, ArchiveInspection]:
         """
-        Capture an index, archive identity, and rebuild inspection together.
+        Obtain a current index copy and its matching cached signature and inspection under the index
+        lock.
 
         Example:
             >>> index, signature, inspection = driver._index_snapshot()  # doctest: +SKIP
 
 
-        :return:
+        :return: Tuple of shallow index copy, non-None archive signature, and retained inspection record.
         """
 
         with self._index_lock:
@@ -893,15 +1105,20 @@ class TarStorageDriver(StorageDriverAPI[TarObjectAddress]):
         if_version: str | None,
     ) -> tarfile.TarFile:
         """
-        Open the same TAR file identity used to build the index.
+        Open a bounded TAR reader and compare its descriptor signature with the indexed one.
+
+        Opening/parsing precedes the identity check. A mismatch closes the reader and becomes a
+        precondition failure when if_version is present, otherwise unavailability. Missing
+        descriptor support or a later fstat failure has no explicit opened-reader cleanup guard
+        here. Matching metadata does not pin against in-place content changes.
 
         Example:
-            >>> archive = driver._open_verified_archive(signature, if_version=None)  # doctest: +SKIP
+            >>> archive = driver._open_verified_archive(signature, if_version=version)  # doctest: +SKIP
 
 
-        :param signature:
-        :param if_version:
-        :return:
+        :param signature: Expected device/inode/size/time signature for the indexed archive.
+        :param if_version: Non-None when a requested precondition should determine mismatch classification; its text is not compared here.
+        :return: Open TarFile owned by the caller after a matching descriptor signature.
         """
 
         try:
@@ -943,16 +1160,19 @@ class TarStorageDriver(StorageDriverAPI[TarObjectAddress]):
         key: str | None,
     ) -> BaseException:
         """
-        Convert TAR and OS failures into contextual storage errors.
+        Construct an OS or TAR integrity exception with operation/member context.
+
+        OSErrors use shared filesystem translation; all other supplied errors become integrity
+        errors. The helper returns rather than raises the result.
 
         Example:
-            >>> translated = driver._translate_archive_error(tarfile.ReadError(), operation="read", key=None)  # doctest: +SKIP
+            >>> error = driver._translate_archive_error(tarfile.ReadError("bad"), operation="read", key=None)  # doctest: +SKIP
 
 
-        :param error:
-        :param operation:
-        :param key:
-        :return:
+        :param error: Underlying exception to classify.
+        :param operation: Action label for the diagnostic.
+        :param key: Member suffix for the archive target, or None for the whole container.
+        :return: Translated exception instance.
         """
 
         if isinstance(error, OSError):
@@ -968,17 +1188,18 @@ class TarStorageDriver(StorageDriverAPI[TarObjectAddress]):
 
     def _failure(self, operation: str, key: str | None, reason: str) -> str:
         """
-        Build one safe TAR operation failure message.
+        Format a backend operation failure with the container or container/member target.
+
+        The shared formatter supplies its selective sensitive-text filtering.
 
         Example:
-            >>> "TAR" in driver._failure("read", "book", "bad")  # doctest: +SKIP
-            True
+            >>> message = driver._failure("read", "book.epub", "member is missing")  # doctest: +SKIP
 
 
-        :param operation:
-        :param key:
-        :param reason:
-        :return:
+        :param operation: Action that failed.
+        :param key: Member key for an archive::member target, or None for the archive alone.
+        :param reason: Human-readable cause passed to the shared formatter.
+        :return: Formatted diagnostic text.
         """
 
         target = self._archive_path if key is None else f"{self._archive_path}::{key}"
@@ -992,10 +1213,15 @@ class TarStorageDriver(StorageDriverAPI[TarObjectAddress]):
 
 class WritableTarStorageDriver(TarStorageDriver):
     """
-    Mutate TAR archives through verified atomic whole-file rebuilds.
+    Publish TAR member mutations by normalizing and rebuilding the whole container.
+
+    An instance lock coordinates mutations through this driver. Candidate inventory and the old
+    archive signature are checked before replacement, but separate stat/replace calls are not
+    cross-process compare-and-swap. Publication may precede final-index or stat failure, and
+    shared-session abort does not roll it back.
 
     Example:
-        >>> driver = WritableTarStorageDriver(path, address_space_uuid=UUID(int=1))  # doctest: +SKIP
+        >>> driver = WritableTarStorageDriver(path, address_space_uuid=UUID(int=1), compression="gz")  # doctest: +SKIP
     """
 
     def __init__(
@@ -1017,27 +1243,32 @@ class WritableTarStorageDriver(TarStorageDriver):
         max_single_metadata_record_bytes: int = DEFAULT_MAX_TAR_SINGLE_METADATA_RECORD_BYTES,
     ) -> None:
         """
-        Configure a TAR writer that publishes verified whole-archive rebuilds.
+        Configure TAR rebuild policy, optionally create the container, and initialize the read
+        driver.
+
+        Compression validation precedes creation; prefix and inherited numeric checks follow it, so
+        later invalid arguments can leave a new empty archive or parent directories. Existing
+        containers are not parsed during construction.
 
         Example:
-            >>> driver = WritableTarStorageDriver(path, address_space_uuid=UUID(int=1))  # doctest: +SKIP
+            >>> driver = WritableTarStorageDriver(path, address_space_uuid=UUID(int=1), compression="gz", deterministic=True)  # doctest: +SKIP
 
 
-        :param archive_path:
-        :param address_space_uuid:
-        :param create_archive:
-        :param compression:
-        :param deterministic:
-        :param allow_lossy_rebuild:
-        :param allocation_prefix:
-        :param max_inventory_entries:
-        :param max_member_bytes:
-        :param max_depth:
-        :param max_total_uncompressed_bytes:
-        :param max_compression_ratio:
-        :param max_metadata_bytes:
-        :param max_single_metadata_record_bytes:
-        :return:
+        :param archive_path: Local container filename expanded and resolved by the driver.
+        :param address_space_uuid: Identity required by this driver's TarObjectAddress checker.
+        :param create_archive: Whether to create a missing archive and its parent directories.
+        :param compression: none, gz, bz2, or xz, normalized by stripping and lowercasing.
+        :param deterministic: Whether member mtimes are zero; gzip output additionally uses a zero header mtime.
+        :param allow_lossy_rebuild: Whether to permit inspected metadata normalization, without bypassing unsafe-member rejection.
+        :param allocation_prefix: Canonical relative prefix for suggested member keys.
+        :param max_inventory_entries: Positive maximum parser-yielded member count, including directories but not hidden extension headers.
+        :param max_member_bytes: Positive maximum declared uncompressed bytes per regular member, further bounded by the total-byte cap.
+        :param max_depth: Positive maximum slash-separated key component count; no encoded path-byte cap is applied.
+        :param max_total_uncompressed_bytes: Positive maximum sum of declared regular-member sizes.
+        :param max_compression_ratio: Finite ratio of at least one bounding total declared regular-member bytes against container size.
+        :param max_metadata_bytes: Positive extra stream-position allowance added to the total-byte cap for metadata, headers, and padding.
+        :param max_single_metadata_record_bytes: Positive maximum individual parser read request in bytes, including payload requests through the wrapper.
+        :return: None after initializing read/index state and the instance mutation lock.
         """
 
         path = pathlib.Path(archive_path).expanduser().resolve(strict=False)
@@ -1096,14 +1327,18 @@ class WritableTarStorageDriver(TarStorageDriver):
     @property
     def capabilities(self) -> DriverCapabilities:
         """
-        Add atomic staged mutation to the TAR read capabilities.
+        Advertise create/replace/delete, allocation, and whole-container atomic publication.
+
+        Conditional reads/deletes use archive-wide versions. Reads may run concurrently, while
+        concurrent writes are not advertised. Capabilities do not establish that the current archive
+        passes rebuild inspection or parent writability checks.
 
         Example:
             >>> driver.capabilities.atomic_publish  # doctest: +SKIP
             True
 
 
-        :return:
+        :return: Writable TAR capabilities with thread-safe use and four parallel reads recommended.
         """
 
         return DriverCapabilities(
@@ -1129,14 +1364,17 @@ class WritableTarStorageDriver(TarStorageDriver):
     @property
     def storage_characteristics(self) -> StorageCharacteristics:
         """
-        Advertise whole-archive TAR rebuild and recompression cost.
+        Describe whole-store copying, recompression, and normalized TAR metadata.
+
+        Each mutation rebuilds retained regular members, with archival-snapshot usage recommended
+        and nested expansion budgeting left to callers.
 
         Example:
             >>> driver.storage_characteristics.publication_model  # doctest: +SKIP
             <StoragePublicationModel.WHOLE_STORE_REBUILD: 'whole_store_rebuild'>
 
 
-        :return:
+        :return: Rebuild characteristics with effective member/depth bounds and no unmodelled-metadata preservation promise.
         """
 
         return StorageCharacteristics(
@@ -1177,14 +1415,19 @@ class WritableTarStorageDriver(TarStorageDriver):
 
     def probe(self) -> DriverStatus:
         """
-        Report whether inspection and filesystem policy permit TAR mutation.
+        Re-index the archive, inspect rebuild loss, and try creating a sibling probe file.
+
+        The parent probe runs even when loss policy already blocks mutation. A successful snapshot
+        is available and writable only when inspection has no loss reasons or lossy rebuilding is
+        enabled. Failures propagate without replacing cached status; successful temporary-file
+        creation does not prove later replacement will succeed.
 
         Example:
-            >>> driver.probe().writable  # doctest: +SKIP
-            True
+            >>> status = driver.probe()  # doctest: +SKIP
+            >>> status.writable  # doctest: +SKIP
 
 
-        :return:
+        :return: Cached success status with member count, rebuild warnings, and writer options.
         """
 
         index = self._get_index(force=True)
@@ -1231,18 +1474,22 @@ class WritableTarStorageDriver(TarStorageDriver):
         metadata: tuple[tuple[str, str], ...] = (),
     ) -> ArchiveWriteSession[TarObjectAddress]:
         """
-        Begin a private TAR member stage for explicit commit.
+        Validate write expectations and current rebuild policy, then open member staging.
+
+        Nonempty arbitrary metadata is unsupported. Digest algorithm support and current archive
+        inspection are checked before creating the shared session. Destination existence and the
+        create/replace collision policy are evaluated at commit, rather than reserved here.
 
         Example:
             >>> session = driver.begin_write(address, expected_size=4)  # doctest: +SKIP
 
 
-        :param object_address:
-        :param mode:
-        :param expected_size:
-        :param expected_digest:
-        :param metadata:
-        :return:
+        :param object_address: Owned TAR destination address.
+        :param mode: WriteMode or convertible value selecting create/replace collision handling at commit.
+        :param expected_size: Exact accepted-byte total expected at commit, or None; negative or over-limit values are rejected.
+        :param expected_digest: Optional digest accumulated from accepted writes and compared before publication.
+        :param metadata: Extra metadata requests; only the empty tuple is supported.
+        :return: Open ArchiveWriteSession bounded by the effective member-size limit; caller must commit or abort it.
         """
 
         checked = self.check_object_address(object_address)
@@ -1275,16 +1522,21 @@ class WritableTarStorageDriver(TarStorageDriver):
         if_version: str | None = None,
     ) -> None:
         """
-        Remove one member through a conditional atomic TAR rebuild.
+        Rebuild the archive without one member under the instance mutation lock.
+
+        Rebuild policy is checked before member absence. A missing member with missing_ok returns
+        before checking if_version. Otherwise the version must match the current whole archive, and
+        retained members are reopened against that version during rebuilding. Failures after
+        replacement can leave the deletion published.
 
         Example:
-            >>> driver.delete(address, if_version=version)  # doctest: +SKIP
+            >>> driver.delete(address, if_version=info.version)  # doctest: +SKIP
 
 
-        :param object_address:
-        :param missing_ok:
-        :param if_version:
-        :return:
+        :param object_address: Owned TAR member address to omit from the rebuilt container.
+        :param missing_ok: Whether absence is accepted after current rebuild-policy validation.
+        :param if_version: Required archive-wide version for an existing member, or None to omit the condition.
+        :return: None after publication, or after accepting a missing member.
         """
 
         checked = self.check_object_address(object_address)
@@ -1311,16 +1563,21 @@ class WritableTarStorageDriver(TarStorageDriver):
         name_hint: str | None = None,
     ) -> TarObjectAddress:
         """
-        Allocate a canonical TAR member address without publishing it.
+        Suggest a member key from a digest or random identifier without reserving it.
+
+        Digest-based keys include algorithm, the first two digest characters, and the whole value.
+        Other keys combine a random UUID and selected filename hint. Final key parsing applies
+        normal TAR bounds, but no existence, algorithm-support, or content verification is
+        performed.
 
         Example:
-            >>> driver.allocate_object_address(name_hint="novel.epub")  # doctest: +SKIP
+            >>> address = driver.allocate_object_address(name_hint="book.epub")  # doctest: +SKIP
 
 
-        :param expected_size:
-        :param expected_digest:
-        :param name_hint:
-        :return:
+        :param expected_size: Optional nonnegative anticipated byte count, checked against the effective member limit.
+        :param expected_digest: Digest used to form a deterministic key, or None for random allocation.
+        :param name_hint: Optional basename hint used only for random allocation.
+        :return: Owned TarObjectAddress under the configured allocation prefix.
         """
 
         if expected_size is not None and expected_size < 0:
@@ -1350,17 +1607,22 @@ class WritableTarStorageDriver(TarStorageDriver):
         mode: WriteMode,
     ) -> DriverObjectInfo[TarObjectAddress]:
         """
-        Merge one verified member stage into an atomic TAR rebuild.
+        Merge staged bytes with version-pinned retained members and publish under the mutation lock.
+
+        Current inspection, member-size policy, and mode-specific existence checks precede
+        rebuilding. The new source uses the supplied stage and current UTC time. Final stat occurs
+        after publication while still holding the lock, and can fail with the destination already
+        visible. The shared session normally provides an owned address and validated expectations.
 
         Example:
             >>> info = driver._commit_staged_member(address, path, size=4, mode=WriteMode.CREATE_ONLY)  # doctest: +SKIP
 
 
-        :param address:
-        :param staged_path:
-        :param size:
-        :param mode:
-        :return:
+        :param address: Destination supplied by the shared write session.
+        :param staged_path: Closed local file lazily opened as the replacement member source.
+        :param size: Declared member byte count copied by tarfile.addfile; trailing source bytes are not checked.
+        :param mode: Collision policy rejecting an existing create-only target or an absent replace target.
+        :return: Fresh driver information for the published member.
         """
 
         with self._mutation_lock:
@@ -1403,15 +1665,18 @@ class WritableTarStorageDriver(TarStorageDriver):
         version: str,
     ) -> dict[str, ArchiveWriteSource]:
         """
-        Represent retained TAR members as version-pinned streaming sources.
+        Wrap indexed members in lazy read sources carrying the current archive version.
+
+        Each callback captures its own key and opens a new version-conditioned reader when
+        rebuilding reaches that member. Constructing the map reads no payload bytes.
 
         Example:
             >>> sources = driver._existing_sources(index, version=version)  # doctest: +SKIP
 
 
-        :param index:
-        :param version:
-        :return:
+        :param index: Regular-member records supplying retained sizes and timestamps.
+        :param version: Whole-archive version required when each retained source is opened.
+        :return: New key-to-ArchiveWriteSource dictionary with independent lazy open callbacks.
         """
 
         return {
@@ -1433,15 +1698,23 @@ class WritableTarStorageDriver(TarStorageDriver):
         expected_signature: ArchiveSignature,
     ) -> None:
         """
-        Build, validate, fsync, and atomically publish a complete TAR.
+        Build and validate a sibling TAR, then replace the archive and refresh its index.
+
+        Sorted regular members use PAX headers, mode 0600, and empty/zero ownership. Deterministic
+        mtimes are zero; other times use integer datetime.timestamp values, including local-time
+        semantics for naive inputs. tarfile.addfile consumes declared bytes and does not probe for
+        trailing source data. Candidate key/size equality and format limits are checked without an
+        independent payload digest pass. The original filesystem signature is checked in a separate
+        operation before os.replace. Final re-indexing can fail after replacement; cleanup only
+        removes a retained candidate and descriptor.
 
         Example:
             >>> driver._publish_sources(sources, expected_signature=signature)  # doctest: +SKIP
 
 
-        :param sources:
-        :param expected_signature:
-        :return:
+        :param sources: Complete final key-to-source plan; opened input streams are closed after addfile.
+        :param expected_signature: Original archive signature required immediately before the separate replacement operation.
+        :return: None after replacement and successful re-indexing; an exception can follow published changes.
         """
 
         candidate: pathlib.Path | None = None
@@ -1530,7 +1803,20 @@ class WritableTarStorageDriver(TarStorageDriver):
         self,
         sources: Mapping[str, ArchiveWriteSource],
     ) -> None:
-        """Reject oversized or path-conflicting rebuild plans before doing I/O."""
+        """
+        Check planned keys, topology, declared sizes, and total bytes before creating a TAR
+        candidate.
+
+        Sources remain unopened. The later archive writer and candidate index apply copying,
+        parser-allocation, stream-position, and aggregate-ratio checks.
+
+        Example:
+            >>> driver._validate_source_plan(sources)  # doctest: +SKIP
+
+
+        :param sources: Complete regular-member key-to-source map for the rebuilt container.
+        :return: None when entry, key, topology, member-size, and total-byte declarations satisfy policy.
+        """
 
         if len(sources) > self._max_inventory_entries:
             raise StorageUnsupportedOperation(
@@ -1588,13 +1874,13 @@ class WritableTarStorageDriver(TarStorageDriver):
 
     def _inspection_for_current_archive(self) -> ArchiveInspection:
         """
-        Return rebuild-loss evidence for the current TAR identity.
+        Refresh the index as needed and return its corresponding rebuild inspection.
 
         Example:
-            >>> driver._inspection_for_current_archive()  # doctest: +SKIP
+            >>> inspection = driver._inspection_for_current_archive()  # doctest: +SKIP
 
 
-        :return:
+        :return: Inspection from a current index/signature snapshot; index failures propagate.
         """
 
         _index, _signature, inspection = self._index_snapshot()
@@ -1602,14 +1888,16 @@ class WritableTarStorageDriver(TarStorageDriver):
 
     def _require_safe_rebuild(self, inspection: ArchiveInspection) -> None:
         """
-        Enforce explicit opt-in before a normalizing TAR conversion.
+        Reject reported rebuild loss unless the configured lossy-rebuild option permits it.
+
+        Allowing normalization does not bypass the indexer's rejection of unsafe members.
 
         Example:
             >>> driver._require_safe_rebuild(ArchiveInspection())  # doctest: +SKIP
 
 
-        :param inspection:
-        :return:
+        :param inspection: Current archive features and metadata reasons collected by indexing.
+        :return: None when loss reasons are absent or allowed; otherwise raises StorageUnsupportedOperation.
         """
 
         reasons = inspection.rebuild_loss_reasons
@@ -1632,16 +1920,20 @@ def _create_empty_tar(
     deterministic: bool,
 ) -> None:
     """
-    Create an empty TAR through a private sibling without replacing a race.
+    Write and fsync an empty sibling TAR, then hard-link it into an absent destination.
+
+    A target appearing before the link is retained without validation here. The parent must exist.
+    Publication can precede cleanup failure, and candidate tracking begins only after the mkstemp
+    descriptor closes. Cleanup does not restore a prior target.
 
     Example:
         >>> _create_empty_tar(path, compression="gz", deterministic=True)  # doctest: +SKIP
 
 
-    :param target:
-    :param compression:
-    :param deterministic:
-    :return:
+    :param target: Local output path for the empty container.
+    :param compression: Normalized none/gz/bz2/xz writer selection.
+    :param deterministic: Whether the gzip header uses mtime zero; non-gzip empty output ignores this flag.
+    :return: None after publication or acceptance of an already existing target; selected failures are translated.
     """
 
     candidate: pathlib.Path | None = None
@@ -1699,14 +1991,21 @@ def _open_tar(
     max_read_bytes: int,
 ) -> tarfile.TarFile:
     """
-    Open any supported TAR compression with surrogateescape path decoding.
+    Detect supported compression and open a bounded TAR reader using surrogateescape names.
+
+    Inspect initial gzip/bzip2/xz magic and otherwise treat the stream as uncompressed TAR. The
+    resulting TarFile owns the bounded wrapper and its recorded compression/raw resources. Raw
+    opening precedes the setup guard; setup BaseExceptions attempt recorded-owner cleanup,
+    suppressing only OSErrors.
 
     Example:
-        >>> archive = _open_tar(path)  # doctest: +SKIP
+        >>> archive = _open_tar(path, max_stream_bytes=4096, max_read_bytes=1024)  # doctest: +SKIP
 
 
-    :param path:
-    :return:
+    :param path: Local archive path to open in binary read mode.
+    :param max_stream_bytes: Maximum decompressed position passed to the bounded wrapper.
+    :param max_read_bytes: Maximum individual parser read request passed to the wrapper.
+    :return: Open TarFile whose close method owns the complete wrapper/resource chain.
     """
 
     raw = path.open("rb")
@@ -1762,17 +2061,22 @@ def _open_tar_writer(
     deterministic: bool,
 ) -> Iterator[tarfile.TarFile]:
     """
-    Open normalized PAX output, including reproducible deterministic gzip.
+    Yield normalized PAX output for an explicitly selected compression mode.
+
+    Names encode with UTF-8 surrogateescape. gzip output omits filename metadata and uses zero
+    header mtime only when deterministic. Other compression branches ignore this helper's
+    deterministic flag; member timestamp policy belongs to the caller. Context exit closes archive
+    and wrapper resources.
 
     Example:
         >>> with _open_tar_writer(path, compression="gz", deterministic=True) as archive:  # doctest: +SKIP
-        ...     pass
+        ...     archive.addfile(tarfile.TarInfo("empty"))
 
 
-    :param path:
-    :param compression:
-    :param deterministic:
-    :return:
+    :param path: Output filename opened in write mode, replacing existing bytes.
+    :param compression: Exactly none, gz, bz2, or xz; this helper does not normalize spelling.
+    :param deterministic: Whether gzip header mtime is zero instead of its library default.
+    :return: Context manager yielding an open TarFile writer.
     """
 
     if compression != "gz":
@@ -1813,15 +2117,17 @@ def _open_tar_writer(
 
 def _tar_datetime(value: int | float) -> datetime | None:
     """
-    Convert a TAR epoch timestamp into an aware UTC datetime when possible.
+    Interpret a float-convertible epoch timestamp as UTC when representable.
+
+    Overflow, OS, type, and value failures become None rather than an invalid member time.
 
     Example:
         >>> _tar_datetime(0)
         datetime.datetime(1970, 1, 1, 0, 0, tzinfo=datetime.timezone.utc)
 
 
-    :param value:
-    :return:
+    :param value: Seconds since the Unix epoch, converted to float before datetime construction.
+    :return: Aware UTC datetime, or None for the handled invalid/unrepresentable inputs.
     """
 
     try:

@@ -1,3 +1,11 @@
+"""
+Initialize legacy startup preferences as module globals and print their diagnostics.
+
+These values are not loaded from persistent settings. ``language`` and the verbose
+flags are assigned only when ``declare_global_preferences`` is called; imports
+alone establish just the local print aliases.
+"""
+
 from __future__ import print_function
 
 __author__ = "root"
@@ -10,10 +18,26 @@ __author__ = "root"
 LiuXin_print = LiuXin_debug_print = LiuXin_warning_print = print
 
 
-
 def declare_global_preferences():
     """
-    Declares some global preferences that LiuXin tends to universally need.
+    Reset the legacy startup globals to English, verbose startup, and nonverbose debugging.
+
+    Set ``verbose_startup=True``, ``language='eng'``, and ``verbose_debug=False``
+    on this module. Every call overwrites previous values and emits three print
+    checks plus a language message through the module's replaceable print aliases.
+
+    Example:
+        >>> from LiuXin_alpha.startup_scripts import preferences
+        >>> preferences.declare_global_preferences()
+        LiuXin_print working
+        LiuXin_debug_print_working
+        LiuXin_warning_print working
+        Language set as eng
+        >>> (preferences.language, preferences.verbose_debug)
+        ('eng', False)
+
+
+    :return: ``None``; module globals are assigned and startup diagnostics are printed.
     """
 
     # TODO: Note you need to make a variable global before assignment
@@ -42,6 +66,21 @@ def declare_global_preferences():
 
 
 def test():
+    """
+    Print the current language and debug flag as a manual startup diagnostic.
+
+    This helper does not initialize preferences or make assertions. Call
+    ``declare_global_preferences`` first so that both globals exist.
+
+    Example:
+        >>> test()  # doctest: +SKIP
+        eng
+        False
+
+
+    :return: ``None``; the two values are printed on separate lines.
+    :raises NameError: If preference initialization has not assigned the globals.
+    """
 
     print(language)
     print(verbose_debug)

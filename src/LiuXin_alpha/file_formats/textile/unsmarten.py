@@ -1,5 +1,16 @@
 # -*- coding: utf-8 -*-
 
+"""
+Replace typographic punctuation with Textile-safe equivalents.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise unsmarten through a consuming regression::
+
+        python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -11,6 +22,19 @@ __docformat__ = "restructuredtext en"
 
 
 def unsmarten(txt: _typing.Any) -> _typing.Any:
+    """
+    Perform the unsmarten operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise unsmarten through a consuming regression::
+
+            python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
+
+
+    :param txt: Value supplied for txt under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     txt = re.sub("&#162;|&cent;|¢", r"{c\}", txt)  # cent
     txt = re.sub("&#163;|&pound;|£", r"{L-}", txt)  # pound
     txt = re.sub("&#165;|&yen;|¥", r"{Y=}", txt)  # yen

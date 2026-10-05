@@ -1,3 +1,14 @@
+"""
+Provide test imageops pillow fallback utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test imageops pillow fallback through a consuming regression::
+
+        python -m pytest -q tests/utils/plugins/test_imageops_pillow_fallback.py
+"""
 from __future__ import annotations
 
 from io import BytesIO
@@ -8,6 +19,19 @@ PIL = pytest.importorskip("PIL", reason="Pillow (PIL) not installed; skipping Pi
 
 
 def _png_bytes(size=(48, 32)) -> bytes:
+    """
+    Perform the png bytes utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  png bytes through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_imageops_pillow_fallback.py
+
+
+    :param size: Value supplied for size under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     from PIL import Image
 
     im = Image.new("RGBA", size, (0, 0, 0, 0))
@@ -20,6 +44,19 @@ def _png_bytes(size=(48, 32)) -> bytes:
 
 
 def _force_pillow_backend(monkeypatch: pytest.MonkeyPatch):
+    """
+    Perform the force pillow backend utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  force pillow backend through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_imageops_pillow_fallback.py
+
+
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     from LiuXin_alpha.utils.plugins.fallbacks import imageops
 
     # Disable external backends so we exercise the Pillow "last resort".
@@ -29,6 +66,19 @@ def _force_pillow_backend(monkeypatch: pytest.MonkeyPatch):
 
 
 def test_imageops_pillow_fallback_remove_borders_and_grayscale(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Perform the test imageops pillow fallback remove borders and grayscale utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test imageops pillow fallback remove borders and grayscale through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_imageops_pillow_fallback.py
+
+
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     imageops = _force_pillow_backend(monkeypatch)
 
     data = _png_bytes((64, 48))
@@ -42,6 +92,19 @@ def test_imageops_pillow_fallback_remove_borders_and_grayscale(monkeypatch: pyte
 
 
 def test_imageops_overlay_mutates_bytearray_canvas(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Perform the test imageops overlay mutates bytearray canvas utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test imageops overlay mutates bytearray canvas through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_imageops_pillow_fallback.py
+
+
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     imageops = _force_pillow_backend(monkeypatch)
 
     base = bytearray(_png_bytes((64, 48)))
@@ -51,6 +114,19 @@ def test_imageops_overlay_mutates_bytearray_canvas(monkeypatch: pytest.MonkeyPat
 
 
 def test_imageops_cli_failure_falls_back_to_pillow(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Perform the test imageops cli failure falls back to pillow utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test imageops cli failure falls back to pillow through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_imageops_pillow_fallback.py
+
+
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.utils.plugins.fallbacks import imageops
 
     # Force Wand off, but pretend CLI exists and then fails at runtime.
@@ -58,6 +134,14 @@ def test_imageops_cli_failure_falls_back_to_pillow(monkeypatch: pytest.MonkeyPat
     monkeypatch.setattr(imageops, "_magick_convert", lambda: "/usr/bin/magick")
 
     class CP:
+        """
+        Provide the CP utility contract with explicit state and cleanup behavior.
+
+        Example:
+            Exercise test imageops cli failure falls back to pillow.CP through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_imageops_pillow_fallback.py
+        """
         returncode = 1
         stdout = b""
         stderr = b"boom"

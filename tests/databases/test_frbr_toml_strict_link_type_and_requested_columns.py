@@ -1,8 +1,14 @@
-"""Guardrail tests: strict TOML semantics for FRBR generator.
+"""
+Reject unknown cardinalities and metadata columns in copied FRBR TOML resources.
 
-- Unknown link_type must hard-fail (no silent default).
-- many_to_many_non_exclusive must explicitly request the `type` column unless requested_columns='all'.
-- Unknown requested_columns entries must hard-fail (no bespoke/ignored columns).
+Each test appends one invalid spec to a temporary resource copy, redirects the
+generator, suppresses main-table triggers and closes its in-memory connection in
+finally.
+
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/test_frbr_toml_strict_link_type_and_requested_columns.py
 """
 
 from __future__ import annotations
@@ -17,6 +23,23 @@ from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator_frbr 
 
 
 def _copy_frbr_resources(tmp_root: pathlib.Path) -> pathlib.Path:
+    """
+    Copy SQL folders and three generator TOML files into a temporary resource tree.
+
+    Uses copytree without merging existing destination folders and copy2 for TOML files.
+    Filesystem errors propagate and may leave a partial copy; cleanup belongs to the
+    caller.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_toml_strict_link_type_and_requested_columns.py
+
+
+    :param tmp_root: Destination resource root whose table_sql and trigger_sql children
+        must not already exist.
+    :return: Original tmp_root Path after copying.
+    """
     src_root = pathlib.Path(frbr_gen.__file__).resolve().parent
 
     for folder in ["table_sql", "trigger_sql"]:
@@ -29,10 +52,42 @@ def _copy_frbr_resources(tmp_root: pathlib.Path) -> pathlib.Path:
 
 
 def _without_main_triggers(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Temporarily replace main-table trigger discovery with an empty file list.
+
+    Requires the target attribute to exist; pytest owns restoration.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_toml_strict_link_type_and_requested_columns.py
+
+
+    :param monkeypatch: Pytest patch fixture; restores replaced generator or lookup
+        attributes after the test.
+    :return: None; patches the generator through the provided monkeypatch fixture.
+    """
     monkeypatch.setattr(frbr_gen, "get_trigger_sql_files", lambda: [], raising=True)
 
 
 def test_interlink_unknown_link_type_fails(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path) -> None:
+    """
+    Require TypeError when a copied interlink spec names an unknown link_type.
+
+    Accepts either supported wording of the unknown-cardinality diagnostic.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_toml_strict_link_type_and_requested_columns.py::test_interlink_unknown_link_type_fails
+
+
+    :param monkeypatch: Pytest patch fixture; restores replaced generator or lookup
+        attributes after the test.
+    :param tmp_path: Pytest-provided temporary directory for isolated database or TOML
+        files.
+    :return: None; failed expectations raise AssertionError.
+    """
     root = _copy_frbr_resources(tmp_path / "frbr_specs_bad_link_type")
     toml_path = root / "interlink_table_requests.toml"
 
@@ -61,6 +116,21 @@ def test_interlink_unknown_link_type_fails(monkeypatch: pytest.MonkeyPatch, tmp_
 def test_non_exclusive_requires_type_when_requested_columns_provided(
     monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path
 ) -> None:
+    """
+    Reject an explicit non-exclusive cardinality that requests priority without type.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_toml_strict_link_type_and_requested_columns.py::test_non_exclusive_requires_type_when_requested_columns_provided
+
+
+    :param monkeypatch: Pytest patch fixture; restores replaced generator or lookup
+        attributes after the test.
+    :param tmp_path: Pytest-provided temporary directory for isolated database or TOML
+        files.
+    :return: None; failed expectations raise AssertionError.
+    """
     root = _copy_frbr_resources(tmp_path / "frbr_specs_non_exclusive_missing_type")
     toml_path = root / "interlink_table_requests.toml"
 
@@ -87,6 +157,21 @@ def test_non_exclusive_requires_type_when_requested_columns_provided(
 
 
 def test_interlink_unknown_requested_column_fails(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path) -> None:
+    """
+    Reject an unsupported interlink metadata column with the requested_columns diagnostic.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_toml_strict_link_type_and_requested_columns.py::test_interlink_unknown_requested_column_fails
+
+
+    :param monkeypatch: Pytest patch fixture; restores replaced generator or lookup
+        attributes after the test.
+    :param tmp_path: Pytest-provided temporary directory for isolated database or TOML
+        files.
+    :return: None; failed expectations raise AssertionError.
+    """
     root = _copy_frbr_resources(tmp_path / "frbr_specs_bad_requested_col")
     toml_path = root / "interlink_table_requests.toml"
 
@@ -113,6 +198,21 @@ def test_interlink_unknown_requested_column_fails(monkeypatch: pytest.MonkeyPatc
 
 
 def test_intralink_unknown_requested_column_fails(monkeypatch: pytest.MonkeyPatch, tmp_path: pathlib.Path) -> None:
+    """
+    Reject an unsupported intralink metadata column with the requested_cols diagnostic.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_toml_strict_link_type_and_requested_columns.py::test_intralink_unknown_requested_column_fails
+
+
+    :param monkeypatch: Pytest patch fixture; restores replaced generator or lookup
+        attributes after the test.
+    :param tmp_path: Pytest-provided temporary directory for isolated database or TOML
+        files.
+    :return: None; failed expectations raise AssertionError.
+    """
     root = _copy_frbr_resources(tmp_path / "frbr_specs_bad_intralink_requested_col")
     toml_path = root / "intralink_table_requests.toml"
 

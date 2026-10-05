@@ -1,4 +1,14 @@
-"""Inspect and validate LiuXin deployment manifests."""
+"""
+Inspect deployment manifests and manage named/default manifest selectors.
+
+Selection and manifest loading belong to system_profile: explicit selectors take
+precedence over environment and persisted defaults. Validation checks syntax and
+local accessibility, not database integrity or server readiness. Named profiles
+and the default connection store pointers rather than copying a deployment.
+Publication errors do not undo already written/removed selectors. Manifest
+redaction is deliberately limited; exception messages and health receipts are
+not comprehensively sanitized by these handlers.
+"""
 
 from __future__ import annotations
 
@@ -36,11 +46,20 @@ from LiuXin_alpha.surfaces.system_profile import (
 
 def add_profile_selector(parser: argparse.ArgumentParser) -> None:
     """
-    Add mutually exclusive system-profile selectors to a parser.
+    Declare optional, mutually exclusive system-root and profile selectors.
+
+    Absence is allowed so later selection can use environment/persisted defaults.
+    Construction does not load or validate a profile.
+
+    Example:
+        >>> parser = argparse.ArgumentParser()
+        >>> add_profile_selector(parser)
+        >>> parser.parse_args(["--profile", "research"]).profile
+        'research'
 
 
-    :param parser:
-    :return:
+    :param parser: Mutable command parser receiving the selector group.
+    :return: None; selector arguments are added in place.
     """
     group = parser.add_mutually_exclusive_group(required=False)
     group.add_argument(
@@ -54,6 +73,19 @@ def add_profile_selector(parser: argparse.ArgumentParser) -> None:
 
 
 def _selected(args: argparse.Namespace):
+    """
+    Require and load the effective system profile using normal selector precedence.
+
+    Forward explicit roots/profiles, permit environment selection, and retain the
+    loader's default persisted fallback. Selection, read, and format errors escape.
+
+    Example:
+        >>> resolved = _selected(parsed_config_show_args)  # doctest: +SKIP
+
+
+    :param args: Namespace optionally containing system_root and profile selectors.
+    :return: Loaded ResolvedSystemProfile; required selection does not return None.
+    """
     return load_system_profile(
         system_root=getattr(args, "system_root", None),
         profile=getattr(args, "profile", None),
@@ -64,11 +96,19 @@ def _selected(args: argparse.Namespace):
 
 def cmd_config_path(args: argparse.Namespace) -> int:
     """
-    Execute the `config path` CLI command.
+    Publish the selected manifest path and its current file-existence status.
+
+    Selection does not load manifest contents or follow a named pointer to its
+    final target. Existence is checked separately for output and exit status,
+    so a concurrent filesystem change can make those observations differ.
+
+    Example:
+        >>> cmd_config_path(parsed_config_path_args)  # doctest: +SKIP
 
 
-    :param args:
-    :return:
+    :param args: Optional system_root/profile selectors and JSON output controls.
+    :return: Zero if the path is a file at the final check, otherwise one.
+    :raises ValueError: No selector supplies a manifest, or selection conflicts.
     """
     path, source = selected_manifest_path(
         system_root=getattr(args, "system_root", None),
@@ -86,11 +126,18 @@ def cmd_config_path(args: argparse.Namespace) -> int:
 
 def cmd_config_show(args: argparse.Namespace) -> int:
     """
-    Execute the `config show` CLI command.
+    Publish the loaded manifest, normalized root, and selection provenance.
+
+    Apply system_profile's limited manifest redaction, not the recursive diagnostic
+    sanitizer. Unknown nested secrets, path details, or URL components may remain;
+    this is not a guarantee that arbitrary manifests are safe to share.
+
+    Example:
+        >>> cmd_config_show(parsed_config_show_args)  # doctest: +SKIP
 
 
-    :param args:
-    :return:
+    :param args: Optional root/profile selection and JSON output controls.
+    :return: Zero after publishing the resolved manifest projection.
     """
     resolved = _selected(args)
     assert resolved is not None
@@ -114,6 +161,25 @@ def _check(
     *,
     severity: str = "error",
 ) -> None:
+    """
+    Append one validation observation with a truthiness-coerced success flag.
+
+    Names, messages, and severity tokens are stored without validation/redaction.
+
+    Example:
+        >>> checks = []
+        >>> _check(checks, "permissions", False, "Prefer 0600", severity="warning")
+        >>> checks[0]["severity"]
+        'warning'
+
+
+    :param checks: Mutable report list receiving the new observation.
+    :param name: Machine-readable check identifier.
+    :param ok: Value coerced to the recorded boolean status.
+    :param message: Human-readable check detail, retained verbatim.
+    :param severity: Severity token; aggregate failure recognizes exact 'error'.
+    :return: None; checks is extended by one dictionary.
+    """
     checks.append(
         {
             "name": name,
@@ -125,7 +191,32 @@ def _check(
 
 
 def validate_profile(args: argparse.Namespace) -> dict[str, Any]:
-    """Return a non-secret, machine-readable manifest validation report."""
+    """
+    Check manifest selection, target syntax, permissions, and local path access.
+
+    Selection/loading Exceptions produce a failed manifest report with path None
+    and raw exception text. Later errors are not all converted to observations:
+    malformed URL parsing or other unexpected validation failures can propagate.
+    Manifest stat failures and group/other permission bits are warnings, not blockers.
+
+    Endpoint targets require an HTTP(S) scheme and nonempty authority only; they
+    are not contacted. SQLite/APSW targets require an existing file and readable/
+    traversable parent, not a schema or integrity check. Other databases require
+    only a truthy target. Configured Store/materialization/log directories must
+    be readable, writable, and traversable; absent optional directories are info.
+    Access checks are observations, not reservations against later changes.
+
+    Manifest values receive limited redaction; raw errors and all arbitrary nested
+    values are not guaranteed secret-free. No Core session is opened.
+
+    Example:
+        >>> report = validate_profile(parsed_config_validate_args)  # doctest: +SKIP
+
+
+    :param args: Optional system_root/profile selectors with normal fallback policy.
+    :return: Report with ok/path/checks, plus source/redacted manifest after loading;
+        ok means no failed error-severity check, not complete deployment readiness.
+    """
 
     checks: list[dict[str, Any]] = []
     try:
@@ -224,11 +315,16 @@ def validate_profile(args: argparse.Namespace) -> dict[str, Any]:
 
 def cmd_config_validate(args: argparse.Namespace) -> int:
     """
-    Execute the `config validate` CLI command.
+    Publish the profile validation report and use its aggregate status as exit code.
+
+    Unexpected validation or output errors propagate rather than becoming codes.
+
+    Example:
+        >>> cmd_config_validate(parsed_config_validate_args)  # doctest: +SKIP
 
 
-    :param args:
-    :return:
+    :param args: Optional root/profile selectors and JSON publication controls.
+    :return: Zero for an ok report, otherwise one, after publication.
     """
     result = validate_profile(args)
     emit_json(result, args)
@@ -237,11 +333,19 @@ def cmd_config_validate(args: argparse.Namespace) -> int:
 
 def cmd_config_profiles_list(args: argparse.Namespace) -> int:
     """
-    Execute the `config profiles list` CLI command.
+    Inspect discovered named selectors, retaining per-profile load failures.
+
+    Load each discovered path without environment/persisted fallback. Successful
+    loading marks valid but does not check target accessibility or Core health.
+    Individual errors retain unredacted text; discovery/output errors propagate.
+    The list follows the profile-directory helper's filename order.
+
+    Example:
+        >>> cmd_config_profiles_list(parsed_profiles_list_args)  # doctest: +SKIP
 
 
-    :param args:
-    :return:
+    :param args: JSON output controls; profile-directory selection is environment-based.
+    :return: Zero after publishing directory/profiles/count, even for invalid entries.
     """
     profiles: list[dict[str, Any]] = []
     for path in iter_named_profile_paths():
@@ -288,11 +392,23 @@ def cmd_config_profiles_list(args: argparse.Namespace) -> int:
 
 def cmd_config_profiles_add(args: argparse.Namespace) -> int:
     """
-    Execute the `config profiles add` CLI command.
+    Persist a named mode-0600 pointer to a structurally loaded manifest.
+
+    Expand the target and append the manifest filename for an existing directory,
+    then load without environment/persisted fallback. A simple non-path token can
+    still resolve as a named profile via the loader. New profile directories request
+    mode 0700 without tightening existing parents. The pointer contains the final
+    resolved manifest path, not database credentials or a copy of its contents.
+
+    Shared byte publication honors the replace flag. Final report failure leaves
+    the selector in place; neither target readiness nor Core health is checked.
+
+    Example:
+        >>> cmd_config_profiles_add(parsed_profiles_add_args)  # doctest: +SKIP
 
 
-    :param args:
-    :return:
+    :param args: name, target, replace collision policy, and JSON output controls.
+    :return: Zero after writing the pointer and publishing its creation receipt.
     """
     candidate = Path(args.target).expanduser()
     if candidate.is_dir():
@@ -333,11 +449,21 @@ def cmd_config_profiles_add(args: argparse.Namespace) -> int:
 
 def cmd_config_profiles_remove(args: argparse.Namespace) -> int:
     """
-    Execute the `config profiles remove` CLI command.
+    Unlink a confirmed named selector without changing its referenced deployment.
+
+    Missing selectors produce removed=False; other unlink/output errors propagate.
+    A later report failure does not restore a successfully removed pointer.
+
+    Example:
+        >>> cmd_config_profiles_remove(argparse.Namespace(yes=False))
+        Traceback (most recent call last):
+        ...
+        ValueError: Named profile removal requires --yes.
 
 
-    :param args:
-    :return:
+    :param args: Simple profile name, yes confirmation, and JSON output controls.
+    :return: Zero if the pointer was removed, one if it was absent.
+    :raises ValueError: Confirmation is absent or the simple profile name is invalid.
     """
     if not args.yes:
         raise ValueError("Named profile removal requires --yes.")
@@ -361,7 +487,32 @@ def cmd_config_profiles_remove(args: argparse.Namespace) -> int:
 
 
 def cmd_connect(args: argparse.Namespace) -> int:
-    """Validate and persist one default manifest selection."""
+    """
+    Inspect the default connection or persist a newly selected manifest pointer.
+
+    Exact positional 'status', or no explicit selector, takes the inspection path.
+    Status conflicts with option selectors; other positional roots cannot be mixed
+    with them either. Status reports both persisted and environment-effective paths,
+    but its exit code reflects only the persisted manifest's file existence, not
+    effective selection validity, manifest contents, or Core health.
+
+    For a new choice, load with environment/persisted fallback disabled. Unless
+    no_health_check is true, query health in a storage-enabled session; a returned
+    failure flag is not interpreted. Only after session exit persist the pointer.
+    A truthy selector environment variable reports effective_now=False even if it
+    selects the same manifest. Output failure leaves the new pointer installed.
+    The target is partially redacted, but the health receipt is published unchanged.
+
+    Example:
+        >>> cmd_connect(parsed_connect_status_args)  # doctest: +SKIP
+
+
+    :param args: Optional connection_system_root/system_root/profile, no_health_check
+        for new choices, and JSON output controls.
+    :return: For status, zero if the persisted manifest is a file, else one;
+        for a new selection, zero after persistence and output.
+    :raises ValueError: Explicit selection forms conflict or profile loading fails.
+    """
 
     positional_root = getattr(args, "connection_system_root", None)
     option_root = getattr(args, "system_root", None)
@@ -445,7 +596,19 @@ def cmd_connect(args: argparse.Namespace) -> int:
 
 
 def cmd_disconnect(args: argparse.Namespace) -> int:
-    """Clear only the persisted selector; never modify a LiuXin system."""
+    """
+    Remove only the persisted connection pointer and report remaining env selection.
+
+    The manifest/database and environment remain untouched. Missing pointers are
+    not errors, and output failure does not undo a completed removal.
+
+    Example:
+        >>> cmd_disconnect(parsed_disconnect_args)  # doctest: +SKIP
+
+
+    :param args: JSON publication controls; pointer location is selected by its helper.
+    :return: Zero after output, whether or not a pointer previously existed.
+    """
 
     connection_file = active_connection_path()
     disconnected = clear_persisted_connection()
@@ -468,11 +631,20 @@ def build_connection_parsers(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
     """
-    Build the `connection` command-line parser family.
+    Register connect status/selection and disconnect without touching persisted state.
+
+    Positional-selector conflicts are handler checks, not argparse exclusivity.
+    A new connection checks health by default; disconnect has no selector argument.
+
+    Example:
+        >>> parser = argparse.ArgumentParser()
+        >>> build_connection_parsers(parser.add_subparsers())
+        >>> parser.parse_args(["connect", "status"]).connection_system_root
+        'status'
 
 
-    :param subparsers:
-    :return:
+    :param subparsers: Root CLI collection receiving connect and disconnect leaves.
+    :return: None; arguments and handlers are registered in place.
     """
     connect = subparsers.add_parser(
         "connect",
@@ -508,11 +680,22 @@ def build_config_parser(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
     """
-    Build the `config` command-line parser.
+    Register manifest inspection and nested named-profile management commands.
+
+    Path/show/validate accept optional selection; profile list/add/remove use the
+    per-user profile directory. Replacement/removal flags are passed to handlers,
+    with no loading, directory creation, or persistence during construction.
+
+    Example:
+        >>> parser = argparse.ArgumentParser()
+        >>> build_config_parser(parser.add_subparsers())
+        >>> args = parser.parse_args(["config", "profiles", "add", "books", "/srv/books"])
+        >>> args.name, args.replace
+        ('books', False)
 
 
-    :param subparsers:
-    :return:
+    :param subparsers: Root CLI collection receiving the required config action tree.
+    :return: None; inspection and named-selector leaves are added in place.
     """
     parser = subparsers.add_parser(
         "config",

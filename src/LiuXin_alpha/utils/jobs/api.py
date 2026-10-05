@@ -1,9 +1,13 @@
-"""Portable job execution API with swappable backends.
+"""
+Define job state, progress, result and cancellation contracts shared by job managers.
 
-This module intentionally provides a small, explicit surface area so callers can
-run the same job using either:
-- `process` backend: child process isolation with timeout/abort support
-- `serial` backend: in-process execution fallback
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise api through a consuming regression::
+
+        python -m pytest -q tests/utils/jobs/test_jobs_manager.py
 """
 
 from __future__ import annotations
@@ -23,7 +27,14 @@ from typing import Any, Callable, Iterator, Mapping
 
 @dataclass
 class JobRequest:
-    """Description of a callable to execute."""
+    """
+    Description of a callable to execute.
+
+    Example:
+        Exercise JobRequest through a consuming regression::
+
+            python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+    """
 
     module_name: str
     function_name: str
@@ -36,7 +47,14 @@ class JobRequest:
 
 @dataclass
 class JobExecution:
-    """Execution result returned by a backend."""
+    """
+    Execution result returned by a backend.
+
+    Example:
+        Exercise JobExecution through a consuming regression::
+
+            python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+    """
 
     ok: bool
     result: Any = None
@@ -47,7 +65,14 @@ class JobExecution:
 
 
 class JobBackend(ABC):
-    """Backend interface for running a `JobRequest`."""
+    """
+    Backend interface for running a `JobRequest`.
+
+    Example:
+        Exercise JobBackend through a consuming regression::
+
+            python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+    """
 
     name: str
 
@@ -62,11 +87,42 @@ class JobBackend(ABC):
         abort: Any,
         log_path: str | None = None,
     ) -> JobExecution:
+        """
+        Perform the run utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise JobBackend.run through a consuming regression::
+
+                python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+
+
+        :param request: Value supplied for request under the utility contract.
+        :param timeout: Maximum wait time before the operation fails.
+        :param no_output: Value supplied for no output under the utility contract.
+        :param heartbeat: Value supplied for heartbeat under the utility contract.
+        :param abort: Value supplied for abort under the utility contract.
+        :param log_path: Value supplied for log path under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raise NotImplementedError
 
 
 @contextmanager
 def _temporary_cwd(path: str | None) -> Iterator[None]:
+    """
+    Perform the temporary cwd utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  temporary cwd through a consuming regression::
+
+            python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: An iterator yielding the normalized values described above.
+    """
     if not path:
         yield
         return
@@ -81,6 +137,18 @@ def _temporary_cwd(path: str | None) -> Iterator[None]:
 
 @contextmanager
 def _temporary_env(env: Mapping[str, str] | None) -> Iterator[None]:
+    """
+    Perform the temporary env utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  temporary env through a consuming regression::
+
+            python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+
+
+    :param env: Value supplied for env under the utility contract.
+    :return: An iterator yielding the normalized values described above.
+    """
     if not env:
         yield
         return
@@ -101,6 +169,19 @@ def _temporary_env(env: Mapping[str, str] | None) -> Iterator[None]:
 
 
 def _load_job_callable(request: JobRequest) -> Callable[..., Any]:
+    """
+    Perform the load job callable utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  load job callable through a consuming regression::
+
+            python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+
+
+    :param request: Value supplied for request under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if request.module_is_source_code:
         module = types.ModuleType("liuxin_job_source")
         exec(request.module_name, module.__dict__)
@@ -114,6 +195,19 @@ def _load_job_callable(request: JobRequest) -> Callable[..., Any]:
 
 
 def _execute_request_payload(request: JobRequest) -> dict[str, Any]:
+    """
+    Perform the execute request payload utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  execute request payload through a consuming regression::
+
+            python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+
+
+    :param request: Value supplied for request under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         with _temporary_env(request.env), _temporary_cwd(request.cwd):
             func = _load_job_callable(request)
@@ -124,12 +218,38 @@ def _execute_request_payload(request: JobRequest) -> dict[str, Any]:
 
 
 def allocate_job_log_path() -> str:
+    """
+    Perform the allocate job log path utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise allocate job log path through a consuming regression::
+
+            python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     fd, path = tempfile.mkstemp(prefix="liuxin_job_", suffix=".log")
     os.close(fd)
     return path
 
 
 def _execute_with_optional_logging(request: JobRequest, log_path: str | None) -> dict[str, Any]:
+    """
+    Perform the execute with optional logging utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  execute with optional logging through a consuming regression::
+
+            python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+
+
+    :param request: Value supplied for request under the utility contract.
+    :param log_path: Value supplied for log path under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if not log_path:
         return _execute_request_payload(request)
 
@@ -139,6 +259,21 @@ def _execute_with_optional_logging(request: JobRequest, log_path: str | None) ->
 
 
 def _process_entry(conn, request: JobRequest, log_path: str | None) -> None:
+    """
+    Perform the process entry utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  process entry through a consuming regression::
+
+            python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+
+
+    :param conn: SQLite connection used for schema or metadata queries.
+    :param request: Value supplied for request under the utility contract.
+    :param log_path: Value supplied for log path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     try:
         payload = _execute_with_optional_logging(request, log_path)
         conn.send(payload)
@@ -149,6 +284,14 @@ def _process_entry(conn, request: JobRequest, log_path: str | None) -> None:
 
 
 class SerialJobBackend(JobBackend):
+    """
+    Provide the SerialJobBackend utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise SerialJobBackend through a consuming regression::
+
+            python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+    """
     name = "serial"
 
     def run(
@@ -161,6 +304,24 @@ class SerialJobBackend(JobBackend):
         abort: Any,
         log_path: str | None = None,
     ) -> JobExecution:
+        """
+        Perform the run utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise SerialJobBackend.run through a consuming regression::
+
+                python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+
+
+        :param request: Value supplied for request under the utility contract.
+        :param timeout: Maximum wait time before the operation fails.
+        :param no_output: Value supplied for no output under the utility contract.
+        :param heartbeat: Value supplied for heartbeat under the utility contract.
+        :param abort: Value supplied for abort under the utility contract.
+        :param log_path: Value supplied for log path under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         del timeout  # Serial backend cannot preempt running work.
 
         if abort is not None and hasattr(abort, "is_set") and abort.is_set():
@@ -180,6 +341,14 @@ class SerialJobBackend(JobBackend):
 
 
 class ProcessJobBackend(JobBackend):
+    """
+    Provide the ProcessJobBackend utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise ProcessJobBackend through a consuming regression::
+
+            python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+    """
     name = "process"
 
     def run(
@@ -192,6 +361,24 @@ class ProcessJobBackend(JobBackend):
         abort: Any,
         log_path: str | None = None,
     ) -> JobExecution:
+        """
+        Perform the run utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise ProcessJobBackend.run through a consuming regression::
+
+                python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+
+
+        :param request: Value supplied for request under the utility contract.
+        :param timeout: Maximum wait time before the operation fails.
+        :param no_output: Value supplied for no output under the utility contract.
+        :param heartbeat: Value supplied for heartbeat under the utility contract.
+        :param abort: Value supplied for abort under the utility contract.
+        :param log_path: Value supplied for log path under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         effective_log_path = None if no_output else (str(log_path).strip() if log_path else allocate_job_log_path())
 
         parent_conn, child_conn = Pipe(duplex=False)
@@ -244,10 +431,35 @@ _PROCESS_BACKEND = ProcessJobBackend()
 
 
 def available_backends() -> tuple[str, ...]:
+    """
+    Perform the available backends utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise available backends through a consuming regression::
+
+            python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return ("process", "serial")
 
 
 def get_backend(name: str | None = None) -> JobBackend:
+    """
+    Return backend under the documented compatibility and safety rules.
+
+    Example:
+        Exercise get backend through a consuming regression::
+
+            python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     selected = (name or os.environ.get("LIUXIN_JOB_BACKEND", "process")).strip().lower()
     if selected in {"", "auto", "default"}:
         selected = "process"
@@ -271,6 +483,25 @@ def execute_job(
     backend: str | JobBackend | None = None,
     log_path: str | None = None,
 ) -> JobExecution:
+    """
+    Perform the execute job utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise execute job through a consuming regression::
+
+            python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+
+
+    :param request: Value supplied for request under the utility contract.
+    :param timeout: Maximum wait time before the operation fails.
+    :param no_output: Value supplied for no output under the utility contract.
+    :param heartbeat: Value supplied for heartbeat under the utility contract.
+    :param abort: Value supplied for abort under the utility contract.
+    :param backend: Value supplied for backend under the utility contract.
+    :param log_path: Value supplied for log path under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     backend_impl: JobBackend
     if isinstance(backend, JobBackend):
         backend_impl = backend

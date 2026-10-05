@@ -1,3 +1,14 @@
+"""
+Provide test rtf unicode torture utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test rtf unicode torture through a consuming regression::
+
+        python -m pytest -q tests/file_formats/rtf/test_rtf_unicode_torture.py
+"""
 from __future__ import annotations
 
 import importlib
@@ -21,6 +32,19 @@ UNICODE_CASES = [
 
 @pytest.mark.parametrize("payload", UNICODE_CASES)
 def test_txt2rtf_unicode_torture_has_ascii_safe_output(payload: str) -> None:
+    """
+    Perform the test txt2rtf unicode torture has ascii safe output operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test txt2rtf unicode torture has ascii safe output through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_unicode_torture.py
+
+
+    :param payload: Value supplied for payload under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     mod = importlib.import_module("LiuXin_alpha.file_formats.rtf.rtfml")
     out = mod.txt2rtf(payload)
     encoded = out.encode("ascii", "strict")
@@ -32,6 +56,18 @@ def test_txt2rtf_unicode_torture_has_ascii_safe_output(payload: str) -> None:
 
 
 def test_txt2rtf_fuzz_deterministic_stability() -> None:
+    """
+    Perform the test txt2rtf fuzz deterministic stability operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test txt2rtf fuzz deterministic stability through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_unicode_torture.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     mod = importlib.import_module("LiuXin_alpha.file_formats.rtf.rtfml")
     rng = random.Random(20260303)
     alphabet = list("abcXYZ0123 ,.;:!?-_/{}\\") + [

@@ -1,5 +1,16 @@
 #!/usr/bin/env  python
 
+"""
+Map MOBI language identifiers to normalized language codes.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise langcodes through a consuming regression::
+
+        python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -310,6 +321,19 @@ IANA_MOBI = {
 
 
 def iana2mobi(icode: _typing.Any) -> _typing.Any:
+    """
+    Perform the iana2mobi operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise iana2mobi through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param icode: Value supplied for icode under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     langdict, subtags = IANA_MOBI[None], []
     if icode:
         subtags = list(icode.split("-"))
@@ -334,6 +358,20 @@ def iana2mobi(icode: _typing.Any) -> _typing.Any:
 
 
 def mobi2iana(langcode: _typing.Any, sublangcode: _typing.Any) -> _typing.Any:
+    """
+    Perform the mobi2iana operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise mobi2iana through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param langcode: Value supplied for langcode under the utility contract.
+    :param sublangcode: Value supplied for sublangcode under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     prefix = suffix = None
     for code, d in IANA_MOBI.items():
         for subcode, t in d.items():

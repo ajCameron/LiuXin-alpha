@@ -1,3 +1,14 @@
+"""
+Verify PDF Info/XMP metadata and cover behavior.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test pdf metadata source through its owning regression module::
+
+        python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+"""
 from __future__ import annotations
 
 import importlib.util
@@ -7,10 +18,24 @@ from pathlib import Path
 
 import pytest
 
-from LiuXin_alpha.metadata.metadata import MetaData
+from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
+    CalibreLikeLiuXinBookMetaData as MetaData,
+)
 
 
 def _values(raw):
+    """
+    Perform the values test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise values through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     if raw is None:
         return []
     if isinstance(raw, Mapping):
@@ -24,10 +49,35 @@ def _values(raw):
 
 
 def _pdf_escape(value: str) -> str:
+    """
+    Perform the pdf escape test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise pdf escape through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :param value: Value stored, compared or projected by the operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return value.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
 
 
 def _assemble_pdf(objects: list[bytes], *, info_obj_num: int) -> bytes:
+    """
+    Perform the assemble pdf test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise assemble pdf through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :param objects: Value supplied for objects in the focused test operation.
+    :param info_obj_num: Value supplied for info obj num in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     out = bytearray(b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n")
     offsets = [0]
 
@@ -62,6 +112,24 @@ def _build_pdf(
     producer: str = "Producer Tool",
     xmp_xml: str | None = None,
 ) -> bytes:
+    """
+    Perform the build pdf test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise build pdf through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :param title: Value supplied for title in the focused test operation.
+    :param author: Value supplied for author in the focused test operation.
+    :param subject: Value supplied for subject in the focused test operation.
+    :param keywords: Value supplied for keywords in the focused test operation.
+    :param creator: Value supplied for creator in the focused test operation.
+    :param producer: Value supplied for producer in the focused test operation.
+    :param xmp_xml: Value supplied for xmp xml in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     pages_obj = b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>"
     page_obj = b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 144] /Contents 4 0 R >>"
     content_stream = b"<< /Length 31 >>\nstream\nBT /F1 24 Tf 100 100 Td (Hello) Tj ET\nendstream"
@@ -91,6 +159,18 @@ def _build_pdf(
 
 
 def _build_pdf_with_raw_info(info_obj: bytes) -> bytes:
+    """
+    Perform the build pdf with raw info test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise build pdf with raw info through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :param info_obj: Value supplied for info obj in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     pages_obj = b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>"
     page_obj = b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 144] /Contents 4 0 R >>"
     content_stream = b"<< /Length 31 >>\nstream\nBT /F1 24 Tf 100 100 Td (Hello) Tj ET\nendstream"
@@ -100,6 +180,17 @@ def _build_pdf_with_raw_info(info_obj: bytes) -> bytes:
 
 
 def _xmp_unicode_packet() -> str:
+    """
+    Perform the xmp unicode packet test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise xmp unicode packet through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return """<?xpacket begin="﻿" id="W5M0MpCehiHzreSzNTczkc9d"?>
 <x:xmpmeta xmlns:x="adobe:ns:meta/">
   <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
@@ -118,6 +209,18 @@ def _xmp_unicode_packet() -> str:
 
 
 def _metadata_snapshot(md) -> dict:
+    """
+    Perform the metadata snapshot test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise metadata snapshot through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :param md: Value supplied for md in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return {
         "title": md.title,
         "authors": sorted(_values(getattr(md, "authors", None))),
@@ -135,13 +238,37 @@ def _metadata_snapshot(md) -> dict:
 
 
 def test_pdf_metadata_module_import_smoke() -> None:
+    """
+    Verify pdf metadata module import smoke.
+
+    Example:
+        Exercise test pdf metadata module import smoke through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.pdf as pdf_md
 
     assert pdf_md is not None
 
 
 def test_pdf_reader_plugin_is_available_and_preserves_stream_position() -> None:
-    from LiuXin_alpha.customize.builtins.metadata_readers import get_metadata_reader_plugins
+    """
+    Verify pdf reader plugin remains available and preserves stream position.
+
+    Example:
+        Exercise test pdf reader plugin is available and preserves stream position through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
+    from LiuXin_alpha.customize.builtins.metadata_readers import (
+        get_metadata_reader_plugins,
+    )
 
     payload = _build_pdf(title="Reader Title")
     plugins = get_metadata_reader_plugins()
@@ -158,6 +285,17 @@ def test_pdf_reader_plugin_is_available_and_preserves_stream_position() -> None:
 
 
 def test_pdf_get_metadata_parses_info_dict_unicode() -> None:
+    """
+    Verify pdf get metadata parses info dict unicode.
+
+    Example:
+        Exercise test pdf get metadata parses info dict unicode through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.pdf import get_metadata
 
     payload = _build_pdf(
@@ -176,6 +314,17 @@ def test_pdf_get_metadata_parses_info_dict_unicode() -> None:
 
 
 def test_pdf_get_metadata_prefers_xmp_when_present() -> None:
+    """
+    Verify pdf get metadata prefers xmp when present.
+
+    Example:
+        Exercise test pdf get metadata prefers xmp when present through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.pdf import get_metadata
 
     payload = _build_pdf(
@@ -194,6 +343,18 @@ def test_pdf_get_metadata_prefers_xmp_when_present() -> None:
 
 
 def test_pdf_get_metadata_inplace_pathlike(tmp_path: Path) -> None:
+    """
+    Verify pdf get metadata inplace pathlike.
+
+    Example:
+        Exercise test pdf get metadata inplace pathlike through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.pdf import get_metadata_inplace
 
     path = tmp_path / "fixture.pdf"
@@ -205,6 +366,17 @@ def test_pdf_get_metadata_inplace_pathlike(tmp_path: Path) -> None:
 
 
 def test_pdf_invalid_payload_raises_by_default_and_can_opt_into_fallback() -> None:
+    """
+    Verify pdf invalid payload raises by default and can opt into fallback.
+
+    Example:
+        Exercise test pdf invalid payload raises by default and can opt into fallback through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.pdf import PdfParseError, get_metadata
 
     with pytest.raises(PdfParseError):
@@ -216,6 +388,17 @@ def test_pdf_invalid_payload_raises_by_default_and_can_opt_into_fallback() -> No
 
 
 def test_pdf_set_metadata_backend_fallback_behavior() -> None:
+    """
+    Verify pdf set metadata backend fallback behavior.
+
+    Example:
+        Exercise test pdf set metadata backend fallback behavior through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.pdf import set_metadata
 
     payload = _build_pdf(title="Seed", author="Seed Author")
@@ -235,6 +418,17 @@ def test_pdf_set_metadata_backend_fallback_behavior() -> None:
 
 
 def test_pdf_set_metadata_roundtrip_unicode_torture_if_backend_available() -> None:
+    """
+    Verify pdf set metadata roundtrip unicode torture if backend available.
+
+    Example:
+        Exercise test pdf set metadata roundtrip unicode torture if backend available through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     pytest.importorskip("pypdf")
     from LiuXin_alpha.metadata.file_sources.pdf import get_metadata, set_metadata
 
@@ -259,6 +453,17 @@ def test_pdf_set_metadata_roundtrip_unicode_torture_if_backend_available() -> No
 
 
 def test_pdf_set_metadata_invalid_payload_raises_if_backend_available() -> None:
+    """
+    Verify pdf set metadata invalid payload raises if backend available.
+
+    Example:
+        Exercise test pdf set metadata invalid payload raises if backend available through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     pytest.importorskip("pypdf")
     from LiuXin_alpha.metadata.file_sources.pdf import set_metadata
 
@@ -272,6 +477,17 @@ def test_pdf_set_metadata_invalid_payload_raises_if_backend_available() -> None:
 
 
 def test_pdf_unicode_torture_info_dict_literal_strings() -> None:
+    """
+    Verify pdf unicode torture info dict literal strings.
+
+    Example:
+        Exercise test pdf unicode torture info dict literal strings through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.pdf import get_metadata
 
     payload = _build_pdf(
@@ -291,6 +507,17 @@ def test_pdf_unicode_torture_info_dict_literal_strings() -> None:
 
 
 def test_pdf_unicode_torture_info_dict_utf16_hex_strings() -> None:
+    """
+    Verify pdf unicode torture info dict utf16 hex strings.
+
+    Example:
+        Exercise test pdf unicode torture info dict utf16 hex strings through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.pdf import get_metadata
 
     title = "Hex Title — 你好 😀"
@@ -313,6 +540,17 @@ def test_pdf_unicode_torture_info_dict_utf16_hex_strings() -> None:
 
 
 def test_pdf_unicode_torture_xmp_multilingual_and_rtl() -> None:
+    """
+    Verify pdf unicode torture xmp multilingual and rtl.
+
+    Example:
+        Exercise test pdf unicode torture xmp multilingual and rtl through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.pdf import get_metadata
 
     xmp_packet = """<?xpacket begin="﻿" id="W5M0MpCehiHzreSzNTczkc9d"?>
@@ -384,6 +622,18 @@ def test_pdf_unicode_torture_xmp_multilingual_and_rtl() -> None:
     ],
 )
 def test_pdf_unicode_torture_deterministic_matrix(token: str) -> None:
+    """
+    Verify pdf unicode torture deterministic matrix.
+
+    Example:
+        Exercise test pdf unicode torture deterministic matrix through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :param token: Value supplied for token in the focused test operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.pdf import get_metadata
 
     payload = _build_pdf(
@@ -403,6 +653,17 @@ def test_pdf_unicode_torture_deterministic_matrix(token: str) -> None:
 
 
 def test_pdf_invalid_utf8_bytes_in_info_dict_degrades_gracefully() -> None:
+    """
+    Verify pdf invalid utf8 bytes in info dict degrades gracefully.
+
+    Example:
+        Exercise test pdf invalid utf8 bytes in info dict degrades gracefully through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.pdf import get_metadata
 
     info_obj = b"<< /Title (Broken\x80Title\xff) /Author (A) /Keywords (tag-one) >>"

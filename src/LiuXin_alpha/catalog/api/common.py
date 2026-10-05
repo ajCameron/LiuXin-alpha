@@ -1,22 +1,20 @@
-"""Shared values returned and accepted by the semantic Catalog API.
+"""
+Shared candidate, matching, error, and WEMI result values for Catalog callers.
 
-Repositories deliberately accept mappings rather than schema-specific
-dataclasses.  Public aliases such as ``{"title": "Frankenstein"}`` are
-normalized by the concrete repository; returned mappings use actual database
-column names such as ``work_title``.
+Repositories interpret row mappings using their own field aliases and return
+database column names. The aliases in this module describe types; they do not
+validate IDs, column names, or WEMI levels at runtime. Candidate and retrieval
+dataclasses retain supplied values. Only MatchEvidence and MatchResult implement
+additional constructor checks, and their frozen fields do not freeze nested data.
 
-Matching is non-boolean. A :class:`MatchResult` distinguishes a safe match, a
-genuine non-match, an ambiguity, and contradictory evidence::
+Matching distinguishes match, no_match, ambiguous, and conflict. A missing selected
+ID alone does not permit automatic creation; inspect the decision or use the
+repository's match_or_create operation to apply its identity safeguards.
 
-    result = catalog.matching.works.best(
-        MetadataCandidate({"title": "Frankenstein"})
-    )
-    if result.is_match:
-        work = catalog.works.require(result.entity_id)
-    elif result.requires_resolution:
-        present_choices(result.alternatives, result.evidence)
-    else:
-        work_id = catalog.works.create({"title": "Frankenstein"})
+Example:
+    >>> result = MatchResult(None, 1, "duplicate names", decision="ambiguous")
+    >>> result.is_match, result.requires_resolution
+    (False, True)
 """
 
 from __future__ import annotations
@@ -52,42 +50,83 @@ MatchEvidenceKind: TypeAlias = Literal[
 
 
 class CatalogError(RuntimeError):
-    """Base error for caller-visible Catalog failures.
+    """
+    Base exception for failures reported through the Catalog error hierarchy.
 
-    Catch a narrower subclass when recovery differs between absence, rejected
-    mutation, ambiguity, and contradictory identity evidence.
+    Catch a more specific subclass when absence, rejected mutation, and unresolved identity need
+    different recovery. Underlying database or validation errors are not necessarily wrapped in this
+    hierarchy.
+
+    Example:
+        >>> isinstance(CatalogNotFoundError("missing Work"), CatalogError)
+        True
     """
 
 
 class CatalogNotFoundError(CatalogError, KeyError):
-    """Raised by ``repository.require(id)`` when the entity is absent.
+    """
+    Report an absent required Catalog entity.
 
-    Use ``repository.get(id)`` when absence is an expected outcome. The missing
-    table/entity and ID are retained in the exception message.
+    Repository require operations use this error when lookup cannot supply a row; use get when a
+    missing row is an expected result. It also inherits KeyError, and its message is supplied by the
+    raising operation.
+
+    Example:
+        >>> error = CatalogNotFoundError("missing Work 42")
+        >>> isinstance(error, KeyError)
+        True
     """
 
 
 class CatalogMutationError(CatalogError):
-    """Raised when a mutation violates schema, ownership, or policy rules.
+    """
+    Report a rejected Catalog mutation or an unsupported mutation policy.
 
-    Semantic mutation helpers use transactions, so this error normally means
-    the coordinated operation was rejected or rolled back.
+    This exception carries the caller-supplied explanation. It performs no rollback itself:
+    atomicity and any completed effects depend on the operation that raises it. Database and
+    validation failures may propagate as other exception types.
+
+    Example:
+        >>> error = CatalogMutationError("unsupported merge policy")
+        >>> error.args
+        ('unsupported merge policy',)
     """
 
 
 class CatalogMatchError(CatalogError):
-    """Base error when ``match_or_create`` cannot automate identity safely.
+    """
+    Carry an identity decision that a Catalog operation cannot resolve automatically.
 
-    The unresolved :class:`MatchResult` is available as :attr:`result`, so a
-    caller can show alternatives and evidence without repeating the match.
+    Matching errors retain the same result object so callers can inspect evidence and alternatives
+    without repeating the query. The constructor neither validates that object nor requires an
+    ambiguous or conflicting decision.
+
+    Example:
+        >>> result = MatchResult(None, 0.8, "two candidates", decision="ambiguous")
+        >>> error = CatalogMatchError("choose an identity", result)
+        >>> error.result is result
+        True
+
+
+    :ivar result: Decision supplied to the constructor, retained by reference.
     """
 
     def __init__(self, message: str, result: "MatchResult") -> None:
-        """Store the unresolved match result with the error.
+        """
+        Attach the supplied decision and initialize the exception message.
 
-        :param message: Human-readable explanation of the failed automation.
-        :param result: Match decision which requires caller intervention.
-        :return: None.
+        Only message enters the exception args tuple. The result is assigned unchanged; constructing
+        an error does not raise it or apply a matching policy.
+
+        Example:
+            >>> error = CatalogMatchError("review required", MatchResult(None, 0, "absent"))
+            >>> error.args
+            ('review required',)
+
+
+        :param message: Human-readable reason automatic identity handling stopped.
+        :param result: Matching decision to expose on the exception without copying or validation.
+        :return: None after the message and result have been stored.
         """
 
         super().__init__(message)
@@ -95,52 +134,91 @@ class CatalogMatchError(CatalogError):
 
 
 class CatalogAmbiguousMatchError(CatalogMatchError):
-    """Raised when several entities remain plausible matches.
+    """
+    Signal that multiple plausible identities need caller resolution.
 
-    ``error.result.alternatives`` contains their IDs and
-    ``error.result.evidence`` explains why they qualified.
+    Repository match_or_create operations raise this instead of selecting an arbitrary alternative.
+    Inspect result.alternatives and result.evidence; the inherited constructor does not enforce
+    their completeness or decision value.
+
+    Example:
+        >>> result = MatchResult(None, 1, "duplicate names", decision="ambiguous", alternatives=(2, 3))
+        >>> error = CatalogAmbiguousMatchError("choose a record", result)
+        >>> error.result.alternatives
+        (2, 3)
     """
 
 
 class CatalogMatchConflictError(CatalogMatchError):
-    """Raised when decisive matching evidence points to conflicting entities.
+    """
+    Signal contradictory identity evidence that prevents automatic matching.
 
-    Do not automatically choose one alternative or create a new entity; inspect
-    ``error.result.evidence`` and resolve the conflicting source data.
+    Inspect the attached decision before correcting source data or choosing an identity. The error
+    records the reported conflict; its inherited constructor does not itself compare candidates or
+    verify that the decision is conflict.
+
+    Example:
+        >>> result = MatchResult(None, 1, "identifiers disagree", decision="conflict")
+        >>> CatalogMatchConflictError("review identifiers", result).result.requires_resolution
+        True
     """
 
 
 class DatabaseHandle(Protocol):
     """
-    Minimal structural placeholder for the raw database object.
+    Describe the minimal portable-macro attribute expected of a database handle.
 
-    This is intentionally tiny. Concrete repositories should adapt to the real
-    database API through small helper methods rather than forcing the raw database
-    package to import catalog concepts.
+    This typing protocol is a small dependency placeholder, not the complete database contract
+    required by all Catalog operations. Concrete repositories and writers can require additional row
+    and schema APIs. The protocol is not runtime-checkable and does not open, validate, or close a
+    database.
+
+    Example:
+        >>> handle: DatabaseHandle = db  # doctest: +SKIP
+        >>> macros = handle.macros  # doctest: +SKIP
     """
 
     @property
     def macros(self) -> "PortableMacrosAPI":
-        """Return the portable database macro surface."""
+        """
+        Expose the database handle's portable macro operations.
+
+        Implementations provide the adapter for database-independent row and link operations. This
+        protocol property specifies access without constructing an adapter or guaranteeing
+        connection readiness.
+
+        Example:
+            >>> macros = handle.macros  # doctest: +SKIP
+
+
+        :return: Portable macro surface supplied by the concrete database handle.
+        """
 
         ...
 
 
 @dataclass(frozen=True, slots=True)
 class MetadataCandidate:
-    """Candidate row used by repositories and metadata matchers.
+    """
+    Carry proposed metadata, provenance, and optional matching hints.
 
-    ``data`` contains public aliases or storage columns. ``source`` describes
-    provenance (for example ``"opf"`` or ``"manual"``). ``hints`` carries
-    structured, non-persisted evidence understood by a matcher.
+    Repositories interpret public aliases or storage column names in data; matchers interpret hints
+    as auxiliary evidence. Construction performs no normalization, validation, database lookup, or
+    persistence. Frozen fields prevent rebinding but retain the supplied mappings, including mutable
+    content. An omitted hints argument receives a fresh empty dictionary.
 
-    Example::
+    Example:
+        >>> row = {"title": "Frankenstein"}
+        >>> candidate = MetadataCandidate(row, source="opf")
+        >>> candidate.data is row
+        True
+        >>> candidate.hints
+        {}
 
-        candidate = MetadataCandidate(
-            {"title": "Frankenstein", "original_year": 1818},
-            source="opf",
-            hints={"identifiers": {"isbn13": "9780141439471"}},
-        )
+
+    :ivar data: Proposed field values using aliases or database columns understood by the recipient.
+    :ivar source: Optional provenance label such as opf or manual; not checked here.
+    :ivar hints: Additional evidence for the consuming matcher, retained without copying.
     """
 
     data: RowMapping
@@ -150,19 +228,25 @@ class MetadataCandidate:
 
 @dataclass(frozen=True, slots=True)
 class IdentifierCandidate:
-    """Scheme-aware identifier candidate.
+    """
+    Carry a scheme, original identifier text, and optional normalized text.
 
-    ``normalised_value`` is normally left as ``None`` by callers; the
-    Identifier repository fills it according to ``identifier_type``.  Scheme
-    aliases and punctuation are normalized before comparison.
+    Construction preserves every supplied value. Scheme aliases and punctuation are interpreted by
+    repository or matching normalization, not by this frozen record. In particular, leaving
+    normalised_value unset does not fill it later on this instance. Supplied hints remain shared;
+    omitted hints receive a new dict.
 
-    Example::
+    Example:
+        >>> identifier = IdentifierCandidate("ISBN-13", "978-0-306-40615-7")
+        >>> identifier.identifier_type, identifier.normalised_value
+        ('ISBN-13', None)
 
-        candidate = IdentifierCandidate(
-            identifier_type="ISBN-13",
-            value="978-0-14-143947-1",
-            source="publisher metadata",
-        )
+
+    :ivar identifier_type: Scheme name supplied by the caller, without alias normalization here.
+    :ivar value: Original identifier value, preserved without stripping or punctuation changes.
+    :ivar normalised_value: Optional already-normalized value for the consumer; defaults to None.
+    :ivar source: Optional provenance label, independent of the identifier scheme.
+    :ivar hints: Additional matcher evidence; nested values are not frozen or validated.
     """
 
     identifier_type: str
@@ -174,11 +258,28 @@ class IdentifierCandidate:
 
 @dataclass(frozen=True, slots=True)
 class MatchEvidence:
-    """One normalized observation contributing to an identity decision.
+    """
+    Describe one scored observation used to explain a matching decision.
 
-    ``score`` is normalized to ``0.0..1.0`` and ``weight`` expresses the
-    policy importance of the field. Decisive identifier or conflict evidence
-    can determine the outcome independently of weaker approximate evidence.
+    Construction validates field presence, evidence kind, numeric score/weight, and the boolean
+    decisive flag. Scores must be in the inclusive unit interval; weights cannot be negative. Both
+    become floats. This value does not calculate similarity or apply policy. Reason and compared
+    values are retained unchecked, and frozen attributes do not freeze nested values.
+
+    Example:
+        >>> evidence = MatchEvidence("title", "exact", 1, 2, "same title")
+        >>> evidence.score, evidence.weight, evidence.decisive
+        (1.0, 2.0, False)
+
+
+    :ivar field: Nonempty field name; whitespace-only strings are accepted unchanged.
+    :ivar kind: Identifier, exact, approximate, corroborating, or conflict evidence category.
+    :ivar score: Integer or float in [0, 1], excluding bool; stored as a float.
+    :ivar weight: Numeric policy weight excluding bool; negative values fail, but NaN and positive infinity are accepted.
+    :ivar reason: Human-readable explanation supplied by the matcher, not validated here.
+    :ivar candidate_value: Optional observed candidate value, retained by reference.
+    :ivar existing_value: Optional stored value used for comparison, retained by reference.
+    :ivar decisive: Boolean indicating policy-significant evidence; no policy is executed here.
     """
 
     field: str
@@ -191,7 +292,30 @@ class MatchEvidence:
     decisive: bool = False
 
     def __post_init__(self) -> None:
-        """Validate normalized evidence boundaries."""
+        """
+        Validate evidence fields and convert score and weight to floats.
+
+        Called by the dataclass constructor. Field is checked for nonempty string content without
+        stripping; score and weight accept int/float but reject bool. Score rejects nonfinite
+        values, while weight only rejects values below zero and therefore permits NaN and positive
+        infinity. Kind must be a known category and decisive must be bool. Reason and compared
+        values are not inspected.
+
+        Example:
+            >>> evidence = MatchEvidence("title", "exact", 1, 0, "equal")
+            >>> evidence.score, evidence.weight
+            (1.0, 0.0)
+            >>> MatchEvidence("title", "exact", 2, 1, "invalid")
+            Traceback (most recent call last):
+            ...
+            ValueError: evidence score must be between zero and one
+
+
+        :return: None after validating the fields and storing float score/weight values.
+        :raises TypeError: If numeric/boolean fields have unsupported types or kind is unhashable.
+        :raises ValueError: If field is empty or not a string, kind is unknown, score is out of range, or weight is negative.
+        :raises OverflowError: If an integer score or weight cannot be converted to float.
+        """
 
         if not isinstance(self.field, str) or not self.field:
             raise ValueError("evidence field must be a non-empty string")
@@ -219,21 +343,36 @@ class MatchEvidence:
 
 @dataclass(frozen=True, slots=True)
 class MatchResult:
-    """Explained identity decision returned by Catalog matchers.
+    """
+    Record an explained match, non-match, ambiguity, or identity conflict.
 
-    Do not treat ``entity_id is None`` as permission to create.  Creation is
-    safe only for ``decision == "no_match"``.  ``ambiguous`` and ``conflict``
-    require intervention; repository ``match_or_create`` methods raise
-    :class:`CatalogAmbiguousMatchError` or
-    :class:`CatalogMatchConflictError` for those outcomes.
+    An omitted decision is derived from whether entity_id is None. Only match may carry a selected
+    ID; confidence is converted to a float in [0, 1]. Alternatives must contain integers excluding
+    bool, but need not be positive or distinct. Neither the selected ID's type nor database
+    existence is checked. Other fields and supplied containers are retained without copying or
+    validation.
 
-    Example::
+    A missing entity_id alone is not a create instruction: ambiguous and conflict require
+    resolution. Repository match_or_create methods use no_match as the creation branch and raise
+    matching errors for unresolved outcomes. This passive record does not establish identity safety
+    or create anything.
 
-        decision = catalog.matching.works.best(candidate)
-        if decision.is_match:
-            selected_id = decision.entity_id
-        elif decision.requires_resolution:
-            choices = decision.alternatives
+    Example:
+        >>> result = MatchResult(None, 1, "duplicate exact names", decision="ambiguous", alternatives=(2, 3))
+        >>> result.is_match, result.requires_resolution
+        (False, True)
+        >>> MatchResult(7, 0.9, "selected").decision
+        'match'
+
+
+    :ivar entity_id: Selected database ID for match, otherwise None; no ID-type check is performed.
+    :ivar confidence: Integer or float in [0, 1], excluding bool, stored as a float without recomputing evidence.
+    :ivar reason: Explanation of the decision, retained without content validation.
+    :ivar matched_on: Names of matching fields, conventionally a tuple; not coerced or checked.
+    :ivar candidate: Optional candidate or matched-row mapping provided by the matcher, retained by reference.
+    :ivar decision: Explicit outcome, or None to derive match/no_match from entity_id.
+    :ivar evidence: Supporting observations supplied by the matcher; contents are not validated here.
+    :ivar alternatives: Candidate IDs requiring inspection; entries are checked but the container is retained.
     """
 
     entity_id: EntityId | None
@@ -246,7 +385,31 @@ class MatchResult:
     alternatives: tuple[EntityId, ...] = ()
 
     def __post_init__(self) -> None:
-        """Derive the legacy-compatible default decision and validate shape."""
+        """
+        Normalize confidence, derive the default decision, and check result shape.
+
+        Called during construction. A selected ID requires match, and match requires a non-None ID.
+        Alternatives are iterated to reject non-integer or boolean entries without checking
+        positivity, uniqueness, or database existence. The iterable is not copied; a one-shot
+        iterable is consumed by validation. Confidence and a default decision are assigned before
+        subsequent checks, so manually invoking this method on a tampered object is not an atomic
+        repair.
+
+        Example:
+            >>> result = MatchResult(None, 0, "no candidate")
+            >>> result.confidence, result.decision
+            (0.0, 'no_match')
+            >>> MatchResult(None, 1, "missing ID", decision="match")
+            Traceback (most recent call last):
+            ...
+            ValueError: a match decision requires an entity_id
+
+
+        :return: None after assigning normalized fields and validating decision/ID consistency.
+        :raises TypeError: If confidence has an unsupported type, alternatives contain non-integer IDs, or supplied values cannot be iterated/hashed.
+        :raises ValueError: If confidence is out of range or decision and selected ID are inconsistent.
+        :raises OverflowError: If confidence cannot be converted from an integer to float.
+        """
 
         if not isinstance(self.confidence, (int, float)) or isinstance(
             self.confidence,
@@ -275,13 +438,41 @@ class MatchResult:
 
     @property
     def is_match(self) -> bool:
-        """Return whether policy safely selected exactly one entity."""
+        """
+        Test whether the recorded decision selects a non-None identity.
+
+        This reads decision and entity_id only. It neither applies a confidence threshold nor
+        verifies the evidence or existence of the selected database row.
+
+        Example:
+            >>> MatchResult(7, 0, "explicit selection").is_match
+            True
+            >>> MatchResult(None, 0, "absent").is_match
+            False
+
+
+        :return: True exactly when decision is match and entity_id is not None.
+        """
 
         return self.decision == "match" and self.entity_id is not None
 
     @property
     def requires_resolution(self) -> bool:
-        """Return whether ambiguity or conflict requires intervention."""
+        """
+        Test whether the recorded decision is ambiguous or conflicting.
+
+        This is a classification of the stored outcome, independent of confidence and whether
+        alternatives or evidence have been supplied.
+
+        Example:
+            >>> MatchResult(None, 0, "conflicting source", decision="conflict").requires_resolution
+            True
+            >>> MatchResult(None, 0, "absent").requires_resolution
+            False
+
+
+        :return: True for ambiguous or conflict; False for match and no_match.
+        """
 
         return self.decision in {"ambiguous", "conflict"}
 
@@ -289,15 +480,31 @@ class MatchResult:
 # Todo: WEMIBundle is better English?
 @dataclass(frozen=True, slots=True)
 class WemiBundle:
-    """A coherent Work/Expression/Manifestation/Item metadata slice.
+    """
+    Carry a Work/Expression/Manifestation/Item slice and attached metadata rows.
 
-    A retriever follows one deterministic path through the requested root.
-    ``for_item`` walks upward; broader roots choose the first relationship in
-    repository priority/ID order at each lower level. Bundles are convenient
-    coherent slices, not exhaustive descendant trees.
+    Bundle retrieval follows one path, taking the first available repository result when several
+    relatives exist. It can leave absent levels as None; use graph retrieval for multiple
+    descendants. Relationship metadata may appear under _catalog_link on rows. This record itself
+    performs no retrieval, path validation, or copying, and may be constructed empty. Its frozen
+    fields leave supplied row mappings and collection contents mutable.
 
-    Attached collections are plain row mappings. Relationship-specific
-    metadata may be present under ``"_catalog_link"``.
+    Example:
+        >>> row = {"work_id": 7, "work_title": "Frankenstein"}
+        >>> bundle = WemiBundle(work=row)
+        >>> bundle.work is row, bundle.item is None
+        (True, True)
+
+
+    :ivar work: Selected Work row, or None when unavailable.
+    :ivar expression: Selected Expression row, or None when unavailable.
+    :ivar manifestation: Selected Manifestation row, or None when unavailable.
+    :ivar item: Selected Item row, or None when unavailable.
+    :ivar agents: Agent rows collected from the selected levels.
+    :ivar identifiers: Identifier rows collected from the selected levels.
+    :ivar titles: Title rows collected from the selected levels.
+    :ivar notes: Note rows collected from the selected levels.
+    :ivar links: Relationship metadata supplied by the retriever, not an exhaustive descendant edge list.
     """
 
     work: RowMapping | None = None
@@ -313,10 +520,23 @@ class WemiBundle:
 
 @dataclass(frozen=True, slots=True)
 class CreatedWemiStack:
-    """IDs produced by one atomic Work-to-Items creation operation.
+    """
+    Return identifiers from a coordinated Work-to-Items creation operation.
 
-    The value is deliberately transport-friendly: Core can return it through
-    either the local or HTTP client without exposing repository objects.
+    The value carries IDs without exposing repository instances. Creation and transaction guarantees
+    belong to the producing mutation operation: this frozen container neither creates rows nor
+    validates IDs, hierarchy links, or the type of the supplied item_ids collection.
+
+    Example:
+        >>> created = CreatedWemiStack(1, 2, 3, item_ids=(4, 5))
+        >>> created.work_id, created.item_ids
+        (1, (4, 5))
+
+
+    :ivar work_id: ID of the created Work.
+    :ivar expression_id: ID of its created Expression.
+    :ivar manifestation_id: ID of the created Manifestation.
+    :ivar item_ids: IDs of created Items, empty when no Items were requested.
     """
 
     work_id: EntityId
@@ -327,11 +547,24 @@ class CreatedWemiStack:
 
 @dataclass(frozen=True, slots=True)
 class WemiAdjacency:
-    """One direction of immediate WEMI hierarchy traversal.
+    """
+    Describe one direction of immediate WEMI relationship traversal.
 
-    ``entities`` contains only the adjacent level. Relationship metadata
-    remains attached to mappings under ``"_catalog_link"`` when the relation
-    is represented by a link table.
+    Retrieval supplies the neighboring level and its rows, with _catalog_link metadata where
+    available. This frozen record preserves supplied values without querying, validating level
+    adjacency, or copying mutable rows. It does not represent a recursive traversal.
+
+    Example:
+        >>> adjacent = WemiAdjacency("work", 7, "children", "expression")
+        >>> adjacent.related_level, adjacent.entities
+        ('expression', ())
+
+
+    :ivar level: WEMI level of the traversal root.
+    :ivar entity_id: ID of the root entity.
+    :ivar direction: Requested traversal direction, parents or children.
+    :ivar related_level: WEMI level represented by the neighboring rows.
+    :ivar entities: Adjacent rows in retriever order, retained without validation or copying.
     """
 
     level: WemiLevel
@@ -343,12 +576,27 @@ class WemiAdjacency:
 
 @dataclass(frozen=True, slots=True)
 class WemiGraph:
-    """A bounded, exhaustive-within-limits descendant graph for one Work.
+    """
+    Carry a Work's selected descendants and the edges connecting them.
 
-    Unlike :class:`WemiBundle`, this value retains every selected descendant
-    and every selected Work/Expression, Expression/Manifestation, and
-    Manifestation/Item edge. ``truncated_levels`` states exactly where caller
-    limits prevented a complete result.
+    Graph retrieval applies per-level limits and reports possible incompleteness in
+    truncated_levels. Truncating an upstream level also marks downstream levels, even if their own
+    limits were not reached. Row mappings and edge metadata preserve the selected relationships. The
+    container itself applies no bounds, consistency checks, copying, or database reads; frozen
+    fields do not make the nested mappings immutable.
+
+    Example:
+        >>> graph = WemiGraph({"work_id": 7}, truncated_levels=("expression", "manifestation", "item"))
+        >>> graph.work["work_id"], graph.expressions
+        (7, ())
+
+
+    :ivar work: Root Work row returned by the retriever or supplied by a caller.
+    :ivar expressions: Selected Expression rows, conventionally in repository traversal order.
+    :ivar manifestations: Selected Manifestation rows, deduplicated by the concrete graph retriever.
+    :ivar items: Selected Item rows, deduplicated by the concrete graph retriever.
+    :ivar links: Edge mappings with parent/child levels and IDs plus relationship metadata.
+    :ivar truncated_levels: Levels potentially incomplete because of their own or upstream limits.
     """
 
     work: RowMapping

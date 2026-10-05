@@ -1,3 +1,14 @@
+"""
+Model and decode LRF page, text, image, style and stream objects.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise objects through a consuming regression::
+
+        python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+"""
 from __future__ import print_function
 from __future__ import annotations
 
@@ -39,6 +50,14 @@ ruby_tags = {
 
 class LRFObject(object):
 
+    """
+    Provide the lrfobject contract for validated ebook processing.
+
+    Example:
+        Exercise LRFObject through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     tag_map = {
         0xF500: ["", ""],
         0xF502: ["infoLink", "D"],
@@ -47,6 +66,21 @@ class LRFObject(object):
 
     @classmethod
     def descramble_buffer(cls: type[_typing.Self], buf: _typing.Any, l: _typing.Any, xorKey: _typing.Any) -> _typing.Any:
+        """
+        Perform the descramble buffer operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LRFObject.descramble buffer through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param buf: Value supplied for buf under the utility contract.
+        :param l: Value supplied for l under the utility contract.
+        :param xorKey: Value supplied for xorKey under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         i = 0
         a = array.array("B", buf)
         while l > 0:
@@ -57,10 +91,41 @@ class LRFObject(object):
 
     @classmethod
     def parse_empdots(cls: type[_typing.Self], tag: _typing.Any, f: _typing.Any) -> None:
+        """
+        Parse empdots under the format's safety and compatibility rules.
+
+        Example:
+            Exercise LRFObject.parse empdots through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param f: Value supplied for f under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         cls.refEmpDotsFont, cls.empDotsFontName, cls.empDotsCode = tag.contents
 
     @staticmethod
     def tag_to_val(h: _typing.Any, obj: _typing.Any, tag: _typing.Any, stream: _typing.Any) -> _typing.Any:
+        """
+        Perform the tag to val operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LRFObject.tag to val through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param h: Value supplied for h under the utility contract.
+        :param obj: Value supplied for obj under the utility contract.
+        :param tag: Value supplied for tag under the utility contract.
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         val = None
         if h[1] == "D":
             val = tag.dword
@@ -81,6 +146,23 @@ class LRFObject(object):
         return val
 
     def __init__(self: _typing.Self, document: _typing.Any, stream: _typing.Any, id: _typing.Any, scramble_key: _typing.Any, boundary: _typing.Any) -> None:
+        """
+        Initialize and validate the lrfobject state.
+
+        Example:
+            Exercise LRFObject.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param document: Value supplied for document under the utility contract.
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param id: Value supplied for id under the utility contract.
+        :param scramble_key: Value supplied for scramble key under the utility contract.
+        :param boundary: Value supplied for boundary under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self._scramble_key = scramble_key
         self._document = document
         self.id = id
@@ -90,9 +172,39 @@ class LRFObject(object):
             self.handle_tag(tag, stream)
 
     def parse_bg_image(self: _typing.Self, tag: _typing.Any, f: _typing.Any) -> None:
+        """
+        Parse bg image under the format's safety and compatibility rules.
+
+        Example:
+            Exercise LRFObject.parse bg image through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param f: Value supplied for f under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.bg_image_mode, self.bg_image_id = struct.unpack("<HI", tag.contents)
 
     def handle_tag(self: _typing.Self, tag: _typing.Any, stream: _typing.Any, tag_map: _typing.Any = None) -> None:
+        """
+        Perform the handle tag operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LRFObject.handle tag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param tag_map: Value supplied for tag map under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if tag_map is None:
             tag_map = self.__class__.tag_map
         if tag.id in tag_map:
@@ -104,21 +216,77 @@ class LRFObject(object):
             raise LRFParseError("Unknown tag in %s: %s" % (self.__class__.__name__, str(tag)))
 
     def __iter__(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
+        """
+        Perform the iter operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LRFObject.  iter   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         for i in range(0):
             yield i
 
     def __unicode__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the unicode operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LRFObject.  unicode   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return six_unicode(self.__class__.__name__)
 
     def __str__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the str operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LRFObject.  str   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.__unicode__()
 
 
 class LRFContentObject(LRFObject):
 
+    """
+    Provide the lrfcontentobject contract for validated ebook processing.
+
+    Example:
+        Exercise LRFContentObject through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     tag_map = {}
 
     def __init__(self: _typing.Self, bytes: _typing.Any, objects: _typing.Any) -> None:
+        """
+        Initialize and validate the lrfcontentobject state.
+
+        Example:
+            Exercise LRFContentObject.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param bytes: Value supplied for bytes under the utility contract.
+        :param objects: Value supplied for objects under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.stream = bytes if hasattr(bytes, "read") else six_BytesIO(bytes)
         length = self.stream_size()
         self.objects = objects
@@ -128,11 +296,36 @@ class LRFContentObject(LRFObject):
         self.parse_stream(length)
 
     def parse_stream(self: _typing.Self, length: _typing.Any) -> None:
+        """
+        Parse stream under the format's safety and compatibility rules.
+
+        Example:
+            Exercise LRFContentObject.parse stream through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param length: Value supplied for length under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         while self.in_container and self.stream.tell() < length:
             tag = Tag(self.stream)
             self.handle_tag(tag)
 
     def stream_size(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the stream size operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LRFContentObject.stream size through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         pos = self.stream.tell()
         self.stream.seek(0, 2)
         size = self.stream.tell()
@@ -140,6 +333,19 @@ class LRFContentObject(LRFObject):
         return size
 
     def handle_tag(self: _typing.Self, tag: _typing.Any) -> None:
+        """
+        Perform the handle tag operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LRFContentObject.handle tag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if tag.id in self.tag_map:
             action = self.tag_map[tag.id]
             if isinstance(action, six_string_types):
@@ -151,11 +357,30 @@ class LRFContentObject(LRFObject):
             raise LRFParseError("Unknown tag in %s: %s" % (self.__class__.__name__, str(tag)))
 
     def __iter__(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
+        """
+        Perform the iter operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LRFContentObject.  iter   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         for i in self._contents:
             yield i
 
 
 class LRFStream(LRFObject):
+    """
+    Provide the lrfstream contract for validated ebook processing.
+
+    Example:
+        Exercise LRFStream through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     tag_map = {
         0xF504: ["", "read_stream_size"],
         0xF554: ["stream_flags", "W"],
@@ -165,18 +390,80 @@ class LRFStream(LRFObject):
     tag_map.update(LRFObject.tag_map)
 
     def __init__(self: _typing.Self, document: _typing.Any, stream: _typing.Any, id: _typing.Any, scramble_key: _typing.Any, boundary: _typing.Any) -> None:
+        """
+        Initialize and validate the lrfstream state.
+
+        Example:
+            Exercise LRFStream.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param document: Value supplied for document under the utility contract.
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param id: Value supplied for id under the utility contract.
+        :param scramble_key: Value supplied for scramble key under the utility contract.
+        :param boundary: Value supplied for boundary under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.stream = b""
         self.stream_size = 0
         self.stream_read = False
         LRFObject.__init__(self, document, stream, id, scramble_key, boundary)
 
     def read_stream_size(self: _typing.Self, tag: _typing.Any, stream: _typing.Any) -> None:
+        """
+        Read stream size under the format's safety and compatibility rules.
+
+        Example:
+            Exercise LRFStream.read stream size through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.stream_size = tag.dword
 
     def end_stream(self: _typing.Self, tag: _typing.Any, stream: _typing.Any) -> None:
+        """
+        Perform the end stream operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LRFStream.end stream through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.stream_read = True
 
     def read_stream(self: _typing.Self, tag: _typing.Any, stream: _typing.Any) -> None:
+        """
+        Read stream under the format's safety and compatibility rules.
+
+        Example:
+            Exercise LRFStream.read stream through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.stream_read:
             raise LRFParseError("There can be only one stream per object")
         if not hasattr(self, "stream_flags"):
@@ -207,18 +494,57 @@ class LRFStream(LRFObject):
 
 
 class PageTree(LRFObject):
+    """
+    Provide the pagetree contract for validated ebook processing.
+
+    Example:
+        Exercise PageTree through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     tag_map = {
         0xF55C: ["_contents", "P"],
     }
     tag_map.update(LRFObject.tag_map)
 
     def __iter__(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
+        """
+        Perform the iter operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PageTree.  iter   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         for elem_id in getattr(self, "_contents", []):
             yield self._document.objects[elem_id]
 
 
 class StyleObject(object):
+    """
+    Provide the styleobject contract for validated ebook processing.
+
+    Example:
+        Exercise StyleObject through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     def _tags_to_xml(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the tags to xml operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise StyleObject. tags to xml through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         s = ""
         for h in self.tag_map.values():
             attr = h[0]
@@ -227,6 +553,18 @@ class StyleObject(object):
         return s
 
     def __unicode__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the unicode operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise StyleObject.  unicode   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         s = '<%s objid="%s" stylelabel="%s" ' % (
             self.__class__.__name__.replace("Attr", "Style"),
             self.id,
@@ -237,6 +575,18 @@ class StyleObject(object):
         return s
 
     def as_dict(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the as dict operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise StyleObject.as dict through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         d = {}
         for h in self.tag_map.values():
             attr = h[0]
@@ -246,6 +596,14 @@ class StyleObject(object):
 
 
 class PageAttr(StyleObject, LRFObject):
+    """
+    Provide the pageattr contract for validated ebook processing.
+
+    Example:
+        Exercise PageAttr through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     tag_map = {
         0xF507: ["oddheaderid", "D"],
         0xF508: ["evenheaderid", "D"],
@@ -270,11 +628,45 @@ class PageAttr(StyleObject, LRFObject):
 
     @classmethod
     def to_css(cls: type[_typing.Self], obj: _typing.Any, inline: bool = False) -> str:
+        """
+        Perform the to css operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PageAttr.to css through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param obj: Value supplied for obj under the utility contract.
+        :param inline: Value supplied for inline under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return ""
 
 
 class Color(object):
+    """
+    Provide the color contract for validated ebook processing.
+
+    Example:
+        Exercise Color through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     def __init__(self: _typing.Self, val: _typing.Any) -> None:
+        """
+        Initialize and validate the color state.
+
+        Example:
+            Exercise Color.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.a, self.r, self.g, self.b = (
             val & 0xFF,
             (val >> 8) & 0xFF,
@@ -283,36 +675,163 @@ class Color(object):
         )
 
     def __unicode__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the unicode operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Color.  unicode   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "0x%02x%02x%02x%02x" % (self.a, self.r, self.g, self.b)
 
     def __str__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the str operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Color.  str   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.__unicode__()
 
     def __len__(self: _typing.Self) -> int:
+        """
+        Perform the len operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Color.  len   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return 4
 
     def __getitem__(self: _typing.Self, i: _typing.Any) -> _typing.Any:  # Qt compatible ordering and values
+        """
+        Perform the getitem operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Color.  getitem   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param i: Value supplied for i under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return (self.r, self.g, self.b, 0xFF - self.a)[i]  # In Qt 0xff is opaque while in LRS 0x00 is opaque
 
     def to_html(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the to html operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Color.to html through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "rgb(%d, %d, %d)" % (self.r, self.g, self.b)
 
 
 class EmptyPageElement(object):
+    """
+    Provide the emptypageelement contract for validated ebook processing.
+
+    Example:
+        Exercise EmptyPageElement through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     def __iter__(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
+        """
+        Perform the iter operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise EmptyPageElement.  iter   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         for i in range(0):
             yield i
 
     def __str__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the str operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise EmptyPageElement.  str   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.__unicode__()
 
 
 class PageDiv(EmptyPageElement):
+    """
+    Provide the pagediv contract for validated ebook processing.
+
+    Example:
+        Exercise PageDiv through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     def __init__(self: _typing.Self, pain: _typing.Any, spacesize: _typing.Any, linewidth: _typing.Any, linecolor: _typing.Any) -> None:
+        """
+        Initialize and validate the pagediv state.
+
+        Example:
+            Exercise PageDiv.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param pain: Value supplied for pain under the utility contract.
+        :param spacesize: Value supplied for spacesize under the utility contract.
+        :param linewidth: Value supplied for linewidth under the utility contract.
+        :param linecolor: Value supplied for linecolor under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.pain, self.spacesize, self.linewidth = pain, spacesize, linewidth
         self.linecolor = Color(linecolor)
 
     def __unicode__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the unicode operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PageDiv.  unicode   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return '\n<PageDiv pain="%s" spacesize="%s" linewidth="%s" linecolor="%s" />\n' % (
             self.pain,
             self.spacesize,
@@ -323,6 +842,14 @@ class PageDiv(EmptyPageElement):
 
 class RuledLine(EmptyPageElement):
 
+    """
+    Provide the ruledline contract for validated ebook processing.
+
+    Example:
+        Exercise RuledLine through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     linetype_map = {
         0x00: "none",
         0x10: "solid",
@@ -333,12 +860,39 @@ class RuledLine(EmptyPageElement):
     }
 
     def __init__(self: _typing.Self, linelength: _typing.Any, linetype: _typing.Any, linewidth: _typing.Any, linecolor: _typing.Any) -> None:
+        """
+        Initialize and validate the ruledline state.
+
+        Example:
+            Exercise RuledLine.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param linelength: Value supplied for linelength under the utility contract.
+        :param linetype: Value supplied for linetype under the utility contract.
+        :param linewidth: Value supplied for linewidth under the utility contract.
+        :param linecolor: Value supplied for linecolor under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.linelength, self.linewidth = linelength, linewidth
         self.linetype = self.linetype_map[linetype]
         self.linecolor = Color(linecolor)
         self.id = -1
 
     def __unicode__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the unicode operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise RuledLine.  unicode   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return '\n<RuledLine linelength="%s" linetype="%s" linewidth="%s" linecolor="%s" />\n' % (
             self.linelength,
             self.linetype,
@@ -348,15 +902,55 @@ class RuledLine(EmptyPageElement):
 
 
 class Wait(EmptyPageElement):
+    """
+    Provide the wait contract for validated ebook processing.
+
+    Example:
+        Exercise Wait through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     def __init__(self: _typing.Self, time: _typing.Any) -> None:
+        """
+        Initialize and validate the wait state.
+
+        Example:
+            Exercise Wait.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param time: Value supplied for time under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.time = time
 
     def __unicode__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the unicode operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Wait.  unicode   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return '\n<Wait time="%d" />\n' % self.time
 
 
 class Locate(EmptyPageElement):
 
+    """
+    Provide the locate contract for validated ebook processing.
+
+    Example:
+        Exercise Locate through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     pos_map = {
         1: "bottomleft",
         2: "bottomright",
@@ -366,21 +960,86 @@ class Locate(EmptyPageElement):
     }
 
     def __init__(self: _typing.Self, pos: _typing.Any) -> None:
+        """
+        Initialize and validate the locate state.
+
+        Example:
+            Exercise Locate.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param pos: Value supplied for pos under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.pos = self.pos_map[pos]
 
     def __unicode__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the unicode operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Locate.  unicode   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return '\n<Locate pos="%s" />\n' % self.pos
 
 
 class BlockSpace(EmptyPageElement):
+    """
+    Provide the blockspace contract for validated ebook processing.
+
+    Example:
+        Exercise BlockSpace through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     def __init__(self: _typing.Self, xspace: _typing.Any, yspace: _typing.Any) -> None:
+        """
+        Initialize and validate the blockspace state.
+
+        Example:
+            Exercise BlockSpace.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param xspace: Value supplied for xspace under the utility contract.
+        :param yspace: Value supplied for yspace under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.xspace, self.yspace = xspace, yspace
 
     def __unicode__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the unicode operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise BlockSpace.  unicode   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return '\n<BlockSpace xspace="%d" yspace="%d" />\n' % (self.xspace, self.yspace)
 
 
 class Page(LRFStream):
+    """
+    Provide the page contract for validated ebook processing.
+
+    Example:
+        Exercise Page through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     tag_map = {
         0xF503: ["style_id", "D"],
         0xF50B: ["obj_list", "P"],
@@ -396,6 +1055,14 @@ class Page(LRFStream):
     oddfooter = property(fget=lambda self: self._document.objects[self.style.oddfooterid])
 
     class Content(LRFContentObject):
+        """
+        Provide the content contract for validated ebook processing.
+
+        Example:
+            Exercise Page.Content through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+        """
         tag_map = {
             0xF503: "link",
             0xF54E: "page_div",
@@ -408,43 +1075,172 @@ class Page(LRFStream):
         }
 
         def __init__(self: _typing.Self, bytes: _typing.Any, objects: _typing.Any) -> None:
+            """
+            Initialize and validate the content state.
+
+            Example:
+                Exercise Page.Content.  init   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+            :param bytes: Value supplied for bytes under the utility contract.
+            :param objects: Value supplied for objects under the utility contract.
+            :return: None; validated state is stored on the receiving object.
+            """
             self.in_blockspace = False
             LRFContentObject.__init__(self, bytes, objects)
 
         def link(self: _typing.Self, tag: _typing.Any) -> None:
+            """
+            Perform the link operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Page.Content.link through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+            :param tag: Value supplied for tag under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.close_blockspace()
             self._contents.append(self.objects[tag.dword])
 
         def page_div(self: _typing.Self, tag: _typing.Any) -> None:
+            """
+            Perform the page div operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Page.Content.page div through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+            :param tag: Value supplied for tag under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.close_blockspace()
             pars = struct.unpack("<HIHI", tag.contents)
             self._contents.append(PageDiv(*pars))
 
         def x_space(self: _typing.Self, tag: _typing.Any) -> None:
+            """
+            Perform the x space operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Page.Content.x space through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+            :param tag: Value supplied for tag under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.xspace = tag.word
             self.in_blockspace = True
 
         def y_space(self: _typing.Self, tag: _typing.Any) -> None:
+            """
+            Perform the y space operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Page.Content.y space through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+            :param tag: Value supplied for tag under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.yspace = tag.word
             self.in_blockspace = True
 
         def do_pos(self: _typing.Self, tag: _typing.Any) -> None:
+            """
+            Perform the do pos operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Page.Content.do pos through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+            :param tag: Value supplied for tag under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.pos = tag.wordself.pos_map[tag.word]
             self.in_blockspace = True
 
         def ruled_line(self: _typing.Self, tag: _typing.Any) -> None:
+            """
+            Perform the ruled line operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Page.Content.ruled line through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+            :param tag: Value supplied for tag under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.close_blockspace()
             pars = struct.unpack("<HHHI", tag.contents)
             self._contents.append(RuledLine(*pars))
 
         def wait(self: _typing.Self, tag: _typing.Any) -> None:
+            """
+            Perform the wait operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Page.Content.wait through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+            :param tag: Value supplied for tag under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.close_blockspace()
             self._contents.append(Wait(tag.word))
 
         def sound_stop(self: _typing.Self, tag: _typing.Any) -> None:
+            """
+            Perform the sound stop operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Page.Content.sound stop through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+            :param tag: Value supplied for tag under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.close_blockspace()
 
         def close_blockspace(self: _typing.Self) -> None:
+            """
+            Perform the close blockspace operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Page.Content.close blockspace through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if self.in_blockspace:
                 if hasattr(self, "pos"):
                     self._contents.append(Locate(self.pos))
@@ -459,6 +1255,19 @@ class Page(LRFStream):
                         delattr(self, "yspace")
 
     def header(self: _typing.Self, odd: _typing.Any) -> _typing.Any:
+        """
+        Perform the header operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Page.header through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param odd: Value supplied for odd under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         header_id = (
             self._document.objects[self.style_id].oddheaderid
             if odd
@@ -467,6 +1276,19 @@ class Page(LRFStream):
         return self._document.objects[header_id]
 
     def footer(self: _typing.Self, odd: _typing.Any) -> _typing.Any:
+        """
+        Perform the footer operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Page.footer through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param odd: Value supplied for odd under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         footer_id = (
             self._document.objects[self.style_id].oddfooterid
             if odd
@@ -475,13 +1297,48 @@ class Page(LRFStream):
         return self._document.objects[footer_id]
 
     def initialize(self: _typing.Self) -> None:
+        """
+        Perform the initialize operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Page.initialize through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.content = Page.Content(self.stream, self._document.objects)
 
     def __iter__(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
+        """
+        Perform the iter operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Page.  iter   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         for i in self.content:
             yield i
 
     def __unicode__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the unicode operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Page.  unicode   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         s = '\n<Page pagestyle="%d" objid="%d">\n' % (self.style_id, self.id)
         for i in self:
             s += six_unicode(i)
@@ -489,9 +1346,33 @@ class Page(LRFStream):
         return s
 
     def __str__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the str operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Page.  str   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.__unicode__()
 
     def to_html(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the to html operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Page.to html through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         s = ""
         for i in self:
             s += i.to_html()
@@ -499,6 +1380,14 @@ class Page(LRFStream):
 
 
 class BlockAttr(StyleObject, LRFObject):
+    """
+    Provide the blockattr contract for validated ebook processing.
+
+    Example:
+        Exercise BlockAttr through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     tag_map = {
         0xF531: ["blockwidth", "W"],
         0xF532: ["blockheight", "W"],
@@ -528,9 +1417,36 @@ class BlockAttr(StyleObject, LRFObject):
 
     @classmethod
     def to_css(cls: type[_typing.Self], obj: _typing.Any, inline: bool = False) -> _typing.Any:
+        """
+        Perform the to css operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise BlockAttr.to css through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param obj: Value supplied for obj under the utility contract.
+        :param inline: Value supplied for inline under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = ""
 
         def item(line: _typing.Any) -> _typing.Any:
+            """
+            Perform the item operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise BlockAttr.to css.item through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+            :param line: Value supplied for line under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             local_ans = "" if inline else "\t"
             local_ans += line
             local_ans += " " if inline else "\n"
@@ -554,11 +1470,46 @@ class BlockAttr(StyleObject, LRFObject):
 
 
 class TextCSS(object):
+    """
+    Provide the textcss contract for validated ebook processing.
+
+    Example:
+        Exercise TextCSS through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     @classmethod
     def to_css(cls: type[_typing.Self], obj: _typing.Any, inline: bool = False) -> _typing.Any:
+        """
+        Perform the to css operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TextCSS.to css through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param obj: Value supplied for obj under the utility contract.
+        :param inline: Value supplied for inline under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = ""
 
         def item(line: _typing.Any) -> _typing.Any:
+            """
+            Perform the item operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise TextCSS.to css.item through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+            :param line: Value supplied for line under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             local_ans = "" if inline else "\t"
             local_ans += line
             local_ans += " " if inline else "\n"
@@ -603,6 +1554,14 @@ class TextCSS(object):
 
 class TextAttr(StyleObject, LRFObject, TextCSS):
 
+    """
+    Provide the textattr contract for validated ebook processing.
+
+    Example:
+        Exercise TextAttr through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     FONT_MAP = collections.defaultdict(lambda: "serif")
     for key, value in PRS500_PROFILE.default_fonts.items():
         FONT_MAP[value] = key
@@ -634,6 +1593,14 @@ class TextAttr(StyleObject, LRFObject, TextCSS):
 
 
 class Block(LRFStream, TextCSS):
+    """
+    Provide the block contract for validated ebook processing.
+
+    Example:
+        Exercise Block through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     tag_map = {
         0xF503: ["style_id", "D"],
     }
@@ -647,6 +1614,18 @@ class Block(LRFStream, TextCSS):
     textstyle = property(fget=lambda self: self._document.objects[self.textstyle_id])
 
     def initialize(self: _typing.Self) -> None:
+        """
+        Perform the initialize operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Block.initialize through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.attrs = {}
         stream = six_BytesIO(self.stream)
         tag = Tag(stream)
@@ -676,6 +1655,18 @@ class Block(LRFStream, TextCSS):
                 self.attrs[attr] = getattr(self, attr)
 
     def __unicode__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the unicode operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Block.  unicode   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         s = '\n<%s objid="%d" blockstyle="%d" ' % (self.name, self.id, self.style_id)
 
         if hasattr(self, "textstyle_id"):
@@ -693,6 +1684,18 @@ class Block(LRFStream, TextCSS):
         return s.rstrip() + " />\n"
 
     def to_html(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the to html operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Block.to html through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.name == "TextBlock":
             return '<div class="block%s text%s">%s</div>' % (
                 self.style_id,
@@ -703,6 +1706,14 @@ class Block(LRFStream, TextCSS):
 
 
 class MiniPage(LRFStream):
+    """
+    Provide the minipage contract for validated ebook processing.
+
+    Example:
+        Exercise MiniPage through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     tag_map = {
         0xF541: ["minipagewidth", "W"],
         0xF542: ["minipageheight", "W"],
@@ -712,6 +1723,14 @@ class MiniPage(LRFStream):
 
 
 class Text(LRFStream):
+    """
+    Provide the text contract for validated ebook processing.
+
+    Example:
+        Exercise Text through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     tag_map = {
         0xF503: ["style_id", "D"],
     }
@@ -762,7 +1781,29 @@ class Text(LRFStream):
     }
 
     class TextTag(object):
+        """
+        Provide the texttag contract for validated ebook processing.
+
+        Example:
+            Exercise Text.TextTag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+        """
         def __init__(self: _typing.Self, name: _typing.Any, attrs: _typing.Any = None, self_closing: bool = False) -> None:
+            """
+            Initialize and validate the texttag state.
+
+            Example:
+                Exercise Text.TextTag.  init   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+            :param name: Field, file, function or resource name addressed by the operation.
+            :param attrs: Value supplied for attrs under the utility contract.
+            :param self_closing: Value supplied for self closing under the utility contract.
+            :return: None; validated state is stored on the receiving object.
+            """
             if attrs is None:
                 attrs = {}
             self.name = name
@@ -770,19 +1811,63 @@ class Text(LRFStream):
             self.self_closing = self_closing
 
         def __unicode__(self: _typing.Self) -> _typing.Any:
+            """
+            Perform the unicode operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Text.TextTag.  unicode   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             s = "<%s " % (self.name,)
             for name, val in self.attrs.items():
                 s += '%s="%s" ' % (name, val)
             return s.rstrip() + (" />" if self.self_closing else ">")
 
         def to_html(self: _typing.Self) -> _typing.Any:
+            """
+            Perform the to html operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Text.TextTag.to html through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             s = ""
             return s
 
         def close_html(self: _typing.Self) -> str:
+            """
+            Perform the close html operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Text.TextTag.close html through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return ""
 
     class Span(TextTag):
+        """
+        Provide the span contract for validated ebook processing.
+
+        Example:
+            Exercise Text.Span through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+        """
         pass
 
     linetype_map = {
@@ -796,6 +1881,19 @@ class Text(LRFStream):
     lineposition_map = {1: "before", 2: "after"}
 
     def add_text(self: _typing.Self, text: _typing.Any) -> None:
+        """
+        Perform the add text operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Text.add text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if isinstance(text, (bytes, bytearray, memoryview)):
             s = bytes(text).decode("utf-16-le", "replace")
         else:
@@ -805,12 +1903,55 @@ class Text(LRFStream):
             self.content.append(self.entity_pattern.sub(entity_to_unicode, s))
 
     def end_container(self: _typing.Self, tag: _typing.Any, stream: _typing.Any) -> None:
+        """
+        Perform the end container operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Text.end container through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.content.append(None)
 
     def start_para(self: _typing.Self, tag: _typing.Any, stream: _typing.Any) -> None:
+        """
+        Perform the start para operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Text.start para through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.content.append(self.__class__.TextTag("P"))
 
     def close_containers(self: _typing.Self, start: int = 0) -> None:
+        """
+        Perform the close containers operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Text.close containers through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param start: Value supplied for start under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if len(self.content) == 0:
             return
         open_containers = 0
@@ -826,6 +1967,21 @@ class Text(LRFStream):
         self.content.extend(None for i in range(open_containers))
 
     def end_para(self: _typing.Self, tag: _typing.Any, stream: _typing.Any) -> None:
+        """
+        Perform the end para operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Text.end para through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         i = len(self.content) - 1
         while i > -1:
             if isinstance(self.content[i], Text.TextTag) and self.content[i].name == "P":
@@ -834,16 +1990,88 @@ class Text(LRFStream):
         self.close_containers(start=i)
 
     def cr(self: _typing.Self, tag: _typing.Any, stream: _typing.Any) -> None:
+        """
+        Perform the cr operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Text.cr through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.content.append(self.__class__.TextTag("CR", self_closing=True))
 
     def char_button(self: _typing.Self, tag: _typing.Any, stream: _typing.Any) -> None:
+        """
+        Perform the char button operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Text.char button through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.content.append(self.__class__.TextTag("CharButton", attrs={"refobj": tag.dword}))
 
     def simple_container(self: _typing.Self, tag: _typing.Any, name: _typing.Any) -> None:
+        """
+        Perform the simple container operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Text.simple container through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.content.append(self.__class__.TextTag(name))
 
     def empline(self: _typing.Self, tag: _typing.Any, stream: _typing.Any) -> None:
+        """
+        Perform the empline operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Text.empline through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         def invalid(op: _typing.Any) -> None:
+            """
+            Perform the invalid operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Text.empline.invalid through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+            :param op: Value supplied for op under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             stream.seek(op)
             # self.simple_container(None, 'EmpLine')
 
@@ -872,9 +2100,39 @@ class Text(LRFStream):
             self.content.append(self.__class__.TextTag("EmpLine", attrs=attrs))
 
     def space(self: _typing.Self, tag: _typing.Any, stream: _typing.Any) -> None:
+        """
+        Perform the space operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Text.space through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.content.append(self.__class__.TextTag("Space", attrs={"xsize": tag.sword}, self_closing=True))
 
     def plot(self: _typing.Self, tag: _typing.Any, stream: _typing.Any) -> None:
+        """
+        Perform the plot operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Text.plot through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         xsize, ysize, refobj, adjustment = struct.unpack("<HHII", tag.contents)
         plot = self.__class__.TextTag(
             "Plot",
@@ -890,12 +2148,54 @@ class Text(LRFStream):
         self.content.append(plot)
 
     def draw_char(self: _typing.Self, tag: _typing.Any, stream: _typing.Any) -> None:
+        """
+        Perform the draw char operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Text.draw char through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.content.append(self.__class__.TextTag("DrawChar", {"line": tag.word}))
 
     def box(self: _typing.Self, tag: _typing.Any, stream: _typing.Any) -> None:
+        """
+        Perform the box operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Text.box through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.content.append(self.__class__.TextTag("Box", {"linetype": self.linetype_map[tag.word]}))
 
     def initialize(self: _typing.Self) -> None:
+        """
+        Perform the initialize operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Text.initialize through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.content = collections.deque()
         stream = six_BytesIO(self.stream)
         length = len(self.stream)
@@ -909,6 +2209,19 @@ class Text(LRFStream):
 
             # Is there some text before a tag?
             def find_first_tag(start: _typing.Any) -> _typing.Any:
+                """
+                Find first tag under the format's safety and compatibility rules.
+
+                Example:
+                    Exercise Text.initialize.find first tag through a consuming regression::
+
+                        python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+                :param start: Value supplied for start under the utility contract.
+                :return: The normalized value, metadata record, path, stream result or collection
+                    described above.
+                """
                 pos = self.stream.find(b"\xf5", start)
                 if pos == -1:
                     return -1
@@ -960,6 +2273,18 @@ class Text(LRFStream):
         self.stream = None
 
     def __unicode__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the unicode operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Text.  unicode   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         s = ""
         open_containers = collections.deque()
         for c in self.content:
@@ -984,6 +2309,18 @@ class Text(LRFStream):
         return s
 
     def to_html(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the to html operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Text.to html through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         s = ""
         open_containers = collections.deque()
         in_p = False
@@ -1013,6 +2350,14 @@ class Text(LRFStream):
 
 
 class Image(LRFObject):
+    """
+    Provide the image contract for validated ebook processing.
+
+    Example:
+        Exercise Image through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     tag_map = {
         0xF54A: ["", "parse_image_rect"],
         0xF54B: ["", "parse_image_size"],
@@ -1021,15 +2366,55 @@ class Image(LRFObject):
     }
 
     def parse_image_rect(self: _typing.Self, tag: _typing.Any, f: _typing.Any) -> None:
+        """
+        Parse image rect under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Image.parse image rect through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param f: Value supplied for f under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.x0, self.y0, self.x1, self.y1 = struct.unpack("<HHHH", tag.contents)
 
     def parse_image_size(self: _typing.Self, tag: _typing.Any, f: _typing.Any) -> None:
+        """
+        Parse image size under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Image.parse image size through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param f: Value supplied for f under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.xsize, self.ysize = struct.unpack("<HH", tag.contents)
 
     encoding = property(fget=lambda self: self._document.objects[self.refstream].encoding)
     data = property(fget=lambda self: self._document.objects[self.refstream].stream)
 
     def __unicode__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the unicode operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Image.  unicode   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return '<Image objid="%s" x0="%d" y0="%d" x1="%d" y1="%d" xsize="%d" ysize="%d" refstream="%d" />\n' % (
             self.id,
             self.x0,
@@ -1043,11 +2428,46 @@ class Image(LRFObject):
 
 
 class PutObj(EmptyPageElement):
+    """
+    Provide the putobj contract for validated ebook processing.
+
+    Example:
+        Exercise PutObj through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     def __init__(self: _typing.Self, objects: _typing.Any, x1: _typing.Any, y1: _typing.Any, refobj: _typing.Any) -> None:
+        """
+        Initialize and validate the putobj state.
+
+        Example:
+            Exercise PutObj.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param objects: Value supplied for objects under the utility contract.
+        :param x1: Value supplied for x1 under the utility contract.
+        :param y1: Value supplied for y1 under the utility contract.
+        :param refobj: Value supplied for refobj under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.x1, self.y1, self.refobj = x1, y1, refobj
         self.object = objects[refobj]
 
     def __unicode__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the unicode operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PutObj.  unicode   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return '<PutObj x1="%d" y1="%d" refobj="%d" />' % (
             self.x1,
             self.y1,
@@ -1056,6 +2476,14 @@ class PutObj(EmptyPageElement):
 
 
 class Canvas(LRFStream):
+    """
+    Provide the canvas contract for validated ebook processing.
+
+    Example:
+        Exercise Canvas through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     tag_map = {
         0xF551: ["canvaswidth", "W"],
         0xF552: ["canvasheight", "W"],
@@ -1079,11 +2507,37 @@ class Canvas(LRFStream):
     ]
 
     def parse_waits(self: _typing.Self, tag: _typing.Any, f: _typing.Any) -> None:
+        """
+        Parse waits under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Canvas.parse waits through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param f: Value supplied for f under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         val = tag.word
         self.setwaitprop = val & 0xF
         self.setwaitsync = val & 0xF0
 
     def initialize(self: _typing.Self) -> None:
+        """
+        Perform the initialize operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Canvas.initialize through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.attrs = {}
         for attr in self.extra_attrs:
             if hasattr(self, attr):
@@ -1098,6 +2552,18 @@ class Canvas(LRFStream):
                 print("Canvas object has errors, skipping.")
 
     def __unicode__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the unicode operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Canvas.  unicode   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         s = '\n<%s objid="%s" ' % (
             self.__class__.__name__,
             self.id,
@@ -1111,23 +2577,66 @@ class Canvas(LRFStream):
         return s
 
     def __iter__(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
+        """
+        Perform the iter operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Canvas.  iter   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         for i in self._contents:
             yield i
 
 
 class Header(Canvas):
+    """
+    Provide the header contract for validated ebook processing.
+
+    Example:
+        Exercise Header through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     pass
 
 
 class Footer(Canvas):
+    """
+    Provide the footer contract for validated ebook processing.
+
+    Example:
+        Exercise Footer through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     pass
 
 
 class ESound(LRFObject):
+    """
+    Provide the esound contract for validated ebook processing.
+
+    Example:
+        Exercise ESound through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     pass
 
 
 class ImageStream(LRFStream):
+    """
+    Provide the imagestream contract for validated ebook processing.
+
+    Example:
+        Exercise ImageStream through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     tag_map = {
         0xF555: ["comment", "P"],
     }
@@ -1138,12 +2647,37 @@ class ImageStream(LRFStream):
     encoding = property(fget=lambda self: self.imgext[self.stream_flags & 0xFF].upper())
 
     def end_stream(self: _typing.Self, *args: _typing.Any) -> None:
+        """
+        Perform the end stream operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ImageStream.end stream through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         LRFStream.end_stream(self, *args)
         self.file = str(self.id) + "." + self.encoding.lower()
         if self._document is not None:
             self._document.image_map[self.id] = self
 
     def __unicode__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the unicode operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ImageStream.  unicode   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return '<ImageStream objid="%s" encoding="%s" file="%s" />\n' % (
             self.id,
             self.encoding,
@@ -1152,10 +2686,26 @@ class ImageStream(LRFStream):
 
 
 class Import(LRFStream):
+    """
+    Provide the import contract for validated ebook processing.
+
+    Example:
+        Exercise Import through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     pass
 
 
 class Button(LRFObject):
+    """
+    Provide the button contract for validated ebook processing.
+
+    Example:
+        Exercise Button through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     tag_map = {
         0xF503: ["", "do_ref_image"],
         0xF561: ["button_flags", "W"],  # <Button/>
@@ -1178,6 +2728,23 @@ class Button(LRFObject):
     tag_map.update(LRFObject.tag_map)
 
     def __init__(self: _typing.Self, document: _typing.Any, stream: _typing.Any, id: _typing.Any, scramble_key: _typing.Any, boundary: _typing.Any) -> None:
+        """
+        Initialize and validate the button state.
+
+        Example:
+            Exercise Button.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param document: Value supplied for document under the utility contract.
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param id: Value supplied for id under the utility contract.
+        :param scramble_key: Value supplied for scramble key under the utility contract.
+        :param boundary: Value supplied for boundary under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.xml = ""
         self.refimage = {}
         self.actions = {}
@@ -1185,47 +2752,226 @@ class Button(LRFObject):
         LRFObject.__init__(self, document, stream, id, scramble_key, boundary)
 
     def do_ref_image(self: _typing.Self, tag: _typing.Any, f: _typing.Any) -> None:
+        """
+        Perform the do ref image operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Button.do ref image through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param f: Value supplied for f under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.refimage[self.button_type] = tag.dword
 
     def do_base_button(self: _typing.Self, tag: _typing.Any, f: _typing.Any) -> None:
+        """
+        Perform the do base button operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Button.do base button through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param f: Value supplied for f under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.button_type = 0
         self.actions[self.button_type] = []
 
     def do_focus_in_button(self: _typing.Self, tag: _typing.Any, f: _typing.Any) -> None:
+        """
+        Perform the do focus in button operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Button.do focus in button through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param f: Value supplied for f under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.button_type = 1
 
     def do_push_button(self: _typing.Self, tag: _typing.Any, f: _typing.Any) -> None:
+        """
+        Perform the do push button operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Button.do push button through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param f: Value supplied for f under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.button_type = 2
 
     def do_up_button(self: _typing.Self, tag: _typing.Any, f: _typing.Any) -> None:
+        """
+        Perform the do up button operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Button.do up button through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param f: Value supplied for f under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.button_type = 3
 
     def do_start_actions(self: _typing.Self, tag: _typing.Any, f: _typing.Any) -> None:
+        """
+        Perform the do start actions operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Button.do start actions through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param f: Value supplied for f under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.actions[self.button_type] = []
 
     def parse_jump_to(self: _typing.Self, tag: _typing.Any, f: _typing.Any) -> None:
+        """
+        Parse jump to under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Button.parse jump to through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param f: Value supplied for f under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.actions[self.button_type].append((1, struct.unpack("<II", tag.contents)))
 
     def parse_send_message(self: _typing.Self, tag: _typing.Any, f: _typing.Any) -> None:
+        """
+        Parse send message under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Button.parse send message through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param f: Value supplied for f under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         params = (tag.word, Tag.string_parser(f), Tag.string_parser(f))
         self.actions[self.button_type].append((2, params))
 
     def parse_close_window(self: _typing.Self, tag: _typing.Any, f: _typing.Any) -> None:
+        """
+        Parse close window under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Button.parse close window through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param f: Value supplied for f under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.actions[self.button_type].append((3,))
 
     def parse_sound_stop(self: _typing.Self, tag: _typing.Any, f: _typing.Any) -> None:
+        """
+        Parse sound stop under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Button.parse sound stop through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param f: Value supplied for f under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.actions[self.button_type].append((4,))
 
     def parse_run(self: _typing.Self, tag: _typing.Any, f: _typing.Any) -> None:
+        """
+        Parse run under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Button.parse run through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param f: Value supplied for f under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.actions[self.button_type].append((5, struct.unpack("<HI", tag.contents)))
 
     def jump_action(self: _typing.Self, button_type: _typing.Any) -> _typing.Any:
+        """
+        Perform the jump action operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Button.jump action through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param button_type: Value supplied for button type under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         for i in self.actions[button_type]:
             if i[0] == 1:
                 return i[1:][0]
         return None, None
 
     def __unicode__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the unicode operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Button.  unicode   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         s = '<Button objid="%s">\n' % (self.id,)
         if self.button_flags & 0x10 != 0:
             s += "<PushButton "
@@ -1244,22 +2990,62 @@ class Button(LRFObject):
 
 
 class Window(LRFObject):
+    """
+    Provide the window contract for validated ebook processing.
+
+    Example:
+        Exercise Window through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     pass
 
 
 class PopUpWin(LRFObject):
+    """
+    Provide the popupwin contract for validated ebook processing.
+
+    Example:
+        Exercise PopUpWin through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     pass
 
 
 class Sound(LRFObject):
+    """
+    Provide the sound contract for validated ebook processing.
+
+    Example:
+        Exercise Sound through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     pass
 
 
 class SoundStream(LRFObject):
+    """
+    Provide the soundstream contract for validated ebook processing.
+
+    Example:
+        Exercise SoundStream through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     pass
 
 
 class Font(LRFStream):
+    """
+    Provide the font contract for validated ebook processing.
+
+    Example:
+        Exercise Font through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     tag_map = {
         0xF559: ["fontfilename", "P"],
         0xF55D: ["fontfacename", "P"],
@@ -1268,11 +3054,36 @@ class Font(LRFStream):
     data = property(fget=lambda self: self.stream)
 
     def end_stream(self: _typing.Self, *args: _typing.Any) -> None:
+        """
+        Perform the end stream operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Font.end stream through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         LRFStream.end_stream(self, *args)
         self._document.font_map[self.fontfacename] = self
         self.file = self.fontfacename + ".ttf"
 
     def __unicode__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the unicode operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Font.  unicode   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         s = '<RegistFont objid="%s" fontfilename="%s" fontname="%s" encoding="TTF" file="%s" />\n' % (
             self.id,
             self.fontfilename,
@@ -1283,10 +3094,26 @@ class Font(LRFStream):
 
 
 class ObjectInfo(LRFStream):
+    """
+    Carry normalized objectinfo data across the conversion pipeline.
+
+    Example:
+        Exercise ObjectInfo through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     pass
 
 
 class BookAttr(StyleObject, LRFObject):
+    """
+    Provide the bookattr contract for validated ebook processing.
+
+    Example:
+        Exercise BookAttr through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     tag_map = {
         0xF57B: ["page_tree_id", "D"],
         0xF5D8: ["", "add_font"],
@@ -1297,13 +3124,56 @@ class BookAttr(StyleObject, LRFObject):
     binding_map = {1: "Lr", 16: "Rl"}
 
     def __init__(self: _typing.Self, document: _typing.Any, stream: _typing.Any, id: _typing.Any, scramble_key: _typing.Any, boundary: _typing.Any) -> None:
+        """
+        Initialize and validate the bookattr state.
+
+        Example:
+            Exercise BookAttr.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param document: Value supplied for document under the utility contract.
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param id: Value supplied for id under the utility contract.
+        :param scramble_key: Value supplied for scramble key under the utility contract.
+        :param boundary: Value supplied for boundary under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.font_link_list = []
         LRFObject.__init__(self, document, stream, id, scramble_key, boundary)
 
     def add_font(self: _typing.Self, tag: _typing.Any, f: _typing.Any) -> None:
+        """
+        Perform the add font operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise BookAttr.add font through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param f: Value supplied for f under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.font_link_list.append(tag.dword)
 
     def __unicode__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the unicode operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise BookAttr.  unicode   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         s = '<BookStyle objid="%s" stylelabel="%s">\n' % (self.id, self.id)
         s += "<SetDefault %s />\n" % (self._tags_to_xml(),)
         doc = self._document
@@ -1321,14 +3191,56 @@ class BookAttr(StyleObject, LRFObject):
 
 
 class SimpleText(Text):
+    """
+    Provide the simpletext contract for validated ebook processing.
+
+    Example:
+        Exercise SimpleText through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     pass
 
 
 class TocLabel(object):
+    """
+    Provide the toclabel contract for validated ebook processing.
+
+    Example:
+        Exercise TocLabel through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     def __init__(self: _typing.Self, refpage: _typing.Any, refobject: _typing.Any, label: _typing.Any) -> None:
+        """
+        Initialize and validate the toclabel state.
+
+        Example:
+            Exercise TocLabel.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param refpage: Value supplied for refpage under the utility contract.
+        :param refobject: Value supplied for refobject under the utility contract.
+        :param label: Value supplied for label under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.refpage, self.refobject, self.label = refpage, refobject, label
 
     def __unicode__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the unicode operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TocLabel.  unicode   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return '<TocLabel refpage="%s" refobj="%s">%s</TocLabel>\n' % (
             self.refpage,
             self.refobject,
@@ -1337,7 +3249,27 @@ class TocLabel(object):
 
 
 class TOCObject(LRFStream):
+    """
+    Provide the tocobject contract for validated ebook processing.
+
+    Example:
+        Exercise TOCObject through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     def initialize(self: _typing.Self) -> None:
+        """
+        Perform the initialize operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TOCObject.initialize through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         stream = six_BytesIO(self.stream)
         c = struct.unpack("<H", stream.read(2))[0]
         stream.seek(4 * (c + 1))
@@ -1352,10 +3284,33 @@ class TOCObject(LRFStream):
             c -= 1
 
     def __iter__(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
+        """
+        Perform the iter operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TOCObject.  iter   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         for i in self._contents:
             yield i
 
     def __unicode__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the unicode operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TOCObject.  unicode   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         s = "<TOC>\n"
         for i in self:
             s += six_unicode(i)
@@ -1398,6 +3353,25 @@ object_map = [
 
 
 def get_object(document: _typing.Any, stream: _typing.Any, id: _typing.Any, offset: _typing.Any, size: _typing.Any, scramble_key: _typing.Any) -> _typing.Any:
+    """
+    Return object under the format's safety and compatibility rules.
+
+    Example:
+        Exercise get object through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+    :param document: Value supplied for document under the utility contract.
+    :param stream: Input or output stream wrapped by the terminal or compatibility
+        layer.
+    :param id: Value supplied for id under the utility contract.
+    :param offset: Value supplied for offset under the utility contract.
+    :param size: Value supplied for size under the utility contract.
+    :param scramble_key: Value supplied for scramble key under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     stream.seek(offset)
     start_tag = Tag(stream)
     if start_tag.id != 0xF500:

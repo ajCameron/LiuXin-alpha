@@ -11,7 +11,15 @@
 #                                                                       #
 #########################################################################
 """
-Gets options for main part of script
+Parse retained RTF-to-XML conversion options.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise get options through a consuming regression::
+
+        python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
 """
 from __future__ import annotations
 
@@ -21,6 +29,14 @@ from LiuXin_alpha.file_formats.rtf2xml import options_trem, configure_txt
 
 
 class GetOptions:
+    """
+    Provide the getoptions contract for validated ebook processing.
+
+    Example:
+        Exercise GetOptions through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+    """
     def __init__(
         self: _typing.Self,
         system_arguments: _typing.Any,
@@ -28,6 +44,23 @@ class GetOptions:
         bug_handler: _typing.Any,
         configuration_file: _typing.Any = None,
     ) -> None:
+        """
+        Initialize and validate the getoptions state.
+
+        Example:
+            Exercise GetOptions.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param system_arguments: Value supplied for system arguments under the utility
+            contract.
+        :param rtf_dir: Value supplied for rtf dir under the utility contract.
+        :param bug_handler: Value supplied for bug handler under the utility contract.
+        :param configuration_file: Value supplied for configuration file under the utility
+            contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.__system_arguments = system_arguments
         self.__rtf_dir = rtf_dir
         self.__configuration_file = configuration_file
@@ -36,6 +69,15 @@ class GetOptions:
     def get_options(self: _typing.Self) -> _typing.Any:
         """
         return valid, output, help, show_warnings, debug, file
+
+        Example:
+            Exercise GetOptions.get options through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return_options = self.__get_config_options()
         options_dict = {
@@ -264,6 +306,18 @@ class GetOptions:
         return return_options
 
     def __get_config_options(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the get config options operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise GetOptions.  get config options through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         configure_obj = configure_txt.Configure(
             bug_handler=self.__bug_handler, configuration_file=self.__configuration_file
         )

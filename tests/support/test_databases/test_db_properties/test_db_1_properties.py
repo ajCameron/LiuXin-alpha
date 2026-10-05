@@ -1,3 +1,14 @@
+"""
+Declare expected capabilities and contents for test db 1 properties.
+
+The module keeps generated data, ordering and failure modes explicit so consumers
+can assert stable behavior.
+
+Example:
+    Exercise test db 1 properties through a consuming regression::
+
+        python -m pytest -q tests/support/test_databases/test_db_properties/test_db_1_properties.py
+"""
 from .common_db_properties import (
     CommonDBProperties,
 )
@@ -8,6 +19,11 @@ from .common_db_properties import (
 class TestDB1Properties(CommonDBProperties):
     """
     Properties for test db 1 - which are also inherited by a lot of other tables.
+
+    Example:
+        Exercise TestDB1Properties through a consuming regression::
+
+            python -m pytest -q tests/support/test_databases/test_db_properties/test_db_1_properties.py
     """
 
     from .._legacy.setup_constants import test_asset_version

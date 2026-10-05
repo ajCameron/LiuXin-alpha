@@ -1,3 +1,14 @@
+"""
+Verify support registry across registered database profiles.
+
+The module keeps generated data, ordering and failure modes explicit so consumers
+can assert stable behavior.
+
+Example:
+    Exercise test property support registry through a consuming regression::
+
+        python -m pytest -q tests/support/test_databases/test_db_properties/test_property_support_registry.py
+"""
 from __future__ import annotations
 
 import sqlite3
@@ -16,6 +27,17 @@ PROVISION_SPOT_CHECK_NAMES = ("test_db_0", "test_db_1", "test_db_19", "test_db_2
 
 
 def test_property_registry_covers_full_legacy_db_range() -> None:
+    """
+    Verify property registry covers full legacy db range.
+
+    Example:
+        Exercise test property registry covers full legacy db range through a consuming regression::
+
+            python -m pytest -q tests/support/test_databases/test_db_properties/test_property_support_registry.py
+
+
+    :return: None; completion is expressed through state changes or assertions.
+    """
     assert len(ALL_TEST_DB_PROPERTY_CLASSES) == 26
     assert tuple(TEST_DB_PROPERTY_CLASS_MAP.keys()) == EXPECTED_TEST_DB_NAMES
 
@@ -26,6 +48,20 @@ def test_property_registry_covers_full_legacy_db_range() -> None:
     ids=tuple(TEST_DB_PROPERTY_CLASS_MAP.keys()),
 )
 def test_property_registry_classes_are_structurally_consistent(db_name: str, properties_class) -> None:
+    """
+    Verify property registry classes are structurally consistent.
+
+    Example:
+        Exercise test property registry classes are structurally consistent through a consuming regression::
+
+            python -m pytest -q tests/support/test_databases/test_db_properties/test_property_support_registry.py
+
+
+    :param db_name: Registered test-database profile name.
+    :param properties_class: Value supplied for properties class under the deterministic
+        fixture contract.
+    :return: None; completion is expressed through state changes or assertions.
+    """
     assert issubclass(properties_class, CommonDBProperties)
     assert properties_class.__name__ == f"TestDB{int(db_name.split('_')[-1])}Properties"
 
@@ -63,6 +99,19 @@ def test_property_registry_classes_are_structurally_consistent(db_name: str, pro
 
 
 def test_property_registry_db_names_exist_in_resource_manager_listing(test_resources_manager) -> None:
+    """
+    Verify property registry db names exist in resource manager listing.
+
+    Example:
+        Exercise test property registry db names exist in resource manager listing through a consuming regression::
+
+            python -m pytest -q tests/support/test_databases/test_db_properties/test_property_support_registry.py
+
+
+    :param test_resources_manager: Value supplied for test resources manager under the
+        deterministic fixture contract.
+    :return: None; completion is expressed through state changes or assertions.
+    """
     available = set(test_resources_manager.available_test_databases())
     assert set(EXPECTED_TEST_DB_NAMES).issubset(available)
 
@@ -71,6 +120,20 @@ def test_property_registry_db_names_exist_in_resource_manager_listing(test_resou
 def test_property_registry_spot_check_names_provision_against_live_resources(
     provision_test_database, db_name: str
 ) -> None:
+    """
+    Verify property registry spot check names provision against live resources.
+
+    Example:
+        Exercise test property registry spot check names provision against live resources through a consuming regression::
+
+            python -m pytest -q tests/support/test_databases/test_db_properties/test_property_support_registry.py
+
+
+    :param provision_test_database: Value supplied for provision test database under the
+        deterministic fixture contract.
+    :param db_name: Registered test-database profile name.
+    :return: None; completion is expressed through state changes or assertions.
+    """
     provisioned = provision_test_database(db_name)
     assert provisioned.db_path.exists()
 

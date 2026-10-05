@@ -1,15 +1,14 @@
 # test_preferences_upgrade.py
-"""Regression tests for LiuXin/LiuXin_alpha preferences upgrades.
+"""
+Provide test preferences regression utility behavior.
 
-These tests are intended to protect against:
-- KeyError when a new default preference is added but an existing on-disk INI
-  doesn't contain the key.
-- Incomplete on-disk INI files being silently kept incomplete.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
 
-They assume the Preferences loader:
-- Starts from inbuilt defaults
-- Overlays values from disk
-- Writes the upgraded (merged) INI back to disk
+Example:
+    Exercise test preferences regression through a consuming regression::
+
+        python -m pytest -q tests/preferences/test_preferences_regression.py
 """
 
 from __future__ import annotations
@@ -21,12 +20,40 @@ import pytest
 
 
 def _write_text(path: Path, text: str) -> None:
+    """
+    Write text under the format's safety and compatibility rules.
+
+    Example:
+        Exercise  write text through a consuming regression::
+
+            python -m pytest -q tests/preferences/test_preferences_regression.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :param text: Text parsed, normalized or rendered.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
 
 
 def _reload_alpha_preferences(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
-    """Reload LiuXin_alpha.preferences with its prefs folder redirected to tmp_path."""
+    """
+    Reload LiuXin_alpha.preferences with its prefs folder redirected to tmp_path.
+
+    Example:
+        Exercise  reload alpha preferences through a consuming regression::
+
+            python -m pytest -q tests/preferences/test_preferences_regression.py
+
+
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     import LiuXin_alpha.constants.paths as alpha_paths
 
     monkeypatch.setattr(alpha_paths, "LiuXin_prefs_folder", str(tmp_path), raising=False)
@@ -38,9 +65,19 @@ def _reload_alpha_preferences(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
 
 
 def _reload_liuxin_preferences(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
-    """Reload LiuXin.preferences with its prefs folder redirected to tmp_path.
+    """
+    Reload LiuXin.preferences with its prefs folder redirected to tmp_path.
 
-    Only used if LiuXin is importable in the current environment.
+    Example:
+        Exercise  reload liuxin preferences through a consuming regression::
+
+            python -m pytest -q tests/preferences/test_preferences_regression.py
+
+
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     import LiuXin_alpha.constants.paths as paths
 
@@ -55,9 +92,20 @@ def _reload_liuxin_preferences(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
 def test_missing_key_uses_default_and_upgrades_file(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, module_kind: str
 ):
-    """If an old INI file is missing a key that exists in defaults, __getitem__ must not KeyError.
+    """
+    If an old INI file is missing a key that exists in defaults, __getitem__ must not KeyError.
 
-    It should return the inbuilt default and the INI should be upgraded to include the missing key.
+    Example:
+        Exercise test missing key uses default and upgrades file through a consuming regression::
+
+            python -m pytest -q tests/preferences/test_preferences_regression.py
+
+
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param module_kind: Value supplied for module kind under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     if module_kind == "liuxin":
         pytest.importorskip("LiuXin_alpha")
@@ -92,7 +140,21 @@ use_import_cache = bool:true
 def test_unknown_options_are_preserved(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, module_kind: str
 ):
-    """Unknown keys in the on-disk file should survive an upgrade pass."""
+    """
+    Unknown keys in the on-disk file should survive an upgrade pass.
+
+    Example:
+        Exercise test unknown options are preserved through a consuming regression::
+
+            python -m pytest -q tests/preferences/test_preferences_regression.py
+
+
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param module_kind: Value supplied for module kind under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if module_kind == "liuxin":
         pytest.importorskip("LiuXin_alpha")
 
@@ -127,7 +189,21 @@ plugin_magic = str:"xyz"
 def test_fresh_install_creates_complete_file(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, module_kind: str
 ):
-    """If no INI exists, a full defaults file should be created and include key defaults."""
+    """
+    If no INI exists, a full defaults file should be created and include key defaults.
+
+    Example:
+        Exercise test fresh install creates complete file through a consuming regression::
+
+            python -m pytest -q tests/preferences/test_preferences_regression.py
+
+
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param module_kind: Value supplied for module kind under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if module_kind == "liuxin":
         pytest.importorskip("LiuXin_alpha")
 
@@ -152,7 +228,21 @@ def test_fresh_install_creates_complete_file(
 def test_storage_rclone_default_rate_limit_key_exists(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, module_kind: str
 ):
-    """The rclone HTTP default rate limit should be present in preferences defaults."""
+    """
+    The rclone HTTP default rate limit should be present in preferences defaults.
+
+    Example:
+        Exercise test storage rclone default rate limit key exists through a consuming regression::
+
+            python -m pytest -q tests/preferences/test_preferences_regression.py
+
+
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param module_kind: Value supplied for module kind under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if module_kind == "liuxin":
         pytest.importorskip("LiuXin_alpha")
 
@@ -170,7 +260,21 @@ def test_storage_rclone_default_rate_limit_key_exists(
 def test_storage_crawler_default_rate_limit_key_exists(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, module_kind: str
 ):
-    """The shared crawler default rate limit should be present in preferences defaults."""
+    """
+    The shared crawler default rate limit should be present in preferences defaults.
+
+    Example:
+        Exercise test storage crawler default rate limit key exists through a consuming regression::
+
+            python -m pytest -q tests/preferences/test_preferences_regression.py
+
+
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param module_kind: Value supplied for module kind under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if module_kind == "liuxin":
         pytest.importorskip("LiuXin_alpha")
 

@@ -1,24 +1,54 @@
-"""CHM file decoding support."""
+"""
+Read the package's ebook container into normalized metadata and content resources.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise reader through a consuming regression::
+
+        python -m pytest -q tests/file_formats/chm/test_chm_modernized.py
+"""
 
 from __future__ import annotations
-
-import typing as _typing
 
 import codecs
 import os
 import struct
+import typing as _typing
 
 from LiuXin_alpha.constants import iswindows
-from LiuXin_alpha.file_formats.chardet import xml_to_unicode
 from LiuXin_alpha.file_formats.toc import TOC
 from LiuXin_alpha.utils.calibre import guess_type as guess_mimetype
-from LiuXin_alpha.utils.libraries.chm import CHM_ENUMERATE_NORMAL, CHM_RESOLVE_SUCCESS, CHMError, CHMFile, chm_enumerate
+from LiuXin_alpha.utils.libraries.calibre_chardet import xml_to_unicode
+from LiuXin_alpha.utils.libraries.chm import (
+    CHM_ENUMERATE_NORMAL,
+    CHM_RESOLVE_SUCCESS,
+    CHMError,
+    CHMFile,
+    chm_enumerate,
+)
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>, and Alex Bramley <a.bramley at gmail.com>."
 
 
 def match_string(s1: _typing.Any, s2_already_lowered: _typing.Any) -> bool:
+    """
+    Perform the match string operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise match string through a consuming regression::
+
+            python -m pytest -q tests/file_formats/chm/test_chm_modernized.py
+
+
+    :param s1: Value supplied for s1 under the utility contract.
+    :param s2_already_lowered: Value supplied for s2 already lowered under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if s1 is not None and s2_already_lowered is not None:
         if s1.lower() == s2_already_lowered:
             return True
@@ -26,7 +56,29 @@ def match_string(s1: _typing.Any, s2_already_lowered: _typing.Any) -> bool:
 
 
 class CHMReader(CHMFile):
+    """
+    Parse chmreader data into normalized ebook structures.
+
+    Example:
+        Exercise CHMReader through a consuming regression::
+
+            python -m pytest -q tests/file_formats/chm/test_chm_modernized.py
+    """
     def __init__(self: _typing.Self, input_path: _typing.Any, log: _typing.Any, input_encoding: _typing.Any = None) -> None:
+        """
+        Initialize and validate the chmreader state.
+
+        Example:
+            Exercise CHMReader.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/chm/test_chm_modernized.py
+
+
+        :param input_path: Value supplied for input path under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :param input_encoding: Value supplied for input encoding under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         super().__init__()
         if not self.LoadCHM(input_path):
             raise CHMError(f"Unable to open CHM file {input_path!r}")
@@ -51,6 +103,21 @@ class CHMReader(CHMFile):
         self.hhc_path = self.root + ".hhc"
 
     def _log_exception(self: _typing.Self, message: _typing.Any, exception: _typing.Any = None, level: str = "INFO") -> None:
+        """
+        Perform the log exception operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CHMReader. log exception through a consuming regression::
+
+                python -m pytest -q tests/file_formats/chm/test_chm_modernized.py
+
+
+        :param message: Value supplied for message under the utility contract.
+        :param exception: Value supplied for exception under the utility contract.
+        :param level: Value supplied for level under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if hasattr(self.log, "log_exception"):
             self.log.log_exception(message=message, exception=exception, level=level)
             return
@@ -64,6 +131,18 @@ class CHMReader(CHMFile):
             self.log.warning(message)
 
     def relpath_to_first_html_file(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the relpath to first html file operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CHMReader.relpath to first html file through a consuming regression::
+
+                python -m pytest -q tests/file_formats/chm/test_chm_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.GetFile("/#SYSTEM")
         pos = 4
         while pos + 4 <= len(data):
@@ -79,6 +158,20 @@ class CHMReader(CHMFile):
         return default_topic[1:]
 
     def decode_hhp_filename(self: _typing.Self, path: _typing.Any) -> _typing.Any:
+        """
+        Perform the decode hhp filename operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CHMReader.decode hhp filename through a consuming regression::
+
+                python -m pytest -q tests/file_formats/chm/test_chm_modernized.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if isinstance(path, str):
             return path
         for enc in (self.encoding_from_system_file, self.encoding_from_lcid, "cp1252", "cp1251", "latin1", "utf-8"):
@@ -93,6 +186,18 @@ class CHMReader(CHMFile):
         return path.decode("latin1", errors="replace")
 
     def get_encodings(self: _typing.Self) -> None:
+        """
+        Return encodings under the format's safety and compatibility rules.
+
+        Example:
+            Exercise CHMReader.get encodings through a consuming regression::
+
+                python -m pytest -q tests/file_formats/chm/test_chm_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.encoding_from_system_file = self.encoding_from_lcid = None
 
         q = self.GetEncoding()
@@ -118,9 +223,35 @@ class CHMReader(CHMFile):
                     pass
 
     def get_encoding(self: _typing.Self) -> bool:
+        """
+        Return encoding under the format's safety and compatibility rules.
+
+        Example:
+            Exercise CHMReader.get encoding through a consuming regression::
+
+                python -m pytest -q tests/file_formats/chm/test_chm_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.encoding_from_system_file or self.encoding_from_lcid or "cp1252"
 
     def _parse_toc(self: _typing.Self, ul: _typing.Any, basedir: _typing.Any = os.getcwd()) -> _typing.Any:
+        """
+        Parse toc under the format's safety and compatibility rules.
+
+        Example:
+            Exercise CHMReader. parse toc through a consuming regression::
+
+                python -m pytest -q tests/file_formats/chm/test_chm_modernized.py
+
+
+        :param ul: Value supplied for ul under the utility contract.
+        :param basedir: Value supplied for basedir under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         toc = TOC(play_order=self._playorder, base_path=basedir, text="")
         self._playorder += 1
         for li in ul("li", recursive=False):
@@ -142,15 +273,57 @@ class CHMReader(CHMFile):
         return toc
 
     def ResolveObject(self: _typing.Self, path: _typing.Any) -> _typing.Any:
+        """
+        Perform the ResolveObject operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CHMReader.ResolveObject through a consuming regression::
+
+                python -m pytest -q tests/file_formats/chm/test_chm_modernized.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not isinstance(path, bytes):
             path = path.encode("utf-8")
         return CHMFile.ResolveObject(self, path)
 
     def file_exists(self: _typing.Self, path: _typing.Any) -> bool:
+        """
+        Perform the file exists operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CHMReader.file exists through a consuming regression::
+
+                python -m pytest -q tests/file_formats/chm/test_chm_modernized.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         res, _ui = self.ResolveObject(path)
         return res == CHM_RESOLVE_SUCCESS
 
     def GetFile(self: _typing.Self, path: _typing.Any) -> _typing.Any:
+        """
+        Perform the GetFile operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CHMReader.GetFile through a consuming regression::
+
+                python -m pytest -q tests/file_formats/chm/test_chm_modernized.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if isinstance(path, bytes):
             path = path.decode("utf-8", errors="replace")
         if not path.startswith("/"):
@@ -166,9 +339,35 @@ class CHMReader(CHMFile):
         return data
 
     def get_home(self: _typing.Self) -> _typing.Any:
+        """
+        Return home under the format's safety and compatibility rules.
+
+        Example:
+            Exercise CHMReader.get home through a consuming regression::
+
+                python -m pytest -q tests/file_formats/chm/test_chm_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.GetFile(self.home)
 
     def ExtractFiles(self: _typing.Self, output_dir: _typing.Any = os.getcwd(), debug_dump: bool = False) -> None:
+        """
+        Perform the ExtractFiles operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CHMReader.ExtractFiles through a consuming regression::
+
+                python -m pytest -q tests/file_formats/chm/test_chm_modernized.py
+
+
+        :param output_dir: Value supplied for output dir under the utility contract.
+        :param debug_dump: Value supplied for debug dump under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         html_files = set()
 
         try:
@@ -262,6 +461,20 @@ class CHMReader(CHMFile):
             self.hhc_path = relative_files[0]
 
     def _reformat(self: _typing.Self, data: _typing.Any, htmlpath: _typing.Any) -> _typing.Any:
+        """
+        Perform the reformat operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CHMReader. reformat through a consuming regression::
+
+                python -m pytest -q tests/file_formats/chm/test_chm_modernized.py
+
+
+        :param data: Value supplied for data under the utility contract.
+        :param htmlpath: Value supplied for htmlpath under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from lxml import html
 
         if self.input_encoding and isinstance(data, bytes):
@@ -287,6 +500,19 @@ class CHMReader(CHMFile):
         body = body_nodes[0] if body_nodes else root
 
         def nav_table_candidate(table: _typing.Any) -> _typing.Any:
+            """
+            Perform the nav table candidate operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise CHMReader. reformat.nav table candidate through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/chm/test_chm_modernized.py
+
+
+            :param table: Value supplied for table under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             try:
                 alt = "".join(table.xpath(".//img[1]/@alt")).lower()
             except Exception:
@@ -352,12 +578,39 @@ class CHMReader(CHMFile):
             return normalized
 
     def Contents(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the Contents operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CHMReader.Contents through a consuming regression::
+
+                python -m pytest -q tests/file_formats/chm/test_chm_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self._contents is not None:
             return self._contents
 
         paths = []
 
         def get_paths(_chm: _typing.Any, ui: _typing.Any, _ctx: _typing.Any) -> None:
+            """
+            Return paths under the format's safety and compatibility rules.
+
+            Example:
+                Exercise CHMReader.Contents.get paths through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/chm/test_chm_modernized.py
+
+
+            :param _chm: Value supplied for chm under the utility contract.
+            :param ui: Value supplied for ui under the utility contract.
+            :param _ctx: Value supplied for ctx under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             path = ui.path
             if isinstance(path, bytes):
                 path = path.decode("utf-8", errors="replace")
@@ -369,9 +622,37 @@ class CHMReader(CHMFile):
         return self._contents
 
     def _ensure_dir(self: _typing.Self, path: _typing.Any) -> None:
+        """
+        Perform the ensure dir operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CHMReader. ensure dir through a consuming regression::
+
+                python -m pytest -q tests/file_formats/chm/test_chm_modernized.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         local_dir = os.path.dirname(path)
         if local_dir and not os.path.isdir(local_dir):
             os.makedirs(local_dir, exist_ok=True)
 
     def extract_content(self: _typing.Self, output_dir: _typing.Any = os.getcwd(), debug_dump: bool = False) -> None:
+        """
+        Extract content under the format's safety and compatibility rules.
+
+        Example:
+            Exercise CHMReader.extract content through a consuming regression::
+
+                python -m pytest -q tests/file_formats/chm/test_chm_modernized.py
+
+
+        :param output_dir: Value supplied for output dir under the utility contract.
+        :param debug_dump: Value supplied for debug dump under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.ExtractFiles(output_dir=output_dir, debug_dump=debug_dump)

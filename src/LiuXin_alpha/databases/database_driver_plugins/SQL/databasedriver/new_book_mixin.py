@@ -1,6 +1,6 @@
 
 """
-Methods to deal with new_books.
+Read, total and delete file groups staged in the new_books table.
 """
 
 from __future__ import annotations
@@ -12,7 +12,10 @@ from typing import Any
 
 class BookGroupMixin:
     """
-    Provides methods to deal with book groups.
+    Process pending import groups through the host driver's new_books schema.
+
+    Example:
+        ``driver.direct_get_next_book_group()`` selects the lowest available group ID.
     """
 
     # ----------------------------------------------------------------------------------------------------------------------
@@ -24,9 +27,15 @@ class BookGroupMixin:
 
     def direct_get_next_book_group(self) -> tuple[list[dict[str, Any]], int]:
         """
-        Returns the next group of files from new_books and the group_id corresponding to that group.
+        Read rows with the smallest non-null group ID without dequeuing them.
 
-        :return book_grouping, min_group_id:
+        Close the query connection on success. Rows have no explicit ordering; an empty table returns ``([], None)`` despite the integer ID annotation.
+
+        Example:
+            ``rows, group_id = driver.direct_get_next_book_group()`` reads the next pending group.
+
+
+        :return: A pair of row dictionaries and the selected group ID, which may be ``None``.
         """
         conn = self.get_connection()
         c = conn.cursor()
@@ -53,10 +62,17 @@ class BookGroupMixin:
     # This should definitely not be here
     def sum_book_group_sizes(self, book_group):
         """
-        Takes a book group in the form of a index of row dicts - sum their sizes..
+        Sum new_book_size values without coercion or validation.
 
-        :param book_group: A .. group of books?
-        :return book_group_size: In bytes
+        Missing keys and incompatible value types propagate their normal exceptions.
+
+        Example:
+            >>> BookGroupMixin().sum_book_group_sizes([{"new_book_size": 12}, {"new_book_size": 5}])
+            17
+
+
+        :param book_group: Iterable of row mappings containing numeric ``new_book_size`` values.
+        :return: The sum of recorded sizes, conventionally bytes; zero for an empty iterable.
         """
         size = 0
         for book in book_group:
@@ -65,10 +81,16 @@ class BookGroupMixin:
 
     def direct_delete_book_group(self, group_id: int) -> None:
         """
-        Takes the id of a group of files in the new_books table. Deletes them.
+        Delete all rows for a bound group ID, then commit and close on success.
 
-        :param group_id: The id of the group of books we are searching for
-        :return:
+        Translate sqlite3 ProgrammingError into ValueError; the error path has no explicit connection cleanup.
+
+        Example:
+            ``driver.direct_delete_book_group(group_id)`` removes a processed import group.
+
+
+        :param group_id: Group ID bound in the DELETE predicate.
+        :return: ``None``.
         """
 
         conn = self.get_connection()

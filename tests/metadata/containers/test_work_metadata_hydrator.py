@@ -1,3 +1,14 @@
+"""
+Verify work hydration from direct rows, links, identifiers and assets.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test work metadata hydrator through its owning regression module::
+
+        python -m pytest -q tests/metadata/containers/test_work_metadata_hydrator.py
+"""
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -20,13 +31,57 @@ SINGULARS = {
 
 
 class FakeDriverWrapper:
+    """
+    Model table identity, link naming and row mutation for item hydrator tests.
+
+    Example:
+        Exercise FakeDriverWrapper through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_work_metadata_hydrator.py
+    """
     def __init__(self, tables_and_columns: Mapping[str, list[str]]) -> None:
+        """
+        Initialize the FakeDriverWrapper test double.
+
+        Example:
+            Exercise FakeDriverWrapper.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_work_metadata_hydrator.py
+
+
+        :param tables_and_columns: Value supplied for tables and columns in the focused test
+            operation.
+        :return: None; the function records state or raises through its assertions.
+        """
         self.tables_and_columns = dict(tables_and_columns)
 
     def get_allowed_tables_snapshot(self) -> list[str]:
+        """
+        Return the immutable table set advertised by the test driver.
+
+        Example:
+            Exercise FakeDriverWrapper.get allowed tables snapshot through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_work_metadata_hydrator.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return list(self.tables_and_columns)
 
     def identify_table_from_row_dict(self, row_dict: Mapping[str, Any]) -> str:
+        """
+        Infer a test table name from the row's identifying columns.
+
+        Example:
+            Exercise FakeDriverWrapper.identify table from row dict through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_work_metadata_hydrator.py
+
+
+        :param row_dict: Value supplied for row dict in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         keys = set(row_dict)
         for table, singular in SINGULARS.items():
             id_column = f"{singular}_id"
@@ -38,19 +93,80 @@ class FakeDriverWrapper:
         raise ValueError(f"Could not identify table from keys: {sorted(keys)}")
 
     def get_id_column(self, table: str) -> str:
+        """
+        Return the configured identity column for a table.
+
+        Example:
+            Exercise FakeDriverWrapper.get id column through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_work_metadata_hydrator.py
+
+
+        :param table: Table name addressed by the test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return f"{SINGULARS[str(table)]}_id"
 
     def check_for_intralink_table(self, table: str) -> bool:
+        """
+        Return whether the named test table represents a self-link.
+
+        Example:
+            Exercise FakeDriverWrapper.check for intralink table through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_work_metadata_hydrator.py
+
+
+        :param table: Table name addressed by the test operation.
+        :return: True when the tested condition is satisfied; otherwise False.
+        """
         return False
 
     def get_interlinked_tables(self, table: str) -> list[str]:
+        """
+        Return the table pair connected by a test link table.
+
+        Example:
+            Exercise FakeDriverWrapper.get interlinked tables through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_work_metadata_hydrator.py
+
+
+        :param table: Table name addressed by the test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return []
 
     @staticmethod
     def _singular(table: str) -> str:
+        """
+        Return the deterministic singular form used in test link names.
+
+        Example:
+            Exercise FakeDriverWrapper.singular through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_work_metadata_hydrator.py
+
+
+        :param table: Table name addressed by the test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return SINGULARS.get(str(table), str(table).rstrip("s"))
 
     def get_link_table_name(self, table1: str, table2: str) -> str:
+        """
+        Return the deterministic link-table name for two entity tables.
+
+        Example:
+            Exercise FakeDriverWrapper.get link table name through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_work_metadata_hydrator.py
+
+
+        :param table1: Value supplied for table1 in the focused test operation.
+        :param table2: Value supplied for table2 in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         left = self._singular(table1)
         right = self._singular(table2)
         names = sorted((left, right))
@@ -60,6 +176,18 @@ class FakeDriverWrapper:
 
     @staticmethod
     def get_column_base(table_name: str) -> str:
+        """
+        Return the entity base represented by a link-column name.
+
+        Example:
+            Exercise FakeDriverWrapper.get column base through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_work_metadata_hydrator.py
+
+
+        :param table_name: Table name addressed by the test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         text = str(table_name)
         if text.endswith("_links"):
             return text[:-1]
@@ -68,35 +196,131 @@ class FakeDriverWrapper:
         return text.rstrip("s")
 
     def get_link_column(self, table1: str, table2: str, secondary_id_column: str) -> str:
+        """
+        Return the link-column name associated with an entity table.
+
+        Example:
+            Exercise FakeDriverWrapper.get link column through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_work_metadata_hydrator.py
+
+
+        :param table1: Value supplied for table1 in the focused test operation.
+        :param table2: Value supplied for table2 in the focused test operation.
+        :param secondary_id_column: Value supplied for secondary id column in the focused
+            test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         link_table = self.get_link_table_name(table1, table2)
         return f"{self.get_column_base(link_table)}_{secondary_id_column}"
 
 
 @dataclass
 class FakeDatabase:
+    """
+    Provide deterministic in-memory rows, searches and interlinks for item hydration.
+
+    Example:
+        Exercise FakeDatabase through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_work_metadata_hydrator.py
+    """
     tables_and_columns: dict[str, list[str]]
     driver_wrapper: FakeDriverWrapper = field(init=False)
     rows_by_table: dict[str, list[Row]] = field(default_factory=dict)
     interlinks: dict[tuple[str, int, str], list[dict[str, Any]]] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
+        """
+        Normalize in-memory test state after dataclass initialization.
+
+        Example:
+            Exercise FakeDatabase.post init through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_work_metadata_hydrator.py
+
+
+        :return: None; the function records state or raises through its assertions.
+        """
         self.driver_wrapper = FakeDriverWrapper(self.tables_and_columns)
 
     def get_tables(self, force_refresh: bool = False) -> list[str]:
+        """
+        Return the table names exposed by the in-memory schema.
+
+        Example:
+            Exercise FakeDatabase.get tables through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_work_metadata_hydrator.py
+
+
+        :param force_refresh: Value supplied for force refresh in the focused test
+            operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return list(self.tables_and_columns)
 
     def get_tables_and_columns(self) -> dict[str, list[str]]:
+        """
+        Return a copied schema mapping for discovery tests.
+
+        Example:
+            Exercise FakeDatabase.get tables and columns through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_work_metadata_hydrator.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return dict(self.tables_and_columns)
 
     def get_column_headings(self, table: str) -> set[str]:
+        """
+        Return the known column names for a test table.
+
+        Example:
+            Exercise FakeDatabase.get column headings through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_work_metadata_hydrator.py
+
+
+        :param table: Table name addressed by the test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return set(self.tables_and_columns.get(str(table), []))
 
     def add_row(self, table: str, row_dict: dict[str, Any]) -> Row:
+        """
+        Insert a copied row into the in-memory table and return its identity.
+
+        Example:
+            Exercise FakeDatabase.add row through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_work_metadata_hydrator.py
+
+
+        :param table: Table name addressed by the test operation.
+        :param row_dict: Value supplied for row dict in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         row = Row(self, row_dict=row_dict, read_only=True)
         self.rows_by_table.setdefault(str(table), []).append(row)
         return row
 
     def get_row_from_id(self, table: str, row_id: int) -> Row | None:
+        """
+        Return a copied row for the requested identity, or the test double's miss value.
+
+        Example:
+            Exercise FakeDatabase.get row from id through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_work_metadata_hydrator.py
+
+
+        :param table: Table name addressed by the test operation.
+        :param row_id: Identity of the row to retrieve or mutate.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         target_table = str(table)
         target_row_id = int(row_id)
         id_column = self.driver_wrapper.get_id_column(target_table)
@@ -106,6 +330,20 @@ class FakeDatabase:
         return None
 
     def search(self, table: str, column: str, search_term: Any) -> list[Row]:
+        """
+        Return rows whose selected column satisfies the test query.
+
+        Example:
+            Exercise FakeDatabase.search through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_work_metadata_hydrator.py
+
+
+        :param table: Table name addressed by the test operation.
+        :param column: Column name inspected, searched or updated.
+        :param search_term: Value supplied for search term in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         out: list[Row] = []
         for row in self.rows_by_table.get(str(table), []):
             if row.row_dict.get(str(column)) == search_term:
@@ -113,11 +351,36 @@ class FakeDatabase:
         return out
 
     def get_interlink_rows(self, primary_row: Row, secondary_table: str) -> list[dict[str, Any]]:
+        """
+        Return relation rows matching the supplied source and destination filters.
+
+        Example:
+            Exercise FakeDatabase.get interlink rows through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_work_metadata_hydrator.py
+
+
+        :param primary_row: Value supplied for primary row in the focused test operation.
+        :param secondary_table: Value supplied for secondary table in the focused test
+            operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         key = (str(primary_row.table), int(primary_row.row_id), str(secondary_table))
         return list(self.interlinks.get(key, []))
 
 
 def _build_fake_database() -> FakeDatabase:
+    """
+    Perform the build fake database test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise build fake database through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_work_metadata_hydrator.py
+
+
+    :return: The deterministic value, row, identity or collection described above.
+    """
     tables_and_columns = {
         "works": [
             "work_id",
@@ -255,6 +518,17 @@ def _build_fake_database() -> FakeDatabase:
 
 
 def test_work_metadata_hydrator_from_work_id_and_source_row() -> None:
+    """
+    Verify work metadata hydrator from work id and source row.
+
+    Example:
+        Exercise test work metadata hydrator from work id and source row through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_work_metadata_hydrator.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     db = _build_fake_database()
     hydrator = WorkMetadataHydrator(db)
 

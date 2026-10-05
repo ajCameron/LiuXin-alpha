@@ -1,3 +1,14 @@
+"""
+Resolve optional native plugins to installed implementations or Python fallbacks.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise resolver through a consuming regression::
+
+        python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+"""
 from __future__ import annotations
 
 import json
@@ -17,20 +28,70 @@ CACHE_ENV = "LIUXIN_PLUGIN_CACHE_PATH"
 
 
 def _machine_fingerprint() -> str:
+    """
+    Perform the machine fingerprint utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  machine fingerprint through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return "|".join([platform.system(), platform.machine(), platform.python_version()])
 
 
 def _default_cache_path() -> Path:
+    """
+    Perform the default cache path utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  default cache path through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     root = Path(os.environ.get("LIUXIN_CACHE_DIR", Path.home() / ".cache"))
     return root / "liuxin_alpha" / "plugin_selection.json"
 
 
 def _cache_path() -> Path:
+    """
+    Perform the cache path utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  cache path through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     p = os.environ.get(CACHE_ENV)
     return Path(p) if p else _default_cache_path()
 
 
 def _load_cache(path: Path) -> dict:
+    """
+    Perform the load cache utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  load cache through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         if not path.exists():
             return {"__fingerprint__": _machine_fingerprint(), "plugins": {}}
@@ -45,12 +106,40 @@ def _load_cache(path: Path) -> dict:
 
 
 def _save_cache(path: Path, data: dict) -> None:
+    """
+    Perform the save cache utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  save cache through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :param data: Value supplied for data under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     data["__fingerprint__"] = _machine_fingerprint()
     path.write_text(json.dumps(data, indent=2, sort_keys=True), "utf-8")
 
 
 def _probe(mod) -> Tuple[bool, str]:
+    """
+    Perform the probe utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  probe through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param mod: Value supplied for mod under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     fn = getattr(mod, "__liuxin_plugin_probe__", None)
     if fn is None:
         return True, "no-probe"
@@ -63,12 +152,32 @@ def _probe(mod) -> Tuple[bool, str]:
 
 @dataclass(frozen=True)
 class ResolvedPlugin:
+    """
+    Provide the ResolvedPlugin utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise ResolvedPlugin through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+    """
     module: Optional[object]
     source: Optional[str]  # module import path chosen
     err: Optional[str]
 
 
 def resolve_fallback_module_path(plugin_name: str) -> Iterable[str]:
+    """
+    Resolve fallback module path under the documented compatibility and safety rules.
+
+    Example:
+        Exercise resolve fallback module path through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param plugin_name: Value supplied for plugin name under the utility contract.
+    :return: An iterator yielding the normalized values described above.
+    """
     base = __name__.rsplit(".", 1)[0]  # LiuXin_alpha.utils.plugins
     # The fallback package lives under base + ".fallbacks"
     fb_base = f"{base}.fallbacks"
@@ -81,8 +190,18 @@ def resolve_fallback_module_path(plugin_name: str) -> Iterable[str]:
 
 def resolve_plugin(plugin_name: str, *, import_module) -> ResolvedPlugin:
     """
-    Resolve a plugin by layered fallback.
-    `import_module` is injected so caller can decide how/where to import compiled modules.
+    Resolve a plugin by layered fallback. `import_module` is injected so caller can decide how/where to import compiled modules.
+
+    Example:
+        Exercise resolve plugin through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param plugin_name: Value supplied for plugin name under the utility contract.
+    :param import_module: Value supplied for import module under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     cache_path = _cache_path()
     cache = _load_cache(cache_path)
@@ -126,6 +245,17 @@ def resolve_plugin(plugin_name: str, *, import_module) -> ResolvedPlugin:
 def write_selection_cache(plugin_names: Iterable[str], *, import_module) -> Path:
     """
     Probes all plugins and writes the cache (best effort). Returns cache path.
+
+    Example:
+        Exercise write selection cache through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param plugin_names: Value supplied for plugin names under the utility contract.
+    :param import_module: Value supplied for import module under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     cache_path = _cache_path()
     cache = _load_cache(cache_path)

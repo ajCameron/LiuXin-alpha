@@ -1,3 +1,14 @@
+"""
+Provide test manage pdf golden manifest script utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test manage pdf golden manifest script through a consuming regression::
+
+        python -m pytest -q tests/utils/test_manage_pdf_golden_manifest_script.py
+"""
 from __future__ import annotations
 
 import json
@@ -7,18 +18,69 @@ from pathlib import Path
 
 
 def _repo_root() -> Path:
+    """
+    Perform the repo root utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  repo root through a consuming regression::
+
+            python -m pytest -q tests/utils/test_manage_pdf_golden_manifest_script.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return Path(__file__).resolve().parents[2]
 
 
 def _script_path() -> Path:
+    """
+    Perform the script path utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  script path through a consuming regression::
+
+            python -m pytest -q tests/utils/test_manage_pdf_golden_manifest_script.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return _repo_root() / "scripts" / "manage_pdf_golden_manifest.py"
 
 
 def _pdf_escape(value: str) -> str:
+    """
+    Perform the pdf escape utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  pdf escape through a consuming regression::
+
+            python -m pytest -q tests/utils/test_manage_pdf_golden_manifest_script.py
+
+
+    :param value: Value normalized, stored, formatted or returned.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return value.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
 
 
 def _assemble_pdf(objects: list[bytes], *, info_obj_num: int) -> bytes:
+    """
+    Perform the assemble pdf utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  assemble pdf through a consuming regression::
+
+            python -m pytest -q tests/utils/test_manage_pdf_golden_manifest_script.py
+
+
+    :param objects: Value supplied for objects under the utility contract.
+    :param info_obj_num: Value supplied for info obj num under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     out = bytearray(b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n")
     offsets = [0]
 
@@ -44,6 +106,19 @@ def _assemble_pdf(objects: list[bytes], *, info_obj_num: int) -> bytes:
 
 
 def _build_pdf(*, title: str) -> bytes:
+    """
+    Perform the build pdf utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  build pdf through a consuming regression::
+
+            python -m pytest -q tests/utils/test_manage_pdf_golden_manifest_script.py
+
+
+    :param title: Value supplied for title under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     pages_obj = b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>"
     page_obj = b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 144] /Contents 4 0 R >>"
     content_stream = b"<< /Length 31 >>\nstream\nBT /F1 24 Tf 100 100 Td (Hello) Tj ET\nendstream"
@@ -62,6 +137,19 @@ def _build_pdf(*, title: str) -> bytes:
 
 
 def _run(*args: str) -> subprocess.CompletedProcess[str]:
+    """
+    Perform the run utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  run through a consuming regression::
+
+            python -m pytest -q tests/utils/test_manage_pdf_golden_manifest_script.py
+
+
+    :param args: Positional values forwarded to the compatibility implementation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return subprocess.run(
         [sys.executable, str(_script_path()), *args],
         capture_output=True,
@@ -70,11 +158,39 @@ def _run(*args: str) -> subprocess.CompletedProcess[str]:
 
 
 def _write_manifest(path: Path, payload: dict) -> None:
+    """
+    Perform the write manifest utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  write manifest through a consuming regression::
+
+            python -m pytest -q tests/utils/test_manage_pdf_golden_manifest_script.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :param payload: Value supplied for payload under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
 
 def test_manage_pdf_manifest_add_then_verify(tmp_path: Path) -> None:
+    """
+    Perform the test manage pdf manifest add then verify utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test manage pdf manifest add then verify through a consuming regression::
+
+            python -m pytest -q tests/utils/test_manage_pdf_golden_manifest_script.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     fixture_dir = tmp_path / "pdf_golden"
     fixture_dir.mkdir(parents=True)
     manifest = fixture_dir / "manifest.json"
@@ -118,6 +234,19 @@ def test_manage_pdf_manifest_add_then_verify(tmp_path: Path) -> None:
 
 
 def test_manage_pdf_manifest_verify_strict_set_fails_for_untracked(tmp_path: Path) -> None:
+    """
+    Perform the test manage pdf manifest verify strict set fails for untracked utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test manage pdf manifest verify strict set fails for untracked through a consuming regression::
+
+            python -m pytest -q tests/utils/test_manage_pdf_golden_manifest_script.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     fixture_dir = tmp_path / "pdf_golden"
     fixture_dir.mkdir(parents=True)
     manifest = fixture_dir / "manifest.json"
@@ -155,6 +284,19 @@ def test_manage_pdf_manifest_verify_strict_set_fails_for_untracked(tmp_path: Pat
 
 
 def test_manage_pdf_manifest_rebuild_updates_expected_after_fixture_change(tmp_path: Path) -> None:
+    """
+    Perform the test manage pdf manifest rebuild updates expected after fixture change utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test manage pdf manifest rebuild updates expected after fixture change through a consuming regression::
+
+            python -m pytest -q tests/utils/test_manage_pdf_golden_manifest_script.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     fixture_dir = tmp_path / "pdf_golden"
     fixture_dir.mkdir(parents=True)
     manifest = fixture_dir / "manifest.json"

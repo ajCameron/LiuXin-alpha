@@ -1,3 +1,14 @@
+"""
+Provide test docx container framework utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test docx container framework through a consuming regression::
+
+        python -m pytest -q tests/file_formats/docx/test_docx_container_framework.py
+"""
 from __future__ import annotations
 
 import zipfile
@@ -23,6 +34,19 @@ from tests.support.file_format_unicode import assert_fragments_present, assert_n
 
 
 def test_docx_fixture_builds_valid_container_shape_and_unicode_payload(tmp_path: Path) -> None:
+    """
+    Perform the test docx fixture builds valid container shape and unicode payload operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test docx fixture builds valid container shape and unicode payload through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_container_framework.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     fixture = build_unicode_docx(tmp_path / "container_Καλημέρα_世界.docx", include_image=True)
 
     with zipfile.ZipFile(fixture.path, "r") as zf:
@@ -85,6 +109,19 @@ def test_docx_fixture_builds_valid_container_shape_and_unicode_payload(tmp_path:
 
 
 def test_docx_fixture_supports_optional_extra_assets(tmp_path: Path) -> None:
+    """
+    Perform the test docx fixture supports optional extra assets operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test docx fixture supports optional extra assets through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_container_framework.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     extra_assets = {
         "word/media/audio مرحبا.bin": ("application/octet-stream", b"audio"),
         "word/theme/深/theme_世界.xml": ("application/xml", b"<theme/>"),
@@ -106,6 +143,19 @@ def test_docx_fixture_supports_optional_extra_assets(tmp_path: Path) -> None:
 
 
 def test_docx_fixture_rewrite_helper_removes_replaces_and_adds_members(tmp_path: Path) -> None:
+    """
+    Perform the test docx fixture rewrite helper removes replaces and adds members operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test docx fixture rewrite helper removes replaces and adds members through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_container_framework.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     fixture = build_unicode_docx(tmp_path / "base.docx")
     rewritten = tmp_path / "rewritten.docx"
     replacement_document = (
@@ -133,6 +183,19 @@ def test_docx_fixture_rewrite_helper_removes_replaces_and_adds_members(tmp_path:
 
 
 def test_docx_convert_preserves_unicode_body_metadata_and_nested_media(tmp_path: Path) -> None:
+    """
+    Perform the test docx convert preserves unicode body metadata and nested media operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test docx convert preserves unicode body metadata and nested media through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_container_framework.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     import LiuXin_alpha.file_formats.docx.to_html as to_html_mod
 
     fixture = build_unicode_docx(tmp_path / "convert_Καλημέρα_世界.docx", include_image=True)
@@ -178,6 +241,20 @@ def test_docx_input_plugin_uses_workdir_and_preserves_unicode_conversion(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    """
+    Perform the test docx input plugin uses workdir and preserves unicode conversion operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test docx input plugin uses workdir and preserves unicode conversion through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_container_framework.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.conversion.plugins.docx_input import DOCXInput
 
     fixture = build_unicode_docx(tmp_path / "plugin_Καλημέρα_世界.docx", include_image=True)

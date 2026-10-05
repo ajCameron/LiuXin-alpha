@@ -1,21 +1,38 @@
 #!/usr/bin/env python
 # vim:fileencoding=utf-8
 
-from __future__ import unicode_literals, division, absolute_import, print_function
-from __future__ import annotations
+"""
+Exercise OEB markup parsing, serialization and compatibility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise parsing through a consuming regression::
+
+        python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+"""
+from __future__ import (
+    absolute_import,
+    annotations,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import typing as _typing
-
 from functools import partial
 
 from lxml import etree
 
-from LiuXin_alpha.file_formats.oeb.polish.tests.base import BaseTest
-from LiuXin_alpha.file_formats.oeb.polish.parsing import parse_html5 as parse
-from LiuXin_alpha.file_formats.oeb.base import XPath, XHTML_NS, SVG_NS, XLINK_NS
+from LiuXin_alpha.file_formats.oeb.base import SVG_NS, XHTML_NS, XLINK_NS, XPath
 from LiuXin_alpha.file_formats.oeb.parse_utils import html5_parse
-
-from LiuXin_alpha.utils.libraries.liuxin_html5lib.constants import cdataElements, rcdataElements
+from LiuXin_alpha.file_formats.oeb.polish.parsing import parse_html5 as parse
+from LiuXin_alpha.file_formats.oeb.polish.tests.base import BaseTest
+from LiuXin_alpha.utils.libraries.liuxin_html5lib.constants import (
+    cdataElements,
+    rcdataElements,
+)
 
 # Py2/Py3 compatability layer
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
@@ -27,11 +44,18 @@ __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
 
 def nonvoid_cdata_elements(test: _typing.Any, parse_function: _typing.Any) -> None:
     """
-    If self closed version of non-void cdata elements like <title/> are
-    present, the HTML5 parsing algorithm treats all following data as CDATA
-    :param test:
-    :param parse_function:
-    :return:
+    If self closed version of non-void cdata elements like <title/> are present, the HTML5 parsing algorithm treats all following data as CDATA
+
+    Example:
+        Exercise nonvoid cdata elements through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param test: Value supplied for test under the utility contract.
+    :param parse_function: Value supplied for parse function under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     markup = """
     <html> <head><{0}/></head> <body id="test"> </html>
@@ -47,9 +71,39 @@ def nonvoid_cdata_elements(test: _typing.Any, parse_function: _typing.Any) -> No
 
 
 def namespaces(test: _typing.Any, parse_function: _typing.Any) -> None:
+    """
+    Perform the namespaces operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise namespaces through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param test: Value supplied for test under the utility contract.
+    :param parse_function: Value supplied for parse function under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     ae = test.assertEqual
 
     def match_and_prefix(local_root: _typing.Any, local_xpath: _typing.Any, prefix: _typing.Any, local_err: str = "") -> None:
+        """
+        Perform the match and prefix operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise namespaces.match and prefix through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param local_root: Value supplied for local root under the utility contract.
+        :param local_xpath: Value supplied for local xpath under the utility contract.
+        :param prefix: Text prepended to the formatted or selected result.
+        :param local_err: Value supplied for local err under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         matches = XPath(local_xpath)(local_root)
         ae(len(matches), 1, local_err)
         ae(matches[0].prefix, prefix, local_err)
@@ -118,6 +172,19 @@ def namespaces(test: _typing.Any, parse_function: _typing.Any) -> None:
     err = "Arbitrary namespaces not preserved, parsed markup:\n" + etree.tostring(root, encoding="unicode")
 
     def xpath(expr: _typing.Any) -> _typing.Any:
+        """
+        Perform the xpath operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise namespaces.xpath through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param expr: Value supplied for expr under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return etree.XPath(expr, namespaces={"ns1": "NS", "ns2": "NS2"})(root)
 
     ae(len(xpath("//ns1:tag1")), 1, err)
@@ -139,6 +206,20 @@ def namespaces(test: _typing.Any, parse_function: _typing.Any) -> None:
 
 
 def space_characters(test: _typing.Any, parse_function: _typing.Any) -> None:
+    """
+    Perform the space characters operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise space characters through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param test: Value supplied for test under the utility contract.
+    :param parse_function: Value supplied for parse function under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     markup = "<html><p>\u000c</p>"
     root = parse_function(markup)
     err = "form feed character not converted, parsed markup:\n" + etree.tostring(root, encoding="unicode")
@@ -150,6 +231,20 @@ def space_characters(test: _typing.Any, parse_function: _typing.Any) -> None:
 
 
 def case_insensitive_element_names(test: _typing.Any, parse_function: _typing.Any) -> None:
+    """
+    Perform the case insensitive element names operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise case insensitive element names through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param test: Value supplied for test under the utility contract.
+    :param parse_function: Value supplied for parse function under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     markup = "<HTML><P> </p>"
     root = parse_function(markup)
     err = "case sensitive parsing, parsed markup:\n" + etree.tostring(root, encoding="unicode")
@@ -157,6 +252,20 @@ def case_insensitive_element_names(test: _typing.Any, parse_function: _typing.An
 
 
 def entities(test: _typing.Any, parse_function: _typing.Any) -> None:
+    """
+    Perform the entities operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise entities through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param test: Value supplied for test under the utility contract.
+    :param parse_function: Value supplied for parse function under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     markup = "<html><p>&nbsp;&apos;</p>"
     root = parse_function(markup)
     err = "Entities not handled, parsed markup:\n" + etree.tostring(root, encoding="unicode")
@@ -164,6 +273,20 @@ def entities(test: _typing.Any, parse_function: _typing.Any) -> None:
 
 
 def multiple_html_and_body(test: _typing.Any, parse_function: _typing.Any) -> None:
+    """
+    Perform the multiple html and body operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise multiple html and body through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param test: Value supplied for test under the utility contract.
+    :param parse_function: Value supplied for parse function under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     markup = '<html id="1"><body id="2"><p><html lang="en"><body lang="de"></p>'
     root = parse_function(markup)
     err = "multiple html and body not handled, parsed markup:\n" + etree.tostring(root, encoding="unicode")
@@ -174,6 +297,20 @@ def multiple_html_and_body(test: _typing.Any, parse_function: _typing.Any) -> No
 
 
 def attribute_replacement(test: _typing.Any, parse_function: _typing.Any) -> None:
+    """
+    Perform the attribute replacement operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise attribute replacement through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param test: Value supplied for test under the utility contract.
+    :param parse_function: Value supplied for parse function under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     markup = '<html><body><svg viewbox="0"></svg><svg xmlns="%s" viewbox="1">' % SVG_NS
     root = parse_function(markup)
     err = "SVG attributes not normalized, parsed markup:\n" + etree.tostring(root, encoding="unicode")
@@ -192,10 +329,26 @@ basic_checks = (
 
 
 class ParsingTests(BaseTest):
+    """
+    Provide the parsingtests contract for validated ebook processing.
+
+    Example:
+        Exercise ParsingTests through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+    """
     def test_conversion_parser(self: _typing.Self) -> None:
         """
         Test parsing with the HTML5 parser used for conversion
-        :return:
+
+        Example:
+            Exercise ParsingTests.test conversion parser through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         for test in basic_checks:
             test(self, html5_parse)
@@ -203,7 +356,15 @@ class ParsingTests(BaseTest):
     def test_polish_parser(self: _typing.Self) -> None:
         """
         Test parsing with the HTML5 parser used for polishing
-        :return:
+
+        Example:
+            Exercise ParsingTests.test polish parser through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         for test in basic_checks:
             test(self, parse)
@@ -248,11 +409,22 @@ class ParsingTests(BaseTest):
 
 def timing() -> None:
 
+    """
+    Perform the timing operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise timing through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     import sys
     import time
 
-    from LiuXin_alpha.file_formats.chardet import xml_to_unicode
-
+    from LiuXin_alpha.utils.libraries.calibre_chardet import xml_to_unicode
     from LiuXin_alpha.utils.libraries.liuxin_html5lib import parse as vanilla
 
     filename = sys.argv[-1]

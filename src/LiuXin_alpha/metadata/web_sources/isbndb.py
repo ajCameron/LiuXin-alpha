@@ -1,8 +1,13 @@
 """
-ISBNDB metadata source.
+Identify book metadata through configured ISBNDB JSON or legacy XML responses.
 
-This source supports the modern ISBNDB v2 JSON API and retains a legacy XML
-fallback parser for older payloads.
+The module keeps network, parsing, caching, cancellation and result-order behavior
+explicit for callers.
+
+Example:
+    Exercise isbndb with the owning regression module::
+
+        python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
 """
 
 from __future__ import annotations
@@ -36,6 +41,19 @@ __docformat__ = "restructuredtext en"
 
 
 def _as_text(raw) -> str:
+    """
+    Convert optional or hostile input to text without propagating conversion failures.
+
+    Example:
+        Exercise  as text with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     if isinstance(raw, bytes):
         return raw.decode("utf-8", "replace")
     try:
@@ -45,6 +63,19 @@ def _as_text(raw) -> str:
 
 
 def _first(raw):
+    """
+    Perform the isbndb first operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  first with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     if raw is None:
         return None
     if isinstance(raw, (str, bytes)):
@@ -60,12 +91,41 @@ def _first(raw):
 
 
 def _first_identifier_value(identifiers, key):
+    """
+    Perform the isbndb first identifier value operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  first identifier value with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+    :param identifiers: Metadata identifier mapping used for direct lookup and cache
+        resolution.
+    :param key: Value supplied for key.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     if not isinstance(identifiers, Mapping):
         return None
     return _first(identifiers.get(key))
 
 
 def _safe_isbn(identifiers) -> str | None:
+    """
+    Return a validated isbn or the documented empty fallback.
+
+    Example:
+        Exercise  safe isbn with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+    :param identifiers: Metadata identifier mapping used for direct lookup and cache
+        resolution.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     for key in ("isbn", "isbn13", "isbn10"):
         raw = _first_identifier_value(identifiers or {}, key)
         if raw is None:
@@ -77,6 +137,19 @@ def _safe_isbn(identifiers) -> str | None:
 
 
 def _parse_pubdate(raw) -> datetime | None:
+    """
+    Parse pubdate without inventing absent provider data.
+
+    Example:
+        Exercise  parse pubdate with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     value = _as_text(raw).strip()
     if not value:
         return None
@@ -104,6 +177,19 @@ def _parse_pubdate(raw) -> datetime | None:
 
 
 def _ensure_author_list(raw):
+    """
+    Perform the isbndb ensure author list operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  ensure author list with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     if raw is None:
         return []
     if isinstance(raw, (list, tuple, set)):
@@ -117,6 +203,19 @@ def _ensure_author_list(raw):
 
 
 def _parse_legacy_xml_books(payload: str):
+    """
+    Parse legacy xml books without inventing absent provider data.
+
+    Example:
+        Exercise  parse legacy xml books with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+    :param payload: Provider response payload or bytes processed by the operation.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     if ET is None:
         return []
     text = _as_text(payload).strip()
@@ -154,6 +253,14 @@ def _parse_legacy_xml_books(payload: str):
 
 
 class ISBNDB(Source):
+    """
+    Implement the isbndb metadata-source integration and its explicit recovery policy.
+
+    Example:
+        Exercise ISBNDB with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+    """
     name = "ISBNDB"
     version = (2, 0, 0)
     description = _("Downloads metadata from isbndb.com")
@@ -199,6 +306,18 @@ class ISBNDB(Source):
     HTTP_RETRY_MAX_SECONDS = 6.0
 
     def _api_key(self) -> str | None:
+        """
+        Perform the isbndb api key operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise ISBNDB. api key with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         from_env = _as_text(os.environ.get("ISBNDB_API_KEY", "")).strip()
         if from_env:
             return from_env
@@ -206,9 +325,32 @@ class ISBNDB(Source):
         return from_prefs or None
 
     def is_configured(self):
+        """
+        Perform the isbndb is configured operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise ISBNDB.is configured with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+        :return: True when the described condition is satisfied; otherwise False.
+        """
         return self._api_key() is not None
 
     def _retry_policy(self) -> RetryPolicy:
+        """
+        Build the bounded retry policy used by this provider's HTTP requests.
+
+        Example:
+            Exercise ISBNDB. retry policy with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         return RetryPolicy(
             attempts=int(self.HTTP_RETRY_ATTEMPTS),
             base_delay=float(self.HTTP_RETRY_BASE_SECONDS),
@@ -216,6 +358,19 @@ class ISBNDB(Source):
         )
 
     def _retry_backoff(self, attempt: int) -> float:
+        """
+        Compute the capped delay for one provider retry attempt.
+
+        Example:
+            Exercise ISBNDB. retry backoff with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+        :param attempt: Zero-based retry attempt used to calculate backoff.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         return compute_backoff_delay(
             attempt=attempt,
             base_delay=float(self.HTTP_RETRY_BASE_SECONDS),
@@ -223,12 +378,55 @@ class ISBNDB(Source):
         )
 
     def _wait_for_backoff(self, abort, delay: float) -> bool:
+        """
+        Wait interruptibly for a retry delay and report whether it completed.
+
+        Example:
+            Exercise ISBNDB. wait for backoff with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param delay: Backoff duration in seconds.
+        :return: True when the described condition is satisfied; otherwise False.
+        """
         return wait_for_backoff(abort, delay)
 
     def _open_bytes_with_backoff(self, log, abort, url: str, timeout: int, context: str, headers=None):
+        """
+        Run the open bytes operation with bounded retry, diagnostics and cancellation.
+
+        Example:
+            Exercise ISBNDB. open bytes with backoff with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+        :param log: Logger receiving structured provider diagnostics.
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param url: Provider URL to normalize, request or associate with cached data.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :param context: Short operation label included in retry diagnostics.
+        :param headers: Response or request headers inspected by the operation.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         extra_headers = dict(headers or {})
 
         def _open():
+            """
+            Perform the provider open operation with explicit timeout and response policy.
+
+            Example:
+                Exercise ISBNDB. open bytes with backoff. open with the owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+            :return: The normalized provider value, metadata result or collection described
+                above.
+            """
             br = self.browser()
             if extra_headers:
                 br.addheaders.extend([(str(k), str(v)) for k, v in extra_headers.items()])
@@ -250,6 +448,24 @@ class ISBNDB(Source):
         )
 
     def _open_text_with_backoff(self, log, abort, url: str, timeout: int, context: str, headers=None):
+        """
+        Run the open text operation with bounded retry, diagnostics and cancellation.
+
+        Example:
+            Exercise ISBNDB. open text with backoff with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+        :param log: Logger receiving structured provider diagnostics.
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param url: Provider URL to normalize, request or associate with cached data.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :param context: Short operation label included in retry diagnostics.
+        :param headers: Response or request headers inspected by the operation.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         raw = self._open_bytes_with_backoff(
             log=log,
             abort=abort,
@@ -263,12 +479,40 @@ class ISBNDB(Source):
         return decode_http_body(raw)
 
     def _json_headers(self):
+        """
+        Perform the isbndb json headers operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise ISBNDB. json headers with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         key = self._api_key()
         if not key:
             return {}
         return {"Authorization": key, "Accept": "application/json"}
 
     def create_query(self, title=None, authors=None, identifiers=None):
+        """
+        Build create query from normalized identifiers and search inputs.
+
+        Example:
+            Exercise ISBNDB.create query with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+        :param title: Book title used to construct or rank the provider query.
+        :param authors: Author names used to construct or rank the provider query.
+        :param identifiers: Metadata identifier mapping used for direct lookup and cache
+            resolution.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         key = self._api_key()
         if not key:
             return []
@@ -312,6 +556,19 @@ class ISBNDB(Source):
         ]
 
     def _records_from_json_payload(self, payload: str):
+        """
+        Perform the isbndb records from json payload operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise ISBNDB. records from json payload with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+        :param payload: Provider response payload or bytes processed by the operation.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         try:
             data = json.loads(payload)
         except Exception:
@@ -329,6 +586,20 @@ class ISBNDB(Source):
         return []
 
     def _metadata_from_record(self, record, relevance=0):
+        """
+        Project one provider record into normalized metadata and retain source relevance.
+
+        Example:
+            Exercise ISBNDB. metadata from record with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+        :param record: Provider JSON/XML record projected into metadata.
+        :param relevance: Zero-based provider result relevance.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         title = _as_text(record.get("title_long") or record.get("title") or "").strip() or _("Unknown")
         authors = _ensure_author_list(record.get("authors") or record.get("author_data"))
         if not authors:
@@ -374,6 +645,20 @@ class ISBNDB(Source):
         return mi
 
     def _metadata_from_payload(self, payload: str, mode: str):
+        """
+        Project one provider record into normalized metadata and retain source relevance.
+
+        Example:
+            Exercise ISBNDB. metadata from payload with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+        :param payload: Provider response payload or bytes processed by the operation.
+        :param mode: Parser or query mode selecting response semantics.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         records = []
         if mode.startswith("v2_"):
             records = self._records_from_json_payload(payload)
@@ -387,6 +672,23 @@ class ISBNDB(Source):
         return out
 
     def _query_once(self, log, abort, query_mode: str, query_url: str, timeout: int):
+        """
+        Perform the isbndb query once operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise ISBNDB. query once with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+        :param log: Logger receiving structured provider diagnostics.
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param query_mode: Provider lookup mode selecting identifier or text semantics.
+        :param query_url: Prepared provider search URL.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         headers = self._json_headers() if query_mode.startswith("v2_") else {}
         payload = self._open_text_with_backoff(
             log=log,
@@ -410,6 +712,25 @@ class ISBNDB(Source):
         identifiers=None,
         timeout=30,
     ):
+        """
+        Run provider lookup, honor cancellation, isolate per-result failures and enqueue normalized metadata.
+
+        Example:
+            Exercise ISBNDB.identify with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_isbndb.py
+
+
+        :param log: Logger receiving structured provider diagnostics.
+        :param result_queue: Queue receiving normalized metadata or cover results.
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param title: Book title used to construct or rank the provider query.
+        :param authors: Author names used to construct or rank the provider query.
+        :param identifiers: Metadata identifier mapping used for direct lookup and cache
+            resolution.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :return: None.
+        """
         identifiers = identifiers or {}
         if abort.is_set():
             return

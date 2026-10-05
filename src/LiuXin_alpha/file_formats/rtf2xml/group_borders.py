@@ -10,6 +10,17 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+"""
+Group RTF border tokens around their owning structures.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise group borders through a consuming regression::
+
+        python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -21,10 +32,12 @@ from LiuXin_alpha.file_formats.rtf2xml import open_for_read, open_for_write
 
 class GroupBorders:
     """
-    Form lists.
-    Use RTF's own formatting to determine if a paragraph definition is part of a
-    list.
-    Use indents to determine items and how lists are nested.
+    Form lists. Use RTF's own formatting to determine if a paragraph definition is part of a list. Use indents to determine items and how lists are nested.
+
+    Example:
+        Exercise GroupBorders through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
     """
 
     def __init__(
@@ -36,14 +49,20 @@ class GroupBorders:
         wrap: int = 0,
     ) -> None:
         """
-        Required:
-            'file'
-        Optional:
-            'copy'-- whether to make a copy of result for debugging
-            'temp_dir' --where to output temporary results (default is
-            directory from which the script is run.)
-        Returns:
-            nothing
+        Required: 'file' Optional: 'copy'-- whether to make a copy of result for debugging 'temp_dir' --where to output temporary results (default is directory from which the script is run.) Returns: nothing
+
+        Example:
+            Exercise GroupBorders.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param in_file: Value supplied for in file under the utility contract.
+        :param bug_handler: Value supplied for bug handler under the utility contract.
+        :param copy: Value supplied for copy under the utility contract.
+        :param run_level: Value supplied for run level under the utility contract.
+        :param wrap: Value supplied for wrap under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self.__file = in_file
         self.__bug_handler = bug_handler
@@ -54,13 +73,16 @@ class GroupBorders:
 
     def __initiate_values(self: _typing.Self) -> None:
         """
-        Required:
-            Nothing
-        Return:
-            Nothing
-        Logic:
-            The self.__end_list is a list of tokens that will force a list to end.
-            Likewise, the self.__end_lines is a list of lines that forces a list to end.
+        Required: Nothing Return: Nothing Logic: The self.__end_list is a list of tokens that will force a list to end. Likewise, the self.__end_lines is a list of lines that forces a list to end.
+
+        Example:
+            Exercise GroupBorders.  initiate values through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__state = "default"
         self.__left_indent = 0
@@ -124,13 +146,17 @@ class GroupBorders:
 
     def __in_pard_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Required:
-            line -- the line of current text.
-        Return:
-            Nothing
-        Logic:
-            You are in a list, but in the middle of a paragraph definition.
-            Don't do anything until you find the end of the paragraph definition.
+        Required: line -- the line of current text. Return: Nothing Logic: You are in a list, but in the middle of a paragraph definition. Don't do anything until you find the end of the paragraph definition.
+
+        Example:
+            Exercise GroupBorders.  in pard func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.__token_info == "mi<tg<close_____" and line[17:-1] == "paragraph-definition":
             self.__state = "after_pard"
@@ -139,11 +165,17 @@ class GroupBorders:
 
     def __after_pard_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Required:
-            line -- the line of current text.
-        Return:
-            Nothing
-        Logic:
+        Required: line -- the line of current text. Return: Nothing Logic:
+
+        Example:
+            Exercise GroupBorders.  after pard func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.__token_info == "mi<tg<open-att__" and line[17:37] == "paragraph-definition":
             # found paragraph definition
@@ -164,6 +196,19 @@ class GroupBorders:
             self.__list_chunk += line
 
     def __close_pard_(self: _typing.Self, line: _typing.Any) -> None:
+        """
+        Perform the close pard operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise GroupBorders.  close pard  through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.__write_obj.write(self.__list_chunk)
         self.__write_obj.write("mi<tg<close_____<paragraph-definition\n")
         self.__write_end_wrap()
@@ -172,12 +217,17 @@ class GroupBorders:
 
     def __pard_after_par_def_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Required:
-            line -- the line of current text.
-            id -- the id of the current list
-        Return:
-            Nothing
-        Logic:
+        Required: line -- the line of current text. id -- the id of the current list Return: Nothing Logic:
+
+        Example:
+            Exercise GroupBorders.  pard after par def func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         is_border = self.__is_border_func(line)
         if not is_border:
@@ -209,14 +259,17 @@ class GroupBorders:
 
     def __default_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Required:
-            self, line
-        Returns:
-            Nothing
-        Logic
-            Look for the start of a paragraph definition. If one is found, check if
-            it contains a list-id. If it does, start a list. Change the state to
-            in_pard.
+        Required: self, line Returns: Nothing Logic Look for the start of a paragraph definition. If one is found, check if it contains a list-id. If it does, start a list. Change the state to in_pard.
+
+        Example:
+            Exercise GroupBorders.  default func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.__token_info == "mi<tg<open-att__" and line[17:37] == "paragraph-definition":
             contains_border = self.__is_border_func(line)
@@ -232,6 +285,19 @@ class GroupBorders:
             self.__write_obj.write(line)
 
     def __write_start_border_tag(self: _typing.Self, the_string: _typing.Any) -> None:
+        """
+        Perform the write start border tag operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise GroupBorders.  write start border tag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param the_string: Value supplied for the string under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.__write_obj.write("mi<mk<start-brdg\n")
         self.__border_num += 1
         num = "%04d" % self.__border_num
@@ -240,10 +306,35 @@ class GroupBorders:
         self.__write_obj.write("mi<tg<open-att__<border-group%s\n" % the_string)
 
     def __write_end_border_tag(self: _typing.Self) -> None:
+        """
+        Perform the write end border tag operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise GroupBorders.  write end border tag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.__write_obj.write("mi<mk<end-brdg__\n")
         self.__write_obj.write("mi<tg<close_____<border-group\n")
 
     def __is_border_func(self: _typing.Self, line: _typing.Any) -> int:
+        """
+        Perform the is border func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise GroupBorders.  is border func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         line = re.sub(self.__name_regex, "", line)
         index = line.find("border-paragraph")
         if index > -1:
@@ -251,6 +342,19 @@ class GroupBorders:
         return 0
 
     def __parse_pard_with_border(self: _typing.Self, line: _typing.Any) -> tuple[_typing.Any, ...]:
+        """
+        Perform the parse pard with border operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise GroupBorders.  parse pard with border through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         border_string = ""
         pard_string = ""
         tokens = re.split(self.__border_regex, line)
@@ -262,6 +366,19 @@ class GroupBorders:
         return border_string, pard_string
 
     def __write_pard_with_border(self: _typing.Self, line: _typing.Any) -> None:
+        """
+        Perform the write pard with border operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise GroupBorders.  write pard with border through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         border_string = ""
         pard_string = ""
         tokens = re.split(self.__border_regex, line)
@@ -274,16 +391,34 @@ class GroupBorders:
         self.__write_obj.write(pard_string)
 
     def __get_style_name(self: _typing.Self, line: _typing.Any) -> None:
+        """
+        Perform the get style name operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise GroupBorders.  get style name through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.__token_info == "mi<mk<style-name":
             self.__style_name = line[17:-1]
 
     def group_borders(self: _typing.Self) -> None:
         """
-        Required:
-            nothing
-        Returns:
-            original file will be changed
-        Logic:
+        Required: nothing Returns: original file will be changed Logic:
+
+        Example:
+            Exercise GroupBorders.group borders through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__initiate_values()
         read_obj = open_for_read(self.__file)

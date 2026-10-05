@@ -1,3 +1,14 @@
+"""
+Provide test file ops smoke utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test file ops smoke through a consuming regression::
+
+        python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -6,6 +17,18 @@ import pytest
 
 
 def test_standardize_ext() -> None:
+    """
+    Perform the test standardize ext utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test standardize ext through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.utils.storage.local.file_ops import standardize_ext
 
     assert standardize_ext("txt") == ".txt"
@@ -15,6 +38,18 @@ def test_standardize_ext() -> None:
 
 
 def test_get_bare_file_name_handles_multiple_dots() -> None:
+    """
+    Perform the test get bare file name handles multiple dots utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test get bare file name handles multiple dots through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.utils.storage.local.file_ops import get_bare_file_name
 
     assert get_bare_file_name("/a/b/c.tar.gz") == "c.tar"
@@ -22,6 +57,18 @@ def test_get_bare_file_name_handles_multiple_dots() -> None:
 
 
 def test_get_file_extension_and_rar_helpers() -> None:
+    """
+    Perform the test get file extension and rar helpers utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test get file extension and rar helpers through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.utils.storage.local.file_ops import get_file_extension, is_file_extension_rar
 
     assert get_file_extension("/x/y/z.RAR").lower() == ".rar"
@@ -32,6 +79,18 @@ def test_get_file_extension_and_rar_helpers() -> None:
 
 
 def test_make_free_name_increments_until_available() -> None:
+    """
+    Perform the test make free name increments until available utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test make free name increments until available through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.utils.storage.local.file_ops import make_free_name
 
     forbidden = {"a.txt", "a_2.txt", "a_3.txt"}
@@ -39,6 +98,19 @@ def test_make_free_name_increments_until_available() -> None:
 
 
 def test_ensure_folder_and_tokenize_path(tmp_path: Path) -> None:
+    """
+    Perform the test ensure folder and tokenize path utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test ensure folder and tokenize path through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.utils.storage.local.file_ops import ensure_folder, tokenize_path, rebuild_file_path
 
     p = tmp_path / "a" / "b" / "c"
@@ -54,6 +126,19 @@ def test_ensure_folder_and_tokenize_path(tmp_path: Path) -> None:
 
 
 def test_compress_dir_raises_if_fs_missing(tmp_path: Path) -> None:
+    """
+    Perform the test compress dir raises if fs missing utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test compress dir raises if fs missing through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.utils.storage.local.file_ops import compress_dir
 
     (tmp_path / "d").mkdir()

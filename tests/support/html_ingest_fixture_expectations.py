@@ -1,3 +1,14 @@
+"""
+Resolve and validate the checked-in HTML ingest fixture corpus.
+
+The module keeps generated data, ordering and failure modes explicit so consumers
+can assert stable behavior.
+
+Example:
+    Exercise html ingest fixture expectations through a consuming regression::
+
+        python -m pytest -q tests/metadata/file_sources/test_html_ingest_fixture_access_helper.py
+"""
 from __future__ import annotations
 
 EXPECTED_HTML_INGEST_RESULTS: dict[str, dict[str, object]] = {

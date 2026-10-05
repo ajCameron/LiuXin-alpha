@@ -1,3 +1,14 @@
+"""
+Exercise PDB subreaders across offsets, encodings and corrupt records.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test pdb subreader edge cases through its owning regression module::
+
+        python -m pytest -q tests/metadata/file_sources/test_pdb_subreader_edge_cases.py
+"""
 from __future__ import annotations
 
 import io
@@ -11,6 +22,18 @@ from LiuXin_alpha.metadata.utils import calibreMetaInformation
 
 
 def _values(raw):
+    """
+    Perform the values test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise values through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdb_subreader_edge_cases.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     if raw is None:
         return []
     if isinstance(raw, dict):
@@ -24,6 +47,20 @@ def _values(raw):
 
 
 def _build_pdb(identity: str, title: str, sections: list[bytes]) -> io.BytesIO:
+    """
+    Perform the build pdb test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise build pdb through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdb_subreader_edge_cases.py
+
+
+    :param identity: Value supplied for identity in the focused test operation.
+    :param title: Value supplied for title in the focused test operation.
+    :param sections: Value supplied for sections in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     stream = io.BytesIO()
     PdbHeaderBuilder(identity, title).build_header([len(s) for s in sections], stream)
     for section in sections:
@@ -41,9 +78,42 @@ def _ereader_header_record(
     compression: int = 10,
     has_metadata: int = 1,
 ) -> bytes:
+    """
+    Perform the ereader header record test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise ereader header record through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdb_subreader_edge_cases.py
+
+
+    :param metadata_offset: Value supplied for metadata offset in the focused test
+        operation.
+    :param last_data_offset: Value supplied for last data offset in the focused test
+        operation.
+    :param image_count: Value supplied for image count in the focused test operation.
+    :param image_data_offset: Value supplied for image data offset in the focused test
+        operation.
+    :param compression: Value supplied for compression in the focused test operation.
+    :param has_metadata: Value supplied for has metadata in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     header = bytearray(132)
 
     def put(offset: int, value: int) -> None:
+        """
+        Perform the put test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise ereader header record.put through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_pdb_subreader_edge_cases.py
+
+
+        :param offset: Value supplied for offset in the focused test operation.
+        :param value: Value stored, compared or projected by the operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         header[offset : offset + 2] = struct.pack(">H", value)
 
     put(0, compression)
@@ -57,6 +127,20 @@ def _ereader_header_record(
 
 
 def _make_plucker_record(rtype: int, payload: bytes, *, length_words: int | None = None) -> bytes:
+    """
+    Perform the make plucker record test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise make plucker record through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdb_subreader_edge_cases.py
+
+
+    :param rtype: Value supplied for rtype in the focused test operation.
+    :param payload: Value supplied for payload in the focused test operation.
+    :param length_words: Value supplied for length words in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     if length_words is None:
         if len(payload) % 2:
             payload += b"\x00"
@@ -65,6 +149,18 @@ def _make_plucker_record(rtype: int, payload: bytes, *, length_words: int | None
 
 
 def test_pdb_package_path_type_and_header_error_edges(tmp_path) -> None:
+    """
+    Verify pdb package path type and header error edges.
+
+    Example:
+        Exercise test pdb package path type and header error edges through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdb_subreader_edge_cases.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.pdb as pdb_md
 
     with pytest.raises(TypeError, match="binary stream"):
@@ -95,6 +191,19 @@ def test_pdb_package_path_type_and_header_error_edges(tmp_path) -> None:
 
 
 def test_ereader_helper_cover_and_metadata_write_edges(monkeypatch) -> None:
+    """
+    Verify ereader helper cover and metadata write edges.
+
+    Example:
+        Exercise test ereader helper cover and metadata write edges through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdb_subreader_edge_cases.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.pdb.ereader as ereader_md
 
     assert ereader_md._clean_text(None) == ""
@@ -142,6 +251,19 @@ def test_ereader_helper_cover_and_metadata_write_edges(monkeypatch) -> None:
 
 
 def test_plucker_record_iteration_decode_and_timestamp_edges(monkeypatch) -> None:
+    """
+    Verify plucker record iteration decode and timestamp edges.
+
+    Example:
+        Exercise test plucker record iteration decode and timestamp edges through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdb_subreader_edge_cases.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.pdb.plucker as plucker_md
     from LiuXin_alpha.file_formats.pdb.plucker.reader import DATATYPE_METADATA
 
@@ -163,8 +285,29 @@ def test_plucker_record_iteration_decode_and_timestamp_edges(monkeypatch) -> Non
     stream.seek(5)
 
     class _Datetime:
+        """
+        Provide the Datetime test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test plucker record iteration decode and timestamp edges.Datetime through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_pdb_subreader_edge_cases.py
+        """
         @staticmethod
         def fromtimestamp(*_args, **_kwargs):
+            """
+            Perform the fromtimestamp test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test plucker record iteration decode and timestamp edges.Datetime.fromtimestamp through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_pdb_subreader_edge_cases.py
+
+
+            :param _args: Value supplied for args in the focused test operation.
+            :param _kwargs: Value supplied for kwargs in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             raise OverflowError("bad timestamp")
 
     monkeypatch.setattr(plucker_md, "datetime", _Datetime)

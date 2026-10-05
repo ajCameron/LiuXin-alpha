@@ -1,5 +1,11 @@
 """
-Native transactional driver for Amazon S3 and compatible object stores.
+Read and publish S3-compatible objects with scoped keys and complete local staging.
+
+The injected client supplies bucket/object operations, response bodies, and paginated
+inventory. This module validates selected response evidence, translates failures,
+and manages staged single-put or multipart publication. Metadata observation follows
+publication separately; inventories use bounded continuation without snapshot tokens.
+Service behavior and metadata claims are not independently proven by the adapter.
 """
 
 from __future__ import annotations
@@ -75,140 +81,144 @@ DEFAULT_MAX_S3_INVENTORY_CURSOR_CHARS = 4_096
 
 class S3ClientAPI(Protocol):
     """
-    Structural subset of a boto3-compatible S3 client.
+    Describe the injected boto3-compatible operations used by the native S3 driver.
+
+    Keyword mappings retain the backend's request shape. The driver interprets selected response
+    fields and translates client exceptions; this protocol is not a runtime capability check.
+    Optional client.close ownership is handled separately by the driver and is not declared in this
+    request protocol.
 
     Example:
-        >>> def accepts_client(client: S3ClientAPI) -> None:
-        ...     pass
+        >>> client: S3ClientAPI = configured_client  # doctest: +SKIP
     """
 
     def head_bucket(self, **kwargs: Any) -> Mapping[str, Any]:
         """
-        Inspect access to a bucket.
+        Probe access to the configured bucket through the injected client.
 
         Example:
             >>> client.head_bucket(Bucket="books")  # doctest: +SKIP
 
 
-        :param kwargs: Backend request arguments.
-        :return: Backend response fields.
+        :param kwargs: Bucket request arguments; the driver supplies Bucket without attempting a write.
+        :return: Backend response mapping, whose contents the driver probe does not inspect.
         """
         ...
 
     def head_object(self, **kwargs: Any) -> Mapping[str, Any]:
         """
-        Inspect one object's metadata.
+        Request object metadata and available checksum evidence without opening body bytes.
 
         Example:
-            >>> client.head_object(Bucket="books", Key="book.epub")  # doctest: +SKIP
+            >>> metadata = client.head_object(Bucket="books", Key="book.epub", ChecksumMode="ENABLED")  # doctest: +SKIP
 
 
-        :param kwargs: Backend request arguments.
-        :return: Backend response fields.
+        :param kwargs: Object request arguments including Bucket, Key, and ChecksumMode="ENABLED" from driver stat.
+        :return: Metadata mapping containing ContentLength and optional time, version, checksum, content type, and user metadata.
         """
         ...
 
     def get_object(self, **kwargs: Any) -> Mapping[str, Any]:
         """
-        Open one object for reading.
+        Open a full or ranged object response with optional version conditions.
 
         Example:
-            >>> client.get_object(Bucket="books", Key="book.epub")  # doctest: +SKIP
+            >>> response = client.get_object(Bucket="books", Key="book.epub", Range="bytes=2-5")  # doctest: +SKIP
 
 
-        :param kwargs: Backend request arguments.
-        :return: Backend response fields, including the streaming body.
+        :param kwargs: Bucket and Key plus optional Range, VersionId, or IfMatch selected by the driver.
+        :return: Mapping with an owned readable Body, ContentLength, and applicable ContentRange/VersionId/ETag evidence.
         """
         ...
 
     def put_object(self, **kwargs: Any) -> Mapping[str, Any]:
         """
-        Publish one object in a single request.
+        Publish the staged body in a single object request.
 
         Example:
-            >>> client.put_object(Bucket="books", Key="book.epub", Body=b"data")  # doctest: +SKIP
+            >>> client.put_object(Bucket="books", Key="book.epub", Body=b"book", IfNoneMatch="*")  # doctest: +SKIP
 
 
-        :param kwargs: Backend request arguments.
-        :return: Backend response fields.
+        :param kwargs: Bucket, Key, Body, ContentLength, checksum, and native metadata, with IfNoneMatch for create-only publication.
+        :return: Backend publication response; the driver ignores its fields and separately stats the destination.
         """
         ...
 
     def delete_object(self, **kwargs: Any) -> Mapping[str, Any]:
         """
-        Delete one object.
+        Submit deletion for the selected bucket key without a driver-supplied version condition.
 
         Example:
             >>> client.delete_object(Bucket="books", Key="book.epub")  # doctest: +SKIP
 
 
-        :param kwargs: Backend request arguments.
-        :return: Backend response fields.
+        :param kwargs: Bucket and Key identifying the object to delete; this driver does not supply VersionId or IfMatch.
+        :return: Backend deletion response mapping, ignored by the driver.
         """
         ...
 
     def list_objects_v2(self, **kwargs: Any) -> Mapping[str, Any]:
         """
-        List one page of objects.
+        Request one object-list page under a backend key prefix.
 
         Example:
-            >>> client.list_objects_v2(Bucket="books")  # doctest: +SKIP
+            >>> page = client.list_objects_v2(Bucket="books", Prefix="archive/", MaxKeys=100)  # doctest: +SKIP
 
 
-        :param kwargs: Backend request arguments.
-        :return: Backend response fields.
+        :param kwargs: Bucket and Prefix, with optional opaque ContinuationToken and requested MaxKeys.
+        :return: Mapping with Contents and optional IsTruncated/NextContinuationToken; continuation does not imply a snapshot.
         """
         ...
 
     def create_multipart_upload(self, **kwargs: Any) -> Mapping[str, Any]:
         """
-        Start a multipart upload.
+        Create a multipart upload and attach the native metadata intended for the object.
 
         Example:
-            >>> client.create_multipart_upload(Bucket="books", Key="large.epub")  # doctest: +SKIP
+            >>> created = client.create_multipart_upload(Bucket="books", Key="large.epub", Metadata={})  # doctest: +SKIP
 
 
-        :param kwargs: Backend request arguments.
-        :return: Backend response fields, including the upload identifier.
+        :param kwargs: Bucket, Key, and Metadata for a new multipart upload.
+        :return: Mapping containing a nonempty UploadId for later parts, completion, or cleanup.
         """
         ...
 
     def upload_part(self, **kwargs: Any) -> Mapping[str, Any]:
         """
-        Upload one multipart payload part.
+        Upload one numbered byte part of an existing multipart upload.
 
         Example:
-            >>> client.upload_part(Bucket="books", Key="large.epub", UploadId="id", PartNumber=1, Body=b"data")  # doctest: +SKIP
+            >>> uploaded = client.upload_part(Bucket="books", Key="large.epub", UploadId="id", PartNumber=1, Body=payload)  # doctest: +SKIP
 
 
-        :param kwargs: Backend request arguments.
-        :return: Backend response fields, including the part ETag.
+        :param kwargs: Bucket, Key, UploadId, one-based PartNumber, and the part Body bytes.
+        :return: Mapping containing the part ETag required by the driver completion manifest.
         """
         ...
 
     def complete_multipart_upload(self, **kwargs: Any) -> Mapping[str, Any]:
         """
-        Publish all uploaded parts as one object.
+        Publish the uploaded parts using their ordered completion manifest.
 
         Example:
-            >>> client.complete_multipart_upload(Bucket="books", Key="large.epub", UploadId="id", MultipartUpload={"Parts": []})  # doctest: +SKIP
+            >>> client.complete_multipart_upload(Bucket="books", Key="large.epub", UploadId="id", MultipartUpload={"Parts": parts}, IfNoneMatch="*")  # doctest: +SKIP
 
 
-        :param kwargs: Backend request arguments.
-        :return: Backend response fields.
+        :param kwargs: Bucket, Key, UploadId, MultipartUpload Parts, and optional create-only IfNoneMatch condition.
+        :return: Backend completion response mapping; the driver treats a normal return as completion without inspecting its contents.
         """
         ...
 
     def abort_multipart_upload(self, **kwargs: Any) -> Mapping[str, Any]:
         """
-        Discard an unfinished multipart upload.
+        Request cleanup of the identified unfinished multipart upload.
 
         Example:
             >>> client.abort_multipart_upload(Bucket="books", Key="large.epub", UploadId="id")  # doctest: +SKIP
 
 
-        :param kwargs: Backend request arguments.
-        :return: Backend response fields.
+        :param kwargs: Bucket, Key, and UploadId retained for cleanup after an upload failure.
+        :return: Backend cleanup response mapping, ignored by the driver.
         """
         ...
 
@@ -216,37 +226,45 @@ class S3ClientAPI(Protocol):
 @dataclasses.dataclass(slots=True, frozen=True)
 class S3ObjectAddress(DriverObjectAddress):
     """
-    Canonical object key relative to one configured bucket prefix.
+    Carry a bucket-prefix-relative object key and its driver address-space UUID.
+
+    Inherited construction checks the UUID, nonempty text, and NULs, without validating canonical S3
+    key syntax. Use the driver's parsers for external identifiers; ownership checks alone do not
+    validate the stored key text.
 
     Example:
-        >>> str(S3ObjectAddress("authors/book.epub", UUID(int=0)))
+        >>> str(S3ObjectAddress("authors/book.epub", UUID(int=1)))
         'authors/book.epub'
     """
 
 
 class _S3BodyReader(io.RawIOBase):
     """
-    Adapt a boto3-compatible streaming body and enforce the requested byte limit.
+    Adapt an owned backend body to buffered reads with optional byte-count accounting.
+
+    Known lengths detect premature EOF during consumption and stop reads once exhausted, without
+    checking for extra trailing bytes. Unknown lengths rely on transport EOF. The wrapper translates
+    ordinary backend read failures but does not authenticate bytes or compare a digest.
 
     Example:
-        >>> reader = _S3BodyReader(io.BytesIO(b"book"), 4, target="s3://books/book.epub")
-        >>> reader.read()
+        >>> with io.BufferedReader(_S3BodyReader(io.BytesIO(b"book"), 4, target="example")) as reader:
+        ...     reader.read()
         b'book'
     """
 
     def __init__(self, body: Any, remaining: int | None, *, target: str) -> None:
         """
-        Wrap a backend body and remember its validated remaining length.
+        Retain the body, optional remaining count, and diagnostic target without reading.
 
         Example:
-            >>> _S3BodyReader(io.BytesIO(b"x"), 1, target="object").readable()
-            True
+            >>> reader = _S3BodyReader(io.BytesIO(b"x"), 1, target="example")
+            >>> reader.close()
 
 
-        :param body: boto3-compatible streaming body.
-        :param remaining: Maximum bytes still expected, or ``None``.
-        :param target: Safe object description for diagnostics.
-        :return:
+        :param body: Backend object whose read and close methods supply and release response bytes.
+        :param remaining: Expected unread byte count, or None for unknown length; not validated by this constructor.
+        :param target: Object URI or other target text passed to shared diagnostic formatting.
+        :return: None after retaining stream ownership and accounting state.
         """
         self._body = body
         self._remaining = remaining
@@ -254,30 +272,39 @@ class _S3BodyReader(io.RawIOBase):
 
     def readable(self) -> bool:
         """
-        Report that this wrapper supports reads.
+        Advertise read support independently of the body state or this wrapper being closed.
 
         Example:
-            >>> _S3BodyReader(io.BytesIO(), 0, target="object").readable()
+            >>> reader = _S3BodyReader(io.BytesIO(), 0, target="example")
+            >>> reader.readable()
             True
+            >>> reader.close()
 
 
-        :return: Always ``True``.
+        :return: True; this is a capability declaration rather than a health or lifecycle check.
         """
         return True
 
     def readinto(self, buffer: bytearray | memoryview) -> int:
         """
-        Read bytes while enforcing the response length contract.
+        Read one bounded chunk and copy it into the caller's byte-oriented buffer.
+
+        Existing StorageError failures propagate; other ordinary body-read failures pass through S3
+        error translation. Non-byte chunks, oversized chunks, and premature EOF raise
+        StorageUnavailable. A known nonpositive remainder returns zero immediately. With a positive
+        remainder, an empty buffer still invokes read(0), whose empty result is treated as premature
+        EOF. Successful copies alone decrement the remaining count.
 
         Example:
-            >>> reader = _S3BodyReader(io.BytesIO(b"ab"), 2, target="object")
+            >>> reader = _S3BodyReader(io.BytesIO(b"abc"), 3, target="example")
             >>> target = bytearray(2)
-            >>> reader.readinto(target)
-            2
+            >>> reader.readinto(target), bytes(target)
+            (2, b'ab')
+            >>> reader.close()
 
 
-        :param buffer: Writable destination buffer.
-        :return: Number of bytes copied, or zero at the validated end.
+        :param buffer: Writable byte-oriented destination; use positive capacity while a known body remainder is positive.
+        :return: Bytes copied, or zero at a known exhausted count or an unknown-length body EOF.
         """
         requested = len(buffer)
         if self._remaining is not None:
@@ -333,14 +360,19 @@ class _S3BodyReader(io.RawIOBase):
 
     def close(self) -> None:
         """
-        Close the backend body and this wrapper.
+        Attempt backend-body cleanup and run the base stream close in a finally block.
+
+        The shared cleanup helper suppresses ordinary close-call exceptions, but attribute lookup
+        failures and BaseException subclasses can still propagate.
 
         Example:
-            >>> reader = _S3BodyReader(io.BytesIO(), 0, target="object")
+            >>> reader = _S3BodyReader(io.BytesIO(), 0, target="example")
             >>> reader.close()
+            >>> reader.closed
+            True
 
 
-        :return:
+        :return: None after cleanup when no unsuppressed close failure occurs.
         """
         try:
             best_effort_close(self._body)
@@ -350,10 +382,17 @@ class _S3BodyReader(io.RawIOBase):
 
 class _S3WriteSession:
     """
-    Spool and validate bytes before one atomic S3 publication.
+    Stage a complete object locally, account for accepted bytes, and publish on explicit commit.
+
+    Writes update size and digest accumulators; commit flushes, fsyncs, and closes the stage before
+    validating those accumulators and calling the driver publisher. Exiting without a completed
+    commit aborts local staging. Publication and final stat are separate: a commit failure can
+    follow remote publication, and local abort does not roll that publication back.
 
     Example:
-        >>> session.write(b"book")  # doctest: +SKIP
+        >>> with driver.begin_write(address, expected_size=4) as session:  # doctest: +SKIP
+        ...     session.write(b"book")
+        ...     info = session.commit()
     """
 
     def __init__(
@@ -367,19 +406,25 @@ class _S3WriteSession:
         metadata: tuple[tuple[str, str], ...],
     ) -> None:
         """
-        Create a local staging file for one object publication.
+        Prepare digest accounting and create a binary local staging file.
+
+        Unsupported expected-digest algorithms raise StorageUnsupportedOperation before staging
+        creation. mkstemp OSErrors receive local-staging error translation. The subsequent fdopen is
+        outside that creation guard; it has no separate cleanup path for a failure after the
+        descriptor/file has been created.
 
         Example:
-            >>> _S3WriteSession(driver, address, mode=WriteMode.CREATE_ONLY, expected_size=None, expected_digest=None, metadata=())  # doctest: +SKIP
+            >>> session = driver.begin_write(address, expected_size=4)  # doctest: +SKIP
+            >>> session.abort()  # doctest: +SKIP
 
 
-        :param driver: Owning S3 driver.
-        :param address: Destination object address.
-        :param mode: Required create or replace semantics.
-        :param expected_size: Optional final byte count.
-        :param expected_digest: Optional digest to verify before publication.
-        :param metadata: Native S3 user metadata.
-        :return:
+        :param driver: Owning driver supplying a staging directory and publication implementation.
+        :param address: Owned destination address already checked by begin_write.
+        :param mode: Normalized WriteMode retained for commit-time collision handling.
+        :param expected_size: Optional final accepted-byte count to compare at commit; validated by begin_write.
+        :param expected_digest: Optional Digest whose algorithm initializes an additional accepted-byte accumulator.
+        :param metadata: Normalized native S3 metadata pairs retained for publication.
+        :return: None after opening an unfinished, uncommitted staging session.
         """
         self._driver = driver
         self._address = address
@@ -419,14 +464,20 @@ class _S3WriteSession:
 
     def write(self, data: bytes) -> int:
         """
-        Append bytes to the local staging file.
+        Append bytes and update size/hash accounting for the accepted prefix.
+
+        Finished sessions raise StorageError and non-bytes input raises TypeError. Local write
+        OSErrors are translated. A None stream return is treated as accepting all supplied bytes;
+        short writes are returned to the caller rather than retried internally. Expected size and
+        digest are checked only at commit.
 
         Example:
             >>> session.write(b"chapter")  # doctest: +SKIP
+            7
 
 
-        :param data: Bytes to append.
-        :return: Number of bytes accepted.
+        :param data: Bytes to append to the staging stream; mutable buffers and other values are rejected.
+        :return: Accepted byte count used to advance size and digest accumulators.
         """
         if self._finished:
             raise StorageError("S3 write session is finished.")
@@ -452,13 +503,22 @@ class _S3WriteSession:
 
     def commit(self) -> DriverObjectInfo[S3ObjectAddress]:
         """
-        Validate and publish the complete staged object.
+        Flush and validate the staged write, publish it, and return separately observed object
+        metadata.
+
+        Flush/fsync/close precede the size/digest checks, which use accumulated writes rather than
+        rereading the stage. Publication success followed by stat failure leaves a remote object
+        even though commit raises and aborts locally. Successful metadata return marks the session
+        finished and committed. Failure attempts abort; final staging unlink suppresses OSError but
+        cannot roll back remote state.
 
         Example:
             >>> info = session.commit()  # doctest: +SKIP
+            >>> info.object_address == address  # doctest: +SKIP
+            True
 
 
-        :return: Metadata read back from the published object.
+        :return: DriverObjectInfo read after publication; a failure may occur before or after the object becomes visible.
         """
         if self._finished:
             raise StorageError("S3 write session is finished.")
@@ -497,13 +557,16 @@ class _S3WriteSession:
 
     def _validate_expectations(self) -> None:
         """
-        Reject staged content that violates declared size or digest.
+        Compare accumulated accepted-byte size and optional digest with the declared expectations.
+
+        No staging-file reread occurs. A size mismatch or expected digest mismatch raises
+        StorageIntegrityError before the publisher is invoked.
 
         Example:
             >>> session._validate_expectations()  # doctest: +SKIP
 
 
-        :return:
+        :return: None when each supplied expectation matches the session accumulators.
         """
         if self._expected_size is not None and self._size != self._expected_size:
             raise StorageIntegrityError(
@@ -518,13 +581,17 @@ class _S3WriteSession:
 
     def abort(self) -> None:
         """
-        Close and remove the unpublished staging file.
+        Attempt to close and unlink local staging, then mark the session finished.
+
+        Each cleanup step suppresses OSError. Other failures can propagate before the finished flag
+        is assigned. Abort does not delete an already published object, reset the committed flag, or
+        itself manage remote multipart uploads.
 
         Example:
             >>> session.abort()  # doctest: +SKIP
 
 
-        :return:
+        :return: None after local cleanup attempts and marking the session finished, absent an unsuppressed failure.
         """
         try:
             if not self._stream.closed:
@@ -539,14 +606,15 @@ class _S3WriteSession:
 
     def __enter__(self) -> _S3WriteSession:
         """
-        Enter this unfinished write session.
+        Return this session for a with block, rejecting reuse after it is finished.
 
         Example:
-            >>> with session as active:  # doctest: +SKIP
-            ...     active.write(b"book")
+            >>> with driver.begin_write(address) as session:  # doctest: +SKIP
+            ...     session.write(b"book")
+            ...     session.commit()
 
 
-        :return: This write session.
+        :return: This unfinished session; entering it does not publish or reset accumulated bytes.
         """
         if self._finished:
             raise StorageError("S3 write session is finished.")
@@ -559,16 +627,16 @@ class _S3WriteSession:
         traceback: TracebackType | None,
     ) -> None:
         """
-        Abort an uncommitted session on context exit.
+        Abort local staging unless commit has completed successfully; never implicitly commit.
 
         Example:
             >>> session.__exit__(None, None, None)  # doctest: +SKIP
 
 
-        :param exc_type: Escaping exception type, if any.
-        :param exc: Escaping exception, if any.
-        :param traceback: Escaping traceback, if any.
-        :return:
+        :param exc_type: Escaping exception type or None; the committed flag alone controls cleanup.
+        :param exc: Escaping exception instance or None, not inspected or suppressed here.
+        :param traceback: Escaping traceback or None, unused by the cleanup decision.
+        :return: None, allowing an original exception to propagate unless abort itself raises an unsuppressed failure.
         """
         if not self._committed:
             self.abort()
@@ -576,14 +644,24 @@ class _S3WriteSession:
 
 class S3StorageDriver(StorageDriverAPI[S3ObjectAddress]):
     """
-    Native S3-compatible object driver with conditional staged writes.
+    Read and publish objects under one bucket prefix using an injected S3-compatible client.
 
-    Writes are staged locally, validated, and then published with a single-put
-    or multipart request. Inventory is complete for the configured bucket
-    prefix, but S3 continuation tokens are not snapshot tokens.
+    Writes stage the complete object locally before a single put or multipart publication.
+    Create-only publication supplies a backend condition; replacement existence is checked before
+    upload. A driver-local lock serializes publication, and final stat is a separate request. These
+    operations are not a transaction spanning objects, metadata observation, or other driver
+    instances.
+
+    Inventory advertises complete enumeration when traversal finishes within its bounds, without a
+    point-in-time snapshot. Typed addresses carry UUID ownership; their stored text is not
+    revalidated by the runtime checker. Construction prepares local staging, while backend
+    reachability is probed explicitly.
 
     Example:
-        >>> driver = S3StorageDriver("books", address_space_uuid=UUID(int=0), client=client)  # doctest: +SKIP
+        >>> driver = S3StorageDriver("books", prefix="archive", address_space_uuid=UUID(int=1), client=client)  # doctest: +SKIP
+        >>> driver.root_uri  # doctest: +SKIP
+        's3://books/archive'
+        >>> driver.close()  # doctest: +SKIP
     """
 
     def __init__(
@@ -603,25 +681,33 @@ class S3StorageDriver(StorageDriverAPI[S3ObjectAddress]):
         max_inventory_cursor_chars: int = DEFAULT_MAX_S3_INVENTORY_CURSOR_CHARS,
     ) -> None:
         """
-        Configure one S3 bucket prefix and its publication limits.
+        Retain bucket/client policy, validate bounds, and prepare a local staging directory.
+
+        The bucket is stringified and stripped, rejecting empty text, malformed Unicode, NUL, and
+        slashes/backslashes; this is not complete service naming validation. Bounds are compared
+        before integer conversion. The multipart part size must be at least five MiB. An omitted
+        staging path creates an owned TemporaryDirectory; an explicit path is expanded, resolved,
+        and created if needed. No client request is made and cached status begins unavailable.
 
         Example:
-            >>> driver = S3StorageDriver("books", address_space_uuid=UUID(int=0), client=client)  # doctest: +SKIP
+            >>> driver = S3StorageDriver("books", address_space_uuid=UUID(int=1), client=client, close_client=False)  # doctest: +SKIP
+            >>> driver.status().available  # doctest: +SKIP
+            False
 
 
-        :param bucket: S3 bucket name.
-        :param address_space_uuid: Stable identity of this address space.
-        :param client: boto3-compatible client owned by this driver by default.
-        :param prefix: Optional bucket key prefix that scopes all objects.
-        :param multipart_threshold: Size at which multipart upload is selected.
-        :param multipart_part_size: Bytes per multipart upload part.
-        :param local_staging_directory: Optional directory for complete staged writes.
-        :param close_client: Whether ``close`` should close the injected client.
-        :param max_inventory_pages: Maximum pages accepted in one full inventory.
-        :param max_inventory_entries: Maximum entries accepted in one full inventory.
-        :param max_inventory_page_entries: Maximum entries accepted from one response.
-        :param max_inventory_cursor_chars: Maximum continuation-token length.
-        :return:
+        :param bucket: Bucket text stripped of surrounding whitespace; retained spelling is used in requests and URIs.
+        :param address_space_uuid: UUID used to reject addresses owned by another driver instance.
+        :param client: Injected S3 request client; this raw driver closes it by default when a callable close exists.
+        :param prefix: Optional bucket key prefix with outer slashes removed and remaining key syntax validated.
+        :param multipart_threshold: Positive object byte count at or above which multipart publication is selected.
+        :param multipart_part_size: Bytes read per uploaded part, at least five MiB before integer conversion.
+        :param local_staging_directory: Directory for complete staged objects, or None to create an owned temporary directory.
+        :param close_client: Truth value controlling whether driver close calls the injected client close method.
+        :param max_inventory_pages: Positive maximum pages fetched by one full iter_inventory traversal.
+        :param max_inventory_entries: Positive maximum entries yielded by one full inventory traversal.
+        :param max_inventory_page_entries: Positive maximum observed Contents items accepted while building one page.
+        :param max_inventory_cursor_chars: Positive maximum continuation-token character count for requested and returned cursors.
+        :return: None after retaining configuration, checker, lock, staging resources, and initial status.
         """
         bucket_text = str(bucket).strip()
         reject_malformed_unicode(bucket_text, label="S3 bucket name")
@@ -699,70 +785,69 @@ class S3StorageDriver(StorageDriverAPI[S3ObjectAddress]):
     @property
     def object_address_checker(self):
         """
-        Return the checker that owns this driver's address space.
+        Return the retained S3 subtype-and-UUID ownership checker.
 
         Example:
             >>> driver.object_address_checker.address_space_uuid  # doctest: +SKIP
-            UUID('00000000-0000-0000-0000-000000000000')
 
 
-        :return: Scoped S3 address checker.
+        :return: Shared checker; validating ownership does not canonicalize the address value.
         """
         return self._checker
 
     @property
     def bucket(self) -> str:
         """
-        Return the configured bucket name.
+        Return the stripped bucket spelling retained during construction.
 
         Example:
             >>> driver.bucket  # doctest: +SKIP
             'books'
 
 
-        :return: Bucket name.
+        :return: Configured bucket text without a backend request or additional name validation.
         """
         return self._bucket
 
     @property
     def prefix(self) -> str:
         """
-        Return the canonical configured key prefix.
+        Return the configured relative bucket prefix without boundary slashes.
 
         Example:
             >>> driver.prefix  # doctest: +SKIP
-            ''
+            'archive'
 
 
-        :return: Relative POSIX prefix, without boundary slashes.
+        :return: Canonical relative key prefix, or empty text for the whole bucket.
         """
         return self._prefix
 
     @property
     def local_staging_directory(self) -> pathlib.Path:
         """
-        Return the directory used for complete staged writes.
+        Return the retained local directory path used by write-session staging files.
 
         Example:
             >>> driver.local_staging_directory.is_dir()  # doctest: +SKIP
             True
 
 
-        :return: Local staging directory.
+        :return: Path prepared during construction; accessing it does not recreate a removed directory or test available space.
         """
         return self._local_staging_directory
 
     @property
     def root_uri(self) -> str:
         """
-        Render the external URI for the configured bucket prefix.
+        Render the configured bucket and optional quoted prefix as an S3 root URI.
 
         Example:
             >>> driver.root_uri  # doctest: +SKIP
-            's3://books'
+            's3://books/archive'
 
 
-        :return: S3 root URI.
+        :return: s3:// URI with the retained bucket and percent-encoded prefix; no trailing separator is appended.
         """
         suffix = "" if not self._prefix else "/" + quote(self._prefix, safe="/")
         return f"s3://{self._bucket}{suffix}"
@@ -770,14 +855,20 @@ class S3StorageDriver(StorageDriverAPI[S3ObjectAddress]):
     @property
     def capabilities(self) -> DriverCapabilities:
         """
-        Advertise the operations and guarantees implemented by this driver.
+        Advertise supported read, publication, allocation, metadata, and inventory operations.
+
+        Enumeration is complete when bounded traversal finishes and also supports pages; conditional
+        deletion is not advertised. Read checks use response version/range evidence and stat treats
+        supplied checksums as authoritative metadata. These declarations do not probe the injected
+        client or validate a particular service. Concurrency advertises parallel reads/writes with
+        eight recommended readers; publication uploads are serialized by this instance's lock.
 
         Example:
-            >>> driver.capabilities.atomic_publish  # doctest: +SKIP
-            True
+            >>> driver.capabilities.conditional_delete  # doctest: +SKIP
+            False
 
 
-        :return: S3 driver capabilities.
+        :return: Fresh DriverCapabilities record describing the operations implemented by this adapter.
         """
         return DriverCapabilities(
             range_reads=True,
@@ -806,13 +897,15 @@ class S3StorageDriver(StorageDriverAPI[S3ObjectAddress]):
 
     @property
     def storage_characteristics(self) -> StorageCharacteristics:
-        """Describe complete local staging and per-object S3 publication.
+        """
+        Describe per-object publication backed by complete local object staging.
 
         Example:
-            >>> driver.storage_characteristics.publication_model  # doctest: +SKIP
-            <StoragePublicationModel.PER_OBJECT: 'per_object'>
+            >>> driver.storage_characteristics.temporary_space is StorageTemporarySpaceRequirement.OBJECT_STAGE  # doctest: +SKIP
+            True
 
-        :return: S3-compatible object Store characteristics.
+
+        :return: Fresh characteristics for general writes, preserved unrelated entries, and configured-service object/multipart limits.
         """
 
         return StorageCharacteristics(
@@ -831,30 +924,32 @@ class S3StorageDriver(StorageDriverAPI[S3ObjectAddress]):
 
     def startup(self) -> DriverStatus:
         """
-        Probe the bucket before first use.
+        Run the bucket probe and return its updated cached status.
 
         Example:
-            >>> driver.startup().available  # doctest: +SKIP
-            True
+            >>> status = driver.startup()  # doctest: +SKIP
 
 
-        :return: Current availability status.
+        :return: DriverStatus from probe; startup is not a required operation gate.
         """
         return self.probe()
 
     def probe(self) -> DriverStatus:
         """
-        Check bucket access without attempting a write.
+        Call head_bucket and cache reachability without testing object writes.
 
-        A successful probe establishes reachability, not write permission;
-        write permission is determined when a publication is attempted.
+        Success stores available=True and writable=True with a message explaining that write
+        permission is checked on use. Translated unavailable/timeout failures produce unavailable
+        status; other translated failures propagate. The returned head_bucket mapping is not
+        inspected, and the configured prefix is not enumerated or tested for object access.
 
         Example:
-            >>> driver.probe().available  # doctest: +SKIP
-            True
+            >>> status = driver.probe()  # doctest: +SKIP
+            >>> status.message  # doctest: +SKIP
+            'S3 bucket is available; write permission is checked on use.'
 
 
-        :return: Updated bucket status.
+        :return: New cached DriverStatus with a UTC check time when the probe succeeds or yields a handled availability failure.
         """
         try:
             self._client.head_bucket(Bucket=self._bucket)
@@ -883,26 +978,31 @@ class S3StorageDriver(StorageDriverAPI[S3ObjectAddress]):
 
     def status(self) -> DriverStatus:
         """
-        Return the most recently observed driver status.
+        Return the last probe result without accessing the client or staging filesystem.
 
         Example:
             >>> driver.status().message  # doctest: +SKIP
             'S3 driver has not been started.'
 
 
-        :return: Cached status; this call performs no backend request.
+        :return: Retained status object, initially unavailable until a successful probe.
         """
         return self._last_status
 
     def close(self) -> None:
         """
-        Release local staging resources and, when configured, the client.
+        Clean owned temporary staging and optionally close the injected client.
+
+        Caller-specified staging directories are retained. Owned-directory cleanup runs before
+        client cleanup, and its failure can prevent client close. Client close is called only when
+        configured and callable; exceptions are not suppressed. The hook does not drain
+        sessions/readers, reset cached status, or set a closed flag to reject subsequent operations.
 
         Example:
             >>> driver.close()  # doctest: +SKIP
 
 
-        :return:
+        :return: None after the applicable cleanup calls return successfully.
         """
         if self._temporary_directory is not None:
             self._temporary_directory.cleanup()
@@ -916,15 +1016,21 @@ class S3StorageDriver(StorageDriverAPI[S3ObjectAddress]):
         identifier: DriverObjectAddressInput[S3ObjectAddress],
     ) -> S3ObjectAddress:
         """
-        Parse a relative canonical S3 key in this address space.
+        Validate a relative key or ownership-check an existing typed address.
+
+        Text is stringified and checked for strict Unicode encoding and canonical slash-separated
+        components, retaining accepted whitespace, control characters other than NUL, Unicode
+        normalization, and literal percent text. Existing DriverObjectAddress values bypass text
+        checks and receive subtype/UUID checks. Parsing does not request the key or reserve its
+        name.
 
         Example:
-            >>> str(driver.parse_object_address("authors/book.epub"))  # doctest: +SKIP
-            'authors/book.epub'
+            >>> str(driver.parse_object_address("authors/书.epub"))  # doctest: +SKIP
+            'authors/书.epub'
 
 
-        :param identifier: Existing address or relative S3 key.
-        :return: Checked S3 object address.
+        :param identifier: Relative S3 key text, or an existing address that must have this driver subtype and UUID.
+        :return: Scoped S3ObjectAddress after text validation or ownership checking.
         """
         if isinstance(identifier, DriverObjectAddress):
             return self.check_object_address(identifier)
@@ -935,15 +1041,15 @@ class S3StorageDriver(StorageDriverAPI[S3ObjectAddress]):
 
     def join_object_address(self, *tokens: str) -> S3ObjectAddress:
         """
-        Join canonical POSIX key components into one address.
+        Join one or more stringified tokens with slashes, then validate the complete relative key.
 
         Example:
             >>> str(driver.join_object_address("authors", "book.epub"))  # doctest: +SKIP
             'authors/book.epub'
 
 
-        :param tokens: One or more relative key components.
-        :return: Checked S3 object address.
+        :param tokens: Relative key components; outer slashes are not stripped and can cause an invalid joined key.
+        :return: Parsed S3 address; an empty token sequence or invalid joined syntax raises StorageInvalidAddress.
         """
         if not tokens:
             raise StorageInvalidAddress("at least one S3 key token is required.")
@@ -951,15 +1057,21 @@ class S3StorageDriver(StorageDriverAPI[S3ObjectAddress]):
 
     def object_address_from_uri(self, uri: str) -> S3ObjectAddress:
         """
-        Parse an S3 URI belonging to this exact bucket prefix.
+        Decode an S3 object URI under this exact bucket and configured prefix.
+
+        Scheme comparison is case-insensitive, but the URI netloc must equal the retained bucket
+        text. Queries/fragments and malformed escapes are rejected. Leading path slashes are
+        stripped before strict UTF-8 percent decoding, then decoded prefix membership and
+        relative-key syntax are checked. Literal percent characters in a stored key therefore
+        require escaping in the external URI.
 
         Example:
-            >>> str(driver.object_address_from_uri("s3://books/book.epub"))  # doctest: +SKIP
-            'book.epub'
+            >>> str(driver.object_address_from_uri("s3://books/archive/书.epub"))  # doctest: +SKIP
+            '书.epub'
 
 
-        :param uri: Absolute S3 object URI.
-        :return: Relative object address.
+        :param uri: Absolute S3 object URI to stringify, validate, and decode under this bucket/prefix.
+        :return: Relative owned address; the root itself is rejected because it leaves an empty object key.
         """
         uri_text = str(uri)
         reject_malformed_unicode(uri_text, label="S3 object URI")
@@ -985,15 +1097,15 @@ class S3StorageDriver(StorageDriverAPI[S3ObjectAddress]):
 
     def object_uri(self, object_address: S3ObjectAddress) -> str:
         """
-        Render a checked object address as an external S3 URI.
+        Prefix an ownership-checked key and quote it into an external S3 object URI.
 
         Example:
             >>> driver.object_uri(driver.parse_object_address("book.epub"))  # doctest: +SKIP
-            's3://books/book.epub'
+            's3://books/archive/book.epub'
 
 
-        :param object_address: Address in this driver's address space.
-        :return: Percent-encoded S3 object URI.
+        :param object_address: Address in this driver UUID; its stored text is not canonicalized again.
+        :return: S3 URI with slashes preserved in the key and other characters percent-encoded; no existence check occurs.
         """
         key = self._full_key(self.check_object_address(object_address))
         return f"s3://{self._bucket}/{quote(key, safe='/')}"
@@ -1003,15 +1115,21 @@ class S3StorageDriver(StorageDriverAPI[S3ObjectAddress]):
         object_address: S3ObjectAddress,
     ) -> DriverObjectInfo[S3ObjectAddress]:
         """
-        Read authoritative object size, version, hints, and available checksum.
+        Request HeadObject metadata with checksum mode enabled and convert the returned mapping.
+
+        Client-call exceptions are translated; a non-mapping response is unavailable. Conversion
+        requires ContentLength and interprets optional checksum/version, time, type, and native
+        metadata fields. It does not inspect HTTP status metadata, ChecksumType, or object bytes.
+        Malformed conversion inputs can raise after the request has returned.
 
         Example:
-            >>> driver.stat(address).size  # doctest: +SKIP
+            >>> info = driver.stat(address)  # doctest: +SKIP
+            >>> info.size  # doctest: +SKIP
             1024
 
 
-        :param object_address: Address in this driver's address space.
-        :return: Current S3 object information.
+        :param object_address: Owned address whose full bucket key is passed to head_object.
+        :return: Header-derived DriverObjectInfo, with optional SHA-256, tagged version, and advisory hints.
         """
         checked = self.check_object_address(object_address)
         try:
@@ -1046,22 +1164,29 @@ class S3StorageDriver(StorageDriverAPI[S3ObjectAddress]):
         if_version: str | None = None,
     ) -> BinaryIO:
         """
-        Open a validated full or ranged S3 response as a binary stream.
+        Open an owned body reader after checking length/range and optional version evidence.
 
-        Tagged ``version-id:`` and ``etag:`` tokens are enforced using their
-        corresponding S3 request and response fields. Untagged legacy tokens
-        are treated as ETags.
+        Negative ranges are rejected. Zero length returns an empty BytesIO after ownership/range
+        checks without checking existence or the requested version. Other reads require a mapping
+        with a readable Body and ContentLength, plus ContentRange matching a requested range.
+        ResponseMetadata HTTP status is not examined here. Missing or changed conditional version
+        evidence fails the read.
+
+        version-id: tokens select VersionId; etag: and legacy untagged tokens select IfMatch.
+        Validation compares the corresponding response field. Body validation failures attempt close
+        before raising. The returned reader owns the body and checks declared byte counts during
+        consumption, without hashing content or reading beyond the declared length.
 
         Example:
-            >>> with driver.open_read(address, offset=10, length=20) as stream:  # doctest: +SKIP
+            >>> with driver.open_read(address, offset=10, length=20, if_version="version-id:v1") as stream:  # doctest: +SKIP
             ...     payload = stream.read()
 
 
-        :param object_address: Address in this driver's address space.
-        :param offset: First byte offset to read.
-        :param length: Maximum bytes to return, or through end of object.
-        :param if_version: Optional version token that the response must match.
-        :return: Readable binary stream whose response framing is validated.
+        :param object_address: Owned address to fetch through the injected client.
+        :param offset: Nonnegative first byte offset; nonzero offsets request a range.
+        :param length: Requested byte count, None through the object boundary, or zero for an immediate empty stream.
+        :param if_version: Tagged VersionId/ETag or legacy ETag to require, or None to omit the condition.
+        :return: Caller-owned BufferedReader over the validated body, or empty BytesIO for a zero-length request.
         """
         checked = self.check_object_address(object_address)
         if offset < 0 or (length is not None and length < 0):
@@ -1136,17 +1261,19 @@ class S3StorageDriver(StorageDriverAPI[S3ObjectAddress]):
         prefix: S3ObjectAddress | None = None,
     ) -> Iterator[DriverInventoryEntry[S3ObjectAddress]]:
         """
-        Iterate a complete bounded inventory below an optional key prefix.
+        Traverse pages while enforcing whole-inventory limits, unique keys, and cursor progress.
 
-        The driver rejects duplicate keys, repeated cursors, and configured
-        page or entry limits instead of silently returning partial inventory.
+        The page bound is checked before fetching, and the entry bound before yielding each entry.
+        Duplicate addresses or repeated continuation tokens raise integrity errors. Earlier entries
+        can already have been yielded when a later page, entry, or cursor fails. Completion follows
+        the service's finished-page indication and does not establish a point-in-time snapshot.
 
         Example:
-            >>> list(driver.iter_inventory())  # doctest: +SKIP
+            >>> entries = list(driver.iter_inventory(prefix=driver.parse_object_address("authors")))  # doctest: +SKIP
 
 
-        :param prefix: Optional relative key prefix.
-        :return: Iterator over validated inventory entries.
+        :param prefix: Optional owned relative prefix forwarded to each page request, or None for the configured root.
+        :return: Lazy iterator of validated page entries; bounds and later backend failures may interrupt it after earlier yields.
         """
         continuation: str | None = None
         seen_cursors: set[str] = set()
@@ -1199,20 +1326,31 @@ class S3StorageDriver(StorageDriverAPI[S3ObjectAddress]):
         snapshot_token: str | None = None,
     ) -> DriverInventoryPage[S3ObjectAddress]:
         """
-        Return one native ``ListObjectsV2`` page.
+        Build one bounded ListObjectsV2 page and validate its returned keys and continuation token.
 
-        S3 continuation tokens are opaque but do not represent a point-in-time
-        snapshot, so ``snapshot_token`` is deliberately unsupported.
+        Snapshot tokens are unsupported. Requested cursors must be nonempty strings within the
+        configured character bound and valid Unicode; requested MaxKeys is capped at 1000. Returned
+        entries are checked against the configured root and for valid unique keys, but not locally
+        filtered against the requested relative prefix or limited to requested MaxKeys. A separate
+        per-page observation bound applies before adding each item.
+
+        Falsey Contents is treated as empty. IsTruncated is truth-coerced; a truncated page requires
+        a nonblank valid continuation token. A supplied token is checked even on a finished page,
+        then discarded if not truncated. The page is assembled before return, while
+        iterator/mapping/conversion failures can propagate from response handling outside the
+        client-call translation guard.
 
         Example:
             >>> page = driver.inventory_page(limit=100)  # doctest: +SKIP
+            >>> if page.next_cursor is not None:  # doctest: +SKIP
+            ...     next_page = driver.inventory_page(cursor=page.next_cursor, limit=100)
 
 
-        :param prefix: Optional relative key prefix.
-        :param cursor: Opaque continuation token from the preceding page.
-        :param limit: Optional requested page size, capped to S3's limit.
-        :param snapshot_token: Unsupported; S3 lists are not point-in-time snapshots.
-        :return: One validated page and its next cursor, if truncated.
+        :param prefix: Optional owned relative key prefix appended to the configured root prefix in the backend request.
+        :param cursor: Opaque continuation string from an earlier page, or None for a first page.
+        :param limit: Positive requested page size capped at 1000, or None to omit MaxKeys; not a local result-size guarantee.
+        :param snapshot_token: Must be None; S3 continuation does not implement point-in-time snapshots.
+        :return: DriverInventoryPage containing a tuple of entries and a next cursor only when the response is truncated.
         """
 
         if snapshot_token is not None:
@@ -1383,21 +1521,25 @@ class S3StorageDriver(StorageDriverAPI[S3ObjectAddress]):
         metadata: tuple[tuple[str, str], ...] = (),
     ) -> _S3WriteSession:
         """
-        Begin a complete-file staged write with optional integrity checks.
+        Validate write inputs and open a complete-object local staging session.
 
-        Nothing is published until ``commit``. Native metadata is retained by
-        S3 and metadata keys must be unique without regard to case.
+        Negative expected size and case-insensitive duplicate metadata keys are rejected. Metadata
+        keys/values are stringified, the destination is ownership-checked, and mode is converted
+        with WriteMode. No remote publication or reservation occurs until explicit commit; session
+        construction can create a local file.
 
         Example:
-            >>> session = driver.begin_write(address, expected_size=4, metadata=(("source", "ingest"),))  # doctest: +SKIP
+            >>> with driver.begin_write(address, expected_size=4, metadata=(("source", "ingest"),)) as session:  # doctest: +SKIP
+            ...     session.write(b"book")
+            ...     info = session.commit()
 
 
-        :param object_address: Destination in this driver's address space.
-        :param mode: Required create or replace semantics.
-        :param expected_size: Optional final byte count.
-        :param expected_digest: Optional digest verified before publication.
-        :param metadata: Native S3 user metadata pairs.
-        :return: Uncommitted local staging session.
+        :param object_address: Destination owned by this S3 driver.
+        :param mode: WriteMode or accepted enum value selecting create-only, replacement, or upsert semantics.
+        :param expected_size: Optional nonnegative expected accepted-byte count checked at commit.
+        :param expected_digest: Optional digest accumulated during writes and checked before publication.
+        :param metadata: Native S3 user metadata pairs; stringified keys must be unique without regard to case.
+        :return: Uncommitted _S3WriteSession whose local resources require commit or abort/context cleanup.
         """
         if expected_size is not None and expected_size < 0:
             raise ValueError("expected_size must not be negative.")
@@ -1421,19 +1563,21 @@ class S3StorageDriver(StorageDriverAPI[S3ObjectAddress]):
         if_version: str | None = None,
     ) -> None:
         """
-        Delete an object without a conditional version contract.
+        Check current existence, then submit an unconditional object deletion.
 
-        S3 conditional deletion is not advertised because the generic version
-        token cannot safely express the required VersionId semantics here.
+        Any supplied version condition raises StorageUnsupportedOperation before stat. A missing
+        stat result honors missing_ok. Existence checking and deletion are separate requests, so
+        concurrent changes can occur between them. No VersionId is sent, no returned fields are
+        inspected, and no post-delete stat is made.
 
         Example:
             >>> driver.delete(address, missing_ok=True)  # doctest: +SKIP
 
 
-        :param object_address: Address in this driver's address space.
-        :param missing_ok: Suppress an error when the object is absent.
-        :param if_version: Unsupported conditional version token.
-        :return:
+        :param object_address: Owned bucket-prefix-relative address to delete.
+        :param missing_ok: Allow an absent preflight stat result to return successfully.
+        :param if_version: Unsupported conditional token; only None is accepted.
+        :return: None after an allowed missing result or successful delete_object call.
         """
         checked = self.check_object_address(object_address)
         if if_version is not None:
@@ -1471,20 +1615,22 @@ class S3StorageDriver(StorageDriverAPI[S3ObjectAddress]):
         name_hint: str | None = None,
     ) -> S3ObjectAddress:
         """
-        Allocate a digest-derived or random object key.
+        Suggest a digest-derived or UUID-based key without reserving remote storage.
 
-        A supplied digest yields a stable content-addressed key; otherwise a
-        random key preserves a safe form of the name hint.
+        A supplied digest forms objects/algorithm/first-two-hex/full-digest. Otherwise a UUID hex
+        prefix is combined with a reduced basename. Existing objects and capacity are not checked,
+        expected size is ignored, and a malformed name can still fail the final key parser.
 
         Example:
-            >>> str(driver.allocate_object_address(name_hint="book.epub")).startswith("objects/")  # doctest: +SKIP
+            >>> address = driver.allocate_object_address(expected_digest=Digest("sha256", "a" * 64))  # doctest: +SKIP
+            >>> str(address).startswith("objects/sha256/aa/")  # doctest: +SKIP
             True
 
 
-        :param expected_size: Reserved sizing hint; it does not affect the key.
-        :param expected_digest: Optional digest used for deterministic allocation.
-        :param name_hint: Optional filename retained in a random allocation.
-        :return: Newly allocated address in this driver's address space.
+        :param expected_size: Sizing hint retained by the API but ignored by key allocation.
+        :param expected_digest: Optional digest controlling deterministic key spelling; name_hint is ignored when supplied.
+        :param name_hint: Optional basename hint for a random allocation, defaulting to payload.bin after reduction.
+        :return: Parsed owned address; deterministic allocation can name an already existing object.
         """
         _ = expected_size
         if expected_digest is not None:
@@ -1510,19 +1656,25 @@ class S3StorageDriver(StorageDriverAPI[S3ObjectAddress]):
         metadata: tuple[tuple[str, str], ...],
     ) -> DriverObjectInfo[S3ObjectAddress]:
         """
-        Enforce write mode and publish one fully staged local file.
+        Check destination state under the instance write lock and upload the staged object.
+
+        CREATE_ONLY rejects an existing preflight result; REPLACE rejects a missing one. A size
+        below the threshold selects single put, otherwise multipart upload. Create-only also
+        supplies a service condition, whereas replacement has no publication-time existence/version
+        condition. Final stat occurs after releasing the lock and can fail or observe a concurrent
+        change after successful upload.
 
         Example:
-            >>> driver._publish_local_file(path, address, mode=WriteMode.CREATE_ONLY, size=4, sha256=digest, metadata=())  # doctest: +SKIP
+            >>> info = driver._publish_local_file(path, address, mode=WriteMode.CREATE_ONLY, size=4, sha256=digest, metadata=())  # doctest: +SKIP
 
 
-        :param local_path: Complete local staging file.
-        :param destination: Checked destination address.
-        :param mode: Required create or replace semantics.
-        :param size: Validated staged byte count.
-        :param sha256: Hexadecimal SHA-256 of the staged bytes.
-        :param metadata: Native S3 user metadata.
-        :return: Object information read back after publication.
+        :param local_path: Complete staged file to reopen for upload; this helper does not recalculate its size or digest.
+        :param destination: Owned destination address checked again before preflight.
+        :param mode: Normalized WriteMode compared by identity for create-only/replacement policy.
+        :param size: Accepted-byte count used to choose the upload path and declare single-put size.
+        :param sha256: Accepted-byte SHA-256 hex sent with single put; multipart does not use this value.
+        :param metadata: Native user metadata pairs passed to the chosen publisher.
+        :return: DriverObjectInfo from a separate stat after upload, outside the publication lock.
         """
         checked = self.check_object_address(destination)
         with self._write_lock:
@@ -1574,19 +1726,24 @@ class S3StorageDriver(StorageDriverAPI[S3ObjectAddress]):
         metadata: tuple[tuple[str, str], ...],
     ) -> None:
         """
-        Publish a small staged file with ``PutObject``.
+        Send one opened staging file with declared length, SHA-256, and native metadata.
+
+        CREATE_ONLY adds IfNoneMatch="*"; other modes add no condition here. The returned mapping is
+        ignored. OSError from the file/client call is classified as local staging failure by the
+        first exception handler; other ordinary failures use S3 translation. Hex-to-base64 checksum
+        conversion occurs before that guard.
 
         Example:
             >>> driver._single_put(path, address, mode=WriteMode.CREATE_ONLY, size=4, sha256=digest, metadata=())  # doctest: +SKIP
 
 
-        :param local_path: Complete local staging file.
-        :param destination: Checked destination address.
-        :param mode: Required create or replace semantics.
-        :param size: Validated staged byte count.
-        :param sha256: Hexadecimal SHA-256 sent as an S3 checksum.
-        :param metadata: Native S3 user metadata.
-        :return:
+        :param local_path: Staged file reopened in binary mode and closed after the request.
+        :param destination: Owned address resolved to its full bucket key.
+        :param mode: Normalized collision mode; only CREATE_ONLY adds IfNoneMatch here.
+        :param size: Byte count sent as ContentLength without independently inspecting the file.
+        :param sha256: Hex SHA-256 converted to base64 ChecksumSHA256 for the request.
+        :param metadata: Native metadata pairs converted to a request dictionary.
+        :return: None after put_object returns normally; remote result fields are not validated.
         """
         arguments: dict[str, Any] = {
             "Bucket": self._bucket,
@@ -1624,20 +1781,27 @@ class S3StorageDriver(StorageDriverAPI[S3ObjectAddress]):
         metadata: tuple[tuple[str, str], ...],
     ) -> None:
         """
-        Upload a large staged file in parts and complete it atomically.
+        Create an upload, send sequential staged-file parts, and complete the object.
 
-        An unfinished upload is aborted on every failed path. Create-only mode
-        is enforced when the multipart upload is completed.
+        Creation must provide a nonblank upload ID and each part a nonblank ETag. Parts are read in
+        configured-size chunks and collected into an ordered manifest. CREATE_ONLY adds IfNoneMatch
+        at completion; no whole-object checksum is sent. A normal completion return clears the
+        cleanup ID without inspecting its fields.
+
+        Failure attempts remote abort only after an upload ID was obtained. Ordinary abort
+        exceptions are suppressed; BaseException cleanup failures can propagate. The helper does not
+        delete a published object when completion succeeded before an ambiguous failure. Service
+        multipart limits are not independently enumerated.
 
         Example:
             >>> driver._multipart_put(path, address, mode=WriteMode.CREATE_ONLY, metadata=())  # doctest: +SKIP
 
 
-        :param local_path: Complete local staging file.
-        :param destination: Checked destination address.
-        :param mode: Required create or replace semantics.
-        :param metadata: Native S3 user metadata.
-        :return:
+        :param local_path: Complete local file read from the beginning in multipart-size chunks.
+        :param destination: Owned object address used for all upload requests and diagnostics.
+        :param mode: Normalized collision mode controlling the create-only completion condition.
+        :param metadata: Native user metadata sent during multipart creation.
+        :return: None after complete_multipart_upload returns normally; failed paths may attempt abort before raising.
         """
         key = self._full_key(destination)
         upload_id: str | None = None
@@ -1716,16 +1880,22 @@ class S3StorageDriver(StorageDriverAPI[S3ObjectAddress]):
         response: Mapping[str, Any],
     ) -> DriverObjectInfo[S3ObjectAddress]:
         """
-        Convert a validated S3 metadata response into driver information.
+        Interpret HeadObject fields as driver metadata without reading object bytes.
+
+        ContentLength is required and converted through the optional integer helper. Native Metadata
+        is sorted and stringified only when it is a mapping; otherwise it is omitted. Filename and
+        fallback MIME type use the relative key. VersionId is preferred over ETag, and a 32-byte
+        decoded checksum is accepted without examining checksum type or recomputing it.
 
         Example:
-            >>> driver._object_info(address, response).size  # doctest: +SKIP
-            4
+            >>> info = driver._object_info(address, {"ContentLength": 4, "ETag": '"abc"'})  # doctest: +SKIP
+            >>> info.version  # doctest: +SKIP
+            'etag:abc'
 
 
-        :param address: Checked object address.
-        :param response: ``HeadObject``-compatible response fields.
-        :return: Normalized object information.
+        :param address: Owned address associated with the supplied metadata response.
+        :param response: HeadObject-style mapping; individual fields are interpreted here after the caller checks mapping shape.
+        :return: DriverObjectInfo containing size and any accepted time, digest, version, and advisory metadata.
         """
         size = _optional_nonnegative_int(response.get("ContentLength"), "S3 object size")
         if size is None:
@@ -1761,43 +1931,48 @@ class S3StorageDriver(StorageDriverAPI[S3ObjectAddress]):
 
     def _full_prefix(self) -> str:
         """
-        Return the configured prefix with its key boundary separator.
+        Append the bucket-key boundary slash to a nonempty configured prefix.
 
         Example:
             >>> driver._full_prefix()  # doctest: +SKIP
-            ''
+            'archive/'
 
 
-        :return: Empty string or prefix ending in a slash.
+        :return: Empty text for the bucket root, otherwise the configured prefix followed by one slash.
         """
         return "" if not self._prefix else self._prefix.rstrip("/") + "/"
 
     def _full_key(self, address: S3ObjectAddress) -> str:
         """
-        Resolve a relative checked address below the configured prefix.
+        Concatenate the configured prefix and an ownership-checked address value.
 
         Example:
             >>> driver._full_key(driver.parse_object_address("book.epub"))  # doctest: +SKIP
-            'book.epub'
+            'archive/book.epub'
 
 
-        :param address: Address in this driver's address space.
-        :return: Full bucket key.
+        :param address: S3 address whose subtype and UUID must match this driver; stored key syntax is not reparsed.
+        :return: Full bucket key without URL quoting, existence lookup, or remote reservation.
         """
         return self._full_prefix() + str(self.check_object_address(address))
 
 
 def _canonical_s3_key(value: str) -> str:
     """
-    Validate and return one non-empty relative canonical S3 key.
+    Validate a nonempty relative key while preserving its accepted text exactly.
+
+    Reject malformed Unicode, a leading slash, NUL, backslashes, and empty/dot/dot-dot
+    slash-separated components. No Unicode normalization or percent decoding occurs; whitespace,
+    literal percent text, and other controls are retained. This is the driver's local key contract,
+    not a complete check of service-specific limits.
 
     Example:
-        >>> _canonical_s3_key("authors/book.epub")
-        'authors/book.epub'
+        >>> _canonical_s3_key("authors/书%20.epub")
+        'authors/书%20.epub'
 
 
-    :param value: Candidate relative key.
-    :return: Canonical key text.
+    :param value: Candidate key to stringify and validate as slash-separated relative text.
+    :return: Unchanged accepted key text; explicit syntax violations raise StorageInvalidAddress.
     """
     key = str(value)
     reject_malformed_unicode(key, label="S3 object address")
@@ -1810,15 +1985,17 @@ def _canonical_s3_key(value: str) -> str:
 
 def _canonical_s3_prefix(value: str) -> str:
     """
-    Normalize optional boundary slashes around an S3 key prefix.
+    Remove boundary slashes and validate the remaining optional relative prefix.
 
     Example:
         >>> _canonical_s3_prefix("/archive/books/")
         'archive/books'
+        >>> _canonical_s3_prefix("///")
+        ''
 
 
-    :param value: Candidate configured prefix.
-    :return: Empty string or canonical relative key prefix.
+    :param value: Prefix input; falsey values become empty text before stringification and slash stripping.
+    :return: Empty text for no prefix, otherwise a validated key without leading/trailing slashes.
     """
     prefix = str(value or "").strip("/")
     if not prefix:
@@ -1828,15 +2005,20 @@ def _canonical_s3_prefix(value: str) -> str:
 
 def _safe_s3_name(value: str | None) -> str:
     """
-    Reduce a filename hint to a safe final S3 key component.
+    Reduce a hint to a stripped POSIX basename and replace backslashes with underscores.
+
+    Missing, empty, or dot/dot-dot results use payload.bin. This helper does not validate Unicode or
+    remove NUL/other controls; allocation passes its output through the normal key parser afterward.
 
     Example:
         >>> _safe_s3_name("incoming/book.epub")
         'book.epub'
+        >>> _safe_s3_name(None)
+        'payload.bin'
 
 
-    :param value: Optional filename hint.
-    :return: Safe basename, defaulting to ``payload.bin``.
+    :param value: Optional filename/path hint; a falsey value selects the default basename.
+    :return: Reduced basename for a UUID-based allocation, still subject to final key validation.
     """
     name = pathlib.PurePosixPath(str(value or "payload.bin")).name.strip()
     return "payload.bin" if not name or name in {".", ".."} else name.replace("\\", "_")
@@ -1844,15 +2026,17 @@ def _safe_s3_name(value: str | None) -> str:
 
 def _optional_text(value: Any) -> str | None:
     """
-    Convert a present, non-blank backend value to text.
+    Stringify and strip a supplied value, treating None and resulting blank text as absent.
 
     Example:
         >>> _optional_text("  token ")
         'token'
+        >>> _optional_text(0)
+        '0'
 
 
-    :param value: Optional backend value.
-    :return: Stripped text or ``None``.
+    :param value: Backend field value to convert; only None bypasses stringification.
+    :return: Nonblank stripped text or None; exceptions from a custom string conversion propagate.
     """
     if value is None:
         return None
@@ -1862,16 +2046,22 @@ def _optional_text(value: Any) -> str | None:
 
 def _optional_nonnegative_int(value: Any, label: str) -> int | None:
     """
-    Parse an optional non-negative backend integer.
+    Convert an optional backend value with int and reject negative results.
+
+    TypeError and ValueError are translated into StorageUnavailable; OverflowError or arbitrary
+    conversion failures are not caught. Normal int coercions apply, including booleans and
+    truncation of finite floats. None alone denotes absence.
 
     Example:
         >>> _optional_nonnegative_int("42", "object size")
         42
+        >>> _optional_nonnegative_int(3.9, "object size")
+        3
 
 
-    :param value: Optional backend value.
-    :param label: Human-readable field name for errors.
-    :return: Parsed non-negative integer or ``None``.
+    :param value: Optional backend numeric field; non-None values are passed to int.
+    :param label: Field description inserted verbatim into invalid/negative-value errors.
+    :return: Nonnegative converted integer, or None when the supplied value is None.
     """
     if value is None:
         return None
@@ -1886,15 +2076,22 @@ def _optional_nonnegative_int(value: Any, label: str) -> int | None:
 
 def _parse_s3_content_range(value: object) -> tuple[int, int, int | None]:
     """
-    Parse and validate an S3 ``ContentRange`` response field.
+    Parse one satisfied bytes start-end/total range and check its numeric bounds.
+
+    The bytes prefix is case-insensitive; numeric pieces use int conversion. Start must be
+    nonnegative, end at least start, and a known positive total greater than end. An asterisk total
+    represents unknown size. This parser does not match a request or inspect body length, HTTP
+    status, or multipart framing.
 
     Example:
         >>> _parse_s3_content_range("bytes 10-19/100")
         (10, 19, 100)
+        >>> _parse_s3_content_range("bytes 10-19/*")
+        (10, 19, None)
 
 
-    :param value: Backend range field.
-    :return: Inclusive start, inclusive end, and optional total size.
+    :param value: Backend ContentRange value; falsey input becomes empty text before parsing.
+    :return: Inclusive start/end offsets and optional total size; malformed or impossible ranges raise StorageUnavailable.
     """
     text = str(value or "").strip()
     if not text.lower().startswith("bytes ") or "/" not in text:
@@ -1928,18 +2125,24 @@ def _validated_s3_response_length(
     ranged: bool,
 ) -> int:
     """
-    Validate S3 response framing against the requested byte range.
+    Require ContentLength and match optional range framing to the read request.
+
+    Full reads reject nonempty ContentRange, then return the converted length. Ranged reads require
+    an exact starting offset and the requested ending offset clipped to a known total, with
+    ContentLength equal to interval length. An open-ended range must reach a known total's boundary;
+    an unknown total cannot establish that boundary. ResponseMetadata HTTP status is not examined
+    and no bytes are consumed or closed here.
 
     Example:
-        >>> _validated_s3_response_length({"ContentLength": 10, "ContentRange": "bytes 5-14/20"}, offset=5, length=10, ranged=True)
-        10
+        >>> _validated_s3_response_length({"ContentLength": 3, "ContentRange": "bytes 2-4/5"}, offset=2, length=10, ranged=True)
+        3
 
 
-    :param response: ``GetObject`` response fields.
-    :param offset: Requested first byte offset.
-    :param length: Requested maximum length, or through object end.
-    :param ranged: Whether the request included a Range field.
-    :return: Validated number of response-body bytes.
+    :param response: GetObject mapping containing ContentLength and any ContentRange evidence.
+    :param offset: Requested first byte offset, previously validated by the caller.
+    :param length: Requested positive maximum byte count or None; zero-length reads bypass this helper.
+    :param ranged: Whether the actual client request included Range; selects full versus partial validation.
+    :return: Expected body byte count from consistent framing; invalid evidence raises StorageUnavailable.
     """
     content_length = _optional_nonnegative_int(
         response.get("ContentLength"),
@@ -1987,15 +2190,21 @@ def _validate_s3_response_version(
     expected_version: str | None,
 ) -> None:
     """
-    Verify that a conditional response carries the requested S3 version.
+    Compare the requested version with the corresponding returned metadata field.
+
+    None omits checking. version-id: tokens compare their suffix with stripped VersionId text.
+    Tagged or legacy ETags compare after removing surrounding double quotes; only the observed ETag
+    receives the optional-text whitespace normalization. Missing and changed evidence both raise
+    StoragePreconditionFailed. ETag is used as a version token, not interpreted as a content digest.
 
     Example:
         >>> _validate_s3_response_version({"ETag": '"abc"'}, "etag:abc")
+        >>> _validate_s3_response_version({"VersionId": "v1"}, "version-id:v1")
 
 
-    :param response: ``GetObject`` response fields.
-    :param expected_version: Tagged VersionId or ETag token, or legacy ETag.
-    :return:
+    :param response: GetObject mapping containing the relevant VersionId or ETag field.
+    :param expected_version: Tagged VersionId/ETag or legacy ETag text, or None to skip validation.
+    :return: None when omitted or matched; raises StoragePreconditionFailed for missing or different evidence.
     """
     if expected_version is None:
         return
@@ -2021,15 +2230,17 @@ def _validate_s3_response_version(
 
 def _aware_datetime(value: Any) -> datetime | None:
     """
-    Normalize a backend datetime to an aware UTC value.
+    Normalize datetime values to UTC, assigning UTC to naive values and ignoring other types.
 
     Example:
-        >>> _aware_datetime(datetime(2020, 1, 1)).tzinfo is timezone.utc
+        >>> _aware_datetime(datetime(2020, 1, 1)).isoformat()
+        '2020-01-01T00:00:00+00:00'
+        >>> _aware_datetime("2020-01-01") is None
         True
 
 
-    :param value: Candidate datetime.
-    :return: UTC datetime or ``None`` for a non-datetime value.
+    :param value: Backend timestamp; only datetime instances are normalized, without parsing strings.
+    :return: Aware UTC datetime or None for a non-datetime; timezone conversion failures propagate.
     """
     if not isinstance(value, datetime):
         return None
@@ -2040,15 +2251,17 @@ def _aware_datetime(value: Any) -> datetime | None:
 
 def _etag(value: Any) -> str | None:
     """
-    Normalize optional S3 ETag text without surrounding quotes.
+    Strip optional ETag text and remove all surrounding double-quote characters.
 
     Example:
-        >>> _etag('"abc"')
+        >>> _etag(' "abc" ')
         'abc'
+        >>> _etag('""') is None
+        True
 
 
-    :param value: Candidate ETag value.
-    :return: Bare ETag or ``None``.
+    :param value: Backend ETag value passed through optional text conversion before quote stripping.
+    :return: Nonempty bare ETag text, or None after absent/blank/quote-only input.
     """
     text = _optional_text(value)
     return None if text is None else text.strip('"') or None
@@ -2056,18 +2269,17 @@ def _etag(value: Any) -> str | None:
 
 def _s3_version(response: Mapping[str, Any]) -> str | None:
     """
-    Choose a tagged conditional-read token from S3 metadata.
-
-    VersionId is preferred because it identifies a concrete version; ETag is
-    used when versioning metadata is unavailable.
+    Prefer nonblank VersionId text, otherwise produce a tagged normalized ETag token.
 
     Example:
         >>> _s3_version({"VersionId": "v1", "ETag": '"abc"'})
         'version-id:v1'
+        >>> _s3_version({"ETag": '"abc"'})
+        'etag:abc'
 
 
-    :param response: S3 object metadata fields.
-    :return: Tagged version token or ``None``.
+    :param response: Object metadata mapping supplying optional VersionId and ETag fields.
+    :return: version-id: or etag: token, or None without either field; token semantics remain those of the backend.
     """
     version_id = _optional_text(response.get("VersionId"))
     if version_id is not None:
@@ -2078,16 +2290,20 @@ def _s3_version(response: Mapping[str, Any]) -> str | None:
 
 def _s3_sha256(response: Mapping[str, Any]) -> Digest | None:
     """
-    Decode an authoritative S3 SHA-256 checksum when supplied.
+    Decode a supplied ChecksumSHA256 as a 32-byte SHA-256 metadata value.
+
+    Invalid base64 raises StorageUnavailable, while absent or wrong-sized decoded values return
+    None. ChecksumType is not inspected and no body is hashed, so this helper alone does not
+    establish a full-object checksum or byte integrity.
 
     Example:
         >>> encoded = base64.b64encode(hashlib.sha256(b"book").digest()).decode("ascii")
-        >>> _s3_sha256({"ChecksumSHA256": encoded}).algorithm
-        'sha256'
+        >>> _s3_sha256({"ChecksumSHA256": encoded}).value == hashlib.sha256(b"book").hexdigest()
+        True
 
 
-    :param response: S3 object metadata fields.
-    :return: SHA-256 digest or ``None`` when absent or wrong-sized.
+    :param response: Object metadata containing an optional base64-encoded ChecksumSHA256 field.
+    :return: Digest("sha256", decoded_hex) for exactly 32 decoded bytes, otherwise None when absent or wrong-sized.
     """
     encoded = _optional_text(response.get("ChecksumSHA256"))
     if encoded is None:
@@ -2103,15 +2319,20 @@ def _s3_sha256(response: Mapping[str, Any]) -> Digest | None:
 
 def _s3_error_details(error: BaseException) -> tuple[str, int | None]:
     """
-    Extract an S3 error code and HTTP status from a boto-style exception.
+    Extract a boto-style error code and HTTP status, or fall back to exception text.
+
+    Without a response mapping, return str(error) and no status. With one, use Error.Code when
+    supplied or the exception class name; ResponseMetadata status is converted with int. Attribute
+    lookup, mapping access, string conversion, and invalid status conversion are not guarded here.
+    Returned text is unfiltered.
 
     Example:
         >>> _s3_error_details(RuntimeError("failed"))
         ('failed', None)
 
 
-    :param error: Backend exception.
-    :return: Error code or message and optional HTTP status.
+    :param error: Backend exception whose optional response mapping is inspected.
+    :return: Code/message text and optional integer HTTP status, before diagnostic filtering.
     """
     response = getattr(error, "response", None)
     if not isinstance(response, Mapping):
@@ -2139,18 +2360,24 @@ def _translate_s3_error(
     precondition_as_existing: bool = False,
 ) -> StorageError:
     """
-    Translate boto-style failures into the stable storage exception taxonomy.
+    Construct a storage exception by classifying backend code text and HTTP status.
+
+    Precondition/conflict, missing-object/bucket, authentication, and permission cases take
+    precedence over timeout and availability patterns. Create-only preconditions can map to
+    StorageAlreadyExists. Other failures become StorageError. Detail extraction can itself fail, and
+    shared message filtering is selective; this helper does not guarantee translation of hostile
+    exception accessors or preserve an existing StorageError instance automatically.
 
     Example:
         >>> type(_translate_s3_error(TimeoutError(), target="s3://books/book", operation="read")).__name__
         'StorageTimeout'
 
 
-    :param error: Backend exception.
-    :param target: Safe bucket or object description.
-    :param operation: Operation being attempted.
-    :param precondition_as_existing: Map failed create conditions to already-exists.
-    :return: Storage-layer exception with actionable backend context.
+    :param error: Backend exception supplying response metadata or message text for classification.
+    :param target: Bucket/object description passed to the shared target formatter.
+    :param operation: Operation label used in the contextual diagnostic.
+    :param precondition_as_existing: Map recognized precondition/conflict failures to already-exists for create-only publication.
+    :return: New StorageError subclass instance for the caller to raise and chain; detail-extraction failures may propagate.
     """
     code, status = _s3_error_details(error)
     normalized = code.lower()
@@ -2238,17 +2465,17 @@ def _translate_s3_error(
 
 def _s3_failure_reason(code: str, status: int | None, summary: str) -> str:
     """
-    Combine a safe summary with the backend error code and HTTP status.
+    Append backend code and optional HTTP status to a supplied diagnostic summary.
 
     Example:
         >>> _s3_failure_reason("NoSuchKey", 404, "object not found")
         'object not found (code NoSuchKey, HTTP 404)'
 
 
-    :param code: Backend error code or safe message.
-    :param status: Optional HTTP response status.
-    :param summary: Stable human-readable explanation.
-    :return: Diagnostic reason text.
+    :param code: Backend code or fallback message inserted without redaction here.
+    :param status: Optional HTTP status; included whenever not None.
+    :param summary: Caller-supplied human-readable explanation used before the parenthesized details.
+    :return: Unfiltered reason text; callers apply shared diagnostic filtering separately.
     """
     details = [f"code {code}"]
     if status is not None:

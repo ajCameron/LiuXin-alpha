@@ -1,6 +1,14 @@
 
 """
-Class used to test to see if smoke comes out when testing local(ish) storage.
+Provide local store smoke test utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise local store smoke test through a consuming regression::
+
+        python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
 """
 
 from __future__ import annotations
@@ -19,9 +27,10 @@ class StorageIOSmokeTest:
     """
     Functional smoke-test for local-ish disk IO (standard lib only).
 
-    - Creates isolated run directory under `root/test_subdir/...`
-    - Every filename includes `delete_me_tmp__{fuzz}__...` to avoid collisions + make cleanup obvious
-    - Returns a report dict; optionally raises if strict=True and any check fails
+    Example:
+        Exercise StorageIOSmokeTest through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
     """
 
     def __init__(
@@ -40,16 +49,26 @@ class StorageIOSmokeTest:
         """
         Startup the class and define properties for the run.
 
-        :param root:
-        :param test_subdir:
-        :param name_fuzz:
-        :param strict:
-        :param cleanup:
-        :param big_file_mb:
-        :param concurrent_files:
-        :param concurrent_file_mb:
-        :param random_access_mb:
-        :param chunk_size:
+        Example:
+            Exercise StorageIOSmokeTest.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+        :param root: Root directory that bounds path resolution or traversal.
+        :param test_subdir: Value supplied for test subdir under the utility contract.
+        :param name_fuzz: Value supplied for name fuzz under the utility contract.
+        :param strict: Value supplied for strict under the utility contract.
+        :param cleanup: Value supplied for cleanup under the utility contract.
+        :param big_file_mb: Value supplied for big file mb under the utility contract.
+        :param concurrent_files: Value supplied for concurrent files under the utility
+            contract.
+        :param concurrent_file_mb: Value supplied for concurrent file mb under the utility
+            contract.
+        :param random_access_mb: Value supplied for random access mb under the utility
+            contract.
+        :param chunk_size: Value supplied for chunk size under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self.root_path = Path(root).expanduser().resolve()
         self.test_subdir = test_subdir
@@ -86,6 +105,18 @@ class StorageIOSmokeTest:
     # ---------- public API ----------
 
     def run(self) -> Dict[str, Any]:
+        """
+        Perform the run utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise StorageIOSmokeTest.run through a consuming regression::
+
+                python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             # writable_dir is foundational; if it fails, bail out early
             self.check_writable_dir()
@@ -117,24 +148,96 @@ class StorageIOSmokeTest:
     # ---------- check helpers (no nested functions) ----------
 
     def add_check(self, name: str, ok: bool, **details: Any) -> None:
+        """
+        Add check under the documented compatibility and safety rules.
+
+        Example:
+            Exercise StorageIOSmokeTest.add check through a consuming regression::
+
+                python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param ok: Value supplied for ok under the utility contract.
+        :param details: Value supplied for details under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.report["checks"].append({"name": name, "ok": ok, **details})
         if not ok:
             self.report["ok"] = False
 
     def fail(self, name: str, exc: BaseException, **details: Any) -> None:
+        """
+        Perform the fail utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise StorageIOSmokeTest.fail through a consuming regression::
+
+                python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param exc: Value supplied for exc under the utility contract.
+        :param details: Value supplied for details under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.add_check(name, False, error=repr(exc), **details)
 
     def nm(self, stem: str, ext: str = "") -> str:
         # Every file name includes delete_me_tmp + fuzz
+        """
+        Perform the nm utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise StorageIOSmokeTest.nm through a consuming regression::
+
+                python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+        :param stem: Value supplied for stem under the utility contract.
+        :param ext: Value supplied for ext under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return f"delete_me_tmp__{self.fuzz}__{stem}{ext}"
 
     def fsync_file(self, path: Path) -> None:
+        """
+        Perform the fsync file utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise StorageIOSmokeTest.fsync file through a consuming regression::
+
+                python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         with path.open("rb+") as f:
             f.flush()
             os.fsync(f.fileno())
 
     def fsync_dir(self, path: Path) -> None:
         # Best-effort: POSIX supports fsync on directories; Windows often doesn't.
+        """
+        Perform the fsync dir utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise StorageIOSmokeTest.fsync dir through a consuming regression::
+
+                python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         try:
             fd = os.open(str(path), os.O_RDONLY)
         except Exception:
@@ -150,6 +253,20 @@ class StorageIOSmokeTest:
                 pass
 
     def sha256_file(self, path: Path) -> str:
+        """
+        Perform the sha256 file utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise StorageIOSmokeTest.sha256 file through a consuming regression::
+
+                python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         h = hashlib.sha256()
         with path.open("rb") as f:
             while True:
@@ -160,6 +277,18 @@ class StorageIOSmokeTest:
         return h.hexdigest()
 
     def _cleanup(self) -> None:
+        """
+        Perform the cleanup utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise StorageIOSmokeTest. cleanup through a consuming regression::
+
+                python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         try:
             shutil.rmtree(self.run_dir, ignore_errors=True)
 
@@ -181,6 +310,18 @@ class StorageIOSmokeTest:
     # ---------- individual checks ----------
 
     def check_writable_dir(self) -> None:
+        """
+        Perform the check writable dir utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise StorageIOSmokeTest.check writable dir through a consuming regression::
+
+                python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         try:
             self.run_dir.mkdir(parents=True, exist_ok=False)
             probe = self.run_dir / self.nm("probe", ".txt")
@@ -193,6 +334,18 @@ class StorageIOSmokeTest:
             raise
 
     def check_small_text_roundtrip(self) -> None:
+        """
+        Perform the check small text roundtrip utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise StorageIOSmokeTest.check small text roundtrip through a consuming regression::
+
+                python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         name = "small_text_roundtrip"
         try:
             p = self.run_dir / self.nm("hello", ".txt")
@@ -204,6 +357,18 @@ class StorageIOSmokeTest:
             self.fail(name, e)
 
     def check_small_binary_roundtrip(self) -> None:
+        """
+        Perform the check small binary roundtrip utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise StorageIOSmokeTest.check small binary roundtrip through a consuming regression::
+
+                python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         name = "small_binary_roundtrip"
         try:
             p = self.run_dir / self.nm("blob", ".bin")
@@ -215,6 +380,18 @@ class StorageIOSmokeTest:
             self.fail(name, e)
 
     def check_append_semantics(self) -> None:
+        """
+        Perform the check append semantics utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise StorageIOSmokeTest.check append semantics through a consuming regression::
+
+                python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         name = "append_semantics"
         try:
             p = self.run_dir / self.nm("append", ".txt")
@@ -228,6 +405,18 @@ class StorageIOSmokeTest:
             self.fail(name, e)
 
     def check_fsync_and_reopen(self) -> None:
+        """
+        Perform the check fsync and reopen utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise StorageIOSmokeTest.check fsync and reopen through a consuming regression::
+
+                python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         name = "fsync_and_reopen"
         try:
             p = self.run_dir / self.nm("durable", ".bin")
@@ -240,6 +429,18 @@ class StorageIOSmokeTest:
             self.fail(name, e)
 
     def check_random_access_writes(self) -> None:
+        """
+        Perform the check random access writes utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise StorageIOSmokeTest.check random access writes through a consuming regression::
+
+                python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         name = "random_access_writes"
         try:
             p = self.run_dir / self.nm("random_access", ".bin")
@@ -280,6 +481,18 @@ class StorageIOSmokeTest:
             self.fail(name, e)
 
     def check_atomic_replace(self) -> None:
+        """
+        Perform the check atomic replace utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise StorageIOSmokeTest.check atomic replace through a consuming regression::
+
+                python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         name = "atomic_replace"
         try:
             target = self.run_dir / self.nm("atomic_target", ".txt")
@@ -294,6 +507,18 @@ class StorageIOSmokeTest:
             self.fail(name, e)
 
     def check_directory_ops(self) -> None:
+        """
+        Perform the check directory ops utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise StorageIOSmokeTest.check directory ops through a consuming regression::
+
+                python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         name = "directory_ops"
         try:
             d = self.run_dir / self.nm("nested_dir") / "dir" / "structure"
@@ -321,6 +546,19 @@ class StorageIOSmokeTest:
             self.fail(name, e)
 
     def _write_and_verify_concurrent(self, i: int) -> Dict[str, Any]:
+        """
+        Perform the write and verify concurrent utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise StorageIOSmokeTest. write and verify concurrent through a consuming regression::
+
+                python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+        :param i: Value supplied for i under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         p = self.run_dir / self.nm(f"concurrent_{i}", ".bin")
         total = self.concurrent_file_mb * 1024 * 1024
 
@@ -352,6 +590,18 @@ class StorageIOSmokeTest:
         }
 
     def check_concurrent_writes_hashes(self) -> None:
+        """
+        Perform the check concurrent writes hashes utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise StorageIOSmokeTest.check concurrent writes hashes through a consuming regression::
+
+                python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         name = "concurrent_writes_hashes"
         try:
             results = []
@@ -377,6 +627,18 @@ class StorageIOSmokeTest:
             self.fail(name, e)
 
     def check_sequential_big_roundtrip(self) -> None:
+        """
+        Perform the check sequential big roundtrip utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise StorageIOSmokeTest.check sequential big roundtrip through a consuming regression::
+
+                python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         name = "sequential_big_roundtrip"
         try:
             mb = self.big_file_mb

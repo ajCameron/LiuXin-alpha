@@ -1,4 +1,14 @@
-"""Thread-safe retained event log with optional durable JSONL output."""
+"""
+Collect structured log events in memory for inspection and testing.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise in memory list through a consuming regression::
+
+        python -m pytest -q tests/utils/logging/test_compat_logger.py
+"""
 
 from __future__ import annotations
 
@@ -16,12 +26,13 @@ from LiuXin_alpha.utils.logging.api import Event, EventLogAPI
 
 @final
 class InMemoryEventLog(EventLogAPI):
-    """Retain recent events in memory and optionally append all events to JSONL.
+    """
+    Retain recent events in memory and optionally append all events to JSONL.
 
-    The ring is useful for local queries and followers. When ``persist_path``
-    is set, the append-only file is the complete record and is flushed after
-    every event. One line-buffered file handle is retained so object-level
-    archive logging does not open a file millions of times.
+    Example:
+        Exercise InMemoryEventLog through a consuming regression::
+
+            python -m pytest -q tests/utils/logging/test_compat_logger.py
     """
 
     def __init__(
@@ -34,6 +45,26 @@ class InMemoryEventLog(EventLogAPI):
         level_names: Mapping[int, str] | None = None,
         include_level_name_in_jsonl: bool = False,
     ) -> None:
+        """
+        Initialize and validate the InMemoryEventLog state.
+
+        Example:
+            Exercise InMemoryEventLog.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/logging/test_compat_logger.py
+
+
+        :param max_entries: Value supplied for max entries under the utility contract.
+        :param persist_path: Value supplied for persist path under the utility contract.
+        :param encoding: Value supplied for encoding under the utility contract.
+        :param utc_timestamps: Value supplied for utc timestamps under the utility contract.
+        :param normalize_multiline: Value supplied for normalize multiline under the utility
+            contract.
+        :param level_names: Value supplied for level names under the utility contract.
+        :param include_level_name_in_jsonl: Value supplied for include level name in jsonl
+            under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         if max_entries <= 0:
             raise ValueError("max_entries must be > 0")
 
@@ -66,12 +97,37 @@ class InMemoryEventLog(EventLogAPI):
     @property
     @override
     def max_entries(self) -> int:
+        """
+        Perform the max entries utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise InMemoryEventLog.max entries through a consuming regression::
+
+                python -m pytest -q tests/utils/logging/test_compat_logger.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         with self._lock:
             maximum = self._events.maxlen
             return int(maximum) if maximum is not None else 0
 
     @override
     def set_max_entries(self, max_entries: int) -> None:
+        """
+        Set max entries under the documented compatibility and safety rules.
+
+        Example:
+            Exercise InMemoryEventLog.set max entries through a consuming regression::
+
+                python -m pytest -q tests/utils/logging/test_compat_logger.py
+
+
+        :param max_entries: Value supplied for max entries under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if max_entries <= 0:
             raise ValueError("max_entries must be > 0")
         with self._cond:
@@ -86,6 +142,19 @@ class InMemoryEventLog(EventLogAPI):
 
     @override
     def level_name(self, level: int) -> str:
+        """
+        Perform the level name utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise InMemoryEventLog.level name through a consuming regression::
+
+                python -m pytest -q tests/utils/logging/test_compat_logger.py
+
+
+        :param level: Value supplied for level under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         with self._lock:
             return self._level_names.get(level, f"LVL{level}")
 
@@ -96,6 +165,20 @@ class InMemoryEventLog(EventLogAPI):
         *,
         replace: bool = False,
     ) -> None:
+        """
+        Set level names under the documented compatibility and safety rules.
+
+        Example:
+            Exercise InMemoryEventLog.set level names through a consuming regression::
+
+                python -m pytest -q tests/utils/logging/test_compat_logger.py
+
+
+        :param level_names: Value supplied for level names under the utility contract.
+        :param replace: Value supplied for replace under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         validated_names = self._validated_level_names(level_names)
         with self._cond:
             self._ensure_open()
@@ -107,11 +190,36 @@ class InMemoryEventLog(EventLogAPI):
 
     @override
     def get_level_names(self) -> Mapping[int, str]:
+        """
+        Return level names under the documented compatibility and safety rules.
+
+        Example:
+            Exercise InMemoryEventLog.get level names through a consuming regression::
+
+                python -m pytest -q tests/utils/logging/test_compat_logger.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         with self._lock:
             return dict(self._level_names)
 
     @override
     def put(self, message: str) -> None:
+        """
+        Perform the put utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise InMemoryEventLog.put through a consuming regression::
+
+                python -m pytest -q tests/utils/logging/test_compat_logger.py
+
+
+        :param message: Value supplied for message under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         _ = self.put_event(message, level=20)
 
     @override
@@ -123,6 +231,22 @@ class InMemoryEventLog(EventLogAPI):
         ts: datetime | None = None,
         context: dict[str, object] | None = None,
     ) -> int:
+        """
+        Perform the put event utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise InMemoryEventLog.put event through a consuming regression::
+
+                python -m pytest -q tests/utils/logging/test_compat_logger.py
+
+
+        :param message: Value supplied for message under the utility contract.
+        :param level: Value supplied for level under the utility contract.
+        :param ts: Value supplied for ts under the utility contract.
+        :param context: Value supplied for context under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         message = self._validated_message(message)
         level = self._validated_level(level)
         ctx = self._validated_context(context)
@@ -152,6 +276,19 @@ class InMemoryEventLog(EventLogAPI):
 
     @override
     def get(self, num: int | None = None) -> Iterable[str]:
+        """
+        Perform the get utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise InMemoryEventLog.get through a consuming regression::
+
+                python -m pytest -q tests/utils/logging/test_compat_logger.py
+
+
+        :param num: Value supplied for num under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         events = self.get_events(limit=num, reverse=False)
         return [self._render_event(event) for event in events]
 
@@ -166,6 +303,24 @@ class InMemoryEventLog(EventLogAPI):
         contains: str | None = None,
         reverse: bool = True,
     ) -> Iterable[Event]:
+        """
+        Return events under the documented compatibility and safety rules.
+
+        Example:
+            Exercise InMemoryEventLog.get events through a consuming regression::
+
+                python -m pytest -q tests/utils/logging/test_compat_logger.py
+
+
+        :param limit: Value supplied for limit under the utility contract.
+        :param since_id: Value supplied for since id under the utility contract.
+        :param since_ts: Value supplied for since ts under the utility contract.
+        :param level_min: Value supplied for level min under the utility contract.
+        :param contains: Value supplied for contains under the utility contract.
+        :param reverse: Value supplied for reverse under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         with self._lock:
             snapshot = list(self._events)
         if since_id is not None:
@@ -191,6 +346,20 @@ class InMemoryEventLog(EventLogAPI):
         after_id: int | None = None,
         poll_interval_s: float = 0.25,
     ) -> Iterable[Event]:
+        """
+        Perform the follow utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise InMemoryEventLog.follow through a consuming regression::
+
+                python -m pytest -q tests/utils/logging/test_compat_logger.py
+
+
+        :param after_id: Value supplied for after id under the utility contract.
+        :param poll_interval_s: Value supplied for poll interval s under the utility
+            contract.
+        :return: An iterator yielding the normalized values described above.
+        """
         if poll_interval_s <= 0:
             raise ValueError("poll_interval_s must be > 0")
         with self._cond:
@@ -210,12 +379,36 @@ class InMemoryEventLog(EventLogAPI):
 
     @override
     def flush(self) -> None:
+        """
+        Forward the flush operation while preserving adapter ownership rules.
+
+        Example:
+            Exercise InMemoryEventLog.flush through a consuming regression::
+
+                python -m pytest -q tests/utils/logging/test_compat_logger.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         with self._lock:
             if self._persist_file is not None:
                 self._persist_file.flush()
 
     @override
     def close(self) -> None:
+        """
+        Forward the close operation while preserving adapter ownership rules.
+
+        Example:
+            Exercise InMemoryEventLog.close through a consuming regression::
+
+                python -m pytest -q tests/utils/logging/test_compat_logger.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         with self._cond:
             if self._closed:
                 return
@@ -227,10 +420,35 @@ class InMemoryEventLog(EventLogAPI):
             self._cond.notify_all()
 
     def _ensure_open(self) -> None:
+        """
+        Ensure open under the documented compatibility and safety rules.
+
+        Example:
+            Exercise InMemoryEventLog. ensure open through a consuming regression::
+
+                python -m pytest -q tests/utils/logging/test_compat_logger.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self._closed:
             raise RuntimeError("Event log is closed")
 
     def _normalize_message(self, message: str) -> str:
+        """
+        Normalize message under the documented compatibility and safety rules.
+
+        Example:
+            Exercise InMemoryEventLog. normalize message through a consuming regression::
+
+                python -m pytest -q tests/utils/logging/test_compat_logger.py
+
+
+        :param message: Value supplied for message under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not self._normalize_multiline:
             return message
         return (
@@ -240,6 +458,19 @@ class InMemoryEventLog(EventLogAPI):
         )
 
     def _render_event(self, event: Event) -> str:
+        """
+        Perform the render event utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise InMemoryEventLog. render event through a consuming regression::
+
+                python -m pytest -q tests/utils/logging/test_compat_logger.py
+
+
+        :param event: Value supplied for event under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         timestamp = event.ts.isoformat(timespec="milliseconds")
         rendered = (
             f"{timestamp} [{event.id:08d}] "
@@ -256,6 +487,19 @@ class InMemoryEventLog(EventLogAPI):
         return rendered
 
     def _append_jsonl(self, event: Event) -> None:
+        """
+        Perform the append jsonl utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise InMemoryEventLog. append jsonl through a consuming regression::
+
+                python -m pytest -q tests/utils/logging/test_compat_logger.py
+
+
+        :param event: Value supplied for event under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         assert self._persist_file is not None
         payload: dict[str, object] = {
             "id": event.id,
@@ -282,22 +526,74 @@ class InMemoryEventLog(EventLogAPI):
 
     @staticmethod
     def _json_default(value: object) -> str:
+        """
+        Perform the json default utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise InMemoryEventLog. json default through a consuming regression::
+
+                python -m pytest -q tests/utils/logging/test_compat_logger.py
+
+
+        :param value: Value normalized, stored, formatted or returned.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return repr(value)
 
     @staticmethod
     def _validated_message(value: object) -> str:
+        """
+        Perform the validated message utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise InMemoryEventLog. validated message through a consuming regression::
+
+                python -m pytest -q tests/utils/logging/test_compat_logger.py
+
+
+        :param value: Value normalized, stored, formatted or returned.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not isinstance(value, str):
             raise TypeError("message must be a str")
         return value
 
     @staticmethod
     def _validated_level(value: object) -> int:
+        """
+        Perform the validated level utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise InMemoryEventLog. validated level through a consuming regression::
+
+                python -m pytest -q tests/utils/logging/test_compat_logger.py
+
+
+        :param value: Value normalized, stored, formatted or returned.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not isinstance(value, int):
             raise TypeError("level must be an int")
         return value
 
     @staticmethod
     def _validated_context(value: object) -> dict[str, object]:
+        """
+        Perform the validated context utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise InMemoryEventLog. validated context through a consuming regression::
+
+                python -m pytest -q tests/utils/logging/test_compat_logger.py
+
+
+        :param value: Value normalized, stored, formatted or returned.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if value is None:
             return {}
         if not isinstance(value, dict):
@@ -311,6 +607,19 @@ class InMemoryEventLog(EventLogAPI):
 
     @staticmethod
     def _validated_level_names(value: object) -> dict[int, str]:
+        """
+        Perform the validated level names utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise InMemoryEventLog. validated level names through a consuming regression::
+
+                python -m pytest -q tests/utils/logging/test_compat_logger.py
+
+
+        :param value: Value normalized, stored, formatted or returned.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not isinstance(value, Mapping):
             raise TypeError("level_names must be a Mapping[int, str]")
         result: dict[int, str] = {}

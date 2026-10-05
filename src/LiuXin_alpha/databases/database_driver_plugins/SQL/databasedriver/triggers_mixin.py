@@ -1,8 +1,6 @@
 
 """
-Mixin of methods to handle triggers.
-
-Allows CRUD for triggers.
+List persistent SQLite triggers and drop explicitly named triggers.
 """
 
 from __future__ import annotations
@@ -14,15 +12,23 @@ import sqlite3
 
 class TriggersMixin:
     """
-    Mixin for methods to handle triggers.
+    Inspect sqlite_master trigger names and remove trusted trigger identifiers.
+
+    Example:
+        ``driver.direct_get_triggers()`` lists persistent triggers in the main schema.
     """
 
     def direct_get_triggers(self) -> list[str]:
         """
-        Returns a list of all triggers defined on the database.
+        Read trigger names from sqlite_master and close on success or OperationalError.
 
-        Returns an empty set if there are
-        :return:
+        TEMP triggers are not included and no ordering is specified.
+
+        Example:
+            ``driver.direct_get_triggers()`` returns an empty list when no persistent triggers exist.
+
+
+        :return: A list of trigger names.
         """
         conn = self.get_connection()
         stmt = "SELECT name FROM sqlite_master WHERE type = 'trigger';"
@@ -38,9 +44,16 @@ class TriggersMixin:
 
     def direct_drop_triggers(self, triggers: Iterable[str]) -> bool:
         """
-        Drops all named triggers from the database.
+        Drop each named trigger and commit after each removal.
 
-        :return:
+        Names become SQL syntax and must be trusted. A missing trigger raises OperationalError; earlier removals stay committed. Close on success or that error.
+
+        Example:
+            ``driver.direct_drop_triggers(["example_audit"])`` drops the named trigger.
+
+
+        :param triggers: Iterable of trusted trigger identifiers inserted into DROP TRIGGER statements.
+        :return: ``True`` after all removals, including an empty input.
         """
         conn = self.get_connection()
         stmt = "DROP TRIGGER {};"

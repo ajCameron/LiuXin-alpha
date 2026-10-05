@@ -1,5 +1,13 @@
 """
-Read metadata from LRX files.
+Read LRX container headers, decompress LRF metadata XML and expose safe fallback behavior for unsupported variants.
+
+The module keeps binary parsing, optional dependency and stream ownership policy
+explicit for registry callers.
+
+Example:
+    Exercise lrx with pytest::
+
+        python -m pytest -q tests/metadata/file_sources/test_lrx_metadata_source.py
 """
 
 from __future__ import annotations
@@ -24,10 +32,30 @@ RUN_COST = ["LOW"]
 
 
 class LrxFormatError(Exception):
+    """
+    Signal malformed or unsupported LRX metadata input when fallback is disabled.
+
+    Example:
+        Exercise LrxFormatError with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_lrx_metadata_source.py
+    """
     pass
 
 
 def _default_metadata(source_name: str = ""):
+    """
+    Build a minimally usable metadata object for missing or explicitly tolerated malformed input.
+
+    Example:
+        Exercise  default metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_lrx_metadata_source.py
+
+
+    :param source_name: Source label used for fallback titles and diagnostics.
+    :return: Parsed, normalized or updated value described above.
+    """
     title = _("Unknown")
     if source_name:
         stem = os.path.splitext(os.path.basename(source_name))[0].strip()
@@ -37,12 +65,38 @@ def _default_metadata(source_name: str = ""):
 
 
 def _warn(message: str) -> None:
+    """
+    Report a format-specific parsing failure through the project logger with source context.
+
+    Example:
+        Exercise  warn with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_lrx_metadata_source.py
+
+
+    :param message: Value supplied for message.
+    :return: None.
+    """
     warn = getattr(default_log, "warning", None) or getattr(default_log, "warn", None)
     if warn is not None:
         warn(message)
 
 
 def _log_exception(base: str, exc: Exception, source_name: str) -> None:
+    """
+    Report a format-specific parsing failure through the project logger with source context.
+
+    Example:
+        Exercise  log exception with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_lrx_metadata_source.py
+
+
+    :param base: Value supplied for base.
+    :param exc: Value supplied for exc.
+    :param source_name: Source label used for fallback titles and diagnostics.
+    :return: None.
+    """
     if hasattr(default_log, "log_exception"):
         default_log.log_exception(base, exc, "ERROR", ("source", source_name or "<stream>"))
         return
@@ -50,6 +104,21 @@ def _log_exception(base: str, exc: Exception, source_name: str) -> None:
 
 
 def _read_at(stream, at: int, amount: int) -> bytes:
+    """
+    Read at while enforcing the format's bounds and binary-input expectations.
+
+    Example:
+        Exercise  read at with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_lrx_metadata_source.py
+
+
+    :param stream: Caller-supplied path, path-like object or stream described by this
+        operation.
+    :param at: Value supplied for at.
+    :param amount: Value supplied for amount.
+    :return: Parsed, normalized or updated value described above.
+    """
     stream.seek(at)
     data = stream.read(amount)
     if not isinstance(data, (bytes, bytearray)):
@@ -60,18 +129,66 @@ def _read_at(stream, at: int, amount: int) -> bytes:
 
 
 def _word_be(buf: bytes) -> int:
+    """
+    Perform the format-specific word be operation used by the metadata reader or writer.
+
+    Example:
+        Exercise  word be with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_lrx_metadata_source.py
+
+
+    :param buf: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or updated value described above.
+    """
     return struct.unpack(">L", buf)[0]
 
 
 def _word_le(buf: bytes) -> int:
+    """
+    Perform the format-specific word le operation used by the metadata reader or writer.
+
+    Example:
+        Exercise  word le with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_lrx_metadata_source.py
+
+
+    :param buf: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or updated value described above.
+    """
     return struct.unpack("<L", buf)[0]
 
 
 def _short_le(buf: bytes) -> int:
+    """
+    Perform the format-specific short le operation used by the metadata reader or writer.
+
+    Example:
+        Exercise  short le with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_lrx_metadata_source.py
+
+
+    :param buf: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or updated value described above.
+    """
     return struct.unpack("<H", buf)[0]
 
 
 def _clean_text(raw) -> str | None:
+    """
+    Normalize text into the representation expected by later parsing or serialization steps.
+
+    Example:
+        Exercise  clean text with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_lrx_metadata_source.py
+
+
+    :param raw: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or updated value described above.
+    """
     if raw is None:
         return None
     text = str(raw).strip()
@@ -79,6 +196,19 @@ def _clean_text(raw) -> str | None:
 
 
 def _parse_lrx_xml(payload: bytes, mi) -> None:
+    """
+    Parse lrx xml and apply supported values without inventing absent metadata.
+
+    Example:
+        Exercise  parse lrx xml with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_lrx_metadata_source.py
+
+
+    :param payload: Raw value or payload to normalize, parse or serialize.
+    :param mi: Metadata object supplying or receiving supported fields.
+    :return: None.
+    """
     root = etree.fromstring(payload)
 
     book_info = root.find("BookInfo")
@@ -128,6 +258,22 @@ def _parse_lrx_xml(payload: bytes, mi) -> None:
 
 
 def read_metadata_from_stream(stream, source_name: str = "", *, fallback_on_parse_error: bool = False):
+    """
+    Parse metadata from a caller-owned binary stream and apply the requested malformed-input fallback policy.
+
+    Example:
+        Exercise read metadata from stream with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_lrx_metadata_source.py
+
+
+    :param stream: Caller-supplied path, path-like object or stream described by this
+        operation.
+    :param source_name: Source label used for fallback titles and diagnostics.
+    :param fallback_on_parse_error: Return default metadata after parse errors when
+        true; otherwise raise the format error.
+    :return: Parsed, normalized or updated value described above.
+    """
     mi = _default_metadata(source_name)
     stream.seek(0)
     header = stream.read(12)
@@ -190,7 +336,19 @@ def read_metadata_from_stream(stream, source_name: str = "", *, fallback_on_pars
 
 def get_metadata(target_file, *, fallback_on_parse_error: bool = False):
     """
-    Read metadata from a LRX filesystem path or readable binary stream.
+    Read metadata from the supported path or stream input while applying the module's ownership and fallback policy.
+
+    Example:
+        Exercise get metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_lrx_metadata_source.py
+
+
+    :param target_file: Caller-supplied path, path-like object or stream described by
+        this operation.
+    :param fallback_on_parse_error: Return default metadata after parse errors when
+        true; otherwise raise the format error.
+    :return: Parsed, normalized or updated value described above.
     """
     stream_needs_close = False
     source_name = ""

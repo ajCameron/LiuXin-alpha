@@ -1,3 +1,14 @@
+"""
+Verify Edelweiss search/detail parsing, identifiers and covers.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test web sources edelweiss through its owning regression module::
+
+        python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+"""
 from __future__ import annotations
 
 import queue
@@ -5,44 +16,200 @@ from threading import Event
 
 
 class _Log:
+    """
+    Provide the Log test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise Log through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+    """
     def __init__(self) -> None:
+        """
+        Initialize the Log test double.
+
+        Example:
+            Exercise Log.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+        :return: None; the function records state or raises through its assertions.
+        """
         self.events = []
 
     def __call__(self, *parts):
+        """
+        Perform the call test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.call through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("call", parts))
 
     def info(self, *parts):
+        """
+        Perform the info test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.info through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("info", parts))
 
     def warning(self, *parts):
+        """
+        Perform the warning test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.warning through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("warning", parts))
 
     def error(self, *parts):
+        """
+        Perform the error test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.error through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("error", parts))
 
     def exception(self, *parts):
+        """
+        Perform the exception test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.exception through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("exception", parts))
 
 
 class _Response:
+    """
+    Provide the Response test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise Response through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+    """
     def __init__(self, payload: bytes) -> None:
+        """
+        Initialize the Response test double.
+
+        Example:
+            Exercise Response.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+        :param payload: Value supplied for payload in the focused test operation.
+        :return: None; the function records state or raises through its assertions.
+        """
         self.payload = payload
 
     def read(self) -> bytes:
+        """
+        Perform the read test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Response.read through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return self.payload
 
 
 class _Browser:
+    """
+    Provide the Browser test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise Browser through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+    """
     def __init__(self, payload: bytes) -> None:
+        """
+        Initialize the Browser test double.
+
+        Example:
+            Exercise Browser.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+        :param payload: Value supplied for payload in the focused test operation.
+        :return: None; the function records state or raises through its assertions.
+        """
         self.payload = payload
         self.requests = []
 
     def open_novisit(self, url, timeout=30):
+        """
+        Perform the open novisit test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Browser.open novisit through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+        :param url: Value supplied for url in the focused test operation.
+        :param timeout: Value supplied for timeout in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.requests.append((url, timeout))
         return _Response(self.payload)
 
 
 def _detail_html(sku: str, title: str = "XQuery from the Experts") -> str:
+    """
+    Perform the detail html test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise detail html through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+    :param sku: Value supplied for sku in the focused test operation.
+    :param title: Value supplied for title in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return f"""
     <html>
       <head>
@@ -67,12 +234,34 @@ def _detail_html(sku: str, title: str = "XQuery from the Experts") -> str:
 
 
 def test_web_sources_edelweiss_import_smoke() -> None:
+    """
+    Verify web sources edelweiss import smoke.
+
+    Example:
+        Exercise test web sources edelweiss import smoke through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.edelweiss as edelweiss
 
     assert edelweiss is not None
 
 
 def test_edelweiss_get_book_url_and_cached_cover_url() -> None:
+    """
+    Verify edelweiss get book url and cached cover url.
+
+    Example:
+        Exercise test edelweiss get book url and cached cover url through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.edelweiss import Edelweiss
 
     plugin = Edelweiss()
@@ -90,6 +279,19 @@ def test_edelweiss_get_book_url_and_cached_cover_url() -> None:
 
 
 def test_edelweiss_create_query_prefers_isbn_then_title_and_author(monkeypatch) -> None:
+    """
+    Verify edelweiss create query prefers isbn then title and author.
+
+    Example:
+        Exercise test edelweiss create query prefers isbn then title and author through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.edelweiss as edelweiss
 
     Edelweiss = edelweiss.Edelweiss
@@ -112,6 +314,17 @@ def test_edelweiss_create_query_prefers_isbn_then_title_and_author(monkeypatch) 
 
 
 def test_edelweiss_helper_normalization_edges() -> None:
+    """
+    Verify edelweiss helper normalization edges.
+
+    Example:
+        Exercise test edelweiss helper normalization edges through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.edelweiss import (
         _as_text,
         _first,
@@ -124,7 +337,26 @@ def test_edelweiss_helper_normalization_edges() -> None:
     )
 
     class BadString:
+        """
+        Provide the BadString test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test edelweiss helper normalization edges.BadString through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+        """
         def __str__(self):
+            """
+            Perform the str test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test edelweiss helper normalization edges.BadString.str through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+            :return: The deterministic value, row, identity or collection described above.
+            """
             raise RuntimeError("broken")
 
     assert _as_text(b"caf\xc3\xa9") == "café"
@@ -158,6 +390,17 @@ def test_edelweiss_helper_normalization_edges() -> None:
 
 
 def test_edelweiss_retry_and_open_text_helpers() -> None:
+    """
+    Verify edelweiss retry and open text helpers.
+
+    Example:
+        Exercise test edelweiss retry and open text helpers through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.edelweiss import Edelweiss
 
     plugin = Edelweiss()
@@ -185,6 +428,17 @@ def test_edelweiss_retry_and_open_text_helpers() -> None:
 
 
 def test_edelweiss_parse_skus_from_search_payload() -> None:
+    """
+    Verify edelweiss parse skus from search payload.
+
+    Example:
+        Exercise test edelweiss parse skus from search payload through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.edelweiss import Edelweiss
 
     plugin = Edelweiss()
@@ -198,6 +452,17 @@ def test_edelweiss_parse_skus_from_search_payload() -> None:
 
 
 def test_edelweiss_parse_skus_from_malformed_search_payload() -> None:
+    """
+    Verify edelweiss parse skus from malformed search payload.
+
+    Example:
+        Exercise test edelweiss parse skus from malformed search payload through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.edelweiss import Edelweiss
 
     plugin = Edelweiss()
@@ -212,6 +477,17 @@ def test_edelweiss_parse_skus_from_malformed_search_payload() -> None:
 
 
 def test_edelweiss_metadata_from_detail_html_parses_fields_and_caches() -> None:
+    """
+    Verify edelweiss metadata from detail html parses fields and caches.
+
+    Example:
+        Exercise test edelweiss metadata from detail html parses fields and caches through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.edelweiss import Edelweiss
 
     plugin = Edelweiss()
@@ -232,6 +508,17 @@ def test_edelweiss_metadata_from_detail_html_parses_fields_and_caches() -> None:
 
 
 def test_edelweiss_metadata_from_detail_html_uses_parser_fallbacks() -> None:
+    """
+    Verify edelweiss metadata from detail html uses parser fallbacks.
+
+    Example:
+        Exercise test edelweiss metadata from detail html uses parser fallbacks through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.edelweiss import Edelweiss
 
     plugin = Edelweiss()
@@ -269,6 +556,17 @@ def test_edelweiss_metadata_from_detail_html_uses_parser_fallbacks() -> None:
 
 
 def test_edelweiss_metadata_from_detail_html_defaults_when_sparse() -> None:
+    """
+    Verify edelweiss metadata from detail html defaults when sparse.
+
+    Example:
+        Exercise test edelweiss metadata from detail html defaults when sparse through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.edelweiss import Edelweiss
 
     plugin = Edelweiss()
@@ -282,6 +580,17 @@ def test_edelweiss_metadata_from_detail_html_defaults_when_sparse() -> None:
 
 
 def test_edelweiss_parser_invalid_and_clamped_values() -> None:
+    """
+    Verify edelweiss parser invalid and clamped values.
+
+    Example:
+        Exercise test edelweiss parser invalid and clamped values through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.edelweiss import Edelweiss
 
     plugin = Edelweiss()
@@ -295,6 +604,17 @@ def test_edelweiss_parser_invalid_and_clamped_values() -> None:
 
 
 def test_edelweiss_identify_by_sku() -> None:
+    """
+    Verify edelweiss identify by sku.
+
+    Example:
+        Exercise test edelweiss identify by sku through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.edelweiss import Edelweiss
 
     plugin = Edelweiss()
@@ -312,11 +632,38 @@ def test_edelweiss_identify_by_sku() -> None:
 
 
 def test_edelweiss_identify_search_then_detail() -> None:
+    """
+    Verify edelweiss identify search then detail.
+
+    Example:
+        Exercise test edelweiss identify search then detail through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.edelweiss import Edelweiss
 
     plugin = Edelweiss()
 
     def _fake_open(log, abort, url, timeout, context):
+        """
+        Perform the fake open test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test edelweiss identify search then detail.fake open through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+        :param log: Value supplied for log in the focused test operation.
+        :param abort: Value supplied for abort in the focused test operation.
+        :param url: Value supplied for url in the focused test operation.
+        :param timeout: Value supplied for timeout in the focused test operation.
+        :param context: Value supplied for context in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         del log, abort, timeout
         if "search" in context.lower():
             return 'window.items = ["1111111111", "2222222222"];'
@@ -343,6 +690,17 @@ def test_edelweiss_identify_search_then_detail() -> None:
 
 
 def test_edelweiss_identify_skus_empty_search_and_isbn_fallback() -> None:
+    """
+    Verify edelweiss identify skus empty search and isbn fallback.
+
+    Example:
+        Exercise test edelweiss identify skus empty search and isbn fallback through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.edelweiss import Edelweiss
 
     plugin = Edelweiss()
@@ -355,6 +713,18 @@ def test_edelweiss_identify_skus_empty_search_and_isbn_fallback() -> None:
     responses = iter(["window.items = [];", 'window.items = ["FALLBACK"];'])
 
     def _fake_open(**kwargs):
+        """
+        Perform the fake open test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test edelweiss identify skus empty search and isbn fallback.fake open through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+        :param kwargs: Keyword values forwarded by the test double.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return next(responses)
 
     plugin._open_text_with_backoff = _fake_open
@@ -363,6 +733,17 @@ def test_edelweiss_identify_skus_empty_search_and_isbn_fallback() -> None:
 
 
 def test_edelweiss_identify_dedupes_limits_and_logs_detail_errors() -> None:
+    """
+    Verify edelweiss identify dedupes limits and logs detail errors.
+
+    Example:
+        Exercise test edelweiss identify dedupes limits and logs detail errors through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.edelweiss import Edelweiss
 
     plugin = Edelweiss()
@@ -371,6 +752,18 @@ def test_edelweiss_identify_dedupes_limits_and_logs_detail_errors() -> None:
     seen_urls = []
 
     def _fake_open(**kwargs):
+        """
+        Perform the fake open test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test edelweiss identify dedupes limits and logs detail errors.fake open through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+        :param kwargs: Keyword values forwarded by the test double.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         url = kwargs["url"]
         seen_urls.append(url)
         sku = url.split("sku=", 1)[1].split("&", 1)[0]
@@ -393,12 +786,35 @@ def test_edelweiss_identify_dedupes_limits_and_logs_detail_errors() -> None:
 
 
 def test_edelweiss_identify_returns_on_abort_and_stops_between_details() -> None:
+    """
+    Verify edelweiss identify returns on abort and stops between details.
+
+    Example:
+        Exercise test edelweiss identify returns on abort and stops between details through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.edelweiss import Edelweiss
 
     plugin = Edelweiss()
     called = False
 
     def _should_not_call(**kwargs):
+        """
+        Perform the should not call test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test edelweiss identify returns on abort and stops between details.should not call through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+        :param kwargs: Keyword values forwarded by the test double.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         nonlocal called
         called = True
         return []
@@ -418,6 +834,18 @@ def test_edelweiss_identify_returns_on_abort_and_stops_between_details() -> None
     abort = Event()
 
     def _fake_open(**kwargs):
+        """
+        Perform the fake open test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test edelweiss identify returns on abort and stops between details.fake open through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+        :param kwargs: Keyword values forwarded by the test double.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         abort.set()
         return _detail_html("A", title="Only A")
 
@@ -428,6 +856,17 @@ def test_edelweiss_identify_returns_on_abort_and_stops_between_details() -> None
 
 
 def test_edelweiss_download_cover_uses_cached_cover_url() -> None:
+    """
+    Verify edelweiss download cover uses cached cover url.
+
+    Example:
+        Exercise test edelweiss download cover uses cached cover url through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.edelweiss import Edelweiss
 
     plugin = Edelweiss()
@@ -447,11 +886,40 @@ def test_edelweiss_download_cover_uses_cached_cover_url() -> None:
 
 
 def test_edelweiss_download_cover_discovers_cover_via_identify() -> None:
+    """
+    Verify edelweiss download cover discovers cover via identify.
+
+    Example:
+        Exercise test edelweiss download cover discovers cover via identify through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.edelweiss import Edelweiss
 
     plugin = Edelweiss()
 
     def _fake_identify(log, result_queue, abort, title=None, authors=None, identifiers=None, timeout=30):
+        """
+        Perform the fake identify test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test edelweiss download cover discovers cover via identify.fake identify through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+        :param log: Value supplied for log in the focused test operation.
+        :param result_queue: Value supplied for result queue in the focused test operation.
+        :param abort: Value supplied for abort in the focused test operation.
+        :param title: Value supplied for title in the focused test operation.
+        :param authors: Value supplied for authors in the focused test operation.
+        :param identifiers: Value supplied for identifiers in the focused test operation.
+        :param timeout: Value supplied for timeout in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         del log, abort, title, authors, identifiers, timeout
         result_queue.put(plugin._metadata_from_detail_html(_detail_html("DISCOVERED"), "DISCOVERED", 0))
 
@@ -466,6 +934,17 @@ def test_edelweiss_download_cover_discovers_cover_via_identify() -> None:
 
 
 def test_edelweiss_download_cover_handles_abort_missing_empty_and_errors() -> None:
+    """
+    Verify edelweiss download cover handles abort missing empty and errors.
+
+    Example:
+        Exercise test edelweiss download cover handles abort missing empty and errors through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.edelweiss import Edelweiss
 
     plugin = Edelweiss()
@@ -480,6 +959,19 @@ def test_edelweiss_download_cover_handles_abort_missing_empty_and_errors() -> No
     abort = Event()
 
     def _abort_identify(*args, **kwargs):
+        """
+        Perform the abort identify test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test edelweiss download cover handles abort missing empty and errors.abort identify through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+        :param args: Positional values forwarded by the test double.
+        :param kwargs: Keyword values forwarded by the test double.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         abort.set()
 
     plugin.identify = _abort_identify
@@ -510,6 +1002,17 @@ def test_edelweiss_download_cover_handles_abort_missing_empty_and_errors() -> No
 
 
 def test_edelweiss_import_web_source_module() -> None:
+    """
+    Verify edelweiss import web source module.
+
+    Example:
+        Exercise test edelweiss import web source module through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources import import_web_source_module
 
     mod = import_web_source_module("edelweiss")

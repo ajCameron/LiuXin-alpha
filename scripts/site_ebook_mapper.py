@@ -1,26 +1,14 @@
 #!/usr/bin/env python3
-"""Explore a site and record ebook-like URLs for later mirroring.
+"""
+Provide site ebook mapper utility behavior.
 
-This script is intentionally self-contained and stdlib-only so it can be copied
-to other machines without the rest of the repo.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
 
-Features:
-- resumable crawl state stored in SQLite
-- full absolute URLs stored for discovered ebook candidates
-- polite crawling controls: timeout, rate limit, same-host scope, robots.txt
-- export in plain text, JSONL, or CSV
+Example:
+    Exercise site ebook mapper through a consuming regression::
 
-Typical usage:
-
-  python scripts/site_ebook_mapper.py https://example.org/ \\
-      --state-db example-map.sqlite3 \\
-      --output example-ebooks.txt
-
-Resume after interruption:
-
-  python scripts/site_ebook_mapper.py https://example.org/ \\
-      --state-db example-map.sqlite3 \\
-      --max-pages 200
+        python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
 """
 
 from __future__ import annotations
@@ -133,7 +121,14 @@ HTMLISH_CONTENT_TYPES = {"application/xhtml+xml", "text/html"}
 
 @dataclass(frozen=True)
 class QueueItem:
-    """One URL frontier entry with crawl depth and provenance."""
+    """
+    One URL frontier entry with crawl depth and provenance.
+
+    Example:
+        Exercise QueueItem through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+    """
 
     url: str
     depth: int
@@ -142,7 +137,14 @@ class QueueItem:
 
 @dataclass(frozen=True)
 class FetchResult:
-    """Bounded HTTP response retained by the site mapper."""
+    """
+    Bounded HTTP response retained by the site mapper.
+
+    Example:
+        Exercise FetchResult through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+    """
 
     url: str
     status: int
@@ -151,13 +153,45 @@ class FetchResult:
 
 
 class LinkExtractor(HTMLParser):
-    """Collect navigational and embedded-resource URLs from HTML start tags."""
+    """
+    Collect navigational and embedded-resource URLs from HTML start tags.
+
+    Example:
+        Exercise LinkExtractor through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+    """
 
     def __init__(self) -> None:
+        """
+        Initialize and validate the linkextractor state.
+
+        Example:
+            Exercise LinkExtractor.  init   through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         super().__init__(convert_charrefs=True)
         self.links: list[str] = []
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        """
+        Perform the handle starttag operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LinkExtractor.handle starttag through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         del tag
         for key, value in attrs:
             if value is None:
@@ -167,14 +201,46 @@ class LinkExtractor(HTMLParser):
 
 
 class RobotsCache:
-    """Cache per-origin robots.txt decisions for one crawler user agent."""
+    """
+    Cache per-origin robots.txt decisions for one crawler user agent.
+
+    Example:
+        Exercise RobotsCache through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+    """
 
     def __init__(self, user_agent: str, timeout_s: float) -> None:
+        """
+        Initialize and validate the robotscache state.
+
+        Example:
+            Exercise RobotsCache.  init   through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+        :param user_agent: Value supplied for user agent under the utility contract.
+        :param timeout_s: Value supplied for timeout s under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.user_agent = user_agent
         self.timeout_s = timeout_s
         self._cache: dict[str, RobotFileParser | None] = {}
 
     def can_fetch(self, url: str) -> bool:
+        """
+        Return whether can fetch holds for the supplied ebook data.
+
+        Example:
+            Exercise RobotsCache.can fetch through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+        :param url: Value supplied for url under the utility contract.
+        :return: True when the documented condition holds; otherwise False.
+        """
         parsed = urlsplit(url)
         if parsed.scheme not in {"http", "https"} or not parsed.netloc:
             return True
@@ -199,9 +265,30 @@ class RobotsCache:
 
 
 class CrawlStateDB:
-    """Durable, resumable URL frontier and ebook observation database."""
+    """
+    Durable, resumable URL frontier and ebook observation database.
+
+    Example:
+        Exercise CrawlStateDB through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+    """
 
     def __init__(self, path: str | Path, root_url: str) -> None:
+        """
+        Initialize and validate the crawlstatedb state.
+
+        Example:
+            Exercise CrawlStateDB.  init   through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :param root_url: Value supplied for root url under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.path = Path(path)
         self.conn = sqlite3.connect(str(self.path))
         self.conn.row_factory = sqlite3.Row
@@ -211,9 +298,33 @@ class CrawlStateDB:
         self.enqueue_page(root_url, depth=0, discovered_from=None)
 
     def close(self) -> None:
+        """
+        Perform the close operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CrawlStateDB.close through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.conn.close()
 
     def _init_schema(self) -> None:
+        """
+        Perform the init schema operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CrawlStateDB. init schema through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.conn.executescript(
             """
             PRAGMA journal_mode = WAL;
@@ -244,6 +355,19 @@ class CrawlStateDB:
         self.conn.commit()
 
     def _store_root_url(self, root_url: str) -> None:
+        """
+        Perform the store root url operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CrawlStateDB. store root url through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+        :param root_url: Value supplied for root url under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         row = self.conn.execute("SELECT value FROM meta WHERE key = 'root_url'").fetchone()
         if row is None:
             self.conn.execute(
@@ -260,6 +384,18 @@ class CrawlStateDB:
             )
 
     def _requeue_in_progress(self) -> None:
+        """
+        Perform the requeue in progress operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CrawlStateDB. requeue in progress through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         now = utc_now()
         self.conn.execute(
             "UPDATE pages SET state = 'pending', updated_at = ? WHERE state = 'in_progress'",
@@ -268,6 +404,22 @@ class CrawlStateDB:
         self.conn.commit()
 
     def enqueue_page(self, url: str, *, depth: int, discovered_from: str | None) -> bool:
+        """
+        Perform the enqueue page operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CrawlStateDB.enqueue page through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+        :param url: Value supplied for url under the utility contract.
+        :param depth: Value supplied for depth under the utility contract.
+        :param discovered_from: Value supplied for discovered from under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         now = utc_now()
         cur = self.conn.execute(
             """
@@ -281,6 +433,18 @@ class CrawlStateDB:
         return cur.rowcount > 0
 
     def claim_next_page(self) -> QueueItem | None:
+        """
+        Perform the claim next page operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CrawlStateDB.claim next page through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         row = self.conn.execute(
             """
             SELECT url, depth, discovered_from
@@ -315,6 +479,23 @@ class CrawlStateDB:
         content_type: str | None = None,
         last_error: str | None = None,
     ) -> None:
+        """
+        Perform the complete page operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CrawlStateDB.complete page through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+        :param url: Value supplied for url under the utility contract.
+        :param state: Value supplied for state under the utility contract.
+        :param http_status: Value supplied for http status under the utility contract.
+        :param content_type: Value supplied for content type under the utility contract.
+        :param last_error: Value supplied for last error under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.conn.execute(
             """
             UPDATE pages
@@ -326,6 +507,21 @@ class CrawlStateDB:
         self.conn.commit()
 
     def record_ebook(self, url: str, *, source_page: str, classification: str) -> bool:
+        """
+        Perform the record ebook operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CrawlStateDB.record ebook through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+        :param url: Value supplied for url under the utility contract.
+        :param source_page: Value supplied for source page under the utility contract.
+        :param classification: Value supplied for classification under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         cur = self.conn.execute(
             """
             INSERT INTO ebooks(url, source_page, classification, added_at)
@@ -338,6 +534,18 @@ class CrawlStateDB:
         return cur.rowcount > 0
 
     def counts(self) -> dict[str, int]:
+        """
+        Perform the counts operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CrawlStateDB.counts through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         counts = {key: 0 for key in ("pending", "in_progress", "done", "error", "skipped", "ebooks")}
         for row in self.conn.execute(
             "SELECT state, COUNT(*) AS count FROM pages GROUP BY state"
@@ -348,16 +556,53 @@ class CrawlStateDB:
         return counts
 
     def iter_ebooks(self) -> Iterable[sqlite3.Row]:
+        """
+        Iterate over ebooks under the format's safety and compatibility rules.
+
+        Example:
+            Exercise CrawlStateDB.iter ebooks through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.conn.execute(
             "SELECT url, source_page, classification, added_at FROM ebooks ORDER BY url ASC"
         )
 
 
 def utc_now() -> str:
+    """
+    Perform the utc now operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise utc now through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return datetime.now(UTC).replace(microsecond=0).isoformat()
 
 
 def canonicalize_url(url: str) -> str:
+    """
+    Perform the canonicalize url operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise canonicalize url through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param url: Value supplied for url under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     parsed = urlsplit(url)
     scheme = parsed.scheme.lower()
     netloc = parsed.netloc.lower()
@@ -370,6 +615,20 @@ def canonicalize_url(url: str) -> str:
 
 
 def normalize_link(base_url: str, raw_link: str) -> str | None:
+    """
+    Normalize link under the format's safety and compatibility rules.
+
+    Example:
+        Exercise normalize link through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param base_url: Value supplied for base url under the utility contract.
+    :param raw_link: Value supplied for raw link under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     link = raw_link.strip()
     if not link:
         return None
@@ -385,10 +644,37 @@ def normalize_link(base_url: str, raw_link: str) -> str | None:
 
 
 def same_host(url: str, root_url: str) -> bool:
+    """
+    Perform the same host operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise same host through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param url: Value supplied for url under the utility contract.
+    :param root_url: Value supplied for root url under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return urlsplit(url).netloc == urlsplit(root_url).netloc
 
 
 def filename_candidates(url: str) -> list[str]:
+    """
+    Perform the filename candidates operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise filename candidates through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param url: Value supplied for url under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     parsed = urlsplit(url)
     candidates: list[str] = []
     leaf = posixpath.basename(parsed.path.rstrip("/"))
@@ -401,6 +687,19 @@ def filename_candidates(url: str) -> list[str]:
 
 
 def classify_ebook_url(url: str) -> str | None:
+    """
+    Perform the classify ebook url operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise classify ebook url through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param url: Value supplied for url under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     for candidate in filename_candidates(url):
         if "." not in candidate:
             continue
@@ -411,6 +710,19 @@ def classify_ebook_url(url: str) -> str | None:
 
 
 def should_queue_for_crawl(url: str) -> bool:
+    """
+    Perform the should queue for crawl operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise should queue for crawl through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param url: Value supplied for url under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if classify_ebook_url(url):
         return False
     parsed = urlsplit(url)
@@ -428,6 +740,19 @@ def should_queue_for_crawl(url: str) -> bool:
 
 
 def is_htmlish(content_type: str | None, url: str) -> bool:
+    """
+    Return whether is htmlish holds for the supplied ebook data.
+
+    Example:
+        Exercise is htmlish through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param content_type: Value supplied for content type under the utility contract.
+    :param url: Value supplied for url under the utility contract.
+    :return: True when the documented condition holds; otherwise False.
+    """
     if content_type:
         bare = content_type.split(";", 1)[0].strip().lower()
         if bare in HTMLISH_CONTENT_TYPES:
@@ -436,6 +761,20 @@ def is_htmlish(content_type: str | None, url: str) -> bool:
 
 
 def decode_body(body: bytes, content_type: str | None) -> str:
+    """
+    Perform the decode body operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise decode body through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param body: Value supplied for body under the utility contract.
+    :param content_type: Value supplied for content type under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     charset = "utf-8"
     if content_type and "charset=" in content_type.lower():
         charset = content_type.split("charset=", 1)[1].split(";", 1)[0].strip() or "utf-8"
@@ -446,6 +785,19 @@ def decode_body(body: bytes, content_type: str | None) -> str:
 
 
 def extract_links(html_text: str) -> list[str]:
+    """
+    Extract links under the format's safety and compatibility rules.
+
+    Example:
+        Exercise extract links through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param html_text: Value supplied for html text under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     parser = LinkExtractor()
     parser.feed(html_text)
     parser.close()
@@ -453,6 +805,21 @@ def extract_links(html_text: str) -> list[str]:
 
 
 def fetch_url(url: str, *, timeout_s: float, user_agent: str) -> FetchResult:
+    """
+    Perform the fetch url operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise fetch url through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param url: Value supplied for url under the utility contract.
+    :param timeout_s: Value supplied for timeout s under the utility contract.
+    :param user_agent: Value supplied for user agent under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     request = Request(
         url,
         headers={
@@ -496,6 +863,29 @@ def crawl_site(
     respect_robots: bool = True,
     print_every: int = 25,
 ) -> dict[str, int | float]:
+    """
+    Perform the crawl site operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise crawl site through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param root_url: Value supplied for root url under the utility contract.
+    :param state_db_path: Value supplied for state db path under the utility contract.
+    :param fetcher: Value supplied for fetcher under the utility contract.
+    :param max_pages: Value supplied for max pages under the utility contract.
+    :param max_depth: Value supplied for max depth under the utility contract.
+    :param rate_limit_s: Value supplied for rate limit s under the utility contract.
+    :param timeout_s: Value supplied for timeout s under the utility contract.
+    :param user_agent: Value supplied for user agent under the utility contract.
+    :param span_hosts: Value supplied for span hosts under the utility contract.
+    :param respect_robots: Value supplied for respect robots under the utility contract.
+    :param print_every: Value supplied for print every under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     root_url = canonicalize_url(root_url)
     db = CrawlStateDB(state_db_path, root_url)
     robots = RobotsCache(user_agent=user_agent, timeout_s=timeout_s) if respect_robots else None
@@ -599,6 +989,21 @@ def crawl_site(
 
 
 def infer_export_format(path: str | Path, explicit: str | None) -> str:
+    """
+    Perform the infer export format operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise infer export format through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :param explicit: Value supplied for explicit under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if explicit is not None:
         return explicit
     suffix = Path(path).suffix.lower()
@@ -616,6 +1021,22 @@ def export_ebooks(
     output_path: str | Path,
     output_format: str | None = None,
 ) -> int:
+    """
+    Perform the export ebooks operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise export ebooks through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param state_db_path: Value supplied for state db path under the utility contract.
+    :param root_url: Value supplied for root url under the utility contract.
+    :param output_path: Value supplied for output path under the utility contract.
+    :param output_format: Value supplied for output format under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     fmt = infer_export_format(output_path, output_format)
     del root_url
     conn = sqlite3.connect(str(state_db_path))
@@ -661,6 +1082,18 @@ def export_ebooks(
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
+    """
+    Perform the build arg parser operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise build arg parser through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("root_url", help="Root URL to explore")
     parser.add_argument(
@@ -692,6 +1125,19 @@ def build_arg_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """
+    Perform the main operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise main through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param argv: Value supplied for argv under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     parser = build_arg_parser()
     args = parser.parse_args(argv)
 

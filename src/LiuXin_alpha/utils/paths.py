@@ -1,6 +1,16 @@
 
 
-"""Legacy path, preference-directory, and filename normalization helpers."""
+"""
+Define and resolve LiuXin preference, cache, scratch and program paths.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise paths through a consuming regression::
+
+        python -m pytest -q tests/utils/test_paths.py
+"""
 
 from __future__ import unicode_literals, print_function
 
@@ -32,7 +42,16 @@ def make_long_path_useable(path):
     """
     Normalize a path for platforms that require explicit long-path prefixes.
 
-    On non-Windows systems this is a no-op.
+    Example:
+        Exercise make long path useable through a consuming regression::
+
+            python -m pytest -q tests/utils/test_paths.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     path = os.fspath(path)
     if os.name != "nt":
@@ -48,6 +67,17 @@ def make_long_path_useable(path):
 def find_mount_point(path):
     """
     Walk upward until the filesystem mount point is reached.
+
+    Example:
+        Exercise find mount point through a consuming regression::
+
+            python -m pytest -q tests/utils/test_paths.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     path = os.path.abspath(os.fspath(path))
     while not os.path.ismount(path):
@@ -62,18 +92,53 @@ def splitext(path):
     """
     In LiuXin extensions are without the leading "."
 
-    :param path:
-    :return:
+    Example:
+        Exercise splitext through a consuming regression::
+
+            python -m pytest -q tests/utils/test_paths.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     key, ext = os.path.splitext(path)
     return key, ext[1:].lower()
 
 
 def formats_ok(formats):
+    """
+    Perform the formats ok utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise formats ok through a consuming regression::
+
+            python -m pytest -q tests/utils/test_paths.py
+
+
+    :param formats: Value supplied for formats under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return len(formats) > 0
 
 
 def path_ok(path):
+    """
+    Perform the path ok utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise path ok through a consuming regression::
+
+            python -m pytest -q tests/utils/test_paths.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return not os.path.isdir(path) and os.access(path, os.R_OK)
 
 
@@ -82,9 +147,16 @@ _metadata_extensions = None
 
 def metadata_extensions():
     """
-    Set of all known book extensions + OPF (the OPF is used to read metadata, but not actually added) - thus set of all
-    file extensions from which metadata should be read.
-    :return:
+    Set of all known book extensions + OPF (the OPF is used to read metadata, but not actually added) - thus set of all file extensions from which metadata should be read.
+
+    Example:
+        Exercise metadata extensions through a consuming regression::
+
+            python -m pytest -q tests/utils/test_paths.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
 
     global _metadata_extensions
@@ -98,6 +170,18 @@ def metadata_extensions():
 
 
 def listdir(root):
+    """
+    Perform the listdir utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise listdir through a consuming regression::
+
+            python -m pytest -q tests/utils/test_paths.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :return: An iterator yielding the normalized values described above.
+    """
     for path in os.listdir(root):
         yield os.path.abspath(os.path.join(root, path))
 
@@ -116,6 +200,15 @@ __base_folder__ = deepcopy(LiuXin_base_folder)
 def ensure_prefs_folder():
     """
     Ensures that a preferences folder exists. Creates it and issues a warning if it doesn't.
+
+    Example:
+        Exercise ensure prefs folder through a consuming regression::
+
+            python -m pytest -q tests/utils/test_paths.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     if not check_for_prefs_folder():
         create_prefs_folder()
@@ -130,6 +223,15 @@ def ensure_prefs_folder():
 def check_for_prefs_folder():
     """
     Returns true if the preferences folder exists in the right place, and false if it doesn't
+
+    Example:
+        Exercise check for prefs folder through a consuming regression::
+
+            python -m pytest -q tests/utils/test_paths.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     folder_status = os.path.isdir(LiuXin_prefs_folder)
     return folder_status
@@ -139,8 +241,16 @@ def check_for_prefs_folder():
 def create_prefs_folder(mode=None):
     """
     Creates a preferences folder if it doesn't exist.
-    :param mode:
-    :return:
+
+    Example:
+        Exercise create prefs folder through a consuming regression::
+
+            python -m pytest -q tests/utils/test_paths.py
+
+
+    :param mode: Open or adapter mode controlling read/write behavior.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     if mode is None:
         os.mkdir(LiuXin_prefs_folder)
@@ -151,6 +261,15 @@ def create_prefs_folder(mode=None):
 def check_for_calibre_prefs():
     """
     Checks to see if the preference scratch folder used by the embedded, butchered, install of calibre exists.
+
+    Example:
+        Exercise check for calibre prefs through a consuming regression::
+
+            python -m pytest -q tests/utils/test_paths.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     folder_status = os.path.isdir(LiuXin_calibre_prefs_folder)
     return folder_status
@@ -159,6 +278,17 @@ def check_for_calibre_prefs():
 def create_calibre_prefs(CONFIG_DIR_MODE=0o700):
     """
     Creates a calibre prefs folder.
+
+    Example:
+        Exercise create calibre prefs through a consuming regression::
+
+            python -m pytest -q tests/utils/test_paths.py
+
+
+    :param CONFIG_DIR_MODE: Value supplied for CONFIG DIR MODE under the utility
+        contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     os.makedirs(LiuXin_calibre_prefs_folder, CONFIG_DIR_MODE)
     os.makedirs(os.path.join(LiuXin_calibre_prefs_folder, "caches"))
@@ -167,6 +297,15 @@ def create_calibre_prefs(CONFIG_DIR_MODE=0o700):
 def ensure_debug_folder():
     """
     Ensures that the LiuXin_debug folder exists. Creating it if necessary.
+
+    Example:
+        Exercise ensure debug folder through a consuming regression::
+
+            python -m pytest -q tests/utils/test_paths.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     if not check_for_debug_folder():
         create_debug_folder()
@@ -178,6 +317,15 @@ def ensure_debug_folder():
 def check_for_debug_folder():
     """
     Checks to see if the debug folder exists.
+
+    Example:
+        Exercise check for debug folder through a consuming regression::
+
+            python -m pytest -q tests/utils/test_paths.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     folder_status = os.path.isdir(LiuXin_debug_folder)
     return folder_status
@@ -187,6 +335,16 @@ def check_for_debug_folder():
 def create_debug_folder(mode=None):
     """
     Creates a preferences folder if it doesn't exist.
+
+    Example:
+        Exercise create debug folder through a consuming regression::
+
+            python -m pytest -q tests/utils/test_paths.py
+
+
+    :param mode: Open or adapter mode controlling read/write behavior.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     if mode is None:
         os.mkdir(LiuXin_debug_folder)
@@ -197,6 +355,15 @@ def create_debug_folder(mode=None):
 def ensure_scratch_folder():
     """
     Ensures that the LiuXin_debug folder exists. Creating it if necessary.
+
+    Example:
+        Exercise ensure scratch folder through a consuming regression::
+
+            python -m pytest -q tests/utils/test_paths.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     if not check_for_scratch_folder():
         create_scratch_folder()
@@ -208,6 +375,15 @@ def ensure_scratch_folder():
 def check_for_scratch_folder():
     """
     Checks to see if the debug folder exists.
+
+    Example:
+        Exercise check for scratch folder through a consuming regression::
+
+            python -m pytest -q tests/utils/test_paths.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     folder_status = os.path.isdir(LiuXin_scratch_folder)
     return folder_status
@@ -217,6 +393,16 @@ def check_for_scratch_folder():
 def create_scratch_folder(mode=None):
     """
     Creates a preferences folder if it doesn't exist.
+
+    Example:
+        Exercise create scratch folder through a consuming regression::
+
+            python -m pytest -q tests/utils/test_paths.py
+
+
+    :param mode: Open or adapter mode controlling read/write behavior.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     if mode is None:
         if not os.path.exists(LiuXin_scratch_folder):
@@ -230,6 +416,15 @@ def create_scratch_folder(mode=None):
 def ensure_program_folder():
     """
     Ensures that the LiuXin_debug folder exists. Creating it if necessary.
+
+    Example:
+        Exercise ensure program folder through a consuming regression::
+
+            python -m pytest -q tests/utils/test_paths.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     if not check_for_program_folder():
         create_program_folder()
@@ -241,6 +436,15 @@ def ensure_program_folder():
 def check_for_program_folder():
     """
     Checks to see if the debug folder exists.
+
+    Example:
+        Exercise check for program folder through a consuming regression::
+
+            python -m pytest -q tests/utils/test_paths.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     folder_status = os.path.isdir(LiuXin_program_folder)
     return folder_status
@@ -250,6 +454,16 @@ def check_for_program_folder():
 def create_program_folder(mode=None):
     """
     Creates a preferences folder if it doesn't exist.
+
+    Example:
+        Exercise create program folder through a consuming regression::
+
+            python -m pytest -q tests/utils/test_paths.py
+
+
+    :param mode: Open or adapter mode controlling read/write behavior.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     if mode is None:
         os.mkdir(LiuXin_program_folder)
@@ -265,7 +479,15 @@ def create_program_folder(mode=None):
 def load_ensured_folders():
     """
     Loads the LX_folders.txt file. Then parses it to pull out the indexes specifying the folders that should be created.
-    :return folders_index: An index of indexes.
+
+    Example:
+        Exercise load ensured folders through a consuming regression::
+
+            python -m pytest -q tests/utils/test_paths.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
 
     cand_json_path = os.path.join(__folder__, "lx_folders.json")
@@ -292,8 +514,16 @@ def load_ensured_folders():
 def ensure_folders(mode=None):
     """
     Makes sure that all the folders requested in the LX_folders file exist.
-    :param mode: What mode should the file be cre8ated with? Default None
-    :return True/False: True if all files where created, False if they weren't for some reason
+
+    Example:
+        Exercise ensure folders through a consuming regression::
+
+            python -m pytest -q tests/utils/test_paths.py
+
+
+    :param mode: Open or adapter mode controlling read/write behavior.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     err_count = 0
 

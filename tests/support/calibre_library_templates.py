@@ -1,8 +1,13 @@
-"""Calibre library fixtures with a small template cache.
+"""
+Create and clone reusable blank Calibre-library templates for isolated tests.
 
-Creates a template Calibre library (metadata.db + optional aux dbs) once per
-session and then provisions per-test writable copies, reseeding library_id.uuid
-so each copy has a unique identity.
+The module keeps generated data, ordering and failure modes explicit so consumers
+can assert stable behavior.
+
+Example:
+    Exercise calibre library templates through a consuming regression::
+
+        python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_library_templates.py
 """
 
 from __future__ import annotations
@@ -22,6 +27,14 @@ from LiuXin_alpha.databases.database_driver_plugins.SQL.calibre_database_generat
 
 @dataclass(frozen=True)
 class ProvisionedCalibreLibrary:
+    """
+    Represent the ProvisionedCalibreLibrary state used by deterministic test-support operations.
+
+    Example:
+        Exercise ProvisionedCalibreLibrary through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_library_templates.py
+    """
     name: str
     root: Path
     metadata_db: Path
@@ -31,7 +44,30 @@ class ProvisionedCalibreLibrary:
 
 
 class CalibreLibraryTemplateManager:
+    """
+    Represent the CalibreLibraryTemplateManager state used by deterministic test-support operations.
+
+    Example:
+        Exercise CalibreLibraryTemplateManager through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_library_templates.py
+    """
     def __init__(self, *, cache_dir: Path, regenerate: bool = False) -> None:
+        """
+        Initialize and validate the CalibreLibraryTemplateManager test-support state.
+
+        Example:
+            Exercise CalibreLibraryTemplateManager.  init   through a consuming regression::
+
+                python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_library_templates.py
+
+
+        :param cache_dir: Value supplied for cache dir under the deterministic fixture
+            contract.
+        :param regenerate: Value supplied for regenerate under the deterministic fixture
+            contract.
+        :return: None; completion is expressed through state changes or assertions.
+        """
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.regenerate = regenerate
@@ -47,6 +83,26 @@ class CalibreLibraryTemplateManager:
         create_fts_db: bool = False,
         best_effort_aux_dbs: bool = True,
     ) -> ProvisionedCalibreLibrary:
+        """
+        Provision blank library for deterministic fixture consumers.
+
+        Example:
+            Exercise CalibreLibraryTemplateManager.provision blank library through a consuming regression::
+
+                python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_library_templates.py
+
+
+        :param dst_dir: Destination directory that owns the provisioned fixture.
+        :param name: Stable fixture, profile, member or field name.
+        :param create_notes_db: Value supplied for create notes db under the deterministic
+            fixture contract.
+        :param create_fts_db: Value supplied for create fts db under the deterministic
+            fixture contract.
+        :param best_effort_aux_dbs: Value supplied for best effort aux dbs under the
+            deterministic fixture contract.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         template_root = self._ensure_template(
             create_notes_db=create_notes_db,
             create_fts_db=create_fts_db,
@@ -93,6 +149,24 @@ class CalibreLibraryTemplateManager:
         create_fts_db: bool,
         best_effort_aux_dbs: bool,
     ) -> Path:
+        """
+        Perform the ensure template step with deterministic fixture inputs.
+
+        Example:
+            Exercise CalibreLibraryTemplateManager. ensure template through a consuming regression::
+
+                python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_library_templates.py
+
+
+        :param create_notes_db: Value supplied for create notes db under the deterministic
+            fixture contract.
+        :param create_fts_db: Value supplied for create fts db under the deterministic
+            fixture contract.
+        :param best_effort_aux_dbs: Value supplied for best effort aux dbs under the
+            deterministic fixture contract.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         info = calibre_metadata_schema_info()
         variant = f"notes={int(create_notes_db)}_fts={int(create_fts_db)}_be={int(best_effort_aux_dbs)}"
         key = f"uv{info.user_version}_{info.sha256[:10]}_{variant}"

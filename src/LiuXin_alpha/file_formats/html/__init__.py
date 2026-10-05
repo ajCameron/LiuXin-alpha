@@ -2,6 +2,17 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 # metadata extraction should now be working
 
+"""
+Expose the supported html compatibility surface.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/file_formats/html/test_html_modernized.py
+"""
 from __future__ import with_statement
 from __future__ import annotations
 
@@ -20,10 +31,18 @@ COMMENT_PAT = re.compile(r"<!--.*?-->", re.DOTALL)
 def tostring(root: _typing.Any, strip_comments: bool = False, pretty_print: bool = False) -> _typing.Any:
     """
     Serializes an XHTML structure
-    :param root:
-    :param strip_comments:
-    :param pretty_print:
-    :return:
+
+    Example:
+        Exercise tostring through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param strip_comments: Value supplied for strip comments under the utility contract.
+    :param pretty_print: Value supplied for pretty print under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 

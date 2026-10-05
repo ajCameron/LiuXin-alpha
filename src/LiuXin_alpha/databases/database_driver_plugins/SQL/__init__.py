@@ -1,11 +1,9 @@
 
 """
-Common base driver for all SQL based database solution.
+Shared SQL driver mixins and schema generators for concrete database backends.
 
-SQL based implementations are going to, inevitable, have a lot of code in common.
-As such, this provides a base to build them from more easily.
-Should not be used directly as a driver.
-Should be subclasses for the particular dialect of SQL you're using.
+The package is a namespace; select a concrete SQLite/APSW/PostgreSQL driver rather
+than instantiating a SQL driver from this package root.
 """
 
 

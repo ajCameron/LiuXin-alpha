@@ -1,3 +1,14 @@
+"""
+Provide test mobi binary framework utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test mobi binary framework through a consuming regression::
+
+        python -m pytest -q tests/file_formats/mobi/test_mobi_binary_framework.py
+"""
 from __future__ import annotations
 
 import pytest
@@ -17,6 +28,19 @@ from tests.support.file_format_mobi import (
 
 
 def _values(raw):
+    """
+    Perform the values operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  values through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_binary_framework.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if raw is None:
         return []
     if isinstance(raw, dict):
@@ -30,6 +54,18 @@ def _values(raw):
 
 
 def test_minimal_mobi_fixture_parses_with_metadata_header() -> None:
+    """
+    Perform the test minimal mobi fixture parses with metadata header operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test minimal mobi fixture parses with metadata header through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_binary_framework.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.mobi.reader.headers import MetadataHeader
 
     payload = build_minimal_mobi(
@@ -54,6 +90,18 @@ def test_minimal_mobi_fixture_parses_with_metadata_header() -> None:
 
 
 def test_minimal_mobi_fixture_parses_with_mobi_reader_extract_text() -> None:
+    """
+    Perform the test minimal mobi fixture parses with mobi reader extract text operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test minimal mobi fixture parses with mobi reader extract text through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_binary_framework.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.mobi.reader.mobi6 import MobiReader
 
     payload = build_minimal_mobi(
@@ -73,6 +121,18 @@ def test_minimal_mobi_fixture_parses_with_mobi_reader_extract_text() -> None:
 
 
 def test_minimal_mobi_fixture_can_drive_metadata_source_read() -> None:
+    """
+    Perform the test minimal mobi fixture can drive metadata source read operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test minimal mobi fixture can drive metadata source read through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_binary_framework.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.metadata.file_sources.mobi import read_metadata_from_stream
 
     payload = build_minimal_mobi(
@@ -89,6 +149,18 @@ def test_minimal_mobi_fixture_can_drive_metadata_source_read() -> None:
 
 
 def test_exth_fixture_helpers_support_unicode_and_malformed_sizes() -> None:
+    """
+    Perform the test exth fixture helpers support unicode and malformed sizes operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test exth fixture helpers support unicode and malformed sizes through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_binary_framework.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.mobi.reader.headers import EXTHHeader
 
     exth = build_mobi_exth(
@@ -111,6 +183,18 @@ def test_exth_fixture_helpers_support_unicode_and_malformed_sizes() -> None:
 
 
 def test_palmdb_offset_and_truncation_helpers_prepare_hostile_payloads() -> None:
+    """
+    Perform the test palmdb offset and truncation helpers prepare hostile payloads operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test palmdb offset and truncation helpers prepare hostile payloads through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_binary_framework.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     payload = build_minimal_mobi(title="Offset Fixture", authors=["Offset Author"])
     offsets = palmdb_record_offsets(payload)
 
@@ -131,6 +215,18 @@ def test_palmdb_offset_and_truncation_helpers_prepare_hostile_payloads() -> None
 
 
 def test_palmdb_fixture_rejects_invalid_builder_arguments() -> None:
+    """
+    Perform the test palmdb fixture rejects invalid builder arguments operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test palmdb fixture rejects invalid builder arguments through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_binary_framework.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     with pytest.raises(ValueError, match="ident"):
         build_palmdb([b"record"], ident=b"SHORT")
 

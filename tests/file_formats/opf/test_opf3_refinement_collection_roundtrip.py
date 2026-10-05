@@ -1,3 +1,14 @@
+"""
+Provide test opf3 refinement collection roundtrip utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test opf3 refinement collection roundtrip through a consuming regression::
+
+        python -m pytest -q tests/file_formats/opf/test_opf3_refinement_collection_roundtrip.py
+"""
 from __future__ import annotations
 
 import importlib
@@ -47,14 +58,55 @@ OPF3_WITH_REFINEMENTS_AND_COLLECTIONS = b"""<?xml version='1.0' encoding='utf-8'
 
 @pytest.fixture()
 def opf_mod(legacy_liuxin_alias):
+    """
+    Perform the opf mod operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise opf mod through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_refinement_collection_roundtrip.py
+
+
+    :param legacy_liuxin_alias: Value supplied for legacy liuxin alias under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return importlib.import_module("LiuXin_alpha.file_formats.opf.opf")
 
 
 def _collection_nodes(root: etree._Element) -> list[etree._Element]:
+    """
+    Perform the collection nodes operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  collection nodes through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_refinement_collection_roundtrip.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return root.xpath(".//opf:metadata/opf:meta[@property='belongs-to-collection']", namespaces={"opf": OPF_NS})
 
 
 def _refines_for(root: etree._Element, elem_id: str) -> dict[str, str]:
+    """
+    Perform the refines for operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  refines for through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_refinement_collection_roundtrip.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param elem_id: Value supplied for elem id under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     ans: dict[str, str] = {}
     for meta in root.xpath(".//opf:metadata/opf:meta[@refines=$rid]", namespaces={"opf": OPF_NS}, rid="#" + elem_id):
         prop = (meta.get("property") or "").strip()
@@ -65,6 +117,20 @@ def _refines_for(root: etree._Element, elem_id: str) -> dict[str, str]:
 
 
 def _find_collection(root: etree._Element, text: str) -> etree._Element | None:
+    """
+    Find collection under the format's safety and compatibility rules.
+
+    Example:
+        Exercise  find collection through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_refinement_collection_roundtrip.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param text: Text parsed, normalized or rendered.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     for node in _collection_nodes(root):
         if (node.text or "").strip() == text:
             return node
@@ -72,6 +138,19 @@ def _find_collection(root: etree._Element, text: str) -> etree._Element | None:
 
 
 def test_opf3_set_metadata_preserves_non_series_collection_and_title_refines(opf_mod) -> None:
+    """
+    Perform the test opf3 set metadata preserves non series collection and title refines operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test opf3 set metadata preserves non series collection and title refines through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_refinement_collection_roundtrip.py
+
+
+    :param opf_mod: Value supplied for opf mod under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     mi, ver, *_ = opf_mod.get_metadata(OPF3_WITH_REFINEMENTS_AND_COLLECTIONS)
     assert ver.major == 3
     assert mi.series == "Seed Series"

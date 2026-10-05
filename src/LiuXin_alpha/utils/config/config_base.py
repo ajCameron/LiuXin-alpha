@@ -1,16 +1,16 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
-"""Configuration primitives.
+"""
+Store typed configuration options with defaults, persistence and explicit change tracking.
 
-Inspired by calibre's modern config stack.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
 
-Key design choice for LiuXin_alpha:
-- **No legacy executable .py config files.** Configuration is JSON only.
-- Writes are **atomic** (temp file + replace) to minimize corruption.
+Example:
+    Exercise config base through a consuming regression::
 
-Public classes mirror calibre/LiuXin names (Config, ConfigProxy, OptionSet, ...)
-so callers can remain mostly unchanged.
+        python -m pytest -q tests/utils/config/test_config_base.py
 """
 
 from __future__ import annotations
@@ -47,10 +47,29 @@ plugin_dir = LiuXin_calibre_plugins_store
 
 
 class LegacyConfigError(ValueError):
-    """Raised when encountering a legacy (executable) config representation."""
+    """
+    Raised when encountering a legacy (executable) config representation.
+
+    Example:
+        Exercise LegacyConfigError through a consuming regression::
+
+            python -m pytest -q tests/utils/config/test_config_base.py
+    """
 
 
 def iswindows() -> bool:
+    """
+    Perform the iswindows utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise iswindows through a consuming regression::
+
+            python -m pytest -q tests/utils/config/test_config_base.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return os.name == "nt"
 
 
@@ -58,6 +77,18 @@ _umask_cache: int | None = None
 
 
 def get_umask() -> int:
+    """
+    Return umask under the documented compatibility and safety rules.
+
+    Example:
+        Exercise get umask through a consuming regression::
+
+            python -m pytest -q tests/utils/config/test_config_base.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     global _umask_cache
     if _umask_cache is None:
         old = os.umask(0)
@@ -69,14 +100,35 @@ def get_umask() -> int:
 def make_config_dir() -> None:
     # In calibre, plugin_dir lives under config_dir. In LiuXin it may not, so
     # ensure *both* exist.
+    """
+    Perform the make config dir utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise make config dir through a consuming regression::
+
+            python -m pytest -q tests/utils/config/test_config_base.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     os.makedirs(config_dir, exist_ok=True, mode=CONFIG_DIR_MODE)
     os.makedirs(plugin_dir, exist_ok=True, mode=CONFIG_DIR_MODE)
 
 
 def to_json(obj):
-    """Serialize additional non-JSON-native types.
+    """
+    Serialize additional non-JSON-native types.
 
-    Matches calibre's conventions closely.
+    Example:
+        Exercise to json through a consuming regression::
+
+            python -m pytest -q tests/utils/config/test_config_base.py
+
+
+    :param obj: Value supplied for obj under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if isinstance(obj, bytearray):
         from base64 import standard_b64encode
@@ -128,6 +180,19 @@ def to_json(obj):
 
 
 def safe_to_json(obj):
+    """
+    Perform the safe to json utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise safe to json through a consuming regression::
+
+            python -m pytest -q tests/utils/config/test_config_base.py
+
+
+    :param obj: Value supplied for obj under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         return to_json(obj)
     except Exception:
@@ -137,6 +202,20 @@ def safe_to_json(obj):
 def _parse_iso8601(s: str, assume_utc: bool = True) -> datetime.datetime:
     # datetime.fromisoformat does not handle trailing 'Z' until fairly recently
     # and is stricter than dateutil. Our encoder uses isoformat() with an offset.
+    """
+    Parse iso8601 under the documented compatibility and safety rules.
+
+    Example:
+        Exercise  parse iso8601 through a consuming regression::
+
+            python -m pytest -q tests/utils/config/test_config_base.py
+
+
+    :param s: Value supplied for s under the utility contract.
+    :param assume_utc: Whether naive input is interpreted as UTC.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     raw = s.strip()
     if raw.endswith("Z"):
         raw = raw[:-1] + "+00:00"
@@ -147,6 +226,19 @@ def _parse_iso8601(s: str, assume_utc: bool = True) -> datetime.datetime:
 
 
 def from_json(obj):
+    """
+    Perform the from json utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise from json through a consuming regression::
+
+            python -m pytest -q tests/utils/config/test_config_base.py
+
+
+    :param obj: Value supplied for obj under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     custom = obj.get("__class__")
     if custom is not None:
         if custom == "bytearray":
@@ -166,6 +258,19 @@ def from_json(obj):
 
 def force_unicode(x: bytes) -> str:
     # Best-effort conversion of bytes to text.
+    """
+    Perform the force unicode utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise force unicode through a consuming regression::
+
+            python -m pytest -q tests/utils/config/test_config_base.py
+
+
+    :param x: Value supplied for x under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     encs = []
     if iswindows():
         encs.append("mbcs")
@@ -179,6 +284,19 @@ def force_unicode(x: bytes) -> str:
 
 
 def force_unicode_recursive(obj):
+    """
+    Perform the force unicode recursive utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise force unicode recursive through a consuming regression::
+
+            python -m pytest -q tests/utils/config/test_config_base.py
+
+
+    :param obj: Value supplied for obj under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if isinstance(obj, bytes):
         return force_unicode(obj)
     if isinstance(obj, (list, tuple)):
@@ -192,6 +310,21 @@ def force_unicode_recursive(obj):
 
 
 def json_dumps(obj, ignore_unserializable: bool = False) -> bytes:
+    """
+    Perform the json dumps utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise json dumps through a consuming regression::
+
+            python -m pytest -q tests/utils/config/test_config_base.py
+
+
+    :param obj: Value supplied for obj under the utility contract.
+    :param ignore_unserializable: Value supplied for ignore unserializable under the
+        utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         ans = json.dumps(
             obj,
@@ -214,12 +347,41 @@ def json_dumps(obj, ignore_unserializable: bool = False) -> bytes:
 
 
 def json_loads(raw):
+    """
+    Perform the json loads utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise json loads through a consuming regression::
+
+            python -m pytest -q tests/utils/config/test_config_base.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if isinstance(raw, bytes):
         raw = raw.decode("utf-8")
     return json.loads(raw, object_hook=from_json)
 
 
 def retry_on_fail(func, *args, count: int = 10, sleep_time: float = 0.2):
+    """
+    Perform the retry on fail utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise retry on fail through a consuming regression::
+
+            python -m pytest -q tests/utils/config/test_config_base.py
+
+
+    :param func: Value supplied for func under the utility contract.
+    :param args: Positional values forwarded to the compatibility implementation.
+    :param count: Value supplied for count under the utility contract.
+    :param sleep_time: Value supplied for sleep time under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     import time
 
     ERROR_SHARING_VIOLATION = 32
@@ -239,7 +401,32 @@ def retry_on_fail(func, *args, count: int = 10, sleep_time: float = 0.2):
 
 
 def read_data(file_path: str) -> bytes:
+    """
+    Read data under the documented compatibility and safety rules.
+
+    Example:
+        Exercise read data through a consuming regression::
+
+            python -m pytest -q tests/utils/config/test_config_base.py
+
+
+    :param file_path: Value supplied for file path under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     def r():
+        """
+        Perform the r utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise read data.r through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         with open(file_path, "rb") as f:
             return f.read()
 
@@ -247,6 +434,21 @@ def read_data(file_path: str) -> bytes:
 
 
 def commit_data(file_path: str, data: bytes, permissions: int = 0o666) -> None:
+    """
+    Perform the commit data utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise commit data through a consuming regression::
+
+            python -m pytest -q tests/utils/config/test_config_base.py
+
+
+    :param file_path: Value supplied for file path under the utility contract.
+    :param data: Value supplied for data under the utility contract.
+    :param permissions: Value supplied for permissions under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     import tempfile
 
     bdir = os.path.dirname(file_path)
@@ -270,6 +472,14 @@ def commit_data(file_path: str, data: bytes, permissions: int = 0o666) -> None:
 
 
 class Option(object):
+    """
+    Provide the Option utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise Option through a consuming regression::
+
+            python -m pytest -q tests/utils/config/test_config_base.py
+    """
     def __init__(
         self,
         name,
@@ -283,6 +493,27 @@ class Option(object):
         action=None,
         metavar=None,
     ):
+        """
+        Initialize and validate the Option state.
+
+        Example:
+            Exercise Option.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param switches: Value supplied for switches under the utility contract.
+        :param help: Value supplied for help under the utility contract.
+        :param type: Value supplied for type under the utility contract.
+        :param choices: Value supplied for choices under the utility contract.
+        :param check: Value supplied for check under the utility contract.
+        :param group: Value supplied for group under the utility contract.
+        :param default: Value supplied for default under the utility contract.
+        :param action: Value supplied for action under the utility contract.
+        :param metavar: Value supplied for metavar under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         if choices:
             type = "choice"
 
@@ -304,29 +535,106 @@ class Option(object):
         self.metavar = metavar
 
     def __eq__(self, other):
+        """
+        Perform the eq utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise Option.  eq   through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param other: Value supplied for other under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.name == getattr(other, "name", other)
 
     def __repr__(self):
+        """
+        Perform the repr utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise Option.  repr   through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "Option: " + self.name
 
     def __str__(self):
+        """
+        Perform the str utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise Option.  str   through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return repr(self)
 
 
 class OptionValues(object):
+    """
+    Provide the OptionValues utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise OptionValues through a consuming regression::
+
+            python -m pytest -q tests/utils/config/test_config_base.py
+    """
     def copy(self):
+        """
+        Perform the copy utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise OptionValues.copy through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return deepcopy(self)
 
 
 class OptionSet(object):
 
     # Keep the pattern for historical reasons, but JSON configs do not embed override sections.
+    """
+    Provide the OptionSet utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise OptionSet through a consuming regression::
+
+            python -m pytest -q tests/utils/config/test_config_base.py
+    """
     OVERRIDE_PAT = re.compile(
         r"#{3,100} Override Options #{15}(.*?)#{3,100} End Override #{3,100}",
         re.DOTALL | re.IGNORECASE,
     )
 
     def __init__(self, description=""):
+        """
+        Initialize and validate the OptionSet state.
+
+        Example:
+            Exercise OptionSet.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param description: Value supplied for description under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.description = description
         self.defaults = {}
         self.preferences = []
@@ -335,6 +643,19 @@ class OptionSet(object):
         self.set_buffer = {}
 
     def has_option(self, name_or_option_object):
+        """
+        Return or update whether has option holds for the compatibility value.
+
+        Example:
+            Exercise OptionSet.has option through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param name_or_option_object: Value supplied for name or option object under the
+            utility contract.
+        :return: True when the documented condition holds; otherwise False.
+        """
         if name_or_option_object in self.preferences:
             return True
         for p in self.preferences:
@@ -343,6 +664,20 @@ class OptionSet(object):
         return False
 
     def get_option(self, name_or_option_object):
+        """
+        Return option under the documented compatibility and safety rules.
+
+        Example:
+            Exercise OptionSet.get option through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param name_or_option_object: Value supplied for name or option object under the
+            utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         idx = self.preferences.index(name_or_option_object)
         if idx > -1:
             return self.preferences[idx]
@@ -351,6 +686,20 @@ class OptionSet(object):
                 return p
 
     def add_group(self, name, description=""):
+        """
+        Add group under the documented compatibility and safety rules.
+
+        Example:
+            Exercise OptionSet.add group through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param description: Value supplied for description under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if name in self.group_list:
             raise ValueError("A group by the name %s already exists in this set" % name)
         self.groups[name] = description
@@ -358,6 +707,19 @@ class OptionSet(object):
         return partial(self.add_opt, group=name)
 
     def update(self, other):
+        """
+        Perform the update utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise OptionSet.update through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param other: Value supplied for other under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for name in other.groups.keys():
             self.groups[name] = other.groups[name]
             if name not in self.group_list:
@@ -368,13 +730,39 @@ class OptionSet(object):
             self.preferences.append(pref)
 
     def smart_update(self, opts1, opts2):
-        """Update opts1 using only non-default values from opts2."""
+        """
+        Update opts1 using only non-default values from opts2.
+
+        Example:
+            Exercise OptionSet.smart update through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param opts1: Value supplied for opts1 under the utility contract.
+        :param opts2: Value supplied for opts2 under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for pref in self.preferences:
             new = getattr(opts2, pref.name, pref.default)
             if new != pref.default:
                 setattr(opts1, pref.name, new)
 
     def remove_opt(self, name):
+        """
+        Remove opt under the documented compatibility and safety rules.
+
+        Example:
+            Exercise OptionSet.remove opt through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if name in self.preferences:
             self.preferences.remove(name)
 
@@ -390,6 +778,27 @@ class OptionSet(object):
         action=None,
         metavar=None,
     ):
+        """
+        Add opt under the documented compatibility and safety rules.
+
+        Example:
+            Exercise OptionSet.add opt through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param switches: Value supplied for switches under the utility contract.
+        :param help: Value supplied for help under the utility contract.
+        :param type: Value supplied for type under the utility contract.
+        :param choices: Value supplied for choices under the utility contract.
+        :param group: Value supplied for group under the utility contract.
+        :param default: Value supplied for default under the utility contract.
+        :param action: Value supplied for action under the utility contract.
+        :param metavar: Value supplied for metavar under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pref = Option(
             name,
             switches=switches,
@@ -409,12 +818,39 @@ class OptionSet(object):
         self.defaults[name] = default
 
     def retranslate_help(self):
+        """
+        Perform the retranslate help utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise OptionSet.retranslate help through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         t = _
         for opt in self.preferences:
             if opt.help:
                 opt.help = t(opt.help)
 
     def option_parser(self, user_defaults=None, usage="", gui_mode=False):
+        """
+        Perform the option parser utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise OptionSet.option parser through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param user_defaults: Value supplied for user defaults under the utility contract.
+        :param usage: Value supplied for usage under the utility contract.
+        :param gui_mode: Value supplied for gui mode under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.utils.config import OptionParser
 
         parser = OptionParser(usage, gui_mode=gui_mode)
@@ -446,6 +882,19 @@ class OptionSet(object):
 
     def get_override_section(self, src):
         # JSON configs do not embed override blocks, but keep the hook for API compatibility.
+        """
+        Return override section under the documented compatibility and safety rules.
+
+        Example:
+            Exercise OptionSet.get override section through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param src: Value supplied for src under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not src:
             return ""
         try:
@@ -459,6 +908,19 @@ class OptionSet(object):
         return ""
 
     def parse_string(self, src):
+        """
+        Parse string under the documented compatibility and safety rules.
+
+        Example:
+            Exercise OptionSet.parse string through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param src: Value supplied for src under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         options = {}
         if src:
             # Refuse legacy executable configs.
@@ -490,12 +952,47 @@ class OptionSet(object):
         return opts
 
     def serialize(self, opts, ignore_unserializable: bool = False) -> bytes:
+        """
+        Perform the serialize utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise OptionSet.serialize through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param opts: Value supplied for opts under the utility contract.
+        :param ignore_unserializable: Value supplied for ignore unserializable under the
+            utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = {pref.name: getattr(opts, pref.name, pref.default) for pref in self.preferences}
         return json_dumps(data, ignore_unserializable=ignore_unserializable)
 
 
 class ConfigInterface(object):
+    """
+    Provide the ConfigInterface utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise ConfigInterface through a consuming regression::
+
+            python -m pytest -q tests/utils/config/test_config_base.py
+    """
     def __init__(self, description):
+        """
+        Initialize and validate the ConfigInterface state.
+
+        Example:
+            Exercise ConfigInterface.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param description: Value supplied for description under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.option_set = OptionSet(description=description)
         self.add_opt = self.option_set.add_opt
         self.add_group = self.option_set.add_group
@@ -505,32 +1002,112 @@ class ConfigInterface(object):
         self.preferences = self.option_set.preferences
 
     def update(self, other):
+        """
+        Perform the update utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise ConfigInterface.update through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param other: Value supplied for other under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.option_set.update(other.option_set)
 
     def option_parser(self, usage="", gui_mode=False):
+        """
+        Perform the option parser utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise ConfigInterface.option parser through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param usage: Value supplied for usage under the utility contract.
+        :param gui_mode: Value supplied for gui mode under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.option_set.option_parser(user_defaults=self.parse(), usage=usage, gui_mode=gui_mode)
 
     def smart_update(self, opts1, opts2):
+        """
+        Perform the smart update utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise ConfigInterface.smart update through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param opts1: Value supplied for opts1 under the utility contract.
+        :param opts2: Value supplied for opts2 under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.option_set.smart_update(opts1, opts2)
 
 
 class Config(ConfigInterface):
-    """A file-backed JSON configuration.
+    """
+    A file-backed JSON configuration.
 
-    The on-disk filename is ``<basename>.py.json`` to mirror calibre.
+    Example:
+        Exercise Config through a consuming regression::
 
-    This class intentionally *does not* read legacy ``<basename>.py`` configs.
+            python -m pytest -q tests/utils/config/test_config_base.py
     """
 
     def __init__(self, basename: str, description: str = "") -> None:
+        """
+        Initialize and validate the Config state.
+
+        Example:
+            Exercise Config.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param basename: Value supplied for basename under the utility contract.
+        :param description: Value supplied for description under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         ConfigInterface.__init__(self, description)
         self.filename_base = basename
 
     @property
     def config_file_path(self) -> str:
+        """
+        Perform the config file path utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise Config.config file path through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return os.path.join(config_dir, self.filename_base + ".py.json")
 
     def parse(self):
+        """
+        Perform the parse utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise Config.parse through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         src: bytes | str = b""
         with suppress(FileNotFoundError):
             src = read_data(self.config_file_path)
@@ -540,6 +1117,18 @@ class Config(ConfigInterface):
             raise LegacyConfigError(f"{e} (file: {self.config_file_path})")
 
     def as_string(self) -> str:
+        """
+        Perform the as string utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise Config.as string through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             raw = read_data(self.config_file_path)
         except FileNotFoundError:
@@ -549,6 +1138,20 @@ class Config(ConfigInterface):
         return str(raw)
 
     def set(self, name, val):
+        """
+        Perform the set utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise Config.set through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if not self.option_set.has_option(name):
             raise ValueError("The option %s is not defined." % name)
         if not os.path.exists(config_dir):
@@ -565,21 +1168,80 @@ class Config(ConfigInterface):
 
 
 class StringConfig(ConfigInterface):
-    """A string-backed config, mostly for tests."""
+    """
+    A string-backed config, mostly for tests.
+
+    Example:
+        Exercise StringConfig through a consuming regression::
+
+            python -m pytest -q tests/utils/config/test_config_base.py
+    """
 
     def __init__(self, src, description=""):
+        """
+        Initialize and validate the StringConfig state.
+
+        Example:
+            Exercise StringConfig.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param src: Value supplied for src under the utility contract.
+        :param description: Value supplied for description under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         ConfigInterface.__init__(self, description)
         self.set_src(src)
 
     def set_src(self, src):
+        """
+        Set src under the documented compatibility and safety rules.
+
+        Example:
+            Exercise StringConfig.set src through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param src: Value supplied for src under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.src = src
         if isinstance(self.src, bytes):
             self.src = self.src.decode("utf-8", "replace")
 
     def parse(self):
+        """
+        Perform the parse utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise StringConfig.parse through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.option_set.parse_string(self.src)
 
     def set(self, name, val):
+        """
+        Perform the set utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise StringConfig.set through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if not self.option_set.has_option(name):
             raise ValueError("The option %s is not defined." % name)
         opts = self.option_set.parse_string(self.src)
@@ -588,45 +1250,192 @@ class StringConfig(ConfigInterface):
 
 
 class ConfigProxy(object):
-    """Proxy to cache parsed configuration in memory."""
+    """
+    Proxy to cache parsed configuration in memory.
+
+    Example:
+        Exercise ConfigProxy through a consuming regression::
+
+            python -m pytest -q tests/utils/config/test_config_base.py
+    """
 
     def __init__(self, config):
+        """
+        Initialize and validate the ConfigProxy state.
+
+        Example:
+            Exercise ConfigProxy.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param config: Value supplied for config under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.__config = config
         self.__opts = None
 
     def defaults(self):
+        """
+        Perform the defaults utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise ConfigProxy.defaults through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.__config.option_set.defaults
 
     def refresh(self):
+        """
+        Perform the refresh utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise ConfigProxy.refresh through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.__opts = self.__config.parse()
 
     def retranslate_help(self):
+        """
+        Perform the retranslate help utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise ConfigProxy.retranslate help through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.__config.option_set.retranslate_help()
 
     def __getitem__(self, key):
+        """
+        Expose getitem behavior for the compatibility container.
+
+        Example:
+            Exercise ConfigProxy.  getitem   through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param key: Metadata, identifier or local-variable key.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.get(key)
 
     def __setitem__(self, key, val):
+        """
+        Perform the setitem utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise ConfigProxy.  setitem   through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param key: Metadata, identifier or local-variable key.
+        :param val: Template or metadata value evaluated by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.set(key, val)
 
     def __delitem__(self, key):
+        """
+        Perform the delitem utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise ConfigProxy.  delitem   through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param key: Metadata, identifier or local-variable key.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.set(key, self.defaults()[key])
 
     def get(self, key):
+        """
+        Perform the get utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise ConfigProxy.get through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param key: Metadata, identifier or local-variable key.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.__opts is None:
             self.refresh()
         return getattr(self.__opts, key)
 
     def set(self, key, val):
+        """
+        Perform the set utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise ConfigProxy.set through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param key: Metadata, identifier or local-variable key.
+        :param val: Template or metadata value evaluated by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.__opts is None:
             self.refresh()
         setattr(self.__opts, key, val)
         return self.__config.set(key, val)
 
     def help(self, key):
+        """
+        Perform the help utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise ConfigProxy.help through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param key: Metadata, identifier or local-variable key.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.__config.get_option(key).help
 
 def _prefs():
+    """
+    Perform the prefs utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  prefs through a consuming regression::
+
+            python -m pytest -q tests/utils/config/test_config_base.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     c = Config("global", "calibre wide preferences")
     c.add_opt(
         "database_path",
@@ -778,6 +1587,18 @@ if prefs["installation_uuid"] is None:
 
 def read_raw_tweaks():
 
+    """
+    Read raw tweaks under the documented compatibility and safety rules.
+
+    Example:
+        Exercise read raw tweaks through a consuming regression::
+
+            python -m pytest -q tests/utils/config/test_config_base.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     make_config_dir()
     default_tweaks = P("default_tweaks.py", data=True, allow_user_override=False)
 
@@ -791,6 +1612,18 @@ def read_raw_tweaks():
 
 
 def read_tweaks():
+    """
+    Read tweaks under the documented compatibility and safety rules.
+
+    Example:
+        Exercise read tweaks through a consuming regression::
+
+            python -m pytest -q tests/utils/config/test_config_base.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     default_tweaks, tweaks = read_raw_tweaks()
     l, g = {}, {}
     try:
@@ -804,6 +1637,19 @@ def read_tweaks():
 
 
 def write_tweaks(raw):
+    """
+    Perform the write tweaks utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise write tweaks through a consuming regression::
+
+            python -m pytest -q tests/utils/config/test_config_base.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     make_config_dir()
     tweaks_file = os.path.join(config_dir, "tweaks.py")
     with open(tweaks_file, "wb") as f:
@@ -824,6 +1670,18 @@ except Exception as e:
 
 
 def reset_tweaks_to_default():
+    """
+    Perform the reset tweaks to default utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise reset tweaks to default through a consuming regression::
+
+            python -m pytest -q tests/utils/config/test_config_base.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     default_tweaks = P("default_tweaks.py", data=True, allow_user_override=False)
     dl, dg = {}, {}
     exec(default_tweaks, dg, dl)
@@ -832,12 +1690,58 @@ def reset_tweaks_to_default():
 
 
 class Tweak(object):
+    """
+    Provide the Tweak utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise Tweak through a consuming regression::
+
+            python -m pytest -q tests/utils/config/test_config_base.py
+    """
     def __init__(self, name, value):
+        """
+        Initialize and validate the Tweak state.
+
+        Example:
+            Exercise Tweak.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param value: Value normalized, stored, formatted or returned.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.name, self.value = name, value
 
     def __enter__(self):
+        """
+        Implement the resource's enter lifecycle operation.
+
+        Example:
+            Exercise Tweak.  enter   through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.origval = tweaks[self.name]
         tweaks[self.name] = self.value
 
     def __exit__(self, *args):
+        """
+        Implement the resource's exit lifecycle operation.
+
+        Example:
+            Exercise Tweak.  exit   through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_base.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         tweaks[self.name] = self.origval

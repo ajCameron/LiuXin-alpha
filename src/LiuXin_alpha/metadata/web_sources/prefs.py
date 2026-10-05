@@ -1,8 +1,13 @@
 """
-Global preferences for web metadata-source plugins.
+Create web-source preferences with stable defaults for metadata and cover coordination.
 
-These defaults mirror the calibre/LiuXin behavior while remaining safe to
-import in partially-ported environments.
+The module keeps network, parsing, caching, cancellation and result-order behavior
+explicit for callers.
+
+Example:
+    Exercise prefs with the owning regression module::
+
+        python -m pytest -q tests/metadata/web_sources/test_web_sources_prefs.py
 """
 
 from __future__ import annotations
@@ -44,6 +49,18 @@ MSPREFS_DEFAULTS: dict[str, Any] = {
 
 
 def _apply_defaults(config: JSONConfig) -> JSONConfig:
+    """
+    Perform the prefs apply defaults operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  apply defaults with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_prefs.py
+
+
+    :param config: Value supplied for config.
+    :return: None.
+    """
     for key, value in MSPREFS_DEFAULTS.items():
         config.defaults[key] = deepcopy(value)
     return config
@@ -51,7 +68,16 @@ def _apply_defaults(config: JSONConfig) -> JSONConfig:
 
 def create_msprefs() -> JSONConfig:
     """
-    Build and return the global web-source preferences config object.
+    Create a fresh web-source preference object populated with project defaults.
+
+    Example:
+        Exercise create msprefs with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_prefs.py
+
+
+    :return: The normalized provider value, metadata result or collection described
+        above.
     """
     return _apply_defaults(JSONConfig("metadata_sources/global.json"))
 

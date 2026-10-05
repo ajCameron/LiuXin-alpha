@@ -2,6 +2,17 @@
 # License: GPLv3 Copyright: 2009, Kovid Goyal <kovid at kovidgoyal.net>
 
 
+"""
+Read and update MOBI/Palm database metadata, EXTH records, covers and record tables.
+
+The module keeps binary parsing, optional dependency and stream ownership policy
+explicit for registry callers.
+
+Example:
+    Exercise mobi with pytest::
+
+        python -m pytest -q tests/metadata/file_sources/test_mobi_metadata_source.py
+"""
 import io
 import numbers
 import os
@@ -24,12 +35,36 @@ Retrieve and modify in-place Mobipocket book metadata.
 
 
 def is_image(ss):
+    """
+    Return whether a byte prefix matches a supported raster image signature.
+
+    Example:
+        Exercise is image with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_mobi_metadata_source.py
+
+
+    :param ss: Value supplied for ss.
+    :return: True when the condition is satisfied; otherwise False.
+    """
     if ss is None:
         return False
     return what(None, ss[:200]) is not None
 
 
 def _clean_mobi_text(value):
+    """
+    Normalize mobi text into the representation expected by later parsing or serialization steps.
+
+    Example:
+        Exercise  clean mobi text with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_mobi_metadata_source.py
+
+
+    :param value: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or updated value described above.
+    """
     if value is None:
         return ""
     if isinstance(value, (bytes, bytearray, memoryview)):
@@ -38,6 +73,18 @@ def _clean_mobi_text(value):
 
 
 def _clean_mobi_list(values):
+    """
+    Normalize mobi list into the representation expected by later parsing or serialization steps.
+
+    Example:
+        Exercise  clean mobi list with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_mobi_metadata_source.py
+
+
+    :param values: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or updated value described above.
+    """
     if values is None:
         return []
     if isinstance(values, str):
@@ -52,6 +99,19 @@ def _clean_mobi_list(values):
 
 
 def _metadata_is_null(mi, field):
+    """
+    Perform the format-specific metadata is null operation used by the metadata reader or writer.
+
+    Example:
+        Exercise  metadata is null with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_mobi_metadata_source.py
+
+
+    :param mi: Metadata object supplying or receiving supported fields.
+    :param field: Value supplied for field.
+    :return: Parsed, normalized or updated value described above.
+    """
     try:
         return bool(mi.is_null(field))
     except Exception:
@@ -60,7 +120,30 @@ def _metadata_is_null(mi, field):
 
 class StreamSlicer:
 
+    """
+    Expose a bounded mutable window over a seekable stream and support offset-adjusting block updates.
+
+    Example:
+        Exercise StreamSlicer with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_mobi_metadata_source.py
+    """
     def __init__(self, stream, start=0, stop=None):
+        """
+        Implement init for the format helper while retaining caller-owned underlying objects.
+
+        Example:
+            Exercise StreamSlicer.  init   with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_mobi_metadata_source.py
+
+
+        :param stream: Caller-supplied path, path-like object or stream described by this
+            operation.
+        :param start: Value supplied for start.
+        :param stop: Value supplied for stop.
+        :return: None.
+        """
         self._stream = stream
         self.start = start
         if stop is None:
@@ -70,9 +153,32 @@ class StreamSlicer:
         self._len = stop - start
 
     def __len__(self):
+        """
+        Implement len for the format helper while retaining caller-owned underlying objects.
+
+        Example:
+            Exercise StreamSlicer.  len   with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_mobi_metadata_source.py
+
+
+        :return: Length of the exposed stream window.
+        """
         return self._len
 
     def __getitem__(self, key):
+        """
+        Implement getitem for the format helper while retaining caller-owned underlying objects.
+
+        Example:
+            Exercise StreamSlicer.  getitem   with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_mobi_metadata_source.py
+
+
+        :param key: Value supplied for key.
+        :return: Parsed, normalized or updated value described above.
+        """
         stream = self._stream
         base = self.start
         if isinstance(key, numbers.Integral):
@@ -93,6 +199,19 @@ class StreamSlicer:
         raise TypeError('stream indices must be integers')
 
     def __setitem__(self, key, value):
+        """
+        Implement setitem for the format helper while retaining caller-owned underlying objects.
+
+        Example:
+            Exercise StreamSlicer.  setitem   with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_mobi_metadata_source.py
+
+
+        :param key: Value supplied for key.
+        :param value: Raw value or payload to normalize, parse or serialize.
+        :return: None.
+        """
         stream = self._stream
         base = self.start
         if isinstance(key, numbers.Integral):
@@ -115,6 +234,18 @@ class StreamSlicer:
 
     def update(self, data_blocks):
         # Rewrite the stream
+        """
+        Apply update while keeping record offsets and surrounding container state consistent.
+
+        Example:
+            Exercise StreamSlicer.update with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_mobi_metadata_source.py
+
+
+        :param data_blocks: Value supplied for data blocks.
+        :return: None.
+        """
         stream = self._stream
         base = self.start
         stream.seek(base)
@@ -123,13 +254,46 @@ class StreamSlicer:
             stream.write(block)
 
     def truncate(self, value):
+        """
+        Perform the format-specific truncate operation used by the metadata reader or writer.
+
+        Example:
+            Exercise StreamSlicer.truncate with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_mobi_metadata_source.py
+
+
+        :param value: Raw value or payload to normalize, parse or serialize.
+        :return: None.
+        """
         self._stream.truncate(value)
 
 
 class MetadataUpdater:
+    """
+    Parse and rewrite MOBI/Palm record tables and EXTH metadata in a caller-owned stream.
+
+    Example:
+        Exercise MetadataUpdater with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_mobi_metadata_source.py
+    """
     DRM_KEY_SIZE = 48
 
     def __init__(self, stream):
+        """
+        Implement init for the format helper while retaining caller-owned underlying objects.
+
+        Example:
+            Exercise MetadataUpdater.  init   with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_mobi_metadata_source.py
+
+
+        :param stream: Caller-supplied path, path-like object or stream described by this
+            operation.
+        :return: None.
+        """
         self.stream = stream
         data = self.data = StreamSlicer(stream)
         self.type = data[60:68]
@@ -169,7 +333,17 @@ class MetadataUpdater:
         self.fetchEXTHFields()
 
     def fetchDRMdata(self):
-        ''' Fetch the DRM keys '''
+        """
+        Read and cache DRMdata from the current MOBI header.
+
+        Example:
+            Exercise MetadataUpdater.fetchDRMdata with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_mobi_metadata_source.py
+
+
+        :return: Parsed, normalized or updated value described above.
+        """
         drm_offset = int(unpack('>I', self.record0[0xa8:0xac])[0])
         self.drm_key_count = int(unpack('>I', self.record0[0xac:0xb0])[0])
         drm_keys = b''
@@ -179,6 +353,17 @@ class MetadataUpdater:
         return drm_keys
 
     def fetchEXTHFields(self):
+        """
+        Read and cache EXTHFields from the current MOBI header.
+
+        Example:
+            Exercise MetadataUpdater.fetchEXTHFields with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_mobi_metadata_source.py
+
+
+        :return: Parsed, normalized or updated value described above.
+        """
         stream = self.stream
         record0 = self.record0
 
@@ -211,6 +396,19 @@ class MetadataUpdater:
 
     def patch(self, off, new_record0):
         # Save the current size of each record
+        """
+        Apply patch while keeping record offsets and surrounding container state consistent.
+
+        Example:
+            Exercise MetadataUpdater.patch with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_mobi_metadata_source.py
+
+
+        :param off: Value supplied for off.
+        :param new_record0: Value supplied for new record0.
+        :return: Parsed, normalized or updated value described above.
+        """
         record_sizes = [len(new_record0)]
         for i in range(1, self.nrecs-1):
             record_sizes.append(self.pdbrecords[i+1][0]-self.pdbrecords[i][0])
@@ -247,11 +445,37 @@ class MetadataUpdater:
             self.data.stop = updated_pdbrecords[-1] + record_sizes[-1]
 
     def patchSection(self, section, new):
+        """
+        Apply patchSection while keeping record offsets and surrounding container state consistent.
+
+        Example:
+            Exercise MetadataUpdater.patchSection with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_mobi_metadata_source.py
+
+
+        :param section: Value supplied for section.
+        :param new: Value supplied for new.
+        :return: Parsed, normalized or updated value described above.
+        """
         off = self.pdbrecords[section][0]
         self.patch(off, new)
 
     def create_exth(self, new_title=None, exth=None):
         # Add an EXTH block to record 0, rewrite the stream
+        """
+        Create exth in the container's required binary or XML form.
+
+        Example:
+            Exercise MetadataUpdater.create exth with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_mobi_metadata_source.py
+
+
+        :param new_title: Value supplied for new title.
+        :param exth: Value supplied for exth.
+        :return: Parsed, normalized or updated value described above.
+        """
         if isinstance(new_title, str):
             new_title = new_title.encode(self.codec, 'replace')
 
@@ -310,6 +534,19 @@ class MetadataUpdater:
 
     def hexdump(self, src, length=16):
         # Diagnostic
+        """
+        Perform the format-specific hexdump operation used by the metadata reader or writer.
+
+        Example:
+            Exercise MetadataUpdater.hexdump with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_mobi_metadata_source.py
+
+
+        :param src: Value supplied for src.
+        :param length: Value supplied for length.
+        :return: Parsed, normalized or updated value described above.
+        """
         FILTER=''.join([((len(repr(chr(x)))==3) and chr(x)) or '.' for x in range(256)])
         N=0
         result=''
@@ -322,6 +559,17 @@ class MetadataUpdater:
         print(result)
 
     def get_pdbrecords(self):
+        """
+        Return pdbrecords derived from the current parser or container state.
+
+        Example:
+            Exercise MetadataUpdater.get pdbrecords with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_mobi_metadata_source.py
+
+
+        :return: Parsed, normalized or updated value described above.
+        """
         pdbrecords = []
         for i in range(self.nrecs):
             offset, a1,a2,a3,a4 = unpack('>LBBBB', self.data[78+i*8:78+i*8+8])
@@ -330,6 +578,18 @@ class MetadataUpdater:
         return pdbrecords
 
     def update_pdbrecords(self, updated_pdbrecords):
+        """
+        Apply update pdbrecords while keeping record offsets and surrounding container state consistent.
+
+        Example:
+            Exercise MetadataUpdater.update pdbrecords with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_mobi_metadata_source.py
+
+
+        :param updated_pdbrecords: Value supplied for updated pdbrecords.
+        :return: Parsed, normalized or updated value described above.
+        """
         for i,pdbrecord in enumerate(updated_pdbrecords):
             self.data[78+i*8:78+i*8 + 4] = pack('>L',pdbrecord)
 
@@ -338,6 +598,17 @@ class MetadataUpdater:
 
     def dump_pdbrecords(self):
         # Diagnostic
+        """
+        Perform the format-specific dump pdbrecords operation used by the metadata reader or writer.
+
+        Example:
+            Exercise MetadataUpdater.dump pdbrecords with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_mobi_metadata_source.py
+
+
+        :return: Parsed, normalized or updated value described above.
+        """
         print('MetadataUpdater.dump_pdbrecords()')
         print(f"{'offset':>10} {'flags':>10} {'val':>10}")
         for i in range(len(self.pdbrecords)):
@@ -345,6 +616,18 @@ class MetadataUpdater:
             print(f'{pdbrecord[0]:10X} {pdbrecord[1]:10X} {pdbrecord[2]:10X}')
 
     def record(self, n):
+        """
+        Return record from the current container using normalized member or record addressing.
+
+        Example:
+            Exercise MetadataUpdater.record with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_mobi_metadata_source.py
+
+
+        :param n: Value supplied for n.
+        :return: Parsed, normalized or updated value described above.
+        """
         if n >= self.nrecs:
             raise ValueError(f'non-existent record {n!r}')
         offoff = 78 + (8 * n)
@@ -355,11 +638,36 @@ class MetadataUpdater:
         return StreamSlicer(self.stream, start, stop)
 
     def update(self, mi, asin=None):
+        """
+        Apply update while keeping record offsets and surrounding container state consistent.
+
+        Example:
+            Exercise MetadataUpdater.update with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_mobi_metadata_source.py
+
+
+        :param mi: Metadata object supplying or receiving supported fields.
+        :param asin: Value supplied for asin.
+        :return: None.
+        """
         if hasattr(mi, "to_calibre"):
             mi = mi.to_calibre()
         title = _clean_mobi_text(getattr(mi, "title", None)) or _("Unknown")
 
         def update_exth_record(rec):
+            """
+            Apply update exth record while keeping record offsets and surrounding container state consistent.
+
+            Example:
+                Exercise MetadataUpdater.update.update exth record with pytest::
+
+                    python -m pytest -q tests/metadata/file_sources/test_mobi_metadata_source.py
+
+
+            :param rec: Value supplied for rec.
+            :return: Parsed, normalized or updated value described above.
+            """
             recs.append(rec)
             if rec[0] in self.original_exth_records:
                 self.original_exth_records.pop(rec[0])
@@ -519,6 +827,20 @@ class MetadataUpdater:
 
 
 def set_metadata(stream, mi):
+    """
+    Write supported metadata fields to a path or mutable binary stream without taking ownership of caller-supplied streams.
+
+    Example:
+        Exercise set metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_mobi_metadata_source.py
+
+
+    :param stream: Caller-supplied path, path-like object or stream described by this
+        operation.
+    :param mi: Metadata object supplying or receiving supported fields.
+    :return: None.
+    """
     mu = MetadataUpdater(stream)
     mu.update(mi)
 
@@ -529,6 +851,18 @@ RUN_COST = ["LOW"]
 
 
 def _default_metadata(source_name: str = ""):
+    """
+    Build a minimally usable metadata object for missing or explicitly tolerated malformed input.
+
+    Example:
+        Exercise  default metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_mobi_metadata_source.py
+
+
+    :param source_name: Source label used for fallback titles and diagnostics.
+    :return: Parsed, normalized or updated value described above.
+    """
     title = _("Unknown")
     if source_name:
         stem = os.path.splitext(os.path.basename(source_name))[0].strip()
@@ -538,6 +872,20 @@ def _default_metadata(source_name: str = ""):
 
 
 def _stream_size(stream, fallback: int = 1024 ** 3) -> int:
+    """
+    Perform the format-specific stream size operation used by the metadata reader or writer.
+
+    Example:
+        Exercise  stream size with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_mobi_metadata_source.py
+
+
+    :param stream: Caller-supplied path, path-like object or stream described by this
+        operation.
+    :param fallback: Value supplied for fallback.
+    :return: Parsed, normalized or updated value described above.
+    """
     if not (hasattr(stream, "seek") and hasattr(stream, "tell")):
         return fallback
     pos = stream.tell()
@@ -549,6 +897,18 @@ def _stream_size(stream, fallback: int = 1024 ** 3) -> int:
 
 
 def _read_cover_from_header(mh):
+    """
+    Read cover from header while enforcing the format's bounds and binary-input expectations.
+
+    Example:
+        Exercise  read cover from header with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_mobi_metadata_source.py
+
+
+    :param mh: Value supplied for mh.
+    :return: Parsed, normalized or updated value described above.
+    """
     if hasattr(mh.exth, "cover_offset"):
         cover_index = mh.first_image_index + mh.exth.cover_offset
         return mh.section_data(int(cover_index))
@@ -565,6 +925,23 @@ def read_metadata_from_stream(
     *,
     fallback_on_parse_error: bool = False,
 ):
+    """
+    Parse metadata from a caller-owned binary stream and apply the requested malformed-input fallback policy.
+
+    Example:
+        Exercise read metadata from stream with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_mobi_metadata_source.py
+
+
+    :param stream: Caller-supplied path, path-like object or stream described by this
+        operation.
+    :param source_name: Source label used for fallback titles and diagnostics.
+    :param extract_cover: Attempt cover discovery and extraction when true.
+    :param fallback_on_parse_error: Return default metadata after parse errors when
+        true; otherwise raise the format error.
+    :return: Parsed, normalized or updated value described above.
+    """
     from LiuXin_alpha.file_formats.mobi.reader.headers import MetadataHeader
     from LiuXin_alpha.file_formats.mobi.reader.mobi6 import MobiReader
     from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory
@@ -646,7 +1023,20 @@ def read_metadata_from_stream(
 
 def get_metadata(target_file, extract_cover: bool = True, *, fallback_on_parse_error: bool = False):
     """
-    Read metadata from a MOBI path/pathlike or readable binary stream.
+    Read metadata from the supported path or stream input while applying the module's ownership and fallback policy.
+
+    Example:
+        Exercise get metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_mobi_metadata_source.py
+
+
+    :param target_file: Caller-supplied path, path-like object or stream described by
+        this operation.
+    :param extract_cover: Attempt cover discovery and extraction when true.
+    :param fallback_on_parse_error: Return default metadata after parse errors when
+        true; otherwise raise the format error.
+    :return: Parsed, normalized or updated value described above.
     """
     stream_needs_close = False
     source_name = ""
@@ -687,7 +1077,19 @@ def get_metadata(target_file, extract_cover: bool = True, *, fallback_on_parse_e
 
 def get_metadata_inplace(target_file, *, fallback_on_parse_error: bool = False):
     """
-    Path-oriented metadata read optimized for in-place plugin calls.
+    Read metadata through the path-oriented adapter used by registry plugins that support in-place access.
+
+    Example:
+        Exercise get metadata inplace with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_mobi_metadata_source.py
+
+
+    :param target_file: Caller-supplied path, path-like object or stream described by
+        this operation.
+    :param fallback_on_parse_error: Return default metadata after parse errors when
+        true; otherwise raise the format error.
+    :return: Parsed, normalized or updated value described above.
     """
     return get_metadata(target_file, extract_cover=False, fallback_on_parse_error=fallback_on_parse_error)
 

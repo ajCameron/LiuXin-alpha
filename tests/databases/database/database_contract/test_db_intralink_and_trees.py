@@ -1,18 +1,14 @@
-"""Database contract: intralinks + tree helpers (Chunk 10).
+"""
+Check self-links and parent-column tree traversal on dynamically selected database tables.
 
-This chunk exercises the Database-level APIs for:
+Tests write scratch payloads, register types when a registry is available, and skip
+absent schema capabilities. Existing expected-failure markers retain the desired
+linked-row and secondary-only unlink contracts.
 
-* Intralinks (self-links) within a single table.
-* Tree helpers based on a *_parent column (root/children/linear walk).
+Example:
+    Run with pytest::
 
-The tests discover suitable tables dynamically from the provisioned test DB schema,
-so they continue to work as the schema evolves.
-
-Notes:
-* We prefer writing payloads into each table's scratch column ("...scratch") because it
-  exists on every table and is intended to tolerate arbitrary text.
-* A couple of tests are marked xfail to capture known bugs / spec mismatches, so you
-  get a hard signal during refactors without forcing the whole suite to red by default.
+        python -m pytest -q tests/databases/database/database_contract/test_db_intralink_and_trees.py
 """
 
 from __future__ import annotations
@@ -24,6 +20,14 @@ import pytest
 
 @dataclass(frozen=True)
 class _IntralinkTarget:
+    """
+    Hold immutable table, intralink-table, endpoint, and type column names.
+
+    Example:
+        >>> target = _IntralinkTarget('items', 'item_links', 'source_id', 'target_id', 'type')
+        >>> target.table
+        'items'
+    """
     table: str
     link_table: str
     primary_col: str
@@ -32,7 +36,21 @@ class _IntralinkTarget:
 
 
 def _pick_intralink_target(open_db) -> _IntralinkTarget:
-    """Find a table that has an intralink table."""
+    """
+    Find the first sorted non-internal table with a known intralink table and resolvable endpoint/type columns.
+
+    Ignore column-resolution errors and skip the test when no target survives discovery.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_intralink_and_trees.py
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: Discovered _IntralinkTarget.
+    """
 
     wrapper = open_db.driver_wrapper
     tables_and_cols = wrapper.get_tables_and_columns()
@@ -65,7 +83,22 @@ def _pick_intralink_target(open_db) -> _IntralinkTarget:
 
 
 def _pick_tree_table(open_db) -> tuple[str, str]:
-    """Return (table, parent_col) for any table with a *_parent column."""
+    """
+    Find the first sorted non-internal table with a truthy parent-column lookup.
+
+    Ignore lookup errors and skip the test if none is found; do not independently check
+    writability.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_intralink_and_trees.py
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: Table-name/parent-column tuple.
+    """
 
     wrapper = open_db.driver_wrapper
     for table in sorted(wrapper.get_tables_and_columns().keys()):
@@ -81,11 +114,42 @@ def _pick_tree_table(open_db) -> tuple[str, str]:
 
 
 def _scratch_col(open_db, table: str) -> str:
+    """
+    Return the wrapper’s scratch-column lookup for the given table.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_intralink_and_trees.py
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param table: Trusted test table name, interpolated into SQL where needed.
+    :return: Scratch-column name; lookup errors propagate.
+    """
     return open_db.driver_wrapper.get_scratch_column(table)
 
 
 def _make_row(open_db, table: str, payload: str, *, parent_col: str | None = None, parent_id=None):
-    """Create + sync a row with scratch payload (and optional parent pointer)."""
+    """
+    Create and sync a row with scratch text and an optional parent-column value, then require a persisted ID.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_intralink_and_trees.py
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param table: Trusted test table name, interpolated into SQL where needed.
+    :param payload: Unicode text used to distinguish test rows; languages uses it as a
+        deterministic selection key.
+    :param parent_col: Parent column to assign; None omits parent assignment.
+    :param parent_id: Parent value assigned when parent_col is provided, including None.
+    :return: Synced Row with a non-None ID.
+    """
 
     row = open_db.get_blank_row(table)
     row[_scratch_col(open_db, table)] = payload
@@ -97,7 +161,20 @@ def _make_row(open_db, table: str, payload: str, *, parent_col: str | None = Non
 
 
 def _pick_type_registry_column(open_db, registry_table: str) -> str:
-    """Return the column name that stores the link type in a registry table."""
+    """
+    Choose type, then a non-ID _type heading, then any non-ID heading, then the first heading.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_intralink_and_trees.py
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param registry_table: Trusted registry table name whose headings are inspected.
+    :return: Selected column name; an empty headings sequence raises IndexError.
+    """
     headings = list(open_db.driver_wrapper.get_column_headings(registry_table))
     if "type" in headings:
         return "type"
@@ -111,7 +188,20 @@ def _pick_type_registry_column(open_db, registry_table: str) -> str:
 
 
 def _type_registry_for_intralink(open_db, link_table: str) -> tuple[str, str] | None:
-    """Return (registry_table, type_col) for this link table, or None if absent."""
+    """
+    Refresh table names and prefer the modern __types registry over the legacy allowed_types__ registry.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_intralink_and_trees.py
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param link_table: Trusted interlink or intralink table name.
+    :return: Registry-table/type-column tuple, or None when neither table exists.
+    """
     dw = open_db.driver_wrapper
     tables = set(dw.get_tables(force_refresh=True) or [])
     types_table = f"{link_table}__types"
@@ -124,7 +214,24 @@ def _type_registry_for_intralink(open_db, link_table: str) -> tuple[str, str] | 
 
 
 def _ensure_intralink_type_registered(open_db, table: str, link_type: str) -> None:
-    """If schema enforces allowed intralink types, ensure `link_type` is registered."""
+    """
+    Insert a stripped, lowercased string label into an available intralink type registry.
+
+    Use INSERT OR IGNORE without an explicit commit. Return without writing if no
+    intralink table or registry exists.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_intralink_and_trees.py
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param table: Trusted test table name, interpolated into SQL where needed.
+    :param link_type: Type label to register or pass to the link operation.
+    :return: None; may insert the canonical registry value.
+    """
     wrapper = open_db.driver_wrapper
     link_table = wrapper.check_for_intralink_table(table)
     if not link_table:
@@ -144,7 +251,23 @@ def _ensure_intralink_type_registered(open_db, table: str, link_type: str) -> No
 
 
 def _pick_link_type(open_db, table: str) -> str:
-    """Pick a link type that will satisfy schema/type restrictions when present."""
+    """
+    Choose the first sorted registry label and ensure its stripped lowercase form exists.
+
+    Seed related for an empty registry. Without a registry, consult allowed-table-type
+    preferences only when preferences is a dict; use its first value or related.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_intralink_and_trees.py
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param table: Trusted test table name, interpolated into SQL where needed.
+    :return: Canonical string label; fallback validity is not independently checked.
+    """
 
     wrapper = open_db.driver_wrapper
     link_table = wrapper.check_for_intralink_table(table)
@@ -181,7 +304,24 @@ def _pick_link_type(open_db, table: str) -> str:
 
 
 def _pick_two_link_types(open_db, table: str) -> tuple[str, str]:
-    """Return two distinct valid intralink types for this table, seeding registries if needed."""
+    """
+    Choose two distinct stripped lowercase registry labels, extending a one-label or empty registry as needed.
+
+    For one label, register its _alt variant; for an empty registry, register alpha and
+    beta. Existing labels are not re-registered in normalized form. Without a registry,
+    return alpha and beta without checking preferences.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_intralink_and_trees.py
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param table: Trusted test table name, interpolated into SQL where needed.
+    :return: Pair of distinct labels.
+    """
     wrapper = open_db.driver_wrapper
     link_table = wrapper.check_for_intralink_table(table)
     if link_table:
@@ -225,6 +365,19 @@ def _pick_two_link_types(open_db, table: str) -> tuple[str, str]:
 
 
 def test_intralink_target_discovery_is_consistent(open_db):
+    """
+    Check the discovered self-link table agrees with get_link_table_name and exists in the schema map.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_intralink_and_trees.py::test_intralink_target_discovery_is_consistent
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     t = _pick_intralink_target(open_db)
     # check_for_intralink_table and get_link_table_name should agree.
     assert open_db.driver_wrapper.get_link_table_name(t.table, t.table) == t.link_table
@@ -232,7 +385,20 @@ def test_intralink_target_discovery_is_consistent(open_db):
 
 
 def test_intralink_rows_requires_same_table(open_db, pick_payload):
-    """Calling the intralink API with two different tables should error."""
+    """
+    Check linking Rows from different main tables raises InputIntegrityError; skip when no alternative table exists.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_intralink_and_trees.py::test_intralink_rows_requires_same_table
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param pick_payload: Fixture callable selecting a Unicode corpus payload by index.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     from LiuXin_alpha.errors import InputIntegrityError
 
@@ -259,12 +425,19 @@ def test_intralink_rows_requires_same_table(open_db, pick_payload):
 
 
 def test_intralink_rows_requires_ids(open_db, pick_payload):
-    """Rows must have ids before they can be intralinked.
+    """
+    Build two unsynced scratch Rows and check self-linking requires persisted IDs.
 
-    Note: get_blank_row() creates an actual persisted row (and therefore has an id)
-    under the FRBR-first schema. To test the "missing id" guard, we construct
-    id-less Row instances and populate only the scratch column (enough for table
-    inference) without syncing/inserting.
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_intralink_and_trees.py::test_intralink_rows_requires_ids
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param pick_payload: Fixture callable selecting a Unicode corpus payload by index.
+    :return: None; failed expectations raise AssertionError.
     """
 
     from LiuXin_alpha.errors import InputIntegrityError
@@ -291,6 +464,20 @@ def test_intralink_rows_requires_ids(open_db, pick_payload):
 
 
 def test_get_intralink_row_none_when_absent(open_db, pick_payload):
+    """
+    Check an unlinked self-link pair returns None.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_intralink_and_trees.py::test_get_intralink_row_none_when_absent
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param pick_payload: Fixture callable selecting a Unicode corpus payload by index.
+    :return: None; failed expectations raise AssertionError.
+    """
     t = _pick_intralink_target(open_db)
     r1 = _make_row(open_db, t.table, pick_payload(7))
     r2 = _make_row(open_db, t.table, pick_payload(8))
@@ -300,6 +487,20 @@ def test_get_intralink_row_none_when_absent(open_db, pick_payload):
 
 
 def test_get_intralink_row_returns_row_when_present(open_db, pick_payload):
+    """
+    Create a self-link and check the returned link table and directed endpoint IDs.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_intralink_and_trees.py::test_get_intralink_row_returns_row_when_present
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param pick_payload: Fixture callable selecting a Unicode corpus payload by index.
+    :return: None; failed expectations raise AssertionError.
+    """
     t = _pick_intralink_target(open_db)
     r1 = _make_row(open_db, t.table, pick_payload(10))
     r2 = _make_row(open_db, t.table, pick_payload(11))
@@ -313,7 +514,23 @@ def test_get_intralink_row_returns_row_when_present(open_db, pick_payload):
 
 
 def test_get_intralink_row_errors_if_multiple_links_between_pair(open_db, pick_payload):
-    """If multiple intralink rows exist for the same pair, Database should complain."""
+    """
+    Insert a second typed link directly and check singular retrieval raises DatabaseIntegrityError.
+
+    Skip on any ordinary exception while syncing the second link, not only uniqueness
+    violations.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_intralink_and_trees.py::test_get_intralink_row_errors_if_multiple_links_between_pair
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param pick_payload: Fixture callable selecting a Unicode corpus payload by index.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     from LiuXin_alpha.errors import DatabaseIntegrityError
 
@@ -340,6 +557,20 @@ def test_get_intralink_row_errors_if_multiple_links_between_pair(open_db, pick_p
 
 
 def test_get_intralink_rows_primary_secondary_filters(open_db, pick_payload):
+    """
+    Build three directed links and check primary and secondary filters return the expected endpoint sets and combined count.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_intralink_and_trees.py::test_get_intralink_rows_primary_secondary_filters
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param pick_payload: Fixture callable selecting a Unicode corpus payload by index.
+    :return: None; failed expectations raise AssertionError.
+    """
     t = _pick_intralink_target(open_db)
     link_type = _pick_link_type(open_db, t.table)
 
@@ -363,6 +594,20 @@ def test_get_intralink_rows_primary_secondary_filters(open_db, pick_payload):
 
 
 def test_get_intralink_rows_type_filter(open_db, pick_payload):
+    """
+    Check a requested type yields a nonempty result whose labels all match after normalization.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_intralink_and_trees.py::test_get_intralink_rows_type_filter
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param pick_payload: Fixture callable selecting a Unicode corpus payload by index.
+    :return: None; failed expectations raise AssertionError.
+    """
     t = _pick_intralink_target(open_db)
     a = _make_row(open_db, t.table, pick_payload(30))
     b = _make_row(open_db, t.table, pick_payload(31))
@@ -381,6 +626,20 @@ def test_get_intralink_rows_type_filter(open_db, pick_payload):
 
 
 def test_get_intralinked_rows_argument_validation(open_db, pick_payload):
+    """
+    Check specifying both endpoint Rows or neither endpoint raises InputIntegrityError.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_intralink_and_trees.py::test_get_intralinked_rows_argument_validation
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param pick_payload: Fixture callable selecting a Unicode corpus payload by index.
+    :return: None; failed expectations raise AssertionError.
+    """
     from LiuXin_alpha.errors import InputIntegrityError
 
     t = _pick_intralink_target(open_db)
@@ -395,7 +654,20 @@ def test_get_intralinked_rows_argument_validation(open_db, pick_payload):
 
 @pytest.mark.xfail(reason="Bug: get_intralinked_rows returns link rows, not intralinked rows")
 def test_get_intralinked_rows_primary_returns_secondary_rows(open_db, pick_payload):
-    """Spec intent: when primary_row is set, return the secondary rows linked from it."""
+    """
+    Express the expected secondary-table Row and ID set under the existing linked-row xfail marker.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_intralink_and_trees.py::test_get_intralinked_rows_primary_returns_secondary_rows
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param pick_payload: Fixture callable selecting a Unicode corpus payload by index.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     t = _pick_intralink_target(open_db)
     a = _make_row(open_db, t.table, pick_payload(50))
@@ -409,6 +681,20 @@ def test_get_intralinked_rows_primary_returns_secondary_rows(open_db, pick_paylo
 
 
 def test_unlinked_intralink_pair_deletes_link(open_db, pick_payload):
+    """
+    Create one self-link, unlink the pair, and check it is absent.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_intralink_and_trees.py::test_unlinked_intralink_pair_deletes_link
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param pick_payload: Fixture callable selecting a Unicode corpus payload by index.
+    :return: None; failed expectations raise AssertionError.
+    """
     t = _pick_intralink_target(open_db)
     a = _make_row(open_db, t.table, pick_payload(60))
     b = _make_row(open_db, t.table, pick_payload(61))
@@ -421,6 +707,20 @@ def test_unlinked_intralink_pair_deletes_link(open_db, pick_payload):
 
 
 def test_unlinked_intralink_by_primary_deletes_all(open_db, pick_payload):
+    """
+    Create two links from one primary and check primary-only unlink removes both.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_intralink_and_trees.py::test_unlinked_intralink_by_primary_deletes_all
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param pick_payload: Fixture callable selecting a Unicode corpus payload by index.
+    :return: None; failed expectations raise AssertionError.
+    """
     t = _pick_intralink_target(open_db)
     a = _make_row(open_db, t.table, pick_payload(70))
     b = _make_row(open_db, t.table, pick_payload(71))
@@ -437,6 +737,20 @@ def test_unlinked_intralink_by_primary_deletes_all(open_db, pick_payload):
 
 @pytest.mark.xfail(reason="Bug: unlinked_intralink uses primary_row.table even when primary_row is None")
 def test_unlinked_intralink_by_secondary_deletes_all(open_db, pick_payload):
+    """
+    Express removal of both links into one secondary under the existing secondary-only unlink xfail marker.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_intralink_and_trees.py::test_unlinked_intralink_by_secondary_deletes_all
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param pick_payload: Fixture callable selecting a Unicode corpus payload by index.
+    :return: None; failed expectations raise AssertionError.
+    """
     t = _pick_intralink_target(open_db)
     a = _make_row(open_db, t.table, pick_payload(80))
     b = _make_row(open_db, t.table, pick_payload(81))
@@ -457,6 +771,19 @@ def test_unlinked_intralink_by_secondary_deletes_all(open_db, pick_payload):
 
 
 def test_get_parent_column_returns_false_on_non_tree_table(open_db):
+    """
+    Find a non-tree table and check its parent lookup is exactly False; skip if discovery finds none.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_intralink_and_trees.py::test_get_parent_column_returns_false_on_non_tree_table
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     wrapper = open_db.driver_wrapper
     for table in sorted(wrapper.get_tables_and_columns().keys()):
         if table.startswith("sqlite_"):
@@ -474,6 +801,21 @@ def test_get_parent_column_returns_false_on_non_tree_table(open_db):
 
 @pytest.mark.parametrize("payload_ix", [0, 6, 12])
 def test_tree_root_children_and_linear_list(open_db, pick_payload, payload_ix: int):
+    """
+    Build a three-row parent chain and check child sets, root discovery, and the exact root-to-leaf linear ID order.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_intralink_and_trees.py::test_tree_root_children_and_linear_list
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param pick_payload: Fixture callable selecting a Unicode corpus payload by index.
+    :param payload_ix: Corpus index supplied by pytest parametrization.
+    :return: None; failed expectations raise AssertionError.
+    """
     table, parent_col = _pick_tree_table(open_db)
 
     root = _make_row(open_db, table, pick_payload(payload_ix), parent_col=parent_col, parent_id=None)
@@ -497,6 +839,20 @@ def test_tree_root_children_and_linear_list(open_db, pick_payload, payload_ix: i
 
 
 def test_tree_linear_list_root_is_trivial(open_db, pick_payload):
+    """
+    Check a single root yields a one-element linear list containing its own ID.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_intralink_and_trees.py::test_tree_linear_list_root_is_trivial
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param pick_payload: Fixture callable selecting a Unicode corpus payload by index.
+    :return: None; failed expectations raise AssertionError.
+    """
     table, parent_col = _pick_tree_table(open_db)
     root = _make_row(open_db, table, pick_payload(90), parent_col=parent_col, parent_id=None)
     chain = open_db.get_linear_row_list(root)

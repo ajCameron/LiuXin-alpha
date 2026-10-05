@@ -1,8 +1,13 @@
 """
-Cover download coordinator for metadata web-source plugins.
+Coordinate concurrent cover-source plugins and normalize their successful image results.
 
-This module fans out cover requests to configured cover-capable plugins and
-returns validated cover images.
+The module keeps network, parsing, caching, cancellation and result-order behavior
+explicit for callers.
+
+Example:
+    Exercise covers with the owning regression module::
+
+        python -m pytest -q tests/metadata/web_sources/test_web_sources_covers.py
 """
 
 from __future__ import annotations
@@ -33,6 +38,18 @@ __docformat__ = "restructuredtext en"
 
 
 def _iter_cover_plugins():
+    """
+    Yield cover plugins in deterministic source order.
+
+    Example:
+        Exercise  iter cover plugins with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_covers.py
+
+
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     try:
         from LiuXin_alpha.customize.ui import metadata_plugins
     except Exception as err:
@@ -46,6 +63,19 @@ def _iter_cover_plugins():
 
 
 def _as_bytes(data: Any) -> bytes:
+    """
+    Perform the covers as bytes operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  as bytes with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_covers.py
+
+
+    :param data: Bytes, mapping or serialized cache data consumed by the operation.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     if isinstance(data, bytes):
         return data
     if isinstance(data, bytearray):
@@ -56,6 +86,14 @@ def _as_bytes(data: Any) -> bytes:
 
 
 class Worker(Thread):
+    """
+    Run one provider operation in a daemon thread and isolate provider failures.
+
+    Example:
+        Exercise Worker with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_covers.py
+    """
     def __init__(
         self,
         plugin,
@@ -67,6 +105,26 @@ class Worker(Thread):
         result_queue: Queue,
         get_best_cover: bool = False,
     ):
+        """
+        Initialize covers state while preserving shared source configuration and caches.
+
+        Example:
+            Exercise Worker.  init   with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_covers.py
+
+
+        :param plugin: Metadata or cover source plugin run by the worker.
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param title: Book title used to construct or rank the provider query.
+        :param authors: Author names used to construct or rank the provider query.
+        :param identifiers: Metadata identifier mapping used for direct lookup and cache
+            resolution.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :param result_queue: Queue receiving normalized metadata or cover results.
+        :param get_best_cover: Stop after the best usable cover when true.
+        :return: None.
+        """
         Thread.__init__(self, daemon=True)
         self.plugin = plugin
         self.abort = abort
@@ -81,6 +139,17 @@ class Worker(Thread):
         self.time_spent = None
 
     def run(self):
+        """
+        Perform the covers run operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise Worker.run with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_covers.py
+
+
+        :return: None.
+        """
         start_time = time.time()
         if not self.abort.is_set():
             try:
@@ -102,10 +171,35 @@ class Worker(Thread):
 
 
 def is_worker_alive(workers) -> bool:
+    """
+    Perform the covers is worker alive operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise is worker alive with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_covers.py
+
+
+    :param workers: Provider worker threads to inspect.
+    :return: True when the described condition is satisfied; otherwise False.
+    """
     return any(worker.is_alive() for worker in workers)
 
 
 def process_result(log, result):
+    """
+    Perform the covers process result operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise process result with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_covers.py
+
+
+    :param log: Logger receiving structured provider diagnostics.
+    :param result: Provider result tuple to validate and normalize.
+    :return: None.
+    """
     plugin, raw_data = result
     try:
         data = _as_bytes(raw_data)
@@ -140,7 +234,22 @@ def run_download(
     """
     Run asynchronous cover download and put results into `results`.
 
-    Each result is `(plugin, width, height, fmt, bytes)`.
+    Example:
+        Exercise run download with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_covers.py
+
+
+    :param log: Logger receiving structured provider diagnostics.
+    :param results: Queue receiving coordinated provider results.
+    :param abort: Event-like cancellation signal checked before and during network work.
+    :param title: Book title used to construct or rank the provider query.
+    :param authors: Author names used to construct or rank the provider query.
+    :param identifiers: Metadata identifier mapping used for direct lookup and cache
+        resolution.
+    :param timeout: Maximum duration in seconds for the network or worker operation.
+    :param get_best_cover: Stop after the best usable cover when true.
+    :return: None.
     """
     if title == _("Unknown"):
         title = None
@@ -243,7 +352,19 @@ def download_cover(log, title=None, authors=None, identifiers={}, timeout: float
     """
     Synchronous cover download.
 
-    Returns `(plugin, width, height, fmt, data)` or `None`.
+    Example:
+        Exercise download cover with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_covers.py
+
+
+    :param log: Logger receiving structured provider diagnostics.
+    :param title: Book title used to construct or rank the provider query.
+    :param authors: Author names used to construct or rank the provider query.
+    :param identifiers: Metadata identifier mapping used for direct lookup and cache
+        resolution.
+    :param timeout: Maximum duration in seconds for the network or worker operation.
+    :return: None.
     """
     result_queue = Queue()
     abort = Event()
@@ -268,6 +389,19 @@ def download_cover(log, title=None, authors=None, identifiers={}, timeout: float
     cover_priorities = msprefs.get("cover_priorities", {})
 
     def keygen(result):
+        """
+        Perform the covers keygen operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise download cover.keygen with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_covers.py
+
+
+        :param result: Provider result tuple to validate and normalize.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         plugin, width, height, _fmt, _data = result
         area = max(1, int(width) * int(height))
         return (cover_priorities.get(plugin.name, 1), 1 / area)

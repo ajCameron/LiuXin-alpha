@@ -1,14 +1,17 @@
-"""Calibre-compatibility shims for LiuXin.
+"""
+Expose the supported calibre compat compatibility surface.
 
-This package hosts import-layer and lightweight compatibility objects so that
-third-party calibre plugins can run inside LiuXin without the calibre runtime.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
 
-Entry point: :func:`install_calibre_shims`.
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
 """
 
 from __future__ import annotations
 
-from .install import install_calibre_shims
 from .import_diagnostics import (
     calibre_import_failure_logging,
     install_calibre_import_failure_logging,
@@ -19,7 +22,6 @@ from .import_diagnostics import (
 )
 
 __all__ = [
-    "install_calibre_shims",
     "calibre_import_failure_logging",
     "install_calibre_import_failure_logging",
     "uninstall_calibre_import_failure_logging",

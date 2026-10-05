@@ -1,9 +1,13 @@
 """
-Local ISFDB metadata source.
+Identify books from a read-only LiuXin ISFDB import database and project WEMI rows into source metadata.
 
-This source reads a LiuXin ISFDB import database instead of scraping the live
-ISFDB site. The imported database is more stable, faster, and already preserves
-the WEMI-oriented fields that are most useful for speculative-fiction metadata.
+The module makes ordering, fallback, ownership and optional-integration behavior
+explicit for callers.
+
+Example:
+    Exercise isfdb with the owning regression module::
+
+        python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
 """
 
 from __future__ import annotations
@@ -72,6 +76,14 @@ _TAG_LIMIT = 20
 
 @dataclass(frozen=True)
 class _Candidate:
+    """
+    Carry one ranked ISFDB work candidate and its optional manifestation and item context.
+
+    Example:
+        Exercise  Candidate with the owning regression module::
+
+            python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+    """
     work_id: int
     manifestation_id: int | None = None
     item_id: int | None = None
@@ -79,6 +91,18 @@ class _Candidate:
 
 
 def _as_text(raw) -> str:
+    """
+    Convert optional or hostile scalar input to text without propagating conversion failures.
+
+    Example:
+        Exercise  as text with the owning regression module::
+
+            python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+    :param raw: Raw scalar, bytes or markup value to parse or normalize.
+    :return: The normalized row, metadata object or value described above.
+    """
     if raw is None:
         return ""
     if isinstance(raw, bytes):
@@ -90,6 +114,18 @@ def _as_text(raw) -> str:
 
 
 def _first(raw):
+    """
+    Return the first usable scalar from a mapping or iterable while preserving scalar strings and bytes.
+
+    Example:
+        Exercise  first with the owning regression module::
+
+            python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+    :param raw: Raw scalar, bytes or markup value to parse or normalize.
+    :return: The normalized row, metadata object or value described above.
+    """
     if raw is None:
         return None
     if isinstance(raw, (str, bytes)):
@@ -106,6 +142,18 @@ def _first(raw):
 
 
 def _dedupe_text(values: Iterable) -> list[str]:
+    """
+    Normalize non-empty text values and remove duplicates in first-seen order.
+
+    Example:
+        Exercise  dedupe text with the owning regression module::
+
+            python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+    :param values: Input values to normalize and deduplicate.
+    :return: The normalized row, metadata object or value described above.
+    """
     seen: OrderedDict[str, bool] = OrderedDict()
     for raw in values:
         text = _as_text(raw).strip()
@@ -115,6 +163,18 @@ def _dedupe_text(values: Iterable) -> list[str]:
 
 
 def _safe_int(raw) -> int | None:
+    """
+    Convert a scalar to an integer or return None for absent and invalid input.
+
+    Example:
+        Exercise  safe int with the owning regression module::
+
+            python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+    :param raw: Raw scalar, bytes or markup value to parse or normalize.
+    :return: The normalized row, metadata object or value described above.
+    """
     if isinstance(raw, int):
         return raw
     text = _as_text(raw).strip()
@@ -127,12 +187,40 @@ def _safe_int(raw) -> int | None:
 
 
 def _first_identifier_value(identifiers, key):
+    """
+    Return the first value stored for an identifier key in a mapping.
+
+    Example:
+        Exercise  first identifier value with the owning regression module::
+
+            python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+    :param identifiers: Metadata identifier mapping used for source selection and
+        lookup.
+    :param key: Identifier or row key to retrieve.
+    :return: The normalized row, metadata object or value described above.
+    """
     if not isinstance(identifiers, Mapping):
         return None
     return _first(identifiers.get(key))
 
 
 def _normalize_source_identifier(raw, *, default_kind: str | None = None) -> tuple[str, str] | None:
+    """
+    Parse ISFDB URLs, scratch ids and aliases into a normalized title/pub identifier pair.
+
+    Example:
+        Exercise  normalize source identifier with the owning regression module::
+
+            python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+    :param raw: Raw scalar, bytes or markup value to parse or normalize.
+    :param default_kind: Identifier kind assumed for an otherwise unqualified numeric
+        id.
+    :return: The normalized row, metadata object or value described above.
+    """
     text = _as_text(raw).strip()
     if not text:
         return None
@@ -161,6 +249,19 @@ def _normalize_source_identifier(raw, *, default_kind: str | None = None) -> tup
 
 
 def _isfdb_id_from_identifiers(identifiers) -> tuple[str, str] | None:
+    """
+    Select a normalized ISFDB publication or title id from supported identifier aliases.
+
+    Example:
+        Exercise  isfdb id from identifiers with the owning regression module::
+
+            python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+    :param identifiers: Metadata identifier mapping used for source selection and
+        lookup.
+    :return: The normalized row, metadata object or value described above.
+    """
     if not isinstance(identifiers, Mapping):
         return None
     for key in _PUB_ID_KEYS:
@@ -179,6 +280,19 @@ def _isfdb_id_from_identifiers(identifiers) -> tuple[str, str] | None:
 
 
 def _safe_isbn(identifiers) -> str | None:
+    """
+    Return the first valid ISBN from a source identifier mapping.
+
+    Example:
+        Exercise  safe isbn with the owning regression module::
+
+            python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+    :param identifiers: Metadata identifier mapping used for source selection and
+        lookup.
+    :return: The normalized row, metadata object or value described above.
+    """
     if not isinstance(identifiers, Mapping):
         return None
     for key in _ISBN_KEYS:
@@ -195,6 +309,19 @@ def _safe_isbn(identifiers) -> str | None:
 
 
 def _safe_asin(identifiers) -> str | None:
+    """
+    Return a normalized ten-character ASIN from supported identifier aliases.
+
+    Example:
+        Exercise  safe asin with the owning regression module::
+
+            python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+    :param identifiers: Metadata identifier mapping used for source selection and
+        lookup.
+    :return: The normalized row, metadata object or value described above.
+    """
     if not isinstance(identifiers, Mapping):
         return None
     for key in _ASIN_KEYS:
@@ -206,6 +333,18 @@ def _safe_asin(identifiers) -> str | None:
 
 
 def _isbn10_to_isbn13(isbn: str) -> str | None:
+    """
+    Convert a valid ISBN-10 to its ISBN-13 representation.
+
+    Example:
+        Exercise  isbn10 to isbn13 with the owning regression module::
+
+            python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+    :param isbn: Validated ISBN to convert or expand for lookup.
+    :return: The normalized row, metadata object or value described above.
+    """
     isbn10 = check_isbn(isbn)
     if not isbn10 or len(isbn10) != 10:
         return None
@@ -218,6 +357,18 @@ def _isbn10_to_isbn13(isbn: str) -> str | None:
 
 
 def _isbn13_to_isbn10(isbn: str) -> str | None:
+    """
+    Convert a valid 978-prefixed ISBN-13 to its ISBN-10 representation.
+
+    Example:
+        Exercise  isbn13 to isbn10 with the owning regression module::
+
+            python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+    :param isbn: Validated ISBN to convert or expand for lookup.
+    :return: The normalized row, metadata object or value described above.
+    """
     isbn13 = check_isbn(isbn)
     if not isbn13 or len(isbn13) != 13 or not isbn13.startswith("978"):
         return None
@@ -231,6 +382,18 @@ def _isbn13_to_isbn10(isbn: str) -> str | None:
 
 
 def _isbn_query_values(isbn: str) -> list[str]:
+    """
+    Return the supplied ISBN and its valid alternate-length form for database lookup.
+
+    Example:
+        Exercise  isbn query values with the owning regression module::
+
+            python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+    :param isbn: Validated ISBN to convert or expand for lookup.
+    :return: The normalized row, metadata object or value described above.
+    """
     values = [isbn]
     converted = _isbn10_to_isbn13(isbn) if len(isbn) == 10 else _isbn13_to_isbn10(isbn)
     if converted and converted not in values:
@@ -239,6 +402,18 @@ def _isbn_query_values(isbn: str) -> list[str]:
 
 
 def _id_from_isfdb_url(raw) -> tuple[str, str] | None:
+    """
+    Extract a title or publication identifier from a recognized ISFDB URL.
+
+    Example:
+        Exercise  id from isfdb url with the owning regression module::
+
+            python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+    :param raw: Raw scalar, bytes or markup value to parse or normalize.
+    :return: The normalized row, metadata object or value described above.
+    """
     try:
         parsed = urlparse(_as_text(raw))
     except Exception:
@@ -268,6 +443,19 @@ def _id_from_isfdb_url(raw) -> tuple[str, str] | None:
 
 
 def _scratch_id(raw, kind: str) -> str | None:
+    """
+    Extract the requested ISFDB id kind from LiuXin scratch metadata.
+
+    Example:
+        Exercise  scratch id with the owning regression module::
+
+            python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+    :param raw: Raw scalar, bytes or markup value to parse or normalize.
+    :param kind: Explicit target metadata shape to hydrate.
+    :return: The normalized row, metadata object or value described above.
+    """
     text = _as_text(raw)
     for match in _SCRATCH_ID_RE.finditer(text):
         if match.group("kind").lower() == kind:
@@ -276,6 +464,20 @@ def _scratch_id(raw, kind: str) -> str | None:
 
 
 def _normalize_date_text(raw, fallback_year=None) -> str | None:
+    """
+    Normalize partial ISFDB dates while retaining meaningful year and month precision.
+
+    Example:
+        Exercise  normalize date text with the owning regression module::
+
+            python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+    :param raw: Raw scalar, bytes or markup value to parse or normalize.
+    :param fallback_year: Year used only when the primary date value lacks usable
+        content.
+    :return: The normalized row, metadata object or value described above.
+    """
     text = _as_text(raw).strip()
     if not text and fallback_year:
         text = _as_text(fallback_year).strip()
@@ -299,6 +501,20 @@ def _normalize_date_text(raw, fallback_year=None) -> str | None:
 
 
 def _parse_isfdb_date(raw, fallback_year=None):
+    """
+    Parse a normalized ISFDB date or return None for unknown and invalid values.
+
+    Example:
+        Exercise  parse isfdb date with the owning regression module::
+
+            python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+    :param raw: Raw scalar, bytes or markup value to parse or normalize.
+    :param fallback_year: Year used only when the primary date value lacks usable
+        content.
+    :return: The normalized row, metadata object or value described above.
+    """
     text = _normalize_date_text(raw, fallback_year=fallback_year)
     if not text:
         return None
@@ -309,6 +525,17 @@ def _parse_isfdb_date(raw, fallback_year=None):
 
 
 def _repo_root() -> Path:
+    """
+    Locate the LiuXin checkout root used to resolve relative local-source paths.
+
+    Example:
+        Exercise  repo root with the owning regression module::
+
+            python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+    :return: The normalized row, metadata object or value described above.
+    """
     for parent in Path(__file__).resolve().parents:
         if (parent / "src" / "LiuXin_alpha").is_dir() and (parent / "tests").is_dir():
             return parent
@@ -316,6 +543,19 @@ def _repo_root() -> Path:
 
 
 def _existing_file(raw, *, repo_root: Path | None = None) -> Path | None:
+    """
+    Resolve a configured path against the checkout and return it only when it is a file.
+
+    Example:
+        Exercise  existing file with the owning regression module::
+
+            python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+    :param raw: Raw scalar, bytes or markup value to parse or normalize.
+    :param repo_root: Checkout root used to resolve a relative configured path.
+    :return: The normalized row, metadata object or value described above.
+    """
     text = _as_text(raw).strip()
     if not text:
         return None
@@ -327,6 +567,18 @@ def _existing_file(raw, *, repo_root: Path | None = None) -> Path | None:
 
 
 def _candidate_data_roots(explicit: str | None = None) -> list[Path]:
+    """
+    Return existing configured and conventional data roots without duplicates.
+
+    Example:
+        Exercise  candidate data roots with the owning regression module::
+
+            python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+    :param explicit: Optional data root placed first in candidate ordering.
+    :return: The normalized row, metadata object or value described above.
+    """
     root = _repo_root()
     raw_roots = [
         explicit,
@@ -353,6 +605,20 @@ def _candidate_data_roots(explicit: str | None = None) -> list[Path]:
 
 
 def _bundle_candidates(data_root: Path, bundle_name: str | None = None) -> list[Path]:
+    """
+    Return deterministic ISFDB database candidates below one data artifact root.
+
+    Example:
+        Exercise  bundle candidates with the owning regression module::
+
+            python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+    :param data_root: Configured artifact root containing ISFDB database bundles.
+    :param bundle_name: Optional artifact bundle name used to narrow database
+        candidates.
+    :return: The normalized row, metadata object or value described above.
+    """
     test_databases = data_root / "test_databases"
     bundle = _as_text(bundle_name).strip()
     if bundle:
@@ -377,6 +643,21 @@ def resolve_isfdb_database_path(
     data_root: str | None = None,
     bundle_name: str | None = None,
 ) -> Path | None:
+    """
+    Resolve an explicit or environment database first, then choose the newest matching artifact bundle.
+
+    Example:
+        Exercise resolve isfdb database path with the owning regression module::
+
+            python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+    :param database_path: Explicit ISFDB database path, preferred over discovery.
+    :param data_root: Configured artifact root containing ISFDB database bundles.
+    :param bundle_name: Optional artifact bundle name used to narrow database
+        candidates.
+    :return: The normalized row, metadata object or value described above.
+    """
     root = _repo_root()
     for raw in (database_path, os.environ.get("LIUXIN_ISFDB_TEST_DB"), os.environ.get("LIUXIN_ISFDB_DB")):
         if _as_text(raw).strip():
@@ -393,6 +674,20 @@ def resolve_isfdb_database_path(
 
 
 def _row_get(row, key: str, default=None):
+    """
+    Read a row field and return the supplied default when the row or key is unavailable.
+
+    Example:
+        Exercise  row get with the owning regression module::
+
+            python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+    :param row: Database row or row-shaped value to inspect.
+    :param key: Identifier or row key to retrieve.
+    :param default: Value supplied for default.
+    :return: The normalized row, metadata object or value described above.
+    """
     if row is None:
         return default
     try:
@@ -402,6 +697,14 @@ def _row_get(row, key: str, default=None):
 
 
 class ISFDB(Source):
+    """
+    Read metadata from a configured LiuXin ISFDB import database without live scraping.
+
+    Example:
+        Exercise ISFDB with the owning regression module::
+
+            python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+    """
     name = "ISFDB"
     version = (1, 0, 0)
     description = _("Downloads metadata from a local LiuXin ISFDB import database")
@@ -456,6 +759,23 @@ class ISFDB(Source):
     PUB_URL = "https://www.isfdb.org/cgi-bin/pl.cgi?%s"
 
     def __init__(self, *args, database_path=None, data_root=None, bundle_name=None, **kwargs):
+        """
+        Capture explicit database and artifact-root overrides while initializing shared source state.
+
+        Example:
+            Exercise ISFDB.  init   with the owning regression module::
+
+                python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+        :param args: Positional arguments forwarded to the shared source initializer.
+        :param database_path: Explicit ISFDB database path, preferred over discovery.
+        :param data_root: Configured artifact root containing ISFDB database bundles.
+        :param bundle_name: Optional artifact bundle name used to narrow database
+            candidates.
+        :param kwargs: Keyword arguments forwarded to the shared source initializer.
+        :return: None.
+        """
         super().__init__(*args, **kwargs)
         self._explicit_database_path = database_path
         self._explicit_data_root = data_root
@@ -463,6 +783,17 @@ class ISFDB(Source):
 
     # Configuration {{{
     def database_path(self) -> Path | None:
+        """
+        Resolve the currently configured ISFDB import database path.
+
+        Example:
+            Exercise ISFDB.database path with the owning regression module::
+
+                python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+        :return: The normalized row, metadata object or value described above.
+        """
         return resolve_isfdb_database_path(
             database_path=self._explicit_database_path or self.prefs.get("database_path"),
             data_root=self._explicit_data_root or self.prefs.get("data_root"),
@@ -470,9 +801,31 @@ class ISFDB(Source):
         )
 
     def is_configured(self):
+        """
+        Return whether a readable ISFDB database can currently be resolved.
+
+        Example:
+            Exercise ISFDB.is configured with the owning regression module::
+
+                python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+        :return: True when the described condition is satisfied; otherwise False.
+        """
         return self.database_path() is not None
 
     def _connect(self) -> sqlite3.Connection:
+        """
+        Open the configured SQLite database in query-only mode with named rows.
+
+        Example:
+            Exercise ISFDB. connect with the owning regression module::
+
+                python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+        :return: The normalized row, metadata object or value described above.
+        """
         path = self.database_path()
         if path is None:
             raise FileNotFoundError(
@@ -485,6 +838,18 @@ class ISFDB(Source):
 
     @staticmethod
     def _table_names(conn: sqlite3.Connection) -> set[str]:
+        """
+        Return the SQLite table names visible on one ISFDB connection.
+
+        Example:
+            Exercise ISFDB. table names with the owning regression module::
+
+                python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+        :param conn: Open query-only SQLite connection.
+        :return: The normalized row, metadata object or value described above.
+        """
         return {
             _as_text(row[0])
             for row in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
@@ -492,12 +857,37 @@ class ISFDB(Source):
 
     @staticmethod
     def _schema_is_supported(conn: sqlite3.Connection) -> bool:
+        """
+        Return whether the database contains every table required by this source.
+
+        Example:
+            Exercise ISFDB. schema is supported with the owning regression module::
+
+                python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+        :param conn: Open query-only SQLite connection.
+        :return: True when every required LiuXin import table exists; otherwise False.
+        """
         return _REQUIRED_TABLES.issubset(ISFDB._table_names(conn))
 
     # }}}
 
     # URL/query helpers {{{
     def get_book_url(self, identifiers):
+        """
+        Return a canonical ISFDB title or publication URL tuple for known identifiers.
+
+        Example:
+            Exercise ISFDB.get book url with the owning regression module::
+
+                python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+        :param identifiers: Metadata identifier mapping used for source selection and
+            lookup.
+        :return: The normalized row, metadata object or value described above.
+        """
         parsed = _isfdb_id_from_identifiers(identifiers or {})
         if parsed is None:
             return None
@@ -507,6 +897,18 @@ class ISFDB(Source):
         return ("isfdb_title", value, self.TITLE_URL % quote(value, safe=""))
 
     def id_from_url(self, url):
+        """
+        Extract a normalized ISFDB identifier tuple from a recognized title or publication URL.
+
+        Example:
+            Exercise ISFDB.id from url with the owning regression module::
+
+                python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+        :param url: Source URL to parse or request.
+        :return: The normalized row, metadata object or value described above.
+        """
         parsed = _id_from_isfdb_url(url)
         if parsed is None:
             return None
@@ -514,6 +916,21 @@ class ISFDB(Source):
         return ("isfdb_pub" if kind == "pub" else "isfdb_title", value)
 
     def create_query(self, title=None, authors=None, identifiers=None):
+        """
+        Choose source-id, ISBN, ASIN or tokenized text lookup in strict preference order.
+
+        Example:
+            Exercise ISFDB.create query with the owning regression module::
+
+                python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+        :param title: Book title used for lookup, ranking or result comparison.
+        :param authors: Author values used for lookup, ranking or result comparison.
+        :param identifiers: Metadata identifier mapping used for source selection and
+            lookup.
+        :return: The normalized row, metadata object or value described above.
+        """
         identifiers = identifiers or {}
         source_id = _isfdb_id_from_identifiers(identifiers)
         if source_id is not None:
@@ -534,6 +951,20 @@ class ISFDB(Source):
 
     # Candidate discovery {{{
     def _candidates_for_source_id(self, conn: sqlite3.Connection, kind: str, value: str) -> list[_Candidate]:
+        """
+        Return ranked work candidates for a normalized ISFDB title or publication id.
+
+        Example:
+            Exercise ISFDB. candidates for source id with the owning regression module::
+
+                python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+        :param conn: Open query-only SQLite connection.
+        :param kind: Explicit target metadata shape to hydrate.
+        :param value: Input value or identifier used by the operation.
+        :return: The normalized row, metadata object or value described above.
+        """
         if kind == "pub":
             return self._candidates_for_publication_id(conn, value)
         rows = conn.execute(
@@ -549,6 +980,19 @@ class ISFDB(Source):
         return [_Candidate(work_id=int(row["work_id"]), relevance=index) for index, row in enumerate(rows)]
 
     def _candidates_for_publication_id(self, conn: sqlite3.Connection, pub_id: str) -> list[_Candidate]:
+        """
+        Resolve an ISFDB publication id to ranked work, manifestation and item candidates.
+
+        Example:
+            Exercise ISFDB. candidates for publication id with the owning regression module::
+
+                python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+        :param conn: Open query-only SQLite connection.
+        :param pub_id: ISFDB publication identifier to resolve.
+        :return: The normalized row, metadata object or value described above.
+        """
         rows = conn.execute(
             """
             SELECT DISTINCT
@@ -595,6 +1039,20 @@ class ISFDB(Source):
         scheme: str,
         value: str,
     ) -> list[_Candidate]:
+        """
+        Resolve an ISBN or ASIN scheme/value pair to ranked WEMI candidates.
+
+        Example:
+            Exercise ISFDB. candidates for identifier with the owning regression module::
+
+                python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+        :param conn: Open query-only SQLite connection.
+        :param scheme: Identifier scheme stored in the imported database.
+        :param value: Input value or identifier used by the operation.
+        :return: The normalized row, metadata object or value described above.
+        """
         if scheme.startswith("isbn"):
             schemes = ("isbn", "isbn10", "isbn13", "isbn_10", "isbn_13")
             values = _isbn_query_values(value)
@@ -675,6 +1133,20 @@ class ISFDB(Source):
         title=None,
         authors=None,
     ) -> list[_Candidate]:
+        """
+        Search work titles and linked agent names for a bounded ranked candidate set.
+
+        Example:
+            Exercise ISFDB. candidates for text with the owning regression module::
+
+                python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+        :param conn: Open query-only SQLite connection.
+        :param title: Book title used for lookup, ranking or result comparison.
+        :param authors: Author values used for lookup, ranking or result comparison.
+        :return: The normalized row, metadata object or value described above.
+        """
         title_tokens = list(self.get_title_tokens(title, strip_subtitle=True) or [])[:6]
         author_tokens = list(self.get_author_tokens(authors, only_first_author=True) or [])[:3]
         clauses = []
@@ -724,16 +1196,71 @@ class ISFDB(Source):
     # Metadata extraction {{{
     @staticmethod
     def _fetchone(conn: sqlite3.Connection, sql: str, params=()):
+        """
+        Execute a read-only query and return its first row.
+
+        Example:
+            Exercise ISFDB. fetchone with the owning regression module::
+
+                python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+        :param conn: Open query-only SQLite connection.
+        :param sql: Read-only SQL statement executed against the local database.
+        :param params: Bound SQL query parameters.
+        :return: The normalized row, metadata object or value described above.
+        """
         return conn.execute(sql, params).fetchone()
 
     @staticmethod
     def _fetchall(conn: sqlite3.Connection, sql: str, params=()):
+        """
+        Execute a read-only query and return all result rows.
+
+        Example:
+            Exercise ISFDB. fetchall with the owning regression module::
+
+                python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+        :param conn: Open query-only SQLite connection.
+        :param sql: Read-only SQL statement executed against the local database.
+        :param params: Bound SQL query parameters.
+        :return: The normalized row, metadata object or value described above.
+        """
         return conn.execute(sql, params).fetchall()
 
     def _work_row(self, conn: sqlite3.Connection, work_id: int):
+        """
+        Return the work row for one ISFDB-import work id.
+
+        Example:
+            Exercise ISFDB. work row with the owning regression module::
+
+                python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+        :param conn: Open query-only SQLite connection.
+        :param work_id: Work identifier used to load identity or metadata.
+        :return: The normalized row, metadata object or value described above.
+        """
         return self._fetchone(conn, "SELECT * FROM works WHERE work_id = ?", (work_id,))
 
     def _manifestation_for_candidate(self, conn: sqlite3.Connection, candidate: _Candidate, work_title: str):
+        """
+        Choose the candidate manifestation and best matching item context for a work title.
+
+        Example:
+            Exercise ISFDB. manifestation for candidate with the owning regression module::
+
+                python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+        :param conn: Open query-only SQLite connection.
+        :param candidate: Ranked ISFDB work candidate to project into metadata.
+        :param work_title: Normalized work title used to rank manifestation item context.
+        :return: The normalized row, metadata object or value described above.
+        """
         if candidate.manifestation_id is not None:
             return self._fetchone(
                 conn,
@@ -770,6 +1297,19 @@ class ISFDB(Source):
         )
 
     def _authors_for_work(self, conn: sqlite3.Connection, work_id: int) -> list[str]:
+        """
+        Return deduplicated credited agent names in link priority order.
+
+        Example:
+            Exercise ISFDB. authors for work with the owning regression module::
+
+                python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+        :param conn: Open query-only SQLite connection.
+        :param work_id: Work identifier used to load identity or metadata.
+        :return: The normalized row, metadata object or value described above.
+        """
         rows = self._fetchall(
             conn,
             """
@@ -786,6 +1326,19 @@ class ISFDB(Source):
         return _dedupe_text(row["agent_canonical_name"] for row in rows) or [_("Unknown")]
 
     def _publisher_for_manifestation(self, conn: sqlite3.Connection, manifestation_id: int | None) -> str | None:
+        """
+        Return the preferred publisher agent for one manifestation.
+
+        Example:
+            Exercise ISFDB. publisher for manifestation with the owning regression module::
+
+                python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+        :param conn: Open query-only SQLite connection.
+        :param manifestation_id: Manifestation identifier used to load identity or metadata.
+        :return: The normalized row, metadata object or value described above.
+        """
         if manifestation_id is None:
             return None
         row = self._fetchone(
@@ -807,6 +1360,19 @@ class ISFDB(Source):
         return _as_text(_row_get(row, "agent_canonical_name")).strip() or None
 
     def _language_for_work(self, conn: sqlite3.Connection, work_id: int) -> str | None:
+        """
+        Return the first canonical non-undetermined language linked to a work.
+
+        Example:
+            Exercise ISFDB. language for work with the owning regression module::
+
+                python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+        :param conn: Open query-only SQLite connection.
+        :param work_id: Work identifier used to load identity or metadata.
+        :return: The normalized row, metadata object or value described above.
+        """
         row = self._fetchone(
             conn,
             """
@@ -836,6 +1402,19 @@ class ISFDB(Source):
         return None
 
     def _series_for_work(self, conn: sqlite3.Connection, work_id: int) -> str | None:
+        """
+        Return the first non-standalone series linked to a work.
+
+        Example:
+            Exercise ISFDB. series for work with the owning regression module::
+
+                python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+        :param conn: Open query-only SQLite connection.
+        :param work_id: Work identifier used to load identity or metadata.
+        :return: The normalized row, metadata object or value described above.
+        """
         row = self._fetchone(
             conn,
             """
@@ -854,6 +1433,19 @@ class ISFDB(Source):
         return _as_text(_row_get(row, "series")).strip() or None
 
     def _tags_for_work(self, conn: sqlite3.Connection, work_id: int) -> list[str]:
+        """
+        Merge bounded genre and non-generated label values into stable tags.
+
+        Example:
+            Exercise ISFDB. tags for work with the owning regression module::
+
+                python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+        :param conn: Open query-only SQLite connection.
+        :param work_id: Work identifier used to load identity or metadata.
+        :return: The normalized row, metadata object or value described above.
+        """
         genres = self._fetchall(
             conn,
             """
@@ -887,6 +1479,19 @@ class ISFDB(Source):
         return tags[:_TAG_LIMIT]
 
     def _rating_for_work(self, conn: sqlite3.Connection, work_id: int) -> float | None:
+        """
+        Return the first valid zero-to-five work rating.
+
+        Example:
+            Exercise ISFDB. rating for work with the owning regression module::
+
+                python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+        :param conn: Open query-only SQLite connection.
+        :param work_id: Work identifier used to load identity or metadata.
+        :return: The normalized row, metadata object or value described above.
+        """
         row = self._fetchone(
             conn,
             """
@@ -907,6 +1512,21 @@ class ISFDB(Source):
         return rating if rating is not None and 0 < rating <= 5 else None
 
     def _comments_for_work(self, conn: sqlite3.Connection, work_id: int, manifestation_row) -> str | None:
+        """
+        Build escaped HTML comments from bounded synopsis, comment, note and manifestation text.
+
+        Example:
+            Exercise ISFDB. comments for work with the owning regression module::
+
+                python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+        :param conn: Open query-only SQLite connection.
+        :param work_id: Work identifier used to load identity or metadata.
+        :param manifestation_row: Selected manifestation/item row supplying publication
+            context.
+        :return: The normalized row, metadata object or value described above.
+        """
         parts: list[str] = []
         for sql in (
             """
@@ -955,6 +1575,21 @@ class ISFDB(Source):
         work_row,
         manifestation_row,
     ) -> tuple[dict[str, str], list[str]]:
+        """
+        Collect ISFDB, ISBN and ASIN identifiers from work, manifestation and item records.
+
+        Example:
+            Exercise ISFDB. identifiers for candidate with the owning regression module::
+
+                python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+        :param conn: Open query-only SQLite connection.
+        :param work_row: Selected work row supplying identity and title context.
+        :param manifestation_row: Selected manifestation/item row supplying publication
+            context.
+        :return: The normalized row, metadata object or value described above.
+        """
         identifiers: dict[str, str] = {}
         all_isbns: list[str] = []
 
@@ -1018,6 +1653,19 @@ class ISFDB(Source):
         return identifiers, sorted(all_isbns, key=lambda value: (len(value), value))
 
     def _metadata_for_candidate(self, conn: sqlite3.Connection, candidate: _Candidate):
+        """
+        Project a ranked WEMI candidate and its linked records into source metadata.
+
+        Example:
+            Exercise ISFDB. metadata for candidate with the owning regression module::
+
+                python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+        :param conn: Open query-only SQLite connection.
+        :param candidate: Ranked ISFDB work candidate to project into metadata.
+        :return: The normalized row, metadata object or value described above.
+        """
         work_row = self._work_row(conn, candidate.work_id)
         if work_row is None:
             return None
@@ -1069,6 +1717,19 @@ class ISFDB(Source):
         return self._postprocess_downloaded_metadata(mi, relevance=candidate.relevance)
 
     def _postprocess_downloaded_metadata(self, mi, relevance: int = 0):
+        """
+        Set result relevance, update identifier caches and apply shared cleanup.
+
+        Example:
+            Exercise ISFDB. postprocess downloaded metadata with the owning regression module::
+
+                python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+        :param mi: Metadata object supplying fields to clean, cache or write.
+        :param relevance: Zero-based source-result relevance assigned by candidate order.
+        :return: The normalized row, metadata object or value described above.
+        """
         if mi is None:
             return None
         mi.source_relevance = relevance
@@ -1093,6 +1754,25 @@ class ISFDB(Source):
         identifiers=None,
         timeout=30,
     ):
+        """
+        Resolve ordered local-database queries, deduplicate candidates and enqueue usable metadata results.
+
+        Example:
+            Exercise ISFDB.identify with the owning regression module::
+
+                python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+        :param log: Metadata-source logger or compatible logging callback target.
+        :param result_queue: Queue receiving parsed metadata or cover results.
+        :param abort: Event-like cancellation signal checked during source work and backoff.
+        :param title: Book title used for lookup, ranking or result comparison.
+        :param authors: Author values used for lookup, ranking or result comparison.
+        :param identifiers: Metadata identifier mapping used for source selection and
+            lookup.
+        :param timeout: Per-request timeout in seconds.
+        :return: None.
+        """
         del timeout
         identifiers = identifiers or {}
         if abort.is_set():

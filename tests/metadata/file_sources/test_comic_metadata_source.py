@@ -1,3 +1,14 @@
+"""
+Verify comic metadata extraction, precedence and malformed archive handling.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test comic metadata source through its owning regression module::
+
+        python -m pytest -q tests/metadata/file_sources/test_comic_metadata_source.py
+"""
 from __future__ import annotations
 
 import io
@@ -9,6 +20,19 @@ import pytest
 
 
 def _build_cbz_stream(comment: bytes = b"", members: dict[str, bytes] | None = None) -> io.BytesIO:
+    """
+    Perform the build cbz stream test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise build cbz stream through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_comic_metadata_source.py
+
+
+    :param comment: Value supplied for comment in the focused test operation.
+    :param members: Value supplied for members in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     if members is None:
         members = {"page-002.png": b"png bytes", "page-001.jpg": b"jpg bytes"}
     stream = io.BytesIO()
@@ -22,12 +46,34 @@ def _build_cbz_stream(comment: bytes = b"", members: dict[str, bytes] | None = N
 
 
 def test_comic_metadata_module_import_smoke() -> None:
+    """
+    Verify comic metadata module import smoke.
+
+    Example:
+        Exercise test comic metadata module import smoke through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_comic_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.comic as comic_md
 
     assert comic_md is not None
 
 
 def test_cbz_metadata_reads_comment_cover_and_preserves_cursor() -> None:
+    """
+    Verify cbz metadata reads comment cover and preserves cursor.
+
+    Example:
+        Exercise test cbz metadata reads comment cover and preserves cursor through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_comic_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.comic import get_metadata
 
     payload = {
@@ -53,6 +99,17 @@ def test_cbz_metadata_reads_comment_cover_and_preserves_cursor() -> None:
 
 
 def test_cbz_metadata_allows_valid_comic_without_comment() -> None:
+    """
+    Verify cbz metadata allows valid comic without comment.
+
+    Example:
+        Exercise test cbz metadata allows valid comic without comment through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_comic_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.comic import get_metadata
 
     mi = get_metadata(_build_cbz_stream(b"not-json"), ftype="cbz")
@@ -63,6 +120,17 @@ def test_cbz_metadata_allows_valid_comic_without_comment() -> None:
 
 
 def test_comic_metadata_rejects_empty_or_non_comic_cbz() -> None:
+    """
+    Verify comic metadata rejects empty or non comic cbz.
+
+    Example:
+        Exercise test comic metadata rejects empty or non comic cbz through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_comic_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.comic import ComicFormatError, get_metadata
 
     empty_zip = _build_cbz_stream(members={})
@@ -75,6 +143,17 @@ def test_comic_metadata_rejects_empty_or_non_comic_cbz() -> None:
 
 
 def test_comic_metadata_rejects_wrong_format_and_fallback_is_opt_in() -> None:
+    """
+    Verify comic metadata rejects wrong format and fallback remains opt in.
+
+    Example:
+        Exercise test comic metadata rejects wrong format and fallback is opt in through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_comic_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.comic import ComicFormatError, get_metadata
 
     stream = io.BytesIO(b"not a comic")
@@ -92,6 +171,18 @@ def test_comic_metadata_rejects_wrong_format_and_fallback_is_opt_in() -> None:
 
 
 def test_comic_metadata_accepts_pathlike_input(tmp_path: Path) -> None:
+    """
+    Verify comic metadata accepts pathlike input.
+
+    Example:
+        Exercise test comic metadata accepts pathlike input through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_comic_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.comic import get_metadata_inplace
 
     path = tmp_path / "pathlike.cbz"
@@ -103,6 +194,17 @@ def test_comic_metadata_accepts_pathlike_input(tmp_path: Path) -> None:
 
 
 def test_comic_metadata_reader_plugin_uses_series_index_customization() -> None:
+    """
+    Verify comic metadata reader plugin uses series index customization.
+
+    Example:
+        Exercise test comic metadata reader plugin uses series index customization through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_comic_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.customize.builtins.metadata_readers import get_metadata_reader_plugins
 
     payload = {
@@ -128,6 +230,19 @@ def test_comic_metadata_reader_plugin_uses_series_index_customization() -> None:
 
 
 def test_cbr_metadata_uses_rar_extractor_and_comment_metadata(monkeypatch) -> None:
+    """
+    Verify cbr metadata uses rar extractor and comment metadata.
+
+    Example:
+        Exercise test cbr metadata uses rar extractor and comment metadata through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_comic_metadata_source.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources import comic as comic_md
 
     stream = io.BytesIO(b"Rar!payload")
@@ -141,6 +256,20 @@ def test_cbr_metadata_uses_rar_extractor_and_comment_metadata(monkeypatch) -> No
     monkeypatch.setattr(unrar_mod, "extract_first_alphabetically", lambda _stream: ("page-001.webp", b"webp bytes"))
 
     def _fake_comment(_stream, _stream_type, series_index="volume"):
+        """
+        Perform the fake comment test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test cbr metadata uses rar extractor and comment metadata.fake comment through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_comic_metadata_source.py
+
+
+        :param _stream: Value supplied for stream in the focused test operation.
+        :param _stream_type: Value supplied for stream type in the focused test operation.
+        :param series_index: Value supplied for series index in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         from LiuXin_alpha.metadata.utils import calibreMetaInformation
 
         md = calibreMetaInformation("CBR Title", ["Artist"])

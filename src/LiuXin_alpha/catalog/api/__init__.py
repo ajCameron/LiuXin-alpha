@@ -1,23 +1,23 @@
-"""Public contracts and value objects for LiuXin's Catalog layer.
+"""
+Export Catalog protocols, candidate/result values, errors, and field metadata types.
 
-Import the concrete facade from :mod:`LiuXin_alpha.catalog`; import candidates,
-results, errors, and protocols from here::
+The concrete facade is imported from LiuXin_alpha.catalog. This module collects
+the structural CatalogAPI, matching/WEMI values and errors, field-metadata
+contracts and serialized shapes, mutation contracts, and legacy metadata-tool
+protocols. Concrete entity repository contracts have their own api.repositories
+namespace. Importing these values does not create a database or Catalog instance.
 
-    from LiuXin_alpha.catalog import Catalog
-    from LiuXin_alpha.catalog.api import (
-        CatalogAPI,
-        IdentifierCandidate,
-        MetadataCandidate,
-    )
+Example:
+    >>> candidate = MetadataCandidate({"title": "Frankenstein"}, source="manual")
+    >>> candidate.data["title"]
+    'Frankenstein'
+    >>> from LiuXin_alpha.catalog import Catalog
+    >>> catalog: CatalogAPI = Catalog(db)  # doctest: +SKIP
+    >>> work_id = catalog.works.match_or_create(candidate)  # doctest: +SKIP
 
-    catalog: CatalogAPI = Catalog(db)
-    work_id = catalog.works.match_or_create(
-        MetadataCandidate({"title": "Frankenstein"})
-    )
-
-The semantic entry points are repositories, matching, retrieval, and mutations.
-Field-metadata and ``add``/``ensure``/``apply`` protocols describe maintained
-compatibility surfaces used by older Row-oriented workflows.
+Type aliases and protocol annotations do not establish runtime data validity.
+Consult each value's constructor contract and the receiving repository or writer
+for validation, copying, persistence, and identity-decision behavior.
 """
 
 from .catalog import CatalogAPI

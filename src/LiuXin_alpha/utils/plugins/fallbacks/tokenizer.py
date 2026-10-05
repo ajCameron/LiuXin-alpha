@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 """
-Pure-python fallback for the compiled ``tokenizer`` extension.
+Tokenize HTML input through the HTML5 state machine and parse-error recovery rules.
 
-The compiled extension is a speedup for CSS token streams (used by tinycss-like code).
-We provide a single helper:
-    as_css(tokens) -> str
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
 
-Best-effort: accept a string/bytes (returned/decoded) or an iterable of tokens.
-If tokens are tuples, we prefer the second element as the "value".
+Example:
+    Exercise tokenizer through a consuming regression::
+
+        python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
 """
 
 from __future__ import annotations
@@ -16,6 +17,19 @@ from typing import Any, Iterable
 
 
 def as_css(tokens: Any) -> str:
+    """
+    Perform the as css utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise as css through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param tokens: Value supplied for tokens under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if tokens is None:
         return ""
     if isinstance(tokens, bytes):

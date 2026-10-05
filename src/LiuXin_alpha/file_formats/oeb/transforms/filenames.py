@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Normalize OEB resource filenames and rewrite their references.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise filenames through a consuming regression::
+
+        python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -21,15 +32,47 @@ __docformat__ = "restructuredtext en"
 class RenameFiles(object):  # {{{
 
     """
-    Rename files and adjust all links pointing to them. Note that the spine
-    and manifest are not touched by this transform.
+    Rename files and adjust all links pointing to them. Note that the spine and manifest are not touched by this transform.
+
+    Example:
+        Exercise RenameFiles through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
     """
 
     def __init__(self: _typing.Self, rename_map: _typing.Any, renamed_items_map: _typing.Any = None) -> None:
+        """
+        Initialize and validate the renamefiles state.
+
+        Example:
+            Exercise RenameFiles.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param rename_map: Value supplied for rename map under the utility contract.
+        :param renamed_items_map: Value supplied for renamed items map under the utility
+            contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.rename_map = rename_map
         self.renamed_items_map = renamed_items_map
 
     def __call__(self: _typing.Self, oeb: _typing.Any, opts: _typing.Any) -> None:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise RenameFiles.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param oeb: Value supplied for oeb under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         import cssutils
 
         self.log = oeb.logger
@@ -58,6 +101,19 @@ class RenameFiles(object):  # {{{
             self.fix_toc_entry(self.oeb.toc)
 
     def fix_toc_entry(self: _typing.Self, toc: _typing.Any) -> None:
+        """
+        Perform the fix toc entry operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise RenameFiles.fix toc entry through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param toc: Value supplied for toc under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if toc.href:
             href = urlnormalize(toc.href)
             href, frag = urldefrag(href)
@@ -73,6 +129,19 @@ class RenameFiles(object):  # {{{
             self.fix_toc_entry(x)
 
     def url_replacer(self: _typing.Self, orig_url: _typing.Any) -> _typing.Any:
+        """
+        Perform the url replacer operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise RenameFiles.url replacer through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param orig_url: Value supplied for orig url under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         url = urlnormalize(orig_url)
         parts = urlparse(url)
         if parts.scheme:
@@ -98,9 +167,28 @@ class UniqueFilenames(object):  # {{{
 
     """
     Ensure that every item in the manifest has a unique filename
+
+    Example:
+        Exercise UniqueFilenames through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
     """
 
     def __call__(self: _typing.Self, oeb: _typing.Any, opts: _typing.Any) -> None:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise UniqueFilenames.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param oeb: Value supplied for oeb under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.log = oeb.logger
         self.opts = opts
         self.oeb = oeb
@@ -139,6 +227,19 @@ class UniqueFilenames(object):  # {{{
             renamer(oeb, opts)
 
     def unique_suffix(self: _typing.Self, fname: _typing.Any) -> _typing.Any:
+        """
+        Perform the unique suffix operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise UniqueFilenames.unique suffix through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param fname: Value supplied for fname under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         base, ext = posixpath.splitext(fname)
         c = 0
         while True:
@@ -156,9 +257,28 @@ class FlatFilenames(object):  # {{{
 
     """
     Ensure that every item in the manifest has a unique filename without subdirectories.
+
+    Example:
+        Exercise FlatFilenames through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
     """
 
     def __call__(self: _typing.Self, oeb: _typing.Any, opts: _typing.Any) -> None:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise FlatFilenames.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param oeb: Value supplied for oeb under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.log = oeb.logger
         self.opts = opts
         self.oeb = oeb

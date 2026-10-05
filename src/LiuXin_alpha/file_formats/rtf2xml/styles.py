@@ -10,6 +10,17 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+"""
+Parse RTF style sheets and resolve style inheritance.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise styles through a consuming regression::
+
+        python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -22,6 +33,11 @@ from LiuXin_alpha.file_formats.rtf2xml import open_for_read, open_for_write
 class Styles:
     """
     Change lines with style numbers to actual style names.
+
+    Example:
+        Exercise Styles through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
     """
 
     def __init__(
@@ -32,14 +48,19 @@ class Styles:
         run_level: int = 1,
     ) -> None:
         """
-        Required:
-            'file'--file to parse
-        Optional:
-            'copy'-- whether to make a copy of result for debugging
-            'temp_dir' --where to output temporary results (default is
-            directory from which the script is run.)
-        Returns:
-            nothing
+        Required: 'file'--file to parse Optional: 'copy'-- whether to make a copy of result for debugging 'temp_dir' --where to output temporary results (default is directory from which the script is run.) Returns: nothing
+
+        Example:
+            Exercise Styles.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param in_file: Value supplied for in file under the utility contract.
+        :param bug_handler: Value supplied for bug handler under the utility contract.
+        :param copy: Value supplied for copy under the utility contract.
+        :param run_level: Value supplied for run level under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self.__file = in_file
         self.__bug_handler = bug_handler
@@ -50,6 +71,15 @@ class Styles:
     def __initiate_values(self: _typing.Self) -> None:
         """
         Initiate all values.
+
+        Example:
+            Exercise Styles.  initiate values through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__border_obj = border_parse.BorderParse()
         self.__styles_dict = {"par": {}, "char": {}}
@@ -269,21 +299,17 @@ class Styles:
 
     def __in_individual_style_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Required:
-            line
-        Returns:
-            nothing
-        Logic:
-            Check if the token marks the end of the individual style. (Action
-            is the value of the state dictionary, and the only key that will
-            match in this function is the end of the individual style.)
-            If the end of the individual style is not found, check if the line
-            is a control word. If it is, extract the relelvant info and look
-            up this info in the tokens dictionary. I want to change
-            abbreviated names for longer, more readable ones.
-            Write an error message if no key is found for the info.
-            If the line is text, add the text to a text string. The text
-            string will be the name of the style.
+        Required: line Returns: nothing Logic: Check if the token marks the end of the individual style. (Action is the value of the state dictionary, and the only key that will match in this function is the end of the individual style.) If the end of the individual style is not found, check if the line is a control word. If it is, extract the relelvant info and look up this info in the tokens dictionary. I want to change abbreviated names for longer, more readable ones. Write an error message if no key is found for the info. If the line is text, add the text to a text string. The text string will be the name of the style.
+
+        Example:
+            Exercise Styles.  in individual style func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         action = self.__state_dict.get(self.__token_info)
         if action:
@@ -315,13 +341,17 @@ class Styles:
 
     def __tab_stop_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line -- line to parse
-        Returns:
-            nothing
-        Logic:
-            Try to add the number to dictionary entry tabs-left, or tabs-right, etc.
-            If the dictionary entry doesn't exist, create one.
+        Requires: line -- line to parse Returns: nothing Logic: Try to add the number to dictionary entry tabs-left, or tabs-right, etc. If the dictionary entry doesn't exist, create one.
+
+        Example:
+            Exercise Styles.  tab stop func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         try:
             if self.__leader_found:
@@ -338,7 +368,19 @@ class Styles:
         self.__leader_found = 0
 
     def __tab_type_func(self: _typing.Self, line: _typing.Any) -> None:
-        """ """
+        """
+        Perform the tab type func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Styles.  tab type func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         type = self.__tab_type_dict.get(self.__token_info)
         if type is not None:
             self.__tab_type = type
@@ -349,14 +391,17 @@ class Styles:
 
     def __tab_leader_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line --line to parse
-        Returns:
-            nothing
-        Logic:
-            Try to add the string of the tab leader to dictionary entry
-            tabs-left, or tabs-right, etc.  If the dictionary entry doesn't
-            exist, create one.
+        Requires: line --line to parse Returns: nothing Logic: Try to add the string of the tab leader to dictionary entry tabs-left, or tabs-right, etc. If the dictionary entry doesn't exist, create one.
+
+        Example:
+            Exercise Styles.  tab leader func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__leader_found = 1
         leader = self.__tab_type_dict.get(self.__token_info)
@@ -374,13 +419,17 @@ class Styles:
 
     def __tab_bar_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line -- line to parse
-        Returns:
-            nothing
-        Logic:
-            Try to add the string of the tab bar to dictionary entry tabs-bar.
-            If the dictionary entry doesn't exist, create one.
+        Requires: line -- line to parse Returns: nothing Logic: Try to add the string of the tab bar to dictionary entry tabs-bar. If the dictionary entry doesn't exist, create one.
+
+        Example:
+            Exercise Styles.  tab bar func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # self.__add_dict_entry('tabs-bar', line[20:-1])
         try:
@@ -394,15 +443,18 @@ class Styles:
 
     def __enter_dict_entry(self: _typing.Self, att: _typing.Any, value: _typing.Any) -> None:
         """
-        Required:
-            att -- the attribute
-            value -- the value
-        Returns:
-            nothing
-        Logic:
-            Try to add the attribute value directly to the styles dictionary.
-            If a keyerror is found, that means I have to build the "branches"
-            of the dictionary before I can add the key value pair.
+        Required: att -- the attribute value -- the value Returns: nothing Logic: Try to add the attribute value directly to the styles dictionary. If a keyerror is found, that means I have to build the "branches" of the dictionary before I can add the key value pair.
+
+        Example:
+            Exercise Styles.  enter dict entry through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param att: Value supplied for att under the utility contract.
+        :param value: Value normalized, stored, formatted or returned.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         try:
             self.__styles_dict[self.__type_of_style][self.__styles_num][att] = value
@@ -411,20 +463,18 @@ class Styles:
 
     def __add_dict_entry(self: _typing.Self, att: _typing.Any, value: _typing.Any) -> None:
         """
-        Required:
-            att --the attribute
-            value --the value
-        Returns:
-            nothing
-        Logic:
-            I have to build the branches of the dictionary before I can add
-            the leaves. (I am comparing a dictionary to a tree.) To achieve
-            this, I first make a temporary dictionary by extracting either the
-            inside dictionary of the keyword par or char. This temporary
-            dictionary is called type_dict.
-            Next, create a second, smaller dictionary with just the attribute and value.
-            Add the small dictionary to the type dictionary.
-            Add this type dictionary to the main styles dictionary.
+        Required: att --the attribute value --the value Returns: nothing Logic: I have to build the branches of the dictionary before I can add the leaves. (I am comparing a dictionary to a tree.) To achieve this, I first make a temporary dictionary by extracting either the inside dictionary of the keyword par or char. This temporary dictionary is called type_dict. Next, create a second, smaller dictionary with just the attribute and value. Add the small dictionary to the type dictionary. Add this type dictionary to the main styles dictionary.
+
+        Example:
+            Exercise Styles.  add dict entry through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param att: Value supplied for att under the utility contract.
+        :param value: Value normalized, stored, formatted or returned.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.__type_of_style == "par":
             type_dict = self.__styles_dict["par"]
@@ -441,13 +491,17 @@ class Styles:
 
     def __para_style_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Required:
-            line
-        Returns:
-            nothing
-        Logic:
-            Set the type of style to paragraph.
-            Extract the number for a line such as "cw<ss<para-style<nu<15".
+        Required: line Returns: nothing Logic: Set the type of style to paragraph. Extract the number for a line such as "cw<ss<para-style<nu<15".
+
+        Example:
+            Exercise Styles.  para style func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__type_of_style = "par"
         self.__styles_num = line[20:-1]
@@ -461,31 +515,51 @@ class Styles:
 
     def __char_style_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Required:
-            line
-        Returns:
-            nothing
-        Logic:
-            Set the type of style to character.
-            Extract the number for a line such as "cw<ss<char-style<nu<15".
+        Required: line Returns: nothing Logic: Set the type of style to character. Extract the number for a line such as "cw<ss<char-style<nu<15".
+
+        Example:
+            Exercise Styles.  char style func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__type_of_style = "char"
         self.__styles_num = line[20:-1]
 
     def __found_beg_ind_style_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Required:
-            line
-        Returns:
-            nothing
-        Logic:
-            Get rid of the last semicolon in the text string. Add the text
-            string as the value with 'name' as the key in the style
-            dictionary.
+        Required: line Returns: nothing Logic: Get rid of the last semicolon in the text string. Add the text string as the value with 'name' as the key in the style dictionary.
+
+        Example:
+            Exercise Styles.  found beg ind style func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__state = "in_individual_style"
 
     def __found_end_ind_style_func(self: _typing.Self, line: _typing.Any) -> None:
+        """
+        Perform the found end ind style func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Styles.  found end ind style func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         name = self.__text_string[:-1]  # get rid of semicolon
         # add 2005-04-29
         # get rid of space before or after
@@ -495,14 +569,17 @@ class Styles:
 
     def __found_end_styles_table_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Required:
-            line
-        Returns:
-            nothing
-        Logic:
-            Set the state to after the styles table.
-            Fix the styles. (I explain this below.)
-            Print out the style table.
+        Required: line Returns: nothing Logic: Set the state to after the styles table. Fix the styles. (I explain this below.) Print out the style table.
+
+        Example:
+            Exercise Styles.  found end styles table func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__state = "after_styles_table"
         self.__fix_based_on()
@@ -510,19 +587,16 @@ class Styles:
 
     def __fix_based_on(self: _typing.Self) -> None:
         """
-        Requires:
-            nothing
-        Returns:
-            nothing
-        Logic:
-            The styles dictionary may contain a pair of key values such as
-            'next-style' => '15'. I want to change the 15 to the name of the
-            style. I accomplish this by simply looking up the value of 15 in
-            the styles table.
-            Use two loops. First, check all the paragraph styles. Then check
-            all the character styles.
-            The inner loop: first check 'next-style', then check 'based-on-style'.
-            Make sure values exist for the keys to avoid the nasty keyerror message.
+        Requires: nothing Returns: nothing Logic: The styles dictionary may contain a pair of key values such as 'next-style' => '15'. I want to change the 15 to the name of the style. I accomplish this by simply looking up the value of 15 in the styles table. Use two loops. First, check all the paragraph styles. Then check all the character styles. The inner loop: first check 'next-style', then check 'based-on-style'. Make sure values exist for the keys to avoid the nasty keyerror message.
+
+        Example:
+            Exercise Styles.  fix based on through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         types = ["par", "char"]
         for type in types:
@@ -549,17 +623,16 @@ class Styles:
 
     def __print_style_table(self: _typing.Self) -> None:
         """
-        Required:
-            nothing
-        Returns:
-            nothing
-        Logic:
-            This function prints out the style table.
-            I use three nested for loops. The outer loop prints out the
-            paragraphs styles, then the character styles.
-            The next loop iterates through the style numbers.
-            The most inside loop iterates over the pairs of attributes and
-            values, and prints them out.
+        Required: nothing Returns: nothing Logic: This function prints out the style table. I use three nested for loops. The outer loop prints out the paragraphs styles, then the character styles. The next loop iterates through the style numbers. The most inside loop iterates over the pairs of attributes and values, and prints them out.
+
+        Example:
+            Exercise Styles.  print style table through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         types = ["par", "char"]
         for type in types:
@@ -580,25 +653,33 @@ class Styles:
 
     def __found_styles_table_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Required:
-            line
-        Returns:
-            nothing
-        Logic:
-            Change the state to in the style table when the marker has been found.
+        Required: line Returns: nothing Logic: Change the state to in the style table when the marker has been found.
+
+        Example:
+            Exercise Styles.  found styles table func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__state = "in_styles_table"
 
     def __before_styles_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Required:
-            line
-        Returns:
-            nothing.
-        Logic:
-            Check the line info in the state dictionary. When the beginning of
-            the styles table is found, change the state to in the styles
-            table.
+        Required: line Returns: nothing. Logic: Check the line info in the state dictionary. When the beginning of the styles table is found, change the state to in the styles table.
+
+        Example:
+            Exercise Styles.  before styles func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         action = self.__state_dict.get(self.__token_info)
         if not action:
@@ -608,13 +689,17 @@ class Styles:
 
     def __in_styles_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Required:
-            line
-        Returns:
-            nothing
-        Logic:
-            Check the line for the beginning of an individual style. If it is
-            not found, simply print out the line.
+        Required: line Returns: nothing Logic: Check the line for the beginning of an individual style. If it is not found, simply print out the line.
+
+        Example:
+            Exercise Styles.  in styles func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         action = self.__state_dict.get(self.__token_info)
         if action is None:
@@ -624,15 +709,18 @@ class Styles:
 
     def __para_style_in_body_func(self: _typing.Self, line: _typing.Any, type: _typing.Any) -> None:
         """
-        Required:
-            line-- the line
-            type -- whether a character or paragraph
-        Returns:
-            nothing
-        Logic:
-            Determine the prefix by whether the type is "par" or "char".
-            Extract the number from a line such as "cw<ss<para-style<nu<15".
-            Look up that number in the styles dictionary and put a name for a number
+        Required: line-- the line type -- whether a character or paragraph Returns: nothing Logic: Determine the prefix by whether the type is "par" or "char". Extract the number from a line such as "cw<ss<para-style<nu<15". Look up that number in the styles dictionary and put a name for a number
+
+        Example:
+            Exercise Styles.  para style in body func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :param type: Value supplied for type under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if type == "par":
             prefix = "para"
@@ -651,14 +739,17 @@ class Styles:
 
     def __after_styles_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Required:
-            line
-        Returns:
-            nothing
-        Logic:
-            Determine if a line with either character of paragraph style info
-            has been found. If so, then use the appropriate method to parse
-            the line. Otherwise, write the line to a file.
+        Required: line Returns: nothing Logic: Determine if a line with either character of paragraph style info has been found. If so, then use the appropriate method to parse the line. Otherwise, write the line to a file.
+
+        Example:
+            Exercise Styles.  after styles func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         action, type = self.__body_dict.get(self.__token_info, (None, None))
         if action:
@@ -668,18 +759,16 @@ class Styles:
 
     def convert_styles(self: _typing.Self) -> None:
         """
-        Requires:
-            nothing
-        Returns:
-            nothing (changes the original file)
-        Logic:
-            Read one line in at a time. Determine what action to take based on
-            the state. If the state is before the style table, look for the
-            beginning of the style table.
-            If the state is in the style table, create the style dictionary
-            and print out the tags.
-            If the state if after the style table, look for lines with style
-            info, and substitute the number with the name of the style.
+        Requires: nothing Returns: nothing (changes the original file) Logic: Read one line in at a time. Determine what action to take based on the state. If the state is before the style table, look for the beginning of the style table. If the state is in the style table, create the style dictionary and print out the tags. If the state if after the style table, look for lines with style info, and substitute the number with the name of the style.
+
+        Example:
+            Exercise Styles.convert styles through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__initiate_values()
         read_obj = open_for_read(self.__file)

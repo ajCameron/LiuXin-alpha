@@ -1,7 +1,12 @@
-"""Leaf protocol implemented by Catalog for schema-driven writers.
+"""
+Define host operations required to persist catalog writer updates.
 
-Keeping this dependency inside the write layer prevents writer modules from
-importing the high-level ``catalog.api`` package that constructs them.
+The module keeps validation, normalization and host mutation boundaries explicit.
+
+Example:
+    Exercise host api through its owning regression module::
+
+        python -m pytest -q tests/catalog/test_writer_factory.py
 """
 
 from __future__ import annotations
@@ -18,24 +23,70 @@ from LiuXin_alpha.databases.macro_types import LinkRow
 
 
 class CatalogWriterHostAPI(Protocol):
-    """Minimal Catalog surface required by schema-driven writers."""
+    """
+    Minimal Catalog surface required by schema-driven writers.
+
+    Example:
+        Exercise CatalogWriterHostAPI through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_writer_factory.py
+    """
 
     db: DatabaseAPI
 
     def write_link_update(
         self,
         update: LinkUpdate,
-    ) -> Mapping[SrcTableID, tuple[LinkRow, ...]]: ...
+    ) -> Mapping[SrcTableID, tuple[LinkRow, ...]]:
+        """
+        Apply write link update through the catalog writer host boundary.
+
+        Example:
+            Exercise CatalogWriterHostAPI.write link update through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+        :param update: Prepared catalog update to validate or apply.
+        :return: The deterministic value, row, identity or collection described above.
+        """
+        ...
 
     def write_column_update(
         self,
         update: CatalogColumnUpdate[object],
-    ) -> Mapping[SrcTableID, object]: ...
+    ) -> Mapping[SrcTableID, object]:
+        """
+        Apply write column update through the catalog writer host boundary.
+
+        Example:
+            Exercise CatalogWriterHostAPI.write column update through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+        :param update: Prepared catalog update to validate or apply.
+        :return: The deterministic value, row, identity or collection described above.
+        """
+        ...
 
     def write_owned_row_update(
         self,
         update: CatalogOwnedRowUpdate[object],
-    ) -> Mapping[SrcTableID, tuple[LinkRow, ...]]: ...
+    ) -> Mapping[SrcTableID, tuple[LinkRow, ...]]:
+        """
+        Apply write owned row update through the catalog writer host boundary.
+
+        Example:
+            Exercise CatalogWriterHostAPI.write owned row update through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+        :param update: Prepared catalog update to validate or apply.
+        :return: The deterministic value, row, identity or collection described above.
+        """
+        ...
 
 
 __all__ = ["CatalogWriterHostAPI"]

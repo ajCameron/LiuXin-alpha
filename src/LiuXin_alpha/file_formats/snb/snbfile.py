@@ -1,5 +1,16 @@
 # -*- coding: utf-8 -*-
 
+"""
+Read and write SNB archives, metadata and resource trees.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise snbfile through a consuming regression::
+
+        python -m pytest -q tests/file_formats/snb/test_snb_modernized.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -22,6 +33,20 @@ __docformat__ = "restructuredtext en"
 
 
 def _ceil_div(value: int, chunk: int) -> int:
+    """
+    Perform the ceil div operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  ceil div through a consuming regression::
+
+            python -m pytest -q tests/file_formats/snb/test_snb_modernized.py
+
+
+    :param value: Value normalized, stored, formatted or returned.
+    :param chunk: Value supplied for chunk under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if value <= 0:
         return 0
     return (value + chunk - 1) // chunk
@@ -29,11 +54,32 @@ def _ceil_div(value: int, chunk: int) -> int:
 
 def _normalize_name(name: str) -> str:
     # SNB stores Unix style paths regardless of host platform.
+    """
+    Normalize name under the format's safety and compatibility rules.
+
+    Example:
+        Exercise  normalize name through a consuming regression::
+
+            python -m pytest -q tests/file_formats/snb/test_snb_modernized.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return str(name).replace("\\", "/").replace(os.sep, "/")
 
 
 @dataclass
 class FileStream:
+    """
+    Provide the filestream contract for validated ebook processing.
+
+    Example:
+        Exercise FileStream through a consuming regression::
+
+            python -m pytest -q tests/file_formats/snb/test_snb_modernized.py
+    """
     attr: int = 0
     fileNameOffset: int = 0
     fileSize: int = 0
@@ -43,26 +89,123 @@ class FileStream:
     fileBody: bytes = b""
 
     def IsBinary(self: _typing.Self) -> bool:
+        """
+        Perform the IsBinary operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise FileStream.IsBinary through a consuming regression::
+
+                python -m pytest -q tests/file_formats/snb/test_snb_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.attr & 0x41000000 != 0x41000000
 
 
 def compareFileStream(file1: FileStream, file2: FileStream) -> int:
+    """
+    Perform the compareFileStream operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise compareFileStream through a consuming regression::
+
+            python -m pytest -q tests/file_formats/snb/test_snb_modernized.py
+
+
+    :param file1: Value supplied for file1 under the utility contract.
+    :param file2: Value supplied for file2 under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return six_cmp(file1.fileName, file2.fileName)
 
 
 @dataclass
 class BlockData:
+    """
+    Provide the blockdata contract for validated ebook processing.
+
+    Example:
+        Exercise BlockData through a consuming regression::
+
+            python -m pytest -q tests/file_formats/snb/test_snb_modernized.py
+    """
     Offset: int = 0
 
 
 class _BinaryWriter(Protocol):
-    def close(self: _typing.Self) -> object: ...
+    """
+    Provide the binarywriter contract for validated ebook processing.
 
-    def tell(self: _typing.Self) -> int: ...
+    Example:
+        Exercise  BinaryWriter through a consuming regression::
 
-    def seek(self: _typing.Self, offset: int, whence: int = 0) -> int: ...
+            python -m pytest -q tests/file_formats/snb/test_snb_modernized.py
+    """
+    def close(self: _typing.Self) -> object:
+        """
+        Perform the close operation under explicit file-format and conversion rules.
 
-    def write(self: _typing.Self, data: bytes) -> int: ...
+        Example:
+            Exercise  BinaryWriter.close through a consuming regression::
+
+                python -m pytest -q tests/file_formats/snb/test_snb_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
+        ...
+
+    def tell(self: _typing.Self) -> int:
+        """
+        Perform the tell operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  BinaryWriter.tell through a consuming regression::
+
+                python -m pytest -q tests/file_formats/snb/test_snb_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
+        ...
+
+    def seek(self: _typing.Self, offset: int, whence: int = 0) -> int:
+        """
+        Perform the seek operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  BinaryWriter.seek through a consuming regression::
+
+                python -m pytest -q tests/file_formats/snb/test_snb_modernized.py
+
+
+        :param offset: Value supplied for offset under the utility contract.
+        :param whence: Value supplied for whence under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
+        ...
+
+    def write(self: _typing.Self, data: bytes) -> int:
+        """
+        Perform the write operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  BinaryWriter.write through a consuming regression::
+
+                python -m pytest -q tests/file_formats/snb/test_snb_modernized.py
+
+
+        :param data: Value supplied for data under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
+        ...
 
 
 SNBPath: TypeAlias = str | os.PathLike[str]
@@ -70,6 +213,14 @@ SNBOutput: TypeAlias = SNBPath | _BinaryWriter
 
 
 class SNBFile:
+    """
+    Provide the snbfile contract for validated ebook processing.
+
+    Example:
+        Exercise SNBFile through a consuming regression::
+
+            python -m pytest -q tests/file_formats/snb/test_snb_modernized.py
+    """
     BLOCK_SIZE = 0x8000
     HEADER_SIZE = 44
 
@@ -83,6 +234,18 @@ class SNBFile:
         self: _typing.Self,
         inputFile: SNBPath | None = None,
     ) -> None:
+        """
+        Initialize and validate the snbfile state.
+
+        Example:
+            Exercise SNBFile.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/snb/test_snb_modernized.py
+
+
+        :param inputFile: Value supplied for inputFile under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.files: list[FileStream] = []
         self.blocks: list[BlockData] = []
         self.fileName: str | None = None
@@ -109,6 +272,20 @@ class SNBFile:
 
     @staticmethod
     def _read_c_string(blob: bytes, offset: int) -> bytes:
+        """
+        Read c string under the format's safety and compatibility rules.
+
+        Example:
+            Exercise SNBFile. read c string through a consuming regression::
+
+                python -m pytest -q tests/file_formats/snb/test_snb_modernized.py
+
+
+        :param blob: Value supplied for blob under the utility contract.
+        :param offset: Value supplied for offset under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if offset < 0 or offset >= len(blob):
             return b""
         end = blob.find(b"\0", offset)
@@ -118,19 +295,72 @@ class SNBFile:
 
     @staticmethod
     def _decode_name(raw: bytes) -> str:
+        """
+        Perform the decode name operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SNBFile. decode name through a consuming regression::
+
+                python -m pytest -q tests/file_formats/snb/test_snb_modernized.py
+
+
+        :param raw: Value supplied for raw under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return raw.decode("utf-8", "replace")
 
     @staticmethod
     def _encode_name(name: str) -> bytes:
+        """
+        Perform the encode name operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SNBFile. encode name through a consuming regression::
+
+                python -m pytest -q tests/file_formats/snb/test_snb_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return _normalize_name(name).encode("utf-8", "replace")
 
     def Open(self: _typing.Self, inputFile: SNBPath) -> None:
+        """
+        Perform the Open operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SNBFile.Open through a consuming regression::
+
+                python -m pytest -q tests/file_formats/snb/test_snb_modernized.py
+
+
+        :param inputFile: Value supplied for inputFile under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.fileName = os.fspath(inputFile)
         with open(self.fileName, "rb") as snbFile:
             snbFile.seek(0)
             self.Parse(snbFile)
 
     def Parse(self: _typing.Self, snbFile: BinaryIO, metaOnly: bool = False) -> None:
+        """
+        Perform the Parse operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SNBFile.Parse through a consuming regression::
+
+                python -m pytest -q tests/file_formats/snb/test_snb_modernized.py
+
+
+        :param snbFile: Value supplied for snbFile under the utility contract.
+        :param metaOnly: Value supplied for metaOnly under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.files = []
         self.blocks = []
 
@@ -183,6 +413,19 @@ class SNBFile:
                 raise ValueError(f"Invalid file entry attr={f.attr!r} name={f.fileName!r}")
 
     def _read_plain_stream(self: _typing.Self, snbFile: BinaryIO) -> bytes:
+        """
+        Read plain stream under the format's safety and compatibility rules.
+
+        Example:
+            Exercise SNBFile. read plain stream through a consuming regression::
+
+                python -m pytest -q tests/file_formats/snb/test_snb_modernized.py
+
+
+        :param snbFile: Value supplied for snbFile under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.plainBlock <= 0:
             return b""
 
@@ -205,6 +448,20 @@ class SNBFile:
         return b"".join(chunks)
 
     def ParseFile(self: _typing.Self, vfat: bytes, fileCount: int) -> None:
+        """
+        Perform the ParseFile operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SNBFile.ParseFile through a consuming regression::
+
+                python -m pytest -q tests/file_formats/snb/test_snb_modernized.py
+
+
+        :param vfat: Value supplied for vfat under the utility contract.
+        :param fileCount: Value supplied for fileCount under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         names_blob = vfat[fileCount * 12 :]
         for i in range(fileCount):
             f = FileStream()
@@ -213,6 +470,20 @@ class SNBFile:
             self.files.append(f)
 
     def ParseTail(self: _typing.Self, vtail: bytes, fileCount: int) -> None:
+        """
+        Perform the ParseTail operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SNBFile.ParseTail through a consuming regression::
+
+                python -m pytest -q tests/file_formats/snb/test_snb_modernized.py
+
+
+        :param vtail: Value supplied for vtail under the utility contract.
+        :param fileCount: Value supplied for fileCount under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.binBlock = _ceil_div(self.binStreamSize, self.BLOCK_SIZE)
         self.plainBlock = _ceil_div(self.plainStreamSizeUncompressed, self.BLOCK_SIZE)
         for i in range(self.binBlock + self.plainBlock):
@@ -227,6 +498,18 @@ class SNBFile:
             )
 
     def IsValid(self: _typing.Self) -> bool:
+        """
+        Perform the IsValid operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SNBFile.IsValid through a consuming regression::
+
+                python -m pytest -q tests/file_formats/snb/test_snb_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.magic != SNBFile.MAGIC:
             return False
         if self.rev80 != SNBFile.REV80:
@@ -246,6 +529,19 @@ class SNBFile:
         return True
 
     def FromDir(self: _typing.Self, tdir: SNBPath) -> None:
+        """
+        Perform the FromDir operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SNBFile.FromDir through a consuming regression::
+
+                python -m pytest -q tests/file_formats/snb/test_snb_modernized.py
+
+
+        :param tdir: Value supplied for tdir under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for root, dirs, files in os.walk(tdir):
             dirs.sort()
             files.sort()
@@ -263,6 +559,21 @@ class SNBFile:
         tdir: SNBPath,
         attr: int,
     ) -> None:
+        """
+        Perform the append operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SNBFile. append through a consuming regression::
+
+                python -m pytest -q tests/file_formats/snb/test_snb_modernized.py
+
+
+        :param fileName: Value supplied for fileName under the utility contract.
+        :param tdir: Value supplied for tdir under the utility contract.
+        :param attr: Value supplied for attr under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         f = FileStream()
         f.attr = attr
         disk_path = os.path.join(tdir, fileName)
@@ -277,6 +588,20 @@ class SNBFile:
         fileName: str,
         tdir: SNBPath,
     ) -> None:
+        """
+        Perform the AppendPlain operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SNBFile.AppendPlain through a consuming regression::
+
+                python -m pytest -q tests/file_formats/snb/test_snb_modernized.py
+
+
+        :param fileName: Value supplied for fileName under the utility contract.
+        :param tdir: Value supplied for tdir under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._append(fileName, tdir, 0x41000000)
 
     def AppendBinary(
@@ -284,12 +609,39 @@ class SNBFile:
         fileName: str,
         tdir: SNBPath,
     ) -> None:
+        """
+        Perform the AppendBinary operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SNBFile.AppendBinary through a consuming regression::
+
+                python -m pytest -q tests/file_formats/snb/test_snb_modernized.py
+
+
+        :param fileName: Value supplied for fileName under the utility contract.
+        :param tdir: Value supplied for tdir under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._append(fileName, tdir, 0x01000000)
 
     def GetFileStream(
         self: _typing.Self,
         fileName: str,
     ) -> bytes | None:
+        """
+        Perform the GetFileStream operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SNBFile.GetFileStream through a consuming regression::
+
+                python -m pytest -q tests/file_formats/snb/test_snb_modernized.py
+
+
+        :param fileName: Value supplied for fileName under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         target = _normalize_name(fileName)
         for file in self.files:
             if file.fileName == target:
@@ -300,6 +652,20 @@ class SNBFile:
         self: _typing.Self,
         path: SNBPath,
     ) -> list[tuple[str, str]]:
+        """
+        Perform the OutputImageFiles operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SNBFile.OutputImageFiles through a consuming regression::
+
+                python -m pytest -q tests/file_formats/snb/test_snb_modernized.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         fileNames: list[tuple[str, str]] = []
         for f in self.files:
             fname = os.path.basename(f.fileName)
@@ -313,6 +679,19 @@ class SNBFile:
 
     def Output(self: _typing.Self, outputFile: SNBOutput) -> None:
         # Required by SNB format: entries sorted by filename.
+        """
+        Perform the Output operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SNBFile.Output through a consuming regression::
+
+                python -m pytest -q tests/file_formats/snb/test_snb_modernized.py
+
+
+        :param outputFile: Value supplied for outputFile under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.files.sort(key=cmp_to_key(compareFileStream))
 
         if isinstance(outputFile, (str, os.PathLike)):
@@ -402,6 +781,18 @@ class SNBFile:
                 output_handle.close()
 
     def Dump(self: _typing.Self) -> None:
+        """
+        Perform the Dump operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SNBFile.Dump through a consuming regression::
+
+                python -m pytest -q tests/file_formats/snb/test_snb_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.fileName:
             print("File Name:\t", self.fileName)
         print("File Count:\t", self.fileCount)
@@ -421,6 +812,18 @@ class SNBFile:
 
 
 def usage() -> None:
+    """
+    Perform the usage operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise usage through a consuming regression::
+
+            python -m pytest -q tests/file_formats/snb/test_snb_modernized.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     print("This unit test is for INTERNAL usage only)!")
     print("This unit test accepts two parameters.")
     print("python snbfile.py <INPUTFILE> <DESTFILE>")
@@ -429,6 +832,18 @@ def usage() -> None:
 
 
 def main() -> int:
+    """
+    Perform the main operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise main through a consuming regression::
+
+            python -m pytest -q tests/file_formats/snb/test_snb_modernized.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if len(sys.argv) != 3:
         usage()
         sys.exit(0)

@@ -1,3 +1,14 @@
+"""
+Verify EPUB metadata, identifier, date and cover extraction.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test epub metadata source through its owning regression module::
+
+        python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+"""
 from __future__ import annotations
 
 import io
@@ -15,6 +26,18 @@ from tests.support.file_format_unicode import assert_no_replacement_chars
 
 
 def _values(raw):
+    """
+    Perform the values test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise values through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     if raw is None:
         return []
     if isinstance(raw, Mapping):
@@ -25,6 +48,18 @@ def _values(raw):
 
 
 def _container_xml(*, opf_path: str = "content.opf") -> str:
+    """
+    Perform the container xml test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise container xml through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param opf_path: Value supplied for opf path in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return (
         '<?xml version="1.0" encoding="utf-8"?>'
         '<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">'
@@ -36,6 +71,21 @@ def _container_xml(*, opf_path: str = "content.opf") -> str:
 
 
 def _build_epub(path: Path, *, opf_bytes: bytes, container_xml: str | None = None) -> None:
+    """
+    Perform the build epub test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise build epub through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param path: Value supplied for path in the focused test operation.
+    :param opf_bytes: Value supplied for opf bytes in the focused test operation.
+    :param container_xml: Value supplied for container xml in the focused test
+        operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     container_xml = container_xml or _container_xml(opf_path="content.opf")
     with zipfile.ZipFile(path, "w") as zf:
         zf.writestr("mimetype", "application/epub+zip")
@@ -44,6 +94,18 @@ def _build_epub(path: Path, *, opf_bytes: bytes, container_xml: str | None = Non
 
 
 def _opf_text_from_epub(epub_path: Path) -> str:
+    """
+    Perform the opf text from epub test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise opf text from epub through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param epub_path: Value supplied for epub path in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     with zipfile.ZipFile(epub_path, "r") as zf:
         root = ET.fromstring(zf.read("META-INF/container.xml"))
         opf_path = None
@@ -60,6 +122,18 @@ def _opf_text_from_epub(epub_path: Path) -> str:
 
 
 def _contains_forbidden_xml_char(text: str) -> bool:
+    """
+    Perform the contains forbidden xml char test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise contains forbidden xml char through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param text: Value supplied for text in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     for ch in text:
         cp = ord(ch)
         if cp == 0x7F:
@@ -77,6 +151,17 @@ def _contains_forbidden_xml_char(text: str) -> bool:
 
 
 def _opf_with_cover() -> bytes:
+    """
+    Perform the opf with cover test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise opf with cover through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return (
         '<?xml version="1.0" encoding="utf-8"?>'
         '<package xmlns="http://www.idpf.org/2007/opf" version="2.0" unique-identifier="bookid">'
@@ -95,12 +180,36 @@ def _opf_with_cover() -> bytes:
 
 
 def test_epub_metadata_module_import_smoke() -> None:
+    """
+    Verify epub metadata module import smoke.
+
+    Example:
+        Exercise test epub metadata module import smoke through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.epub as epub_md
 
     assert epub_md is not None
 
 
 def test_epub_all_hashed_fixtures_reader_smoke(md_test_fixtures_for_ext) -> None:
+    """
+    Verify epub all hashed fixtures reader smoke.
+
+    Example:
+        Exercise test epub all hashed fixtures reader smoke through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param md_test_fixtures_for_ext: Value supplied for md test fixtures for ext in the
+        focused test operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.epub import get_metadata, get_metadata_inplace, get_quick_metadata
 
     fixtures = md_test_fixtures_for_ext(file_ext="epub", verify_hash=True)
@@ -123,6 +232,19 @@ def test_epub_all_hashed_fixtures_reader_smoke(md_test_fixtures_for_ext) -> None
 
 
 def test_epub_legacy_fixture1_expectations(md_test_fixture) -> None:
+    """
+    Verify epub legacy fixture1 expectations.
+
+    Example:
+        Exercise test epub legacy fixture1 expectations through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     fixture = md_test_fixture(file_ext="epub", file_num=1, verify_hash=True)
     opf_text = _opf_text_from_epub(fixture)
 
@@ -136,6 +258,19 @@ def test_epub_legacy_fixture1_expectations(md_test_fixture) -> None:
 
 
 def test_epub_metadata_reads_known_fixture_path(md_test_fixture) -> None:
+    """
+    Verify epub metadata reads known fixture path.
+
+    Example:
+        Exercise test epub metadata reads known fixture path through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.epub import get_metadata
 
     fixture = md_test_fixture(file_ext="epub", file_num=1, verify_hash=True)
@@ -146,6 +281,19 @@ def test_epub_metadata_reads_known_fixture_path(md_test_fixture) -> None:
 
 
 def test_epub_metadata_reads_stream_and_rewinds(md_test_fixture) -> None:
+    """
+    Verify epub metadata reads stream and rewinds.
+
+    Example:
+        Exercise test epub metadata reads stream and rewinds through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.epub import get_metadata
 
     fixture = md_test_fixture(file_ext="epub", file_num=2, verify_hash=True)
@@ -158,6 +306,19 @@ def test_epub_metadata_reads_stream_and_rewinds(md_test_fixture) -> None:
 
 
 def test_epub_quick_metadata_matches_regular_without_cover(md_test_fixture) -> None:
+    """
+    Verify epub quick metadata matches regular without cover.
+
+    Example:
+        Exercise test epub quick metadata matches regular without cover through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.epub import get_metadata, get_quick_metadata
 
     fixture = md_test_fixture(file_ext="epub", file_num=3, verify_hash=True)
@@ -170,6 +331,19 @@ def test_epub_quick_metadata_matches_regular_without_cover(md_test_fixture) -> N
 
 
 def test_epub_metadata_inplace_returns_liuxin_container(md_test_fixture) -> None:
+    """
+    Verify epub metadata inplace returns liuxin container.
+
+    Example:
+        Exercise test epub metadata inplace returns liuxin container through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.epub import get_metadata_inplace
 
     fixture = md_test_fixture(file_ext="epub", file_num=1, verify_hash=True)
@@ -181,6 +355,19 @@ def test_epub_metadata_inplace_returns_liuxin_container(md_test_fixture) -> None
 
 
 def test_epub_metadata_reader_plugin_is_available(md_test_fixture) -> None:
+    """
+    Verify epub metadata reader plugin remains available.
+
+    Example:
+        Exercise test epub metadata reader plugin is available through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.customize.builtins.metadata_readers import get_metadata_reader_plugins
 
     fixture = md_test_fixture(file_ext="epub", file_num=1, verify_hash=True)
@@ -200,6 +387,18 @@ def test_epub_metadata_reader_plugin_is_available(md_test_fixture) -> None:
 
 
 def test_epub_metadata_reads_generated_multilingual_fixture_path_stream_and_plugin(tmp_path: Path) -> None:
+    """
+    Verify epub metadata reads generated multilingual fixture path stream and plugin.
+
+    Example:
+        Exercise test epub metadata reads generated multilingual fixture path stream and plugin through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.customize.builtins.metadata_readers import get_metadata_reader_plugins
     from LiuXin_alpha.metadata.file_sources.epub import get_metadata, get_metadata_inplace, get_quick_metadata
 
@@ -238,6 +437,19 @@ def test_epub_metadata_reads_generated_multilingual_fixture_path_stream_and_plug
 
 
 def test_epub_cover_extracts_raster_cover_when_present(md_test_fixture) -> None:
+    """
+    Verify epub cover extracts raster cover when present.
+
+    Example:
+        Exercise test epub cover extracts raster cover when present through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.epub import get_metadata
 
     fixture = md_test_fixture(file_ext="epub", file_num=2, verify_hash=True)
@@ -251,6 +463,20 @@ def test_epub_cover_extracts_raster_cover_when_present(md_test_fixture) -> None:
 
 
 def test_epub_set_metadata_roundtrip_path(tmp_path: Path, md_test_fixture) -> None:
+    """
+    Verify epub set metadata roundtrip path.
+
+    Example:
+        Exercise test epub set metadata roundtrip path through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.epub import get_metadata, set_metadata
 
     source = md_test_fixture(file_ext="epub", file_num=2, verify_hash=True)
@@ -279,6 +505,20 @@ def test_epub_set_metadata_roundtrip_path(tmp_path: Path, md_test_fixture) -> No
 
 
 def test_epub_set_metadata_accepts_stream(tmp_path: Path, md_test_fixture) -> None:
+    """
+    Verify epub set metadata accepts stream.
+
+    Example:
+        Exercise test epub set metadata accepts stream through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.epub import get_metadata, set_metadata
 
     source = md_test_fixture(file_ext="epub", file_num=3, verify_hash=True)
@@ -297,6 +537,19 @@ def test_epub_set_metadata_accepts_stream(tmp_path: Path, md_test_fixture) -> No
 
 
 def test_epub_update_metadata_mutates_opf_object(md_test_fixture) -> None:
+    """
+    Verify epub update metadata mutates opf object.
+
+    Example:
+        Exercise test epub update metadata mutates opf object through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.file_formats.opf.opf2 import OPF
     from LiuXin_alpha.metadata.file_sources.epub import update_metadata
 
@@ -325,6 +578,20 @@ def test_epub_update_metadata_mutates_opf_object(md_test_fixture) -> None:
 
 
 def test_epub_writer_legacy_fields_present_in_opf_payload(tmp_path: Path, md_test_fixture) -> None:
+    """
+    Verify epub writer legacy fields present in opf payload.
+
+    Example:
+        Exercise test epub writer legacy fields present in opf payload through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.epub import set_metadata
 
     source = md_test_fixture(file_ext="epub", file_num=1, verify_hash=True)
@@ -361,6 +628,20 @@ def test_epub_writer_legacy_fields_present_in_opf_payload(tmp_path: Path, md_tes
 
 
 def test_epub_unicode_torture_roundtrip_title_and_authors(tmp_path: Path, md_test_fixture) -> None:
+    """
+    Verify epub unicode torture roundtrip title and authors.
+
+    Example:
+        Exercise test epub unicode torture roundtrip title and authors through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.epub import get_metadata, set_metadata
 
     source = md_test_fixture(file_ext="epub", file_num=2, verify_hash=True)
@@ -400,6 +681,18 @@ def test_epub_unicode_torture_roundtrip_title_and_authors(tmp_path: Path, md_tes
 
 
 def test_epub_set_metadata_preserves_zip_members_replaces_cover_and_sanitizes_xml(tmp_path: Path) -> None:
+    """
+    Verify epub set metadata preserves zip members replaces cover and sanitizes xml.
+
+    Example:
+        Exercise test epub set metadata preserves zip members replaces cover and sanitizes xml through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.epub import get_metadata, set_metadata
 
     target = tmp_path / "container_contract.epub"
@@ -450,6 +743,18 @@ def test_epub_set_metadata_preserves_zip_members_replaces_cover_and_sanitizes_xm
 
 
 def test_epub_broken_encoding_in_opf_is_tolerated(tmp_path: Path) -> None:
+    """
+    Verify epub broken encoding in opf remains tolerated.
+
+    Example:
+        Exercise test epub broken encoding in opf is tolerated through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.epub import get_metadata
 
     opf = (
@@ -469,6 +774,18 @@ def test_epub_broken_encoding_in_opf_is_tolerated(tmp_path: Path) -> None:
 
 
 def test_epub_with_unicode_opf_path_in_container_is_supported(tmp_path: Path) -> None:
+    """
+    Verify epub with unicode opf path in container remains supported.
+
+    Example:
+        Exercise test epub with unicode opf path in container is supported through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.epub import get_metadata
 
     unicode_opf_path = "OEBPS/δοκιμή/書名.opf"
@@ -493,6 +810,20 @@ def test_epub_with_unicode_opf_path_in_container_is_supported(tmp_path: Path) ->
 
 
 def test_epub_invalid_zip_logs_and_raises(tmp_path: Path, monkeypatch) -> None:
+    """
+    Verify epub invalid zip logs and raises.
+
+    Example:
+        Exercise test epub invalid zip logs and raises through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.epub import EPubException, get_metadata
 
     bad = tmp_path / "not_a_zip.epub"
@@ -501,6 +832,22 @@ def test_epub_invalid_zip_logs_and_raises(tmp_path: Path, monkeypatch) -> None:
     events: list[tuple[str, str]] = []
 
     def _log_exception(base, exc, level, *pairs, **kwargs):
+        """
+        Perform the log exception test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test epub invalid zip logs and raises.log exception through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+        :param base: Value supplied for base in the focused test operation.
+        :param exc: Value supplied for exc in the focused test operation.
+        :param level: Value supplied for level in the focused test operation.
+        :param pairs: Value supplied for pairs in the focused test operation.
+        :param kwargs: Keyword values forwarded by the test double.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         events.append((str(base), str(exc)))
         return str(base)
 
@@ -515,6 +862,20 @@ def test_epub_invalid_zip_logs_and_raises(tmp_path: Path, monkeypatch) -> None:
 
 
 def test_epub_missing_container_logs_and_raises(tmp_path: Path, monkeypatch) -> None:
+    """
+    Verify epub missing container logs and raises.
+
+    Example:
+        Exercise test epub missing container logs and raises through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.epub import EPubException, get_metadata
 
     bad = tmp_path / "missing_container.epub"
@@ -524,6 +885,22 @@ def test_epub_missing_container_logs_and_raises(tmp_path: Path, monkeypatch) -> 
     events: list[tuple[str, str]] = []
 
     def _log_exception(base, exc, level, *pairs, **kwargs):
+        """
+        Perform the log exception test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test epub missing container logs and raises.log exception through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+        :param base: Value supplied for base in the focused test operation.
+        :param exc: Value supplied for exc in the focused test operation.
+        :param level: Value supplied for level in the focused test operation.
+        :param pairs: Value supplied for pairs in the focused test operation.
+        :param kwargs: Keyword values forwarded by the test double.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         events.append((str(base), str(exc)))
         return str(base)
 
@@ -537,6 +914,20 @@ def test_epub_missing_container_logs_and_raises(tmp_path: Path, monkeypatch) -> 
 
 
 def test_epub_missing_opf_logs_and_raises(tmp_path: Path, monkeypatch) -> None:
+    """
+    Verify epub missing opf logs and raises.
+
+    Example:
+        Exercise test epub missing opf logs and raises through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.epub import EPubException, get_metadata
 
     target = tmp_path / "missing_opf.epub"
@@ -547,6 +938,22 @@ def test_epub_missing_opf_logs_and_raises(tmp_path: Path, monkeypatch) -> None:
     events: list[tuple[str, str]] = []
 
     def _log_exception(base, exc, level, *pairs, **kwargs):
+        """
+        Perform the log exception test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test epub missing opf logs and raises.log exception through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+        :param base: Value supplied for base in the focused test operation.
+        :param exc: Value supplied for exc in the focused test operation.
+        :param level: Value supplied for level in the focused test operation.
+        :param pairs: Value supplied for pairs in the focused test operation.
+        :param kwargs: Keyword values forwarded by the test double.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         events.append((str(base), str(exc)))
         return str(base)
 
@@ -560,6 +967,20 @@ def test_epub_missing_opf_logs_and_raises(tmp_path: Path, monkeypatch) -> None:
 
 
 def test_epub_malformed_container_xml_logs_and_raises(tmp_path: Path, monkeypatch) -> None:
+    """
+    Verify epub malformed container xml logs and raises.
+
+    Example:
+        Exercise test epub malformed container xml logs and raises through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.epub import EPubException, get_metadata
 
     target = tmp_path / "broken_container.epub"
@@ -570,6 +991,22 @@ def test_epub_malformed_container_xml_logs_and_raises(tmp_path: Path, monkeypatc
     events: list[tuple[str, str]] = []
 
     def _log_exception(base, exc, level, *pairs, **kwargs):
+        """
+        Perform the log exception test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test epub malformed container xml logs and raises.log exception through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+        :param base: Value supplied for base in the focused test operation.
+        :param exc: Value supplied for exc in the focused test operation.
+        :param level: Value supplied for level in the focused test operation.
+        :param pairs: Value supplied for pairs in the focused test operation.
+        :param kwargs: Keyword values forwarded by the test double.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         events.append((str(base), str(exc)))
         return str(base)
 
@@ -583,11 +1020,40 @@ def test_epub_malformed_container_xml_logs_and_raises(tmp_path: Path, monkeypatc
 
 
 def test_epub_set_metadata_invalid_zip_logs_and_raises(monkeypatch) -> None:
+    """
+    Verify epub set metadata invalid zip logs and raises.
+
+    Example:
+        Exercise test epub set metadata invalid zip logs and raises through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.epub import EPubException, set_metadata
 
     events: list[tuple[str, str]] = []
 
     def _log_exception(base, exc, level, *pairs, **kwargs):
+        """
+        Perform the log exception test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test epub set metadata invalid zip logs and raises.log exception through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+        :param base: Value supplied for base in the focused test operation.
+        :param exc: Value supplied for exc in the focused test operation.
+        :param level: Value supplied for level in the focused test operation.
+        :param pairs: Value supplied for pairs in the focused test operation.
+        :param kwargs: Keyword values forwarded by the test double.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         events.append((str(base), str(exc)))
         return str(base)
 

@@ -1,5 +1,13 @@
 """
-Read and write metadata in RTF files.
+Read and update RTF document-info metadata while handling code pages, Unicode escapes and malformed-input policy.
+
+The module keeps malformed-input, optional dependency and resource ownership
+behavior explicit for registry callers.
+
+Example:
+    Exercise rtf with pytest::
+
+        python -m pytest -q tests/metadata/file_sources/test_rtf_metadata_source.py
 """
 
 from __future__ import annotations
@@ -10,12 +18,14 @@ import re
 from io import StringIO
 from typing import Any
 
-from LiuXin_alpha.metadata.metadata import MetaData as MetaInformation
+from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
+    CalibreLikeLiuXinBookMetaData as MetaInformation,
+)
 from LiuXin_alpha.metadata.utils import string_to_authors
 from LiuXin_alpha.utils.calibre import force_unicode
+from LiuXin_alpha.utils.libraries.cleantext import clean_xml_chars
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.logging import default_log
-from LiuXin_alpha.utils.libraries.cleantext import clean_xml_chars
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>"
@@ -36,14 +46,46 @@ comment_pat_2 = re.compile(br"\{\\info.*?\{\\comment(.*?)(?<!\\)\}", re.DOTALL)
 
 
 class RtfFormatError(Exception):
+    """
+    Signal malformed or unreadable RTF metadata input.
+
+    Example:
+        Exercise RtfFormatError with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_rtf_metadata_source.py
+    """
     pass
 
 
 def _default_metadata() -> MetaInformation:
+    """
+    Build minimally usable metadata for missing or explicitly tolerated malformed input.
+
+    Example:
+        Exercise  default metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_rtf_metadata_source.py
+
+
+    :return: Parsed, normalized or serialized value described above.
+    """
     return MetaInformation(_("Unknown"), [_("Unknown")])
 
 
 def _source_name(target_file) -> str:
+    """
+    Return the best available source label for fallback titles and diagnostics.
+
+    Example:
+        Exercise  source name with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_rtf_metadata_source.py
+
+
+    :param target_file: Caller-supplied path, path-like object or stream described by
+        this operation.
+    :return: Parsed, normalized or serialized value described above.
+    """
     if isinstance(target_file, os.PathLike):
         return os.fspath(target_file)
     if isinstance(target_file, str):
@@ -52,18 +94,56 @@ def _source_name(target_file) -> str:
 
 
 def _to_bytes(raw: bytes | str) -> bytes:
+    """
+    Perform the format-specific to bytes operation used by this metadata source.
+
+    Example:
+        Exercise  to bytes with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_rtf_metadata_source.py
+
+
+    :param raw: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or serialized value described above.
+    """
     if isinstance(raw, bytes):
         return raw
     return str(raw).encode("latin-1", "replace")
 
 
 def _normalize_text(raw: str | None) -> str:
+    """
+    Collapse whitespace and trim a possibly absent metadata text value.
+
+    Example:
+        Exercise  normalize text with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_rtf_metadata_source.py
+
+
+    :param raw: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or serialized value described above.
+    """
     if not raw:
         return ""
     return re.sub(r"\s+", " ", raw).strip()
 
 
 def _safe_seek(stream, pos: int) -> None:
+    """
+    Perform seek without propagating optional or recovery failures.
+
+    Example:
+        Exercise  safe seek with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_rtf_metadata_source.py
+
+
+    :param stream: Caller-supplied path, path-like object or stream described by this
+        operation.
+    :param pos: Offset, bound or scalar value used by the operation.
+    :return: None.
+    """
     try:
         stream.seek(pos)
     except Exception:
@@ -71,12 +151,37 @@ def _safe_seek(stream, pos: int) -> None:
 
 
 def _warn(msg: str) -> None:
+    """
+    Report a recoverable metadata parsing problem through the project logger.
+
+    Example:
+        Exercise  warn with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_rtf_metadata_source.py
+
+
+    :param msg: Value supplied for msg.
+    :return: None.
+    """
     logger = getattr(default_log, "warning", None) or getattr(default_log, "warn", None)
     if logger is not None:
         logger(msg)
 
 
 def _log_exception(msg: str, err: Exception) -> None:
+    """
+    Report a recoverable metadata parsing problem through the project logger.
+
+    Example:
+        Exercise  log exception with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_rtf_metadata_source.py
+
+
+    :param msg: Value supplied for msg.
+    :param err: Value supplied for err.
+    :return: None.
+    """
     if hasattr(default_log, "log_exception"):
         default_log.log_exception(msg, err, "DEBUG")
     else:
@@ -84,9 +189,18 @@ def _log_exception(msg: str, err: Exception) -> None:
 
 
 def get_document_info(stream):
-    r"""
-    Extract the \info block from an RTF stream.
-    Returns: (info_block_bytes | None, start_position)
+    """
+    Extract the raw RTF info group while respecting nested braces and escaped delimiters.
+
+    Example:
+        Exercise get document info with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_rtf_metadata_source.py
+
+
+    :param stream: Caller-supplied path, path-like object or stream described by this
+        operation.
+    :return: Parsed, normalized or serialized value described above.
     """
     block_size = 4096
     stream.seek(0)
@@ -130,7 +244,17 @@ def get_document_info(stream):
 
 def detect_codepage(stream):
     """
-    Detect RTF \ansicpgNNNN codepage.
+    Infer the RTF ANSI code page from header controls, falling back to cp1252.
+
+    Example:
+        Exercise detect codepage with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_rtf_metadata_source.py
+
+
+    :param stream: Caller-supplied path, path-like object or stream described by this
+        operation.
+    :return: Parsed, normalized or serialized value described above.
     """
     stream.seek(0)
     sample = _to_bytes(stream.read(512))
@@ -151,7 +275,16 @@ def detect_codepage(stream):
 
 def encode(unistr):
     """
-    Encode unicode text for RTF metadata fields using \\uXXXX? escapes.
+    Escape Unicode text into RTF-safe controls and literal bytes.
+
+    Example:
+        Exercise encode with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_rtf_metadata_source.py
+
+
+    :param unistr: Value supplied for unistr.
+    :return: Parsed, normalized or serialized value described above.
     """
     if not isinstance(unistr, str):
         unistr = force_unicode(unistr)
@@ -177,7 +310,17 @@ def encode(unistr):
 
 def decode(raw, codec):
     """
-    Decode RTF field content containing \\'HH and \\uNNNN? escapes.
+    Decode RTF escaped bytes, Unicode controls and fallback characters using the selected codec.
+
+    Example:
+        Exercise decode with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_rtf_metadata_source.py
+
+
+    :param raw: Raw value or payload to normalize, parse or serialize.
+    :param codec: Name, type or encoding selector used for lookup or interpretation.
+    :return: Parsed, normalized or serialized value described above.
     """
     if isinstance(raw, bytes):
         text = raw.decode("ascii", "replace")
@@ -186,6 +329,18 @@ def decode(raw, codec):
 
     if codec is not None:
         def codepage(match):
+            """
+            Perform the format-specific codepage operation used by this metadata source.
+
+            Example:
+                Exercise decode.codepage with pytest::
+
+                    python -m pytest -q tests/metadata/file_sources/test_rtf_metadata_source.py
+
+
+            :param match: Value supplied for match.
+            :return: Parsed, normalized or serialized value described above.
+            """
             try:
                 return bytes([int(match.group(1), 16)]).decode(codec)
             except Exception:
@@ -194,6 +349,18 @@ def decode(raw, codec):
         text = re.sub(r"\\'([a-fA-F0-9]{2})", codepage, text)
 
     def uni(match):
+        """
+        Perform the format-specific uni operation used by this metadata source.
+
+        Example:
+            Exercise decode.uni with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_rtf_metadata_source.py
+
+
+        :param match: Value supplied for match.
+        :return: Parsed, normalized or serialized value described above.
+        """
         try:
             val = int(match.group(1))
             # RTF \u escapes are signed 16-bit values.
@@ -210,6 +377,19 @@ def decode(raw, codec):
 
 
 def _set_authors(mi, raw_author: str) -> None:
+    """
+    Set authors while preserving unrelated metadata state.
+
+    Example:
+        Exercise  set authors with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_rtf_metadata_source.py
+
+
+    :param mi: Metadata object supplying or receiving the supported fields.
+    :param raw_author: Raw value or payload to normalize, parse or serialize.
+    :return: None.
+    """
     authors = [x.strip() for x in string_to_authors(raw_author) if x and x.strip()]
     if len(authors) <= 1 and "," in raw_author:
         authors = [x.strip() for x in raw_author.split(",") if x.strip()]
@@ -225,6 +405,19 @@ def _set_authors(mi, raw_author: str) -> None:
 
 
 def _set_tags(mi, tags_text: str) -> None:
+    """
+    Set tags while preserving unrelated metadata state.
+
+    Example:
+        Exercise  set tags with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_rtf_metadata_source.py
+
+
+    :param mi: Metadata object supplying or receiving the supported fields.
+    :param tags_text: Value supplied for tags text.
+    :return: None.
+    """
     tags = [x.strip() for x in tags_text.split(",") if x.strip()]
     if tags:
         mi.tags = tags
@@ -232,7 +425,19 @@ def _set_tags(mi, tags_text: str) -> None:
 
 def get_metadata(target_file, *, fallback_on_parse_error: bool = False):
     """
-    Read metadata from an RTF path or stream.
+    Read metadata from the supported path, bytes or stream input while applying module ownership and fallback policy.
+
+    Example:
+        Exercise get metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_rtf_metadata_source.py
+
+
+    :param target_file: Caller-supplied path, path-like object or stream described by
+        this operation.
+    :param fallback_on_parse_error: Return safe default metadata after parse errors when
+        true; otherwise raise the format error.
+    :return: Parsed, normalized or serialized value described above.
     """
     stream_needs_close = False
     source_name = _source_name(target_file)
@@ -266,7 +471,19 @@ def get_metadata(target_file, *, fallback_on_parse_error: bool = False):
 
 def rtf_get_metadata_from_stream(stream, *, fallback_on_parse_error: bool = False):
     """
-    Read metadata from an RTF stream.
+    Parse RTF info fields from a caller-owned stream under explicit fallback policy.
+
+    Example:
+        Exercise rtf get metadata from stream with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_rtf_metadata_source.py
+
+
+    :param stream: Caller-supplied path, path-like object or stream described by this
+        operation.
+    :param fallback_on_parse_error: Return safe default metadata after parse errors when
+        true; otherwise raise the format error.
+    :return: Parsed, normalized or serialized value described above.
     """
     mi = _default_metadata()
     stream.seek(0)
@@ -353,7 +570,18 @@ def rtf_get_metadata_from_stream(stream, *, fallback_on_parse_error: bool = Fals
 
 def create_metadata(stream, options):
     """
-    Create a metadata packet and inject it near the top of an RTF stream.
+    Create a complete RTF info group from supported metadata options.
+
+    Example:
+        Exercise create metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_rtf_metadata_source.py
+
+
+    :param stream: Caller-supplied path, path-like object or stream described by this
+        operation.
+    :param options: Worker, metadata or control value described by the operation.
+    :return: Parsed, normalized or serialized value described above.
     """
     md: list[str] = [r"{\info"]
     if getattr(options, "title", None):
@@ -393,14 +621,53 @@ def create_metadata(stream, options):
 
 def set_metadata(stream, options):
     """
-    Modify or add RTF metadata in a read/write binary stream.
+    Rewrite supported metadata fields without taking ownership of a caller-supplied stream.
+
+    Example:
+        Exercise set metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_rtf_metadata_source.py
+
+
+    :param stream: Caller-supplied path, path-like object or stream described by this
+        operation.
+    :param options: Worker, metadata or control value described by the operation.
+    :return: None.
     """
 
     def add_metadata_item(src: str, name: str, val: str) -> str:
+        """
+        Perform the format-specific add metadata item operation used by this metadata source.
+
+        Example:
+            Exercise set metadata.add metadata item with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_rtf_metadata_source.py
+
+
+        :param src: Value supplied for src.
+        :param name: Name, type or encoding selector used for lookup or interpretation.
+        :param val: Value supplied for val.
+        :return: Parsed, normalized or serialized value described above.
+        """
         index = src.rindex("}")
         return src[:index] + r"{\ "[:-1] + name + " " + val + "}}"
 
     def replace_or_create(src: str, name: str, val: str) -> str:
+        """
+        Perform the format-specific replace or create operation used by this metadata source.
+
+        Example:
+            Exercise set metadata.replace or create with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_rtf_metadata_source.py
+
+
+        :param src: Value supplied for src.
+        :param name: Name, type or encoding selector used for lookup or interpretation.
+        :param val: Value supplied for val.
+        :return: Parsed, normalized or serialized value described above.
+        """
         val = encode(val)
         pat = re.compile(base_pat.replace("name", name), re.DOTALL)
         replacement = "{\\" + name + " " + val + "}"

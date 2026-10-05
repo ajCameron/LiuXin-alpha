@@ -1,4 +1,14 @@
-"""Regression tests for catalog field metadata and search compatibility."""
+"""
+Verify test field metadata and search behavior against the public catalog contracts.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test field metadata and search through its owning regression module::
+
+        python -m pytest -q tests/catalog/test_field_metadata_and_search.py
+"""
 
 from __future__ import annotations
 
@@ -11,6 +21,17 @@ from LiuXin_alpha.catalog.search import KeyPairSearch, LRUCache, Search
 
 
 def test_field_metadata_has_a_truthful_mapping_surface() -> None:
+    """
+    Verify field metadata has a truthful mapping surface.
+
+    Example:
+        Exercise test field metadata has a truthful mapping surface through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_field_metadata_and_search.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     for metadata in (FieldMetadata(), CalibreFieldMetadata()):
         assert metadata
         assert len(metadata) == len(metadata.keys())
@@ -20,6 +41,17 @@ def test_field_metadata_has_a_truthful_mapping_surface() -> None:
 
 
 def test_field_metadata_deserializes_plain_python_mappings() -> None:
+    """
+    Verify field metadata deserializes plain python mappings.
+
+    Example:
+        Exercise test field metadata deserializes plain python mappings through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_field_metadata_and_search.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     restored = fm_from_dict(
         {
             "custom_fields": {},
@@ -41,6 +73,17 @@ def test_field_metadata_deserializes_plain_python_mappings() -> None:
 
 
 def test_search_helpers_use_python_three_mapping_iteration() -> None:
+    """
+    Verify search helpers use python three mapping iteration.
+
+    Example:
+        Exercise test search helpers use python three mapping iteration through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_field_metadata_and_search.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     field_values = lambda: [({"isbn": "123"}, {7})]
     assert KeyPairSearch()("isbn:123", field_values, {7}, False) == {7}
 
@@ -51,6 +94,17 @@ def test_search_helpers_use_python_three_mapping_iteration() -> None:
 
 
 def test_populate_all_locations_treats_strings_as_column_names() -> None:
+    """
+    Verify populate all locations treats strings as column names.
+
+    Example:
+        Exercise test populate all locations treats strings as column names through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_field_metadata_and_search.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     locations = Search.populate_all_locations(
         {"title": "work_title", "agents": ("agent_name", "agent_sort")}
     )

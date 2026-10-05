@@ -1,4 +1,9 @@
-"""Exports for the native-HTTP read-only HTML crawler store backend."""
+"""
+Expose native HTML discovery options and the configured read-only HTTP Store.
+
+Locations and observed file metadata use the shared storage API values.
+The imported implementation owns backend construction and physical operations.
+"""
 
 from .native_html_storage_backend import (
     NATIVE_HTML_MAX_REQUESTS_PER_HOUR_DEFAULT,

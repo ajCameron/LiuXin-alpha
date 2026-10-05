@@ -1,7 +1,15 @@
 # -*- coding: utf-8 -*-
 
 """
-Write content to PDF.
+Serialize normalized content and metadata into the target format.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise writer through a consuming regression::
+
+        python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
 """
 from __future__ import annotations
 
@@ -31,11 +39,33 @@ except Exception:
     _HAS_QT = False
 
     class _QtMissingBase(object):
+        """
+        Provide the qtmissingbase contract for validated ebook processing.
+
+        Example:
+            Exercise  QtMissingBase through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+        """
         pass
 
     QEventLoop = QObject = QPrinter = QSizeF = Qt = QPainter = QPixmap = QTimer = QSize = QWebSettings = QWebView = QWebPage = _QtMissingBase
 
     def pyqtProperty(*_args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
+        """
+        Perform the pyqtProperty operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise pyqtProperty through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param _args: Value supplied for args under the utility contract.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return property(kwargs.get("fget"), kwargs.get("fset"))
 
 from LiuXin_alpha.file_formats.oeb.display.webview import load_html
@@ -54,11 +84,36 @@ __docformat__ = "restructuredtext en"
 
 
 def _require_qt() -> None:
+    """
+    Perform the require qt operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  require qt through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if not _HAS_QT:
         raise RuntimeError("PyQt5 + QtWebKit are required for PDF writing.")
 
 
 def get_custom_size(opts: _typing.Any) -> _typing.Any:
+    """
+    Return custom size under the format's safety and compatibility rules.
+
+    Example:
+        Exercise get custom size through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+    :param opts: Value supplied for opts under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     custom_size = None
     if opts.custom_size is not None:
         width, sep, height = opts.custom_size.partition("x")
@@ -73,6 +128,22 @@ def get_custom_size(opts: _typing.Any) -> _typing.Any:
 
 
 def get_pdf_printer(opts: _typing.Any, for_comic: bool = False, output_file_name: _typing.Any = None) -> _typing.Any:  # {{{
+    """
+    Return pdf printer under the format's safety and compatibility rules.
+
+    Example:
+        Exercise get pdf printer through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+    :param opts: Value supplied for opts under the utility contract.
+    :param for_comic: Value supplied for for comic under the utility contract.
+    :param output_file_name: Value supplied for output file name under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     _require_qt()
     from LiuXin_alpha.surfaces.gui2 import must_use_qt
 
@@ -130,6 +201,23 @@ def get_pdf_printer(opts: _typing.Any, for_comic: bool = False, output_file_name
 
 
 def draw_image_page(printer: _typing.Any, painter: _typing.Any, p: _typing.Any, preserve_aspect_ratio: bool = True) -> None:
+    """
+    Perform the draw image page operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise draw image page through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+    :param printer: Value supplied for printer under the utility contract.
+    :param painter: Value supplied for painter under the utility contract.
+    :param p: Path-like value normalized or validated by the operation.
+    :param preserve_aspect_ratio: Value supplied for preserve aspect ratio under the
+        utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     page_rect = printer.pageRect()
     if preserve_aspect_ratio:
         aspect_ratio = float(p.width()) / p.height()
@@ -148,7 +236,28 @@ def draw_image_page(printer: _typing.Any, painter: _typing.Any, p: _typing.Any, 
 
 
 class Page(QWebPage):  # {{{
+    """
+    Provide the page contract for validated ebook processing.
+
+    Example:
+        Exercise Page through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+    """
     def __init__(self: _typing.Self, opts: _typing.Any, log: _typing.Any) -> None:
+        """
+        Initialize and validate the page state.
+
+        Example:
+            Exercise Page.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param opts: Value supplied for opts under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         _require_qt()
         self.log = log
         QWebPage.__init__(self)
@@ -173,9 +282,38 @@ class Page(QWebPage):  # {{{
             settings.setFontFamily(QWebSettings.FixedFont, opts.pdf_mono_family)
 
     def javaScriptConsoleMessage(self: _typing.Self, msg: _typing.Any, lineno: _typing.Any, msgid: _typing.Any) -> None:
+        """
+        Perform the javaScriptConsoleMessage operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Page.javaScriptConsoleMessage through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param msg: Value supplied for msg under the utility contract.
+        :param lineno: Value supplied for lineno under the utility contract.
+        :param msgid: Value supplied for msgid under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.log.debug("JS:", six_unicode(msg))
 
     def javaScriptAlert(self: _typing.Self, frame: _typing.Any, msg: _typing.Any) -> None:
+        """
+        Perform the javaScriptAlert operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Page.javaScriptAlert through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param frame: Value supplied for frame under the utility contract.
+        :param msg: Value supplied for msg under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.log(six_unicode(msg))
 
 
@@ -183,7 +321,30 @@ class Page(QWebPage):  # {{{
 
 
 class PDFWriter(QObject):  # {{{
+    """
+    Provide the pdfwriter contract for validated ebook processing.
+
+    Example:
+        Exercise PDFWriter through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+    """
     def __init__(self: _typing.Self, opts: _typing.Any, log: _typing.Any, cover_data: _typing.Any = None, toc: _typing.Any = None) -> None:
+        """
+        Initialize and validate the pdfwriter state.
+
+        Example:
+            Exercise PDFWriter.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param opts: Value supplied for opts under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :param cover_data: Value supplied for cover data under the utility contract.
+        :param toc: Value supplied for toc under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         _require_qt()
         from LiuXin_alpha.surfaces.gui2 import must_use_qt
         from LiuXin_alpha.utils.podofo import get_podofo
@@ -213,6 +374,21 @@ class PDFWriter(QObject):  # {{{
         self.toc = toc
 
     def dump(self: _typing.Self, items: _typing.Any, out_stream: _typing.Any, pdf_metadata: _typing.Any) -> None:
+        """
+        Perform the dump operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PDFWriter.dump through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param items: Value supplied for items under the utility contract.
+        :param out_stream: Value supplied for out stream under the utility contract.
+        :param pdf_metadata: Value supplied for pdf metadata under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.metadata = pdf_metadata
         self._delete_tmpdir()
         self.outline = Outline(self.toc, items)
@@ -238,6 +414,18 @@ class PDFWriter(QObject):  # {{{
             raise Exception("Rendering HTML to PDF failed")
 
     def _render_book(self: _typing.Self) -> None:
+        """
+        Perform the render book operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PDFWriter. render book through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         try:
             if len(self.render_queue) == 0:
                 self._write()
@@ -248,6 +436,18 @@ class PDFWriter(QObject):  # {{{
             self.loop.exit(1)
 
     def _render_next(self: _typing.Self) -> None:
+        """
+        Perform the render next operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PDFWriter. render next through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         item = six_unicode(self.render_queue.pop(0))
 
         self.logger.debug("Processing %s..." % item)
@@ -255,6 +455,19 @@ class PDFWriter(QObject):  # {{{
         load_html(item, self.view)
 
     def _render_html(self: _typing.Self, ok: _typing.Any) -> None:
+        """
+        Perform the render html operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PDFWriter. render html through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param ok: Value supplied for ok under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if ok:
             self.do_paged_render()
         else:
@@ -265,15 +478,53 @@ class PDFWriter(QObject):  # {{{
         self._render_book()
 
     def _pass_json_value_getter(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the pass json value getter operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PDFWriter. pass json value getter through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         val = json.dumps(self.bridge_value)
         return val
 
     def _pass_json_value_setter(self: _typing.Self, value: _typing.Any) -> None:
+        """
+        Perform the pass json value setter operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PDFWriter. pass json value setter through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param value: Value normalized, stored, formatted or returned.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.bridge_value = json.loads(six_unicode(value))
 
     _pass_json_value = pyqtProperty(str, fget=_pass_json_value_getter, fset=_pass_json_value_setter)
 
     def setup_printer(self: _typing.Self, outpath: _typing.Any) -> None:
+        """
+        Perform the setup printer operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PDFWriter.setup printer through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param outpath: Value supplied for outpath under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.printer = self.painter = None
         printer = get_pdf_printer(self.opts, output_file_name=outpath)
         painter = QPainter(printer)
@@ -286,6 +537,18 @@ class PDFWriter(QObject):  # {{{
         self.page.setViewportSize(self.viewport_size)
 
     def do_paged_render(self: _typing.Self) -> None:
+        """
+        Perform the do paged render operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PDFWriter.do paged render through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.paged_js is None:
             from LiuXin_alpha.utils.resources import compiled_coffeescript
 
@@ -338,6 +601,19 @@ class PDFWriter(QObject):  # {{{
             self.outline.set_pos(self.current_item, anchor, start_page + pagenum, ypos)
 
     def append_doc(self: _typing.Self, outpath: _typing.Any) -> None:
+        """
+        Perform the append doc operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PDFWriter.append doc through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param outpath: Value supplied for outpath under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         doc = self.podofo.PDFDoc()
         with open(outpath, "rb") as f:
             raw = f.read()
@@ -345,11 +621,35 @@ class PDFWriter(QObject):  # {{{
         self.doc.append(doc)
 
     def _delete_tmpdir(self: _typing.Self) -> None:
+        """
+        Perform the delete tmpdir operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PDFWriter. delete tmpdir through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if os.path.exists(self.tmp_path):
             shutil.rmtree(self.tmp_path, True)
             self.tmp_path = PersistentTemporaryDirectory("_pdf_output_parts")
 
     def insert_cover(self: _typing.Self) -> None:
+        """
+        Perform the insert cover operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PDFWriter.insert cover through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if not isinstance(self.cover_data, bytes):
             return
         item_path = os.path.join(self.tmp_path, "cover.pdf")
@@ -370,6 +670,18 @@ class PDFWriter(QObject):  # {{{
         printer.abort()
 
     def _write(self: _typing.Self) -> None:
+        """
+        Perform the write operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PDFWriter. write through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.painter.end()
         self.printer.abort()
         self.painter = self.printer = None
@@ -396,11 +708,49 @@ class PDFWriter(QObject):  # {{{
 
 
 class ImagePDFWriter(object):  # {{{
+    """
+    Provide the imagepdfwriter contract for validated ebook processing.
+
+    Example:
+        Exercise ImagePDFWriter through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+    """
     def __init__(self: _typing.Self, opts: _typing.Any, log: _typing.Any, cover_data: _typing.Any = None, toc: _typing.Any = None) -> None:
+        """
+        Initialize and validate the imagepdfwriter state.
+
+        Example:
+            Exercise ImagePDFWriter.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param opts: Value supplied for opts under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :param cover_data: Value supplied for cover data under the utility contract.
+        :param toc: Value supplied for toc under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.opts = opts
         self.log = log
 
     def dump(self: _typing.Self, items: _typing.Any, out_stream: _typing.Any, pdf_metadata: _typing.Any) -> None:
+        """
+        Perform the dump operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ImagePDFWriter.dump through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param items: Value supplied for items under the utility contract.
+        :param out_stream: Value supplied for out stream under the utility contract.
+        :param pdf_metadata: Value supplied for pdf metadata under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         from LiuXin_alpha.utils.podofo import get_podofo
 
         f = PersistentTemporaryFile("_comic2pdf.pdf")
@@ -429,6 +779,21 @@ class ImagePDFWriter(object):  # {{{
                 pass
 
     def render_images(self: _typing.Self, outpath: _typing.Any, mi: _typing.Any, items: _typing.Any) -> None:
+        """
+        Perform the render images operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ImagePDFWriter.render images through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param outpath: Value supplied for outpath under the utility contract.
+        :param mi: Metadata object exposed to the template function.
+        :param items: Value supplied for items under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         _require_qt()
         printer = get_pdf_printer(self.opts, for_comic=True, output_file_name=outpath)
         printer.setDocName(mi.title)

@@ -1,3 +1,14 @@
+"""
+Provide test unified library utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test unified library through a consuming regression::
+
+        python -m pytest -q tests/library/test_unified_library.py
+"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -19,6 +30,25 @@ def _insert_store_row(
     access_protocol: str = "file",
     is_read_only: int = 0,
 ) -> UUID:
+    """
+    Perform the insert store row operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  insert store row through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+
+
+    :param db: Value supplied for db under the utility contract.
+    :param name: Field, file, function or resource name addressed by the operation.
+    :param kind: Value supplied for kind under the utility contract.
+    :param root_uri: Value supplied for root uri under the utility contract.
+    :param access_protocol: Value supplied for access protocol under the utility
+        contract.
+    :param is_read_only: Value supplied for is read only under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     store_ref = uuid4()
     Row.from_idless_row_dict(
         db,
@@ -40,6 +70,20 @@ def test_library_facade_stores_and_reads_assets_by_id_hash_and_location(
     driver_spec,
     tmp_path: Path,
 ) -> None:
+    """
+    Perform the test library facade stores and reads assets by id hash and location operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test library facade stores and reads assets by id hash and location through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "unified_library.sqlite"
     managed_root = tmp_path / "managed_store"
     managed_root.mkdir(parents=True, exist_ok=True)
@@ -86,6 +130,20 @@ def test_library_facade_ingests_an_enumerable_store(
     driver_spec,
     tmp_path: Path,
 ) -> None:
+    """
+    Perform the test library facade ingests an enumerable store operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test library facade ingests an enumerable store through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     destination_root = tmp_path / "destination"
     destination_root.mkdir()
     source = FilesystemStore(tmp_path / "source")
@@ -119,6 +177,20 @@ def test_library_facade_registers_and_routes_unmanaged_disk(
     driver_spec,
     tmp_path: Path,
 ) -> None:
+    """
+    Perform the test library facade registers and routes unmanaged disk operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test library facade registers and routes unmanaged disk through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "unified_import.sqlite"
     unmanaged_root = tmp_path / "unmanaged_root"
     unmanaged_root.mkdir(parents=True, exist_ok=True)
@@ -149,6 +221,20 @@ def test_library_replica_deletion_is_explicit_and_tombstoned(
     driver_spec,
     tmp_path: Path,
 ) -> None:
+    """
+    Perform the test library replica deletion is explicit and tombstoned operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test library replica deletion is explicit and tombstoned through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     with Library(
         database_path=tmp_path / "delete.sqlite",
         db_type=driver_spec.db_type,
@@ -182,6 +268,20 @@ def test_library_facade_can_wrap_existing_database_without_owning_close(
     driver_spec,
     tmp_path: Path,
 ) -> None:
+    """
+    Perform the test library facade can wrap existing database without owning close operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test library facade can wrap existing database without owning close through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "unified_external.sqlite"
     db = Database(
         metadata={"database_path": str(db_path)},

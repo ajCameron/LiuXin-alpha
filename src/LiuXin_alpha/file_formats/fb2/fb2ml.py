@@ -1,7 +1,15 @@
 # -*- coding: utf-8 -*-
 
 """
-Transform OEB content into FB2 markup
+Translate FB2 XML metadata and body markup into normalized ebook content.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise fb2ml through a consuming regression::
+
+        python -m pytest -q tests/file_formats/fb2/test_fb2_modernized.py
 """
 from __future__ import annotations
 
@@ -29,13 +37,77 @@ from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 
 class _Logger(Protocol):
-    def debug(self: _typing.Self, message: object) -> object: ...
+    """
+    Provide the logger contract for validated ebook processing.
 
-    def error(self: _typing.Self, message: object) -> object: ...
+    Example:
+        Exercise  Logger through a consuming regression::
 
-    def info(self: _typing.Self, message: object) -> object: ...
+            python -m pytest -q tests/file_formats/fb2/test_fb2_modernized.py
+    """
+    def debug(self: _typing.Self, message: object) -> object:
+        """
+        Perform the debug operation under explicit file-format and conversion rules.
 
-    def warn(self: _typing.Self, message: object) -> object: ...
+        Example:
+            Exercise  Logger.debug through a consuming regression::
+
+                python -m pytest -q tests/file_formats/fb2/test_fb2_modernized.py
+
+
+        :param message: Value supplied for message under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
+        ...
+
+    def error(self: _typing.Self, message: object) -> object:
+        """
+        Perform the error operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  Logger.error through a consuming regression::
+
+                python -m pytest -q tests/file_formats/fb2/test_fb2_modernized.py
+
+
+        :param message: Value supplied for message under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
+        ...
+
+    def info(self: _typing.Self, message: object) -> object:
+        """
+        Perform the info operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  Logger.info through a consuming regression::
+
+                python -m pytest -q tests/file_formats/fb2/test_fb2_modernized.py
+
+
+        :param message: Value supplied for message under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
+        ...
+
+    def warn(self: _typing.Self, message: object) -> object:
+        """
+        Perform the warn operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  Logger.warn through a consuming regression::
+
+                python -m pytest -q tests/file_formats/fb2/test_fb2_modernized.py
+
+
+        :param message: Value supplied for message under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
+        ...
 
     def log_exception(
         self: _typing.Self,
@@ -43,10 +115,35 @@ class _Logger(Protocol):
         exc: BaseException,
         level: str,
         *pairs: object,
-    ) -> object: ...
+    ) -> object:
+        """
+        Perform the log exception operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  Logger.log exception through a consuming regression::
+
+                python -m pytest -q tests/file_formats/fb2/test_fb2_modernized.py
+
+
+        :param base: Value supplied for base under the utility contract.
+        :param exc: Value supplied for exc under the utility contract.
+        :param level: Value supplied for level under the utility contract.
+        :param pairs: Value supplied for pairs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
+        ...
 
 
 class _TocNode(Protocol):
+    """
+    Provide the tocnode contract for validated ebook processing.
+
+    Example:
+        Exercise  TocNode through a consuming regression::
+
+            python -m pytest -q tests/file_formats/fb2/test_fb2_modernized.py
+    """
     href: str
     nodes: Iterable[_TocNode]
 
@@ -56,8 +153,18 @@ def _convert_to_jpeg(
     quality: int = 70,
 ) -> bytes | None:
     """
-    Best-effort conversion of image bytes to JPEG.
-    Returns converted bytes on success, otherwise None.
+    Best-effort conversion of image bytes to JPEG. Returns converted bytes on success, otherwise None.
+
+    Example:
+        Exercise  convert to jpeg through a consuming regression::
+
+            python -m pytest -q tests/file_formats/fb2/test_fb2_modernized.py
+
+
+    :param raw_data: Value supplied for raw data under the utility contract.
+    :param quality: Value supplied for quality under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     try:
         from LiuXin_alpha.utils.plugins.fallbacks.magick import Image as FallbackImage
@@ -84,11 +191,27 @@ __docformat__ = "restructuredtext en"
 
 class FB2MLizer(object):
     """
-    Todo: * Include more FB2 specific tags in the conversion.
-          * Handle a tags.
+    Provide the fb2mlizer contract for validated ebook processing.
+
+    Example:
+        Exercise FB2MLizer through a consuming regression::
+
+            python -m pytest -q tests/file_formats/fb2/test_fb2_modernized.py
     """
 
     def __init__(self: _typing.Self, log: _Logger) -> None:
+        """
+        Initialize and validate the fb2mlizer state.
+
+        Example:
+            Exercise FB2MLizer.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/fb2/test_fb2_modernized.py
+
+
+        :param log: Value supplied for log under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.log = log
         self.oeb_book: _typing.Any = None
         self.opts: _typing.Any = None
@@ -96,6 +219,18 @@ class FB2MLizer(object):
 
     def reset_state(self: _typing.Self) -> None:
         # Used to ensure text and tags are always within <p> and </p>
+        """
+        Perform the reset state operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise FB2MLizer.reset state through a consuming regression::
+
+                python -m pytest -q tests/file_formats/fb2/test_fb2_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.in_p = False
         # Mapping of image names. OEB allows for images to have the same name but be stored
         # in different directories. FB2 images are all in a flat layout so we rename all images
@@ -111,6 +246,20 @@ class FB2MLizer(object):
         oeb_book: _typing.Any,
         opts: _typing.Any,
     ) -> str:
+        """
+        Extract content under the format's safety and compatibility rules.
+
+        Example:
+            Exercise FB2MLizer.extract content through a consuming regression::
+
+                python -m pytest -q tests/file_formats/fb2/test_fb2_modernized.py
+
+
+        :param oeb_book: Value supplied for oeb book under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.log.info("Converting XHTML to FB2 markup...")
         self.oeb_book = oeb_book
         self.opts = opts
@@ -126,7 +275,15 @@ class FB2MLizer(object):
     def fb2mlize_spine(self: _typing.Self) -> str:
         """
         Linearilize the document, using the spine as a guide.
-        :return:
+
+        Example:
+            Exercise FB2MLizer.fb2mlize spine through a consuming regression::
+
+                python -m pytest -q tests/file_formats/fb2/test_fb2_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # To make pycharm shut up about list literals
         output = list([self.fb2_header()])
@@ -144,6 +301,19 @@ class FB2MLizer(object):
 
     def clean_text(self: _typing.Self, text: str) -> str:
         # Condense empty paragraphs into a line break.
+        """
+        Perform the clean text operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise FB2MLizer.clean text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/fb2/test_fb2_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         text = re.sub(r"(?miu)(<p>\s*</p>\s*){3,}", "<empty-line />", text)
         # Remove empty paragraphs.
         text = re.sub(r"(?miu)<p>\s*</p>", "", text)
@@ -172,6 +342,18 @@ class FB2MLizer(object):
         return text
 
     def fb2_header(self: _typing.Self) -> str:
+        """
+        Perform the fb2 header operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise FB2MLizer.fb2 header through a consuming regression::
+
+                python -m pytest -q tests/file_formats/fb2/test_fb2_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.file_formats.oeb.base import OPF
 
         metadata = dict()
@@ -318,14 +500,30 @@ class FB2MLizer(object):
     def fb2_footer(self: _typing.Self) -> str:
         """
         Tag to finish out the book
-        :return:
+
+        Example:
+            Exercise FB2MLizer.fb2 footer through a consuming regression::
+
+                python -m pytest -q tests/file_formats/fb2/test_fb2_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return "\n</FictionBook>"
 
     def get_cover(self: _typing.Self) -> str:
         """
         Retrieve the cover from the OEB and store it in the header.
-        :return:
+
+        Example:
+            Exercise FB2MLizer.get cover through a consuming regression::
+
+                python -m pytest -q tests/file_formats/fb2/test_fb2_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         from LiuXin_alpha.file_formats.oeb.base import OEB_RASTER_IMAGES
 
@@ -377,6 +575,18 @@ class FB2MLizer(object):
         return ""
 
     def get_text(self: _typing.Self) -> str:
+        """
+        Return text under the format's safety and compatibility rules.
+
+        Example:
+            Exercise FB2MLizer.get text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/fb2/test_fb2_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.file_formats.oeb.base import XHTML
         from LiuXin_alpha.file_formats.oeb.stylizer import Stylizer
 
@@ -414,6 +624,15 @@ class FB2MLizer(object):
     def fb2mlize_images(self: _typing.Self) -> str:
         """
         This function uses the self.image_hrefs dictionary mapping. It is populated by the dump_text function.
+
+        Example:
+            Exercise FB2MLizer.fb2mlize images through a consuming regression::
+
+                python -m pytest -q tests/file_formats/fb2/test_fb2_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         from LiuXin_alpha.file_formats.oeb.base import OEB_RASTER_IMAGES
 
@@ -447,6 +666,20 @@ class FB2MLizer(object):
         nodes: Iterable[_TocNode],
         level: int,
     ) -> None:
+        """
+        Create flat toc under the format's safety and compatibility rules.
+
+        Example:
+            Exercise FB2MLizer.create flat toc through a consuming regression::
+
+                python -m pytest -q tests/file_formats/fb2/test_fb2_modernized.py
+
+
+        :param nodes: Value supplied for nodes under the utility contract.
+        :param level: Value supplied for level under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for item in nodes:
             href, mid, toc_id = item.href.partition("#")
             if not toc_id:
@@ -462,6 +695,18 @@ class FB2MLizer(object):
     def ensure_p(
         self: _typing.Self,
     ) -> tuple[list[str], list[str]]:
+        """
+        Perform the ensure p operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise FB2MLizer.ensure p through a consuming regression::
+
+                python -m pytest -q tests/file_formats/fb2/test_fb2_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.in_p:
             return [], []
         else:
@@ -472,6 +717,19 @@ class FB2MLizer(object):
         self: _typing.Self,
         tags: list[str],
     ) -> tuple[list[str], bool]:
+        """
+        Perform the close open p operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise FB2MLizer.close open p through a consuming regression::
+
+                python -m pytest -q tests/file_formats/fb2/test_fb2_modernized.py
+
+
+        :param tags: Value supplied for tags under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         text = [""]
         added_p = False
 
@@ -499,6 +757,20 @@ class FB2MLizer(object):
         tag: str,
         tags: list[str],
     ) -> tuple[list[str], list[str]]:
+        """
+        Perform the handle simple tag operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise FB2MLizer.handle simple tag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/fb2/test_fb2_modernized.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param tags: Value supplied for tags under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         s_out = []
         s_tags = []
         if tag not in tags:
@@ -517,15 +789,20 @@ class FB2MLizer(object):
         tag_stack: list[str] | None = None,
     ) -> list[str]:
         """
-        This function is intended to be used in a recursive manner. dump_text will
-        run though all elements in the elem_tree and call itself on each element.
+        This function is intended to be used in a recursive manner. dump_text will run though all elements in the elem_tree and call itself on each element.
 
-        self.image_hrefs will be populated by calling this function.
-        :param elem_tree:
-        :param stylizer:
-        :param page:
-        :param tag_stack:
-        :return:
+        Example:
+            Exercise FB2MLizer.dump text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/fb2/test_fb2_modernized.py
+
+
+        :param elem_tree: Value supplied for elem tree under the utility contract.
+        :param stylizer: Value supplied for stylizer under the utility contract.
+        :param page: Value supplied for page under the utility contract.
+        :param tag_stack: Value supplied for tag stack under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if tag_stack is None:
             tag_stack = []
@@ -684,6 +961,19 @@ class FB2MLizer(object):
         self: _typing.Self,
         tags: list[str],
     ) -> list[str]:
+        """
+        Perform the close tags operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise FB2MLizer.close tags through a consuming regression::
+
+                python -m pytest -q tests/file_formats/fb2/test_fb2_modernized.py
+
+
+        :param tags: Value supplied for tags under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         text = []
         for tag in tags:
             text.append("</%s>" % tag)

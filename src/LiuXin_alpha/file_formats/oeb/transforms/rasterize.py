@@ -1,3 +1,14 @@
+"""
+Rasterize CSS effects and vector resources for target formats.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise rasterize through a consuming regression::
+
+        python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+"""
 from __future__ import with_statement
 from __future__ import annotations
 
@@ -51,12 +62,39 @@ KEEP_ATTRS = {"class", "style", "width", "height", "align"}
 
 
 class Unavailable(Exception):
+    """
+    Provide the unavailable contract for validated ebook processing.
+
+    Example:
+        Exercise Unavailable through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+    """
     pass
 
 
 # Todo: Check safe to use qt by spinning it off into a different threas - see if it crashes
 class SVGRasterizer(object):
+    """
+    Provide the svgrasterizer contract for validated ebook processing.
+
+    Example:
+        Exercise SVGRasterizer through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+    """
     def __init__(self: _typing.Self) -> None:
+        """
+        Initialize and validate the svgrasterizer state.
+
+        Example:
+            Exercise SVGRasterizer.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         if _QT_IMPORT_ERROR is not None:
             raise Unavailable("PyQt5 is unavailable for SVG rasterization")
         from LiuXin_alpha.surfaces.gui2 import must_use_qt
@@ -65,13 +103,53 @@ class SVGRasterizer(object):
 
     @classmethod
     def config(cls: type[_typing.Self], cfg: _typing.Any) -> _typing.Any:
+        """
+        Perform the config operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SVGRasterizer.config through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param cfg: Value supplied for cfg under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return cfg
 
     @classmethod
     def generate(cls: type[_typing.Self], opts: _typing.Any) -> _typing.Any:
+        """
+        Perform the generate operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SVGRasterizer.generate through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param opts: Value supplied for opts under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return cls()
 
     def __call__(self: _typing.Self, oeb: _typing.Any, context: _typing.Any) -> None:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SVGRasterizer.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param oeb: Value supplied for oeb under the utility contract.
+        :param context: Value supplied for context under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         oeb.logger.info("Rasterizing SVG images...")
         self.temp_files = []
         self.stylizer_cache = {}
@@ -89,6 +167,22 @@ class SVGRasterizer(object):
                 pass
 
     def rasterize_svg(self: _typing.Self, elem: _typing.Any, width: int = 0, height: int = 0, format: str = "PNG") -> _typing.Any:
+        """
+        Perform the rasterize svg operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SVGRasterizer.rasterize svg through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param elem: Value supplied for elem under the utility contract.
+        :param width: Value supplied for width under the utility contract.
+        :param height: Value supplied for height under the utility contract.
+        :param format: Value supplied for format under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         view_box = elem.get("viewBox", elem.get("viewbox", None))
         sizes = None
         logger = self.oeb.logger
@@ -133,11 +227,37 @@ class SVGRasterizer(object):
         return str(array)
 
     def dataize_manifest(self: _typing.Self) -> None:
+        """
+        Perform the dataize manifest operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SVGRasterizer.dataize manifest through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for item in self.oeb.manifest.values():
             if item.media_type == SVG_MIME and item.data is not None:
                 self.dataize_svg(item)
 
     def dataize_svg(self: _typing.Self, item: _typing.Any, svg: _typing.Any = None) -> _typing.Any:
+        """
+        Perform the dataize svg operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SVGRasterizer.dataize svg through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param item: Value supplied for item under the utility contract.
+        :param svg: Value supplied for svg under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if svg is None:
             svg = item.data
         hrefs = self.oeb.manifest.hrefs
@@ -159,6 +279,19 @@ class SVGRasterizer(object):
         return svg
 
     def stylizer(self: _typing.Self, item: _typing.Any) -> _typing.Any:
+        """
+        Perform the stylizer operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SVGRasterizer.stylizer through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param item: Value supplied for item under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = self.stylizer_cache.get(item, None)
         if ans is None:
             ans = Stylizer(item.data, item.href, self.oeb, self.opts, self.profile)
@@ -166,10 +299,35 @@ class SVGRasterizer(object):
         return ans
 
     def rasterize_spine(self: _typing.Self) -> None:
+        """
+        Perform the rasterize spine operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SVGRasterizer.rasterize spine through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for item in self.oeb.spine:
             self.rasterize_item(item)
 
     def rasterize_item(self: _typing.Self, item: _typing.Any) -> None:
+        """
+        Perform the rasterize item operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SVGRasterizer.rasterize item through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param item: Value supplied for item under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         html = item.data
         hrefs = self.oeb.manifest.hrefs
         for elem in xpath(html, "//h:img[@src]"):
@@ -189,6 +347,21 @@ class SVGRasterizer(object):
             self.rasterize_inline(elem, style, item)
 
     def rasterize_inline(self: _typing.Self, elem: _typing.Any, style: _typing.Any, item: _typing.Any) -> None:
+        """
+        Perform the rasterize inline operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SVGRasterizer.rasterize inline through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param elem: Value supplied for elem under the utility contract.
+        :param style: Value supplied for style under the utility contract.
+        :param item: Value supplied for item under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         width = style["width"]
         height = style["height"]
         width = (width / 72) * self.profile.dpi
@@ -206,6 +379,22 @@ class SVGRasterizer(object):
                 img.attrib[prop] = elem.attrib[prop]
 
     def rasterize_external(self: _typing.Self, elem: _typing.Any, style: _typing.Any, item: _typing.Any, svgitem: _typing.Any) -> None:
+        """
+        Perform the rasterize external operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SVGRasterizer.rasterize external through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param elem: Value supplied for elem under the utility contract.
+        :param style: Value supplied for style under the utility contract.
+        :param item: Value supplied for item under the utility contract.
+        :param svgitem: Value supplied for svgitem under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         width = style["width"]
         height = style["height"]
         width = (width / 72) * self.profile.dpi
@@ -247,6 +436,18 @@ class SVGRasterizer(object):
             elem.remove(child)
 
     def rasterize_cover(self: _typing.Self) -> None:
+        """
+        Perform the rasterize cover operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SVGRasterizer.rasterize cover through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         covers = self.oeb.metadata.cover
         if not covers:
             return

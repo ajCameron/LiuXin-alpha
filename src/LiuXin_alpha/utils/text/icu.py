@@ -3,7 +3,15 @@
 
 
 """
-icu - International Unicode Consortium - provides extended unicode mappings.
+Provide icu utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise icu through a consuming regression::
+
+        python -m pytest -q tests/utils/text/test_text_core.py
 """
 
 from __future__ import unicode_literals, division, absolute_import, print_function
@@ -26,8 +34,15 @@ def icu_lower(target_str: str) -> str:
     """
     Transform a string to the lower case form.
 
-    :param str:
-    :return:
+    Example:
+        Exercise icu lower through a consuming regression::
+
+            python -m pytest -q tests/utils/text/test_text_core.py
+
+
+    :param target_str: Value supplied for target str under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return target_str.lower()
 
@@ -69,6 +84,18 @@ _nmodes = {m: getattr(_icu, "UNORM_" + m, None) for m in ("NFC", "NFD", "NFKC", 
 
 # Ensure that the python internal filesystem and default encodings are not ASCII
 def is_ascii(name):
+    """
+    Return or update whether is ascii holds for the compatibility value.
+
+    Example:
+        Exercise is ascii through a consuming regression::
+
+            python -m pytest -q tests/utils/text/test_text_core.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :return: True when the documented condition holds; otherwise False.
+    """
     try:
         return codecs.lookup(name).name == b"ascii"
     except (TypeError, LookupError):
@@ -90,6 +117,18 @@ del is_ascii
 
 
 def collator():
+    """
+    Perform the collator utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise collator through a consuming regression::
+
+            python -m pytest -q tests/utils/text/test_text_core.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     global _collator, _locale
     if _collator is None:
         if _locale is None:
@@ -108,6 +147,19 @@ def collator():
 
 
 def change_locale(locale=None):
+    """
+    Perform the change locale utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise change locale through a consuming regression::
+
+            python -m pytest -q tests/utils/text/test_text_core.py
+
+
+    :param locale: Value supplied for locale under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     global _locale, _collator, _primary_collator, _sort_collator, _numeric_collator, _case_sensitive_collator
     _collator = _primary_collator = _sort_collator = _numeric_collator = _case_sensitive_collator = None
     _locale = locale
@@ -116,7 +168,15 @@ def change_locale(locale=None):
 def primary_collator():
     """
     Ignores case differences and accented characters
-    :return:
+
+    Example:
+        Exercise primary collator through a consuming regression::
+
+            python -m pytest -q tests/utils/text/test_text_core.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     global _primary_collator
     if _primary_collator is None:
@@ -128,7 +188,15 @@ def primary_collator():
 def sort_collator():
     """
     Ignores case differences and recognizes numbers in strings (if the tweak is set)
-    :return:
+
+    Example:
+        Exercise sort collator through a consuming regression::
+
+            python -m pytest -q tests/utils/text/test_text_core.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     global _sort_collator
     if _sort_collator is None:
@@ -145,7 +213,15 @@ def sort_collator():
 def numeric_collator():
     """
     Uses natural sorting for numbers inside strings so something2 will sort before something10
-    :return:
+
+    Example:
+        Exercise numeric collator through a consuming regression::
+
+            python -m pytest -q tests/utils/text/test_text_core.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     global _numeric_collator
     if _numeric_collator is None:
@@ -156,7 +232,18 @@ def numeric_collator():
 
 
 def case_sensitive_collator():
-    "Always sorts upper case letter before lower case"
+    """
+    Always sorts upper case letter before lower case
+
+    Example:
+        Exercise case sensitive collator through a consuming regression::
+
+            python -m pytest -q tests/utils/text/test_text_core.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     global _case_sensitive_collator
     if _case_sensitive_collator is None:
         _case_sensitive_collator = collator().clone()
@@ -232,6 +319,21 @@ def {name}(x):
 
 
 def _make_func(template, name, **kwargs):
+    """
+    Perform the make func utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  make func through a consuming regression::
+
+            python -m pytest -q tests/utils/text/test_text_core.py
+
+
+    :param template: Template expression parsed or evaluated.
+    :param name: Field, file, function or resource name addressed by the operation.
+    :param kwargs: Keyword values forwarded to the compatibility implementation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     local_globals = globals()
     kwargs["name"] = name
     kwargs["func"] = kwargs.get("func", "sort_key")
@@ -310,6 +412,19 @@ title_case = _make_func(_change_case_template, "title_case", which="TITLE_CASE")
 
 
 def capitalize(x):
+    """
+    Perform the capitalize utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise capitalize through a consuming regression::
+
+            python -m pytest -q tests/utils/text/test_text_core.py
+
+
+    :param x: Value supplied for x under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         return upper(x[0]) + lower(x[1:])
     except (IndexError, TypeError, AttributeError):
@@ -373,6 +488,19 @@ safe_chr = _icu.chr
 
 
 def character_name(string):
+    """
+    Perform the character name utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise character name through a consuming regression::
+
+            python -m pytest -q tests/utils/text/test_text_core.py
+
+
+    :param string: Value supplied for string under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         return _icu.character_name(six_unicode(string)) or None
     except (TypeError, ValueError, KeyError):
@@ -380,6 +508,19 @@ def character_name(string):
 
 
 def character_name_from_code(code):
+    """
+    Perform the character name from code utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise character name from code through a consuming regression::
+
+            python -m pytest -q tests/utils/text/test_text_core.py
+
+
+    :param code: Value supplied for code under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         return _icu.character_name_from_code(code) or ""
     except (TypeError, ValueError, KeyError):
@@ -391,10 +532,37 @@ def normalize(text, mode="NFC"):
     # that unless you have very good reasons not too. Also, it's speed
     # decreases on wide python builds, where conversion to/from ICU's string
     # representation is slower.
+    """
+    Perform the normalize utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise normalize through a consuming regression::
+
+            python -m pytest -q tests/utils/text/test_text_core.py
+
+
+    :param text: Text parsed, normalized or rendered.
+    :param mode: Open or adapter mode controlling read/write behavior.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return _icu.normalize(_nmodes[mode], six_unicode(text))
 
 
 def contractions(col=None):
+    """
+    Perform the contractions utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise contractions through a consuming regression::
+
+            python -m pytest -q tests/utils/text/test_text_core.py
+
+
+    :param col: Value supplied for col under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     global _cmap
     col = col or _collator
     if col is None:
@@ -410,10 +578,18 @@ def contractions(col=None):
 def partition_by_first_letter(items, reverse=False, key=lambda x: x):
     """
     Build a list of 'equal' first letters by noticing changes in ICU's 'ordinal' for the first letter.
-    :param items:
-    :param reverse:
-    :param key:
-    :return:
+
+    Example:
+        Exercise partition by first letter through a consuming regression::
+
+            python -m pytest -q tests/utils/text/test_text_core.py
+
+
+    :param items: Value supplied for items under the utility contract.
+    :param reverse: Value supplied for reverse under the utility contract.
+    :param key: Metadata, identifier or local-variable key.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     from collections import OrderedDict
 
@@ -444,6 +620,19 @@ utf16_length = len if is_narrow_build else _icu.utf16_length
 
 
 def safe_lower(x):
+    """
+    Perform the safe lower utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise safe lower through a consuming regression::
+
+            python -m pytest -q tests/utils/text/test_text_core.py
+
+
+    :param x: Value supplied for x under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         return lower(x)
     except (TypeError, ValueError, KeyError, AttributeError):

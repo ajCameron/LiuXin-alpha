@@ -1,3 +1,14 @@
+"""
+Verify the HTML fixture corpus remains complete and internally consistent.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test html ingest fixtures integrity through its owning regression module::
+
+        python -m pytest -q tests/metadata/file_sources/test_html_ingest_fixtures_integrity.py
+"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -11,6 +22,19 @@ from tests.support.html_ingest_fixture_hashes import (
 
 
 def test_html_ingest_fixture_corpus_has_expected_file_set(html_ingest_fixtures_dir: Path) -> None:
+    """
+    Verify html ingest fixture corpus has expected file set.
+
+    Example:
+        Exercise test html ingest fixture corpus has expected file set through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_ingest_fixtures_integrity.py
+
+
+    :param html_ingest_fixtures_dir: Value supplied for html ingest fixtures dir in the
+        focused test operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     expected = set(EXPECTED_HTML_INGEST_FIXTURE_HASHES.keys())
     actual = {p.name for p in html_ingest_fixtures_dir.iterdir() if p.is_file() and not p.name.startswith(".")}
 
@@ -31,6 +55,22 @@ def test_html_ingest_fixture_hashes_match_baseline(
     filename: str,
     expected_hash: str,
 ) -> None:
+    """
+    Verify html ingest fixture hashes match baseline.
+
+    Example:
+        Exercise test html ingest fixture hashes match baseline through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_html_ingest_fixtures_integrity.py
+
+
+    :param html_ingest_fixtures_dir: Value supplied for html ingest fixtures dir in the
+        focused test operation.
+    :param filename: Value supplied for filename in the focused test operation.
+    :param expected_hash: Value supplied for expected hash in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     target = html_ingest_fixtures_dir / filename
     assert target.is_file(), f"Expected HTML ingest fixture is missing: {target}"
 

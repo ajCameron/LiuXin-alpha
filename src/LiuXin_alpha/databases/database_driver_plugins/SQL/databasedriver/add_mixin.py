@@ -1,6 +1,6 @@
 
 """
-Add directly to the database.
+Insert inferred-table rows with normalized identity derivation and custom-column text sanitization.
 """
 
 from __future__ import annotations
@@ -24,27 +24,29 @@ from LiuXin_alpha.utils.libraries.liuxin_six import force_unicode
 
 class AddingMixin:
     """
-    Methods to add to the database.
+    Add individual or homogeneous batches of row dictionaries through host driver helpers.
+
+    Example:
+        A driver combines ``AddingMixin`` with table inference and connection management.
     """
 
     @staticmethod
     def _sanitize_embedded_nul_text(*, target_table: str, row_dict: dict) -> None:
         """
-        Sanitize embedded NUL ("\x00") in str payloads.
+        Replace embedded NUL characters in string values with visible ``<NUL>`` text.
 
-        SQLite can store NULs inside TEXT values, but other parts of the stack
-        (and some external tooling) can treat NUL as a string terminator.
+        Mutate the mapping in place; non-string values are untouched. The table argument is currently unused.
 
-        Historically we handled this with separate "display" vs "source" fields.
-        Custom-column value tables do not have that split, so we normalize any
-        embedded NUL bytes into a visible placeholder string.
+        Example:
+            >>> row = {"value": "a" + chr(0) + "b"}
+            >>> AddingMixin._sanitize_embedded_nul_text(target_table="custom_column_1", row_dict=row)
+            >>> row
+            {'value': 'a<NUL>b'}
 
-        This avoids false-positive rejections during import while keeping stored
-        TEXT values safer for common tooling.
 
-        :param target_table:
-        :param row_dict:
-        :return:
+        :param target_table: Table context accepted by the helper but not consulted.
+        :param row_dict: Mutable column/value mapping whose string payloads are sanitized.
+        :return: ``None``.
         """
 
         for col, val in list(row_dict.items()):
@@ -53,10 +55,16 @@ class AddingMixin:
 
     def direct_add_simple_row_dict(self, row_dict: dict[str, Any]) -> int:
         """
-        Takes a single row in the form of a dictionary and adds the values to the database.
+        Infer a table, derive configured identity values and insert one bound-value row.
 
-        :param row_dict:
-        :return :
+        Custom-column value tables also sanitize NUL text. The connection commits and closes in finally, even on execution errors; this is not a rollback-on-error helper. SQLite operational/integrity errors become driver/integrity errors.
+
+        Example:
+            ``row_id = driver.direct_add_simple_row_dict({"book_title": "Example"})`` inserts a row in a matching schema.
+
+
+        :param row_dict: Column-to-value mapping; table inference removes any ``table`` key in place.
+        :return: The cursor lastrowid for the inserted row.
         """
         target_table = self.direct_identify_table_from_row(row_dict)
         if normalized_identity_defaults_for_table(target_table):
@@ -132,8 +140,16 @@ class AddingMixin:
 
     def direct_add_multiple_simple_row_dicts(self, row_dict_list):
         """
-        Takes an index of new rows in the form of dictionaries. Adds them to the database.
-        :param row_dict_list: Takes a list of simple rows
+        Insert rows sharing a table, the same keys and the same key order.
+
+        Mismatched tables/key sets or non-null explicit IDs raise InputIntegrityError. Values follow each mapping's insertion order, so matching key sets alone are insufficient. Identity derivation and NUL sanitization follow single-row insertion. Commit/close run in finally, allowing partial batches to persist on errors.
+
+        Example:
+            ``driver.direct_add_multiple_simple_row_dicts(rows)`` inserts consistently ordered mappings.
+
+
+        :param row_dict_list: Sized, indexable sequence of homogeneous row mappings; inference and sanitization may mutate them.
+        :return: ``True`` for an empty batch; otherwise ``None``.
         """
         if len(row_dict_list) == 0:
             return True

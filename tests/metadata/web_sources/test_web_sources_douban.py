@@ -1,3 +1,14 @@
+"""
+Verify Douban JSON/XML metadata, retries and covers.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test web sources douban through its owning regression module::
+
+        python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+"""
 from __future__ import annotations
 
 import queue
@@ -9,26 +20,117 @@ from LiuXin_alpha.metadata.utils import calibreMetaInformation
 
 
 class _Log:
+    """
+    Provide the Log test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise Log through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+    """
     def __init__(self) -> None:
+        """
+        Initialize the Log test double.
+
+        Example:
+            Exercise Log.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+        :return: None; the function records state or raises through its assertions.
+        """
         self.events = []
 
     def __call__(self, *parts):
+        """
+        Perform the call test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.call through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("call", parts))
 
     def info(self, *parts):
+        """
+        Perform the info test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.info through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("info", parts))
 
     def warning(self, *parts):
+        """
+        Perform the warning test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.warning through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("warning", parts))
 
     def error(self, *parts):
+        """
+        Perform the error test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.error through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("error", parts))
 
     def exception(self, *parts):
+        """
+        Perform the exception test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.exception through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("exception", parts))
 
 
 def _sample_json_book(book_id: str = "1234567") -> dict:
+    """
+    Perform the sample json book test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise sample json book through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+    :param book_id: Value supplied for book id in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return {
         "id": book_id,
         "title": "三体",
@@ -45,6 +147,17 @@ def _sample_json_book(book_id: str = "1234567") -> dict:
 
 
 def _sample_atom_feed() -> str:
+    """
+    Perform the sample atom feed test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise sample atom feed through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return """<?xml version="1.0" encoding="UTF-8"?>
 <feed xmlns="http://www.w3.org/2005/Atom"
       xmlns:db="http://www.douban.com/xmlns/"
@@ -66,12 +179,34 @@ def _sample_atom_feed() -> str:
 
 
 def test_web_sources_douban_import_smoke() -> None:
+    """
+    Verify web sources douban import smoke.
+
+    Example:
+        Exercise test web sources douban import smoke through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.douban as douban
 
     assert douban is not None
 
 
 def test_douban_get_book_url_and_create_query() -> None:
+    """
+    Verify douban get book url and create query.
+
+    Example:
+        Exercise test douban get book url and create query through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.douban import Douban
 
     plugin = Douban()
@@ -91,6 +226,17 @@ def test_douban_get_book_url_and_create_query() -> None:
 
 
 def test_douban_metadata_from_json_record_parses_fields() -> None:
+    """
+    Verify douban metadata from json record parses fields.
+
+    Example:
+        Exercise test douban metadata from json record parses fields through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.douban import Douban
 
     plugin = Douban()
@@ -107,6 +253,17 @@ def test_douban_metadata_from_json_record_parses_fields() -> None:
 
 
 def test_douban_identify_handles_json_payload() -> None:
+    """
+    Verify douban identify handles json payload.
+
+    Example:
+        Exercise test douban identify handles json payload through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.douban import Douban
 
     plugin = Douban()
@@ -127,6 +284,17 @@ def test_douban_identify_handles_json_payload() -> None:
 
 
 def test_douban_identify_continues_after_endpoint_failure() -> None:
+    """
+    Verify douban identify continues after endpoint failure.
+
+    Example:
+        Exercise test douban identify continues after endpoint failure through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.douban import Douban
 
     plugin = Douban()
@@ -134,6 +302,22 @@ def test_douban_identify_continues_after_endpoint_failure() -> None:
     calls = []
 
     def fake_open(log, abort, url, timeout, context):
+        """
+        Perform the fake open test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test douban identify continues after endpoint failure.fake open through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+        :param log: Value supplied for log in the focused test operation.
+        :param abort: Value supplied for abort in the focused test operation.
+        :param url: Value supplied for url in the focused test operation.
+        :param timeout: Value supplied for timeout in the focused test operation.
+        :param context: Value supplied for context in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         del log, abort, timeout, context
         calls.append(url)
         if len(calls) == 1:
@@ -159,6 +343,17 @@ def test_douban_identify_continues_after_endpoint_failure() -> None:
 
 
 def test_douban_identify_handles_xml_atom_payload() -> None:
+    """
+    Verify douban identify handles xml atom payload.
+
+    Example:
+        Exercise test douban identify handles xml atom payload through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.douban import Douban
 
     plugin = Douban()
@@ -182,6 +377,17 @@ def test_douban_identify_handles_xml_atom_payload() -> None:
 
 
 def test_douban_download_cover_uses_cache() -> None:
+    """
+    Verify douban download cover uses cache.
+
+    Example:
+        Exercise test douban download cover uses cache through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.douban import Douban
 
     plugin = Douban()
@@ -201,6 +407,17 @@ def test_douban_download_cover_uses_cache() -> None:
 
 
 def test_douban_import_web_source_module() -> None:
+    """
+    Verify douban import web source module.
+
+    Example:
+        Exercise test douban import web source module through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources import import_web_source_module
 
     mod = import_web_source_module("douban")
@@ -208,10 +425,40 @@ def test_douban_import_web_source_module() -> None:
 
 
 def test_douban_low_level_helpers_handle_odd_inputs() -> None:
+    """
+    Verify douban low level helpers handle odd inputs.
+
+    Example:
+        Exercise test douban low level helpers handle odd inputs through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.douban as douban
 
     class BadText:
+        """
+        Provide the BadText test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test douban low level helpers handle odd inputs.BadText through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+        """
         def __str__(self):
+            """
+            Perform the str test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test douban low level helpers handle odd inputs.BadText.str through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+            :return: The deterministic value, row, identity or collection described above.
+            """
             raise RuntimeError("cannot stringify")
 
     assert douban._as_text(b"\xe4\xb8\x89\xe4\xbd\x93") == "三体"
@@ -237,6 +484,17 @@ def test_douban_low_level_helpers_handle_odd_inputs() -> None:
 
 
 def test_douban_query_cache_and_payload_parsing_edges() -> None:
+    """
+    Verify douban query cache and payload parsing edges.
+
+    Example:
+        Exercise test douban query cache and payload parsing edges through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.douban import Douban
 
     plugin = Douban()
@@ -270,6 +528,17 @@ def test_douban_query_cache_and_payload_parsing_edges() -> None:
 
 
 def test_douban_json_metadata_parser_uses_fallbacks_and_optional_fields() -> None:
+    """
+    Verify douban json metadata parser uses fallbacks and optional fields.
+
+    Example:
+        Exercise test douban json metadata parser uses fallbacks and optional fields through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.douban import Douban
 
     plugin = Douban()
@@ -310,6 +579,17 @@ def test_douban_json_metadata_parser_uses_fallbacks_and_optional_fields() -> Non
 
 
 def test_douban_xml_metadata_parser_uses_fallbacks_and_default_cover_rejection() -> None:
+    """
+    Verify douban xml metadata parser uses fallbacks and default cover rejection.
+
+    Example:
+        Exercise test douban xml metadata parser uses fallbacks and default cover rejection through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.douban import Douban, NAMESPACES
 
     plugin = Douban()
@@ -353,6 +633,17 @@ def test_douban_xml_metadata_parser_uses_fallbacks_and_default_cover_rejection()
 
 
 def test_douban_identify_retry_abort_parse_error_and_empty_paths() -> None:
+    """
+    Verify douban identify retry abort parse error and empty paths.
+
+    Example:
+        Exercise test douban identify retry abort parse error and empty paths through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.douban import Douban
 
     plugin = Douban()
@@ -361,6 +652,22 @@ def test_douban_identify_retry_abort_parse_error_and_empty_paths() -> None:
     payload = '{"books": [%s]}' % __import__("json").dumps(_sample_json_book("998877"))
 
     def fake_open(log, abort, url, timeout, context):
+        """
+        Perform the fake open test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test douban identify retry abort parse error and empty paths.fake open through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+        :param log: Value supplied for log in the focused test operation.
+        :param abort: Value supplied for abort in the focused test operation.
+        :param url: Value supplied for url in the focused test operation.
+        :param timeout: Value supplied for timeout in the focused test operation.
+        :param context: Value supplied for context in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         del log, abort, timeout
         calls.append((context, url))
         if context == "Douban identify query":
@@ -403,6 +710,19 @@ def test_douban_identify_retry_abort_parse_error_and_empty_paths() -> None:
     assert out.empty()
 
     def raise_parse(_item, relevance=0):
+        """
+        Perform the raise parse test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test douban identify retry abort parse error and empty paths.raise parse through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+        :param _item: Value supplied for item in the focused test operation.
+        :param relevance: Value supplied for relevance in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         raise RuntimeError("bad item")
 
     plugin._parse_metadata_payload = lambda _payload: [("json", {})]
@@ -415,6 +735,17 @@ def test_douban_identify_retry_abort_parse_error_and_empty_paths() -> None:
 
 
 def test_douban_download_cover_discovers_from_identify_and_handles_failures() -> None:
+    """
+    Verify douban download cover discovers from identify and handles failures.
+
+    Example:
+        Exercise test douban download cover discovers from identify and handles failures through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.douban import Douban
 
     plugin = Douban()
@@ -422,6 +753,24 @@ def test_douban_download_cover_discovers_from_identify_and_handles_failures() ->
     out = queue.Queue()
 
     def fake_identify(log, rq, abort, title=None, authors=None, identifiers=None, timeout=30):
+        """
+        Perform the fake identify test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test douban download cover discovers from identify and handles failures.fake identify through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+        :param log: Value supplied for log in the focused test operation.
+        :param rq: Value supplied for rq in the focused test operation.
+        :param abort: Value supplied for abort in the focused test operation.
+        :param title: Value supplied for title in the focused test operation.
+        :param authors: Value supplied for authors in the focused test operation.
+        :param identifiers: Value supplied for identifiers in the focused test operation.
+        :param timeout: Value supplied for timeout in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         del log, abort, title, authors, identifiers, timeout
         mi = calibreMetaInformation("Cover Book", ["Author"])
         mi.set_identifier("douban", "1234567")
@@ -454,6 +803,18 @@ def test_douban_download_cover_discovers_from_identify_and_handles_failures() ->
     assert out.empty()
 
     def raise_download(**kwargs):
+        """
+        Perform the raise download test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test douban download cover discovers from identify and handles failures.raise download through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+        :param kwargs: Keyword values forwarded by the test double.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         raise OSError("download failed")
 
     plugin._open_bytes_with_backoff = raise_download
@@ -463,6 +824,17 @@ def test_douban_download_cover_discovers_from_identify_and_handles_failures() ->
 
 
 def test_douban_open_text_decodes_and_abort_backoff_returns_empty() -> None:
+    """
+    Verify douban open text decodes and abort backoff returns empty.
+
+    Example:
+        Exercise test douban open text decodes and abort backoff returns empty through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.douban import Douban
 
     plugin = Douban()

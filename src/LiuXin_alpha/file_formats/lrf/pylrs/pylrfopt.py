@@ -1,8 +1,34 @@
+"""
+Optimize PyLRS content before LRF binary serialization.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise pylrfopt through a consuming regression::
+
+        python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+"""
 from __future__ import annotations
 
 import typing as _typing
 def _optimize(tagList: _typing.Any, tagName: _typing.Any, conversion: _typing.Any) -> None:
     # copy the tag of interest plus any text
+    """
+    Perform the optimize operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  optimize through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+    :param tagList: Value supplied for tagList under the utility contract.
+    :param tagName: Value supplied for tagName under the utility contract.
+    :param conversion: Value supplied for conversion under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     new_tag_list = []
     for tag in tagList:
         if tag.name == tagName or tag.name == "rawtext":
@@ -38,6 +64,19 @@ def tagListOptimizer(tagList: _typing.Any) -> _typing.Any:
     #  fontsize=100, fontsize=200, text, fontsize=100, fontsize=200
     # should be:
     # fontsize=200 text
+    """
+    Perform the tagListOptimizer operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise tagListOptimizer through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+    :param tagList: Value supplied for tagList under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     old_size = len(tagList)
     _optimize(tagList, "fontsize", int)
     _optimize(tagList, "fontweight", int)

@@ -1,9 +1,21 @@
-"""Public-safe read-only web interface for browsing the LiuXin database."""
+"""
+Browse Core metadata and deliver legacy-file acquisitions through stdlib WSGI.
+
+This generic host supplies table, relationship, search, and rendering helpers
+used by other web surfaces. HTTP routes accept GET and HEAD, but retain response
+bodies for HEAD. Metadata query failures generally propagate instead of becoming
+empty results; acquisition handlers translate selected delivery failures.
+
+Read-only describes the browsing interface, not an authorization or content
+sanitization boundary. Column-name hiding is heuristic, preferred summaries can
+read other fields, and HTML/SVG previews may contain active content. Deployment
+must supply its own access controls and content isolation. Importing this module
+does not bind a listener; ``main`` composes Core and runs the server.
+"""
 
 from __future__ import annotations
 
 import argparse
-import html
 import json
 import mimetypes
 import posixpath
@@ -20,6 +32,13 @@ from wsgiref.simple_server import make_server
 from wsgiref.util import FileWrapper
 
 from LiuXin_alpha.core import CoreClientAPI
+
+# Preserve historical helper/type imports while their implementations live in
+# independent shared modules. Reusable backends import those owners directly.
+from LiuXin_alpha.surfaces.acquisition_types import (
+    CoreStoredFile as _CoreStoredFile,
+    ResolvedFileTarget as _ResolvedFileTarget,
+)
 from LiuXin_alpha.surfaces.core import (
     CoreDatabaseView,
     CoreSurfaceModel,
@@ -27,21 +46,28 @@ from LiuXin_alpha.surfaces.core import (
     coerce_surface_core,
     open_surface_core_from_args,
 )
-
-
-def _escape(value: object) -> str:
-    return html.escape("" if value is None else str(value), quote=True)
-
-
-def _short_text(value: object, *, width: int = 120) -> str:
-    text = "" if value is None else str(value)
-    text = text.replace("\r\n", "\n").replace("\r", "\n")
-    if len(text) <= width:
-        return text
-    return text[: max(0, width - 3)] + "..."
+from LiuXin_alpha.surfaces.presentation import (
+    coerce_int as _coerce_int,
+    escape as _escape,
+    row_value as _row_value,
+    short_text as _short_text,
+)
 
 
 def _search_terms(value: object) -> list[str]:
+    """
+    Split a falsey-as-empty query on whitespace, retaining case and duplicates.
+
+    Quotes have no special meaning; this is not a phrase-query parser.
+
+    Example:
+        >>> _search_terms("  Red  red Red ")
+        ['Red', 'red', 'Red']
+
+
+    :param value: Query-like value converted to text after falsey substitution.
+    :return: Nonempty tokens in input order, or an empty list.
+    """
     text = str(value or "").strip()
     if not text:
         return []
@@ -49,28 +75,37 @@ def _search_terms(value: object) -> list[str]:
 
 
 def _normalized_search_text(value: object) -> str:
+    """
+    Apply Unicode compatibility normalization and case folding for comparison.
+
+    Surrounding whitespace is retained; falsey values become empty text.
+
+    Example:
+        >>> _normalized_search_text(" Ａ Straße ")
+        ' a strasse '
+
+
+    :param value: Search or candidate value to stringify and normalize.
+    :return: NFKC-normalized, case-folded text without trimming.
+    """
     return unicodedata.normalize("NFKC", str(value or "")).casefold()
 
 
-def _coerce_int(raw: Optional[str], *, default: int, minimum: int = 0, maximum: Optional[int] = None) -> int:
-    try:
-        value = int(str(raw).strip())
-    except Exception:
-        value = int(default)
-    value = max(int(minimum), int(value))
-    if maximum is not None:
-        value = min(int(maximum), value)
-    return value
-
-
-def _row_value(row, column: str):
-    try:
-        return row[column]
-    except Exception:
-        return None
-
-
 def _build_query_string(values: dict[str, object]) -> str:
+    """
+    Encode ordered scalar query pairs, omitting None and empty-string values.
+
+    Values are stringified, not expanded as sequences. Spaces use percent
+    encoding; zero and False remain present. No leading question mark is added.
+
+    Example:
+        >>> _build_query_string({"q": "a b", "offset": 0, "unused": None})
+        'q=a%20b&offset=0'
+
+
+    :param values: Insertion-ordered names and scalar values to encode.
+    :return: Ampersand-separated encoded pairs, possibly empty.
+    """
     parts: list[str] = []
     for key, value in values.items():
         if value is None:
@@ -83,8 +118,52 @@ def _build_query_string(values: dict[str, object]) -> str:
 
 
 def _closing_iterable(iterable: Iterable[bytes], closer: Callable[[], None]) -> Iterable[bytes]:
+    """
+    Attach a cleanup callback to iteration finalization and explicit close.
+
+    Cleanup is not made idempotent: exhausting an iteration and then calling
+    ``close`` invokes the callback twice. Callback failures propagate and may
+    replace an iteration failure. The wrapped iterable's own close method is
+    not called unless the supplied callback does so.
+
+    Example:
+        >>> from unittest.mock import Mock
+        >>> closer = Mock()
+        >>> body = _closing_iterable([b"content"], closer)
+        >>> list(body)
+        [b'content']
+        >>> body.close()
+        >>> closer.call_count
+        2
+
+
+    :param iterable: Byte chunks to yield without coercion or buffering.
+    :param closer: Resource cleanup callback, potentially called repeatedly.
+    :return: Iterable exposing a close method for a WSGI server to invoke.
+    """
     class _ClosingIterable:
+        """
+        Bind one source iterable and its cleanup callback in the enclosing scope.
+
+        Each iteration creates a generator with a finally block. Cleanup before
+        any iteration starts requires an explicit call to ``close``.
+
+        Example:
+            >>> body = _closing_iterable([], lambda: None)
+            >>> list(body)
+            []
+        """
         def __iter__(self_inner) -> Iterator[bytes]:
+            """
+            Yield source chunks and run cleanup when this generator finalizes.
+
+            Example:
+                >>> list(_closing_iterable([b"a", b"b"], lambda: None))
+                [b'a', b'b']
+
+
+            :return: Generator whose finally block invokes the captured closer.
+            """
             try:
                 for chunk in iterable:
                     yield chunk
@@ -92,6 +171,15 @@ def _closing_iterable(iterable: Iterable[bytes], closer: Callable[[], None]) -> 
                 closer()
 
         def close(self_inner) -> None:
+            """
+            Invoke the captured closer, even if iteration already invoked it.
+
+            Example:
+                >>> _closing_iterable([], lambda: None).close()
+
+
+            :return: None; callback exceptions are not suppressed.
+            """
             closer()
 
     return _ClosingIterable()
@@ -99,7 +187,32 @@ def _closing_iterable(iterable: Iterable[bytes], closer: Callable[[], None]) -> 
 
 @dataclass(frozen=True)
 class ReadOnlyWebConfig:
-    """Shared database, Core, and HTTP settings for read-only web surfaces."""
+    """
+    Hold immutable, unvalidated composition and presentation settings.
+
+    Cache settings affect newly composed compatibility sessions, not a borrowed
+    Core client's configuration. Hidden-column rules are display heuristics,
+    not a complete privacy boundary; preferred summary fields bypass them.
+
+    Example:
+        >>> config = ReadOnlyWebConfig(enable_file_downloads=False)
+        >>> (config.host, config.default_page_size, config.enable_file_downloads)
+        ('127.0.0.1', 50, False)
+
+
+    :ivar title: Site title used in escaped HTML headings and page titles.
+    :ivar host: Listener address used by the command-line runner.
+    :ivar port: Requested listener port; zero asks the server for an ephemeral port.
+    :ivar default_page_size: Default metadata page length before request coercion.
+    :ivar max_page_size: Upper request-page bound, not a full-enumeration bound.
+    :ivar expose_database_path: Whether layouts may query and display the DB path.
+    :ivar enable_file_downloads: Gate for this host's legacy-file resolvers.
+    :ivar metadata_read_source: Composition selector; exact cache enables caching.
+    :ivar metadata_cache_type: Cache implementation name for composition.
+    :ivar metadata_cache_allow_database_fallback: Permit cache-to-database fallback.
+    :ivar hidden_column_tokens: Substrings tested against lowercased column names.
+    :ivar hidden_column_suffixes: Suffixes tested against lowercased column names.
+    """
 
     title: str = "LiuXin Read-Only Web"
     host: str = "127.0.0.1"
@@ -115,29 +228,25 @@ class ReadOnlyWebConfig:
     hidden_column_suffixes: tuple[str, ...] = ("_scratch",)
 
 
-@dataclass(frozen=True)
-class _ResolvedFileTarget:
-    mode: str
-    location: str
-    download_name: str
-
-
-@dataclass(frozen=True)
-class _CoreStoredFile:
-    model: CoreSurfaceModel
-    kind: str
-    resource_id: int
-
-    def read_bytes(self) -> bytes:
-        _resource, payload = self.model.acquisition_read(
-            self.kind,
-            self.resource_id,
-        )
-        return payload
-
-
 @dataclass
 class _Response:
+    """
+    Carry a WSGI status, ordered headers, body iterable, and optional cleanup.
+
+    Construction performs no validation, encoding, emission, or resource cleanup.
+    The application wrapper is responsible for attaching the close callback.
+
+    Example:
+        >>> response = _Response("200 OK", [], [b"ok"])
+        >>> (response.status, list(response.body), response.close)
+        ('200 OK', [b'ok'], None)
+
+
+    :ivar status: HTTP status line passed to start_response.
+    :ivar headers: Mutable list of header pairs, retaining duplicates and order.
+    :ivar body: Iterable expected to yield bytes without further encoding.
+    :ivar close: Optional resource-release callback for the response lifetime.
+    """
     status: str
     headers: list[tuple[str, str]]
     body: Iterable[bytes]
@@ -145,7 +254,20 @@ class _Response:
 
 
 class ReadOnlyWebApplication:
-    """Small stdlib WSGI app for safe public read-only access."""
+    """
+    Compose Core-backed browsing, HTML rendering, and legacy-file delivery.
+
+    Construction binds collaborators without starting a server. A borrowed Core
+    client remains caller-owned; a database compatibility input can create an
+    owned session released by ``close``. Table browsing is not restricted to
+    the smaller set used for default public search. Active-content previews and
+    external redirects require deployment-specific trust controls.
+
+    Example:
+        >>> app = ReadOnlyWebApplication(core_client)  # doctest: +SKIP
+        >>> response = app.handle_request({"PATH_INFO": "/"})  # doctest: +SKIP
+        >>> app.close()  # doctest: +SKIP
+    """
 
     _RELATED_TABLE_ORDER = (
         "tags",
@@ -176,6 +298,24 @@ class ReadOnlyWebApplication:
         model: CoreSurfaceModel | None = None,
         read_source: Any | None = None,
     ) -> None:
+        """
+        Adapt the supplied Core or database and bind shared surface backends.
+
+        An injected model is accepted without checking that it uses the same
+        Core client. Only exact ``metadata_read_source == "cache"`` selects a
+        cache type during coercion. Construction failures propagate; this method
+        does not provide a rollback wrapper around partially built collaborators.
+
+        Example:
+            >>> app = ReadOnlyWebApplication(core_client, config=ReadOnlyWebConfig())  # doctest: +SKIP
+
+
+        :param core: Borrowed Core client or legacy database compatibility input.
+        :param config: Settings to retain, or None for the default configuration.
+        :param model: Optional prebuilt metadata/acquisition query adapter.
+        :param read_source: Optional legacy read source passed to Core coercion.
+        :return: None; bind configuration, Core, database view, images, and reads.
+        """
         self.config = config or ReadOnlyWebConfig()
         core, compatibility_session = coerce_surface_core(
             core,
@@ -204,10 +344,37 @@ class ReadOnlyWebApplication:
         )
 
     def close(self) -> None:
+        """
+        Close an owned compatibility session without closing a borrowed client.
+
+        The session reference is retained; repeat-call behavior belongs to that
+        session's close implementation, and exceptions propagate.
+
+        Example:
+            >>> app.close()  # doctest: +SKIP
+
+
+        :return: None after delegating cleanup when a compatibility session exists.
+        """
         if self._compatibility_core_session is not None:
             self._compatibility_core_session.close()
 
     def __call__(self, environ, start_response):
+        """
+        Dispatch a WSGI request, append robot guidance, and attach body cleanup.
+
+        Headers are copied before appending X-Robots-Tag. HEAD bodies are not
+        suppressed. A start_response failure propagates before the cleanup
+        wrapper is created; its optional write callable is not used.
+
+        Example:
+            >>> body = app(environ, start_response)  # doctest: +SKIP
+
+
+        :param environ: WSGI environment consumed by dispatch and delivery.
+        :param start_response: WSGI callback accepting the status and header list.
+        :return: Original body iterable or an iterable wrapping its close callback.
+        """
         response = self.handle_request(environ)
         headers = list(response.headers)
         headers.append(("X-Robots-Tag", "noai, noimageai"))
@@ -217,11 +384,41 @@ class ReadOnlyWebApplication:
         return response.body
 
     def refresh_metadata_read_source(self) -> bool:
+        """
+        Delegate explicit post-write metadata refresh to the shared policy.
+
+        This compatibility hook can refresh mutable read state even though
+        the HTTP browsing routes do not expose metadata-edit operations.
+
+        Example:
+            >>> refreshed = app.refresh_metadata_read_source()  # doctest: +SKIP
+
+
+        :return: Shared refresh helper's boolean outcome; failures follow its policy.
+        """
         from LiuXin_alpha.surfaces.write_refresh import refresh_metadata_read_source_after_write
 
         return refresh_metadata_read_source_after_write(self)
 
     def handle_request(self, environ) -> _Response:
+        """
+        Route GET/HEAD requests to browsing, search, or legacy-file delivery.
+
+        Dot segments are normalized before individual path parts are unquoted;
+        blank query values are discarded. Unsupported methods return 405 and
+        unmatched paths return 404. Invalid/missing table or row pages are HTML
+        explanations still wrapped in 200. HEAD follows GET, including its body.
+        Backend failures are not caught by this dispatcher.
+
+        Example:
+            >>> app = object.__new__(ReadOnlyWebApplication)
+            >>> app.handle_request({"REQUEST_METHOD": "POST"}).status
+            '405 Method Not Allowed'
+
+
+        :param environ: Mapping with optional request method, path, and query text.
+        :return: Response carrier; body consumption and cleanup happen separately.
+        """
         method = str(environ.get("REQUEST_METHOD", "GET") or "GET").upper()
         if method not in {"GET", "HEAD"}:
             return self._text_response("405 Method Not Allowed", "Method not allowed.\n", content_type="text/plain")
@@ -258,6 +455,22 @@ class ReadOnlyWebApplication:
         )
 
     def _text_response(self, status: str, text: str, *, content_type: str) -> _Response:
+        """
+        Encode text as one UTF-8 chunk with an appended charset declaration.
+
+        No HTML escaping or Content-Length calculation is performed.
+
+        Example:
+            >>> app = object.__new__(ReadOnlyWebApplication)
+            >>> list(app._text_response("200 OK", "ok", content_type="text/plain").body)
+            [b'ok']
+
+
+        :param status: HTTP status line to retain unchanged.
+        :param text: Unicode body to encode.
+        :param content_type: Media type to which a UTF-8 charset is appended.
+        :return: Response with a single Content-Type header and one body chunk.
+        """
         return _Response(
             status=status,
             headers=[("Content-Type", "{}; charset=utf-8".format(content_type))],
@@ -265,6 +478,19 @@ class ReadOnlyWebApplication:
         )
 
     def _html_response(self, html_text: str, *, status: str = "200 OK") -> _Response:
+        """
+        Encode already-rendered HTML without escaping or sanitizing it.
+
+        Example:
+            >>> app = object.__new__(ReadOnlyWebApplication)
+            >>> app._html_response("<p>ok</p>").status
+            '200 OK'
+
+
+        :param html_text: Trusted HTML document or fragment to encode as UTF-8.
+        :param status: HTTP status line, defaulting to success.
+        :return: HTML response containing one byte chunk and no length header.
+        """
         return _Response(
             status=status,
             headers=[("Content-Type", "text/html; charset=utf-8")],
@@ -272,6 +498,18 @@ class ReadOnlyWebApplication:
         )
 
     def _redirect_response(self, location: str) -> _Response:
+        """
+        Construct a 302 redirect without validating the destination or headers.
+
+        Example:
+            >>> app = object.__new__(ReadOnlyWebApplication)
+            >>> app._redirect_response("/tables/works").headers
+            [('Location', '/tables/works')]
+
+
+        :param location: Destination stringified into the Location header.
+        :return: Redirect response whose body contains one empty byte chunk.
+        """
         return _Response(
             status="302 Found",
             headers=[("Location", str(location))],
@@ -287,6 +525,29 @@ class ReadOnlyWebApplication:
         disposition: str = "attachment",
         content_type_override: Optional[str] = None,
     ) -> _Response:
+        """
+        Open a local path and expose it through the available WSGI file wrapper.
+
+        The block size is 64 KiB; length comes from a separate path stat after
+        opening. A truthy media override wins over filename guessing. The
+        successful response carries file-handle cleanup, but failures during
+        setup are not explicitly closed here. No confinement, range handling,
+        HEAD suppression, or download-policy check occurs in this helper.
+        Removing filename quotes is not general header sanitization.
+
+        Example:
+            >>> response = app._file_response(path, download_name="book.epub", environ={})  # doctest: +SKIP
+            >>> response.close()  # doctest: +SKIP
+
+
+        :param path: Existing readable filesystem path to open in binary mode.
+        :param download_name: Suggested filename and fallback MIME-guess input.
+        :param environ: WSGI mapping optionally supplying wsgi.file_wrapper.
+        :param disposition: Content-Disposition token, normally attachment or inline.
+        :param content_type_override: Truthy explicit media type, or automatic guess.
+        :return: Streaming 200 response owning an open file handle until cleanup.
+        :raises OSError: Opening or statting the path fails.
+        """
         file_handle = path.open("rb")
         guessed_type, _encoding = mimetypes.guess_type(download_name)
         content_type = content_type_override or guessed_type or "application/octet-stream"
@@ -318,6 +579,27 @@ class ReadOnlyWebApplication:
         disposition: str = "attachment",
         content_type_override: Optional[str] = None,
     ) -> _Response:
+        """
+        Wrap an already-buffered payload with length and disposition headers.
+
+        Payload bytes are retained without copying or coercion. A truthy MIME
+        override wins over filename guessing and application/octet-stream.
+        Only double quotes are removed from the suggested filename; this is
+        neither header sanitization nor an acquisition-policy check.
+
+        Example:
+            >>> app = object.__new__(ReadOnlyWebApplication)
+            >>> response = app._bytes_response(b"abc", download_name="note.txt")
+            >>> dict(response.headers)["Content-Length"]
+            '3'
+
+
+        :param payload: Complete bytes object to place in a one-element body list.
+        :param download_name: Suggested filename and fallback MIME-guess input.
+        :param disposition: Content-Disposition token, normally attachment or inline.
+        :param content_type_override: Truthy media type to use instead of guessing.
+        :return: Buffered 200 response with no close callback.
+        """
         guessed_type, _encoding = mimetypes.guess_type(download_name)
         content_type = content_type_override or guessed_type or "application/octet-stream"
         return _Response(
@@ -334,10 +616,34 @@ class ReadOnlyWebApplication:
         )
 
     def _all_tables(self) -> list[str]:
+        """
+        Materialize model table names without filtering or sorting them.
+
+        Example:
+            >>> tables = app._all_tables()  # doctest: +SKIP
+
+
+        :return: New list in provider order; schema-read failures propagate.
+        """
         return list(self.model.table_names())
 
     @staticmethod
     def _table_category(table: str) -> str:
+        """
+        Classify a stripped, lowercased table name for navigation grouping.
+
+        Explicit main/helper names take precedence over relationship suffixes.
+        Unknown and empty names default to helper; classification is not access
+        control and does not check whether a table actually exists.
+
+        Example:
+            >>> [ReadOnlyWebApplication._table_category(name) for name in ("WORKS", "work_intralinks", "work_links", "custom")]
+            ['main', 'intralink', 'interlink', 'helper']
+
+
+        :param table: Table identifier to classify after string conversion.
+        :return: Main, helper, interlink, or intralink category token in lowercase.
+        """
         name = str(table).strip().lower()
         if not name:
             return "helper"
@@ -415,21 +721,69 @@ class ReadOnlyWebApplication:
         return "helper"
 
     def _grouped_tables(self) -> dict[str, list[str]]:
+        """
+        Place every model table into one of four navigation groups.
+
+        Original names and provider order are preserved within each group;
+        even empty groups remain present.
+
+        Example:
+            >>> groups = app._grouped_tables()  # doctest: +SKIP
+
+
+        :return: Main/helper/interlink/intralink lists, including operational tables.
+        """
         groups = {"main": [], "helper": [], "interlink": [], "intralink": []}
         for table in self._all_tables():
             groups.setdefault(self._table_category(table), []).append(table)
         return groups
 
     def _table_exists(self, table: str) -> bool:
+        """
+        Check exact string membership in a freshly enumerated schema.
+
+        Example:
+            >>> exists = app._table_exists("works")  # doctest: +SKIP
+
+
+        :param table: Identifier stringified without stripping or case normalization.
+        :return: Whether the model exposes that exact name; read failures propagate.
+        """
         return str(table) in set(self._all_tables())
 
     def _id_column(self, table: str) -> Optional[str]:
+        """
+        Ask for the model's ID column only when its column list is nonempty.
+
+        Column enumeration and ID lookup are separate reads, not a snapshot.
+
+        Example:
+            >>> column = app._id_column("works")  # doctest: +SKIP
+
+
+        :param table: Table identifier passed unchanged to schema queries.
+        :return: Provider-selected ID column, or None for an empty column list.
+        """
         columns = list(self.model.columns(table))
         if not columns:
             return None
         return self.model.id_column(table)
 
     def _visible_columns(self, table: str) -> list[str]:
+        """
+        Filter schema columns through configured suffix and substring exclusions.
+
+        Only column names are lowercased for matching; custom exclusion tokens
+        should therefore be lowercase. This display heuristic neither inspects
+        cell contents nor constrains all preferred-summary reads.
+
+        Example:
+            >>> columns = app._visible_columns("stores")  # doctest: +SKIP
+
+
+        :param table: Table whose model-provided columns should be screened.
+        :return: Original stringified names in provider order, excluding matches.
+        """
         result: list[str] = []
         for column in self.model.columns(table):
             name = str(column)
@@ -442,6 +796,19 @@ class ReadOnlyWebApplication:
         return result
 
     def _table_display_columns(self, table: str) -> list[str]:
+        """
+        Select up to eight visible columns for compact browse tables.
+
+        Prefer a visible ID, then configured-in-code descriptive keyword order,
+        then remaining schema order. A column is included only once.
+
+        Example:
+            >>> columns = app._table_display_columns("works")  # doctest: +SKIP
+
+
+        :param table: Schema context for visibility, identity, and display ordering.
+        :return: At most eight visible column names, or an empty list.
+        """
         columns = self._visible_columns(table)
         if not columns:
             return []
@@ -477,12 +844,42 @@ class ReadOnlyWebApplication:
 
     @staticmethod
     def _pretty_table_name(table: str) -> str:
+        """
+        Replace underscores with spaces and uppercase only the first character.
+
+        Example:
+            >>> ReadOnlyWebApplication._pretty_table_name("human_agents")
+            'Human agents'
+            >>> ReadOnlyWebApplication._pretty_table_name("  ")
+            'Related'
+
+
+        :param table: Name stringified and stripped after underscore replacement.
+        :return: Navigation label, or Related when the resulting text is empty.
+        """
         text = str(table).replace("_", " ").strip()
         if not text:
             return "Related"
         return text[0].upper() + text[1:]
 
     def _preferred_summary_fields(self, table: str) -> tuple[str, ...]:
+        """
+        Return conventional descriptive fields for an exact known table name.
+
+        These candidates are not checked against the schema or hidden-column
+        policy. Callers needing visible-only fields must intersect separately.
+
+        Example:
+            >>> app = object.__new__(ReadOnlyWebApplication)
+            >>> app._preferred_summary_fields("works")[0]
+            'work_title'
+            >>> app._preferred_summary_fields("unknown")
+            ()
+
+
+        :param table: Exact table token; no case normalization is applied.
+        :return: Ordered field-name tuple, or empty tuple for an unknown table.
+        """
         mapping = {
             "works": ("work_title", "work_canonical_title", "work_sort_title"),
             "stores": ("store_name", "store_kind", "store_root_uri"),
@@ -507,6 +904,24 @@ class ReadOnlyWebApplication:
         return mapping.get(table, ())
 
     def _row_summary_parts(self, table: str, row, *, limit: int = 3) -> list[str]:
+        """
+        Collect distinct nonblank display values, preferring conventional fields.
+
+        Preferred fields bypass the visibility filter. Fallback visible columns
+        are ordered by descriptive keyword then name, excluding the ID. Values
+        are shortened to width 72 and stripped before case-sensitive deduplication.
+        The limit is checked after appending, so a nonpositive limit may yield one
+        value rather than none.
+
+        Example:
+            >>> parts = app._row_summary_parts("works", work, limit=2)  # doctest: +SKIP
+
+
+        :param table: Schema and preferred-field context for the row.
+        :param row: Row-like object read through the shared row-value accessor.
+        :param limit: Desired part count; expected positive and not validated here.
+        :return: Ordered short text parts, possibly empty, without HTML escaping.
+        """
         parts: list[str] = []
         seen: set[str] = set()
         id_column = self._id_column(table)
@@ -541,6 +956,17 @@ class ReadOnlyWebApplication:
         return parts
 
     def _row_primary_text(self, table: str, row) -> str:
+        """
+        Choose one summary value, falling back to the composite row label.
+
+        Example:
+            >>> title = app._row_primary_text("works", work)  # doctest: +SKIP
+
+
+        :param table: Schema/display context used by both label strategies.
+        :param row: Row-like value whose descriptive fields should be read.
+        :return: Unescaped primary text or fallback label, not a fetched full record.
+        """
         parts = self._row_summary_parts(table, row, limit=1)
         if parts:
             return parts[0]
@@ -548,6 +974,22 @@ class ReadOnlyWebApplication:
 
     @staticmethod
     def _stringify_detail_value(value: object) -> str:
+        """
+        Convert a cell to display text, shortening common container representations.
+
+        Dict/list/tuple/set reprs use width 400; other non-None objects are
+        stringified without a length cap. This is not JSON serialization.
+
+        Example:
+            >>> ReadOnlyWebApplication._stringify_detail_value([1, 2])
+            '[1, 2]'
+            >>> ReadOnlyWebApplication._stringify_detail_value(None)
+            ''
+
+
+        :param value: Raw metadata cell, potentially None or a container.
+        :return: Unescaped display text, empty only for None or empty stringification.
+        """
         if value is None:
             return ""
         if isinstance(value, (dict, list, tuple, set)):
@@ -556,6 +998,20 @@ class ReadOnlyWebApplication:
 
     @staticmethod
     def _detail_value_kind(column: str) -> str:
+        """
+        Infer a presentation kind from column-name substrings and suffixes.
+
+        JSON takes precedence over millisecond timestamps, then URI, then path;
+        no schema type or actual cell content is examined.
+
+        Example:
+            >>> [ReadOnlyWebApplication._detail_value_kind(name) for name in ("source_json", "created_timestamp_ep_k", "root_uri", "storage_key", "title")]
+            ['json', 'timestamp_ms', 'uri', 'path', 'text']
+
+
+        :param column: Falsey-as-empty column identifier, compared lowercase.
+        :return: json, timestamp_ms, uri, path, or text presentation token.
+        """
         lowered = str(column or "").lower()
         if "json" in lowered:
             return "json"
@@ -569,6 +1025,23 @@ class ReadOnlyWebApplication:
 
     @staticmethod
     def _pretty_json_text(value: object) -> str:
+        """
+        Pretty-print parseable JSON text, retaining original text on parse failure.
+
+        Successful output uses sorted keys, two-space indentation, and unescaped
+        Unicode. Standard json nonfinite-number behavior is unchanged. Invalid
+        JSON retains surrounding whitespace; blank or falsey input returns empty.
+
+        Example:
+            >>> ReadOnlyWebApplication._pretty_json_text('  "café"  ')
+            '"café"'
+            >>> ReadOnlyWebApplication._pretty_json_text(' invalid ')
+            ' invalid '
+
+
+        :param value: Value interpreted through str(value or empty string), not dumped directly.
+        :return: Reformatted JSON, original invalid text, or an empty string.
+        """
         text = str(value or "").strip()
         if not text:
             return ""
@@ -580,6 +1053,23 @@ class ReadOnlyWebApplication:
 
     @staticmethod
     def _format_epoch_ms_value(value: object) -> tuple[str, str] | None:
+        """
+        Interpret numeric text as epoch milliseconds and format it at UTC minute precision.
+
+        Conversion passes through float and int, so fractions are truncated and
+        large values may lose precision. Numeric-conversion and datetime-range
+        failures return None; errors during initial string conversion do not.
+
+        Example:
+            >>> ReadOnlyWebApplication._format_epoch_ms_value(" 0 ")
+            ('1970-01-01 00:00 UTC', '0')
+            >>> ReadOnlyWebApplication._format_epoch_ms_value("invalid") is None
+            True
+
+
+        :param value: Millisecond timestamp-like value; None and blank mean absent.
+        :return: Human UTC label and stripped original text, or None if unsupported.
+        """
         if value in (None, ""):
             return None
         raw = str(value).strip()
@@ -596,6 +1086,24 @@ class ReadOnlyWebApplication:
         return pretty, raw
 
     def _render_detail_value_html(self, *, column: str, value: object, code_values: bool) -> str:
+        """
+        Render an escaped detail cell using its name-derived presentation kind.
+
+        Empty text becomes an em dash. JSON gets a preformatted block, valid
+        timestamps a UTC label plus raw value, and paths/URIs code styling without
+        links. JSON formatting uses the original value, not the container repr cap.
+
+        Example:
+            >>> app = object.__new__(ReadOnlyWebApplication)
+            >>> app._render_detail_value_html(column="title", value="<x>", code_values=False)
+            "<span class='field-value'>&lt;x&gt;</span>"
+
+
+        :param column: Column name selecting JSON, timestamp, path, or plain display.
+        :param value: Metadata cell to stringify and escape.
+        :param code_values: Use code markup for otherwise ordinary nonempty values.
+        :return: Trusted HTML fragment containing escaped metadata text.
+        """
         value_text = self._stringify_detail_value(value)
         if value_text == "":
             return "<span class='empty'>&mdash;</span>"
@@ -616,6 +1124,22 @@ class ReadOnlyWebApplication:
         return "<span class='field-value'>{}</span>".format(_escape(value_text))
 
     def _render_browse_value_html(self, *, column: str, value: object) -> str:
+        """
+        Render an escaped compact browse cell with kind-specific shortening.
+
+        JSON uses width 140, paths/URIs 120, and ordinary text 72. Timestamps
+        retain an unshortened raw value alongside their formatted UTC label.
+
+        Example:
+            >>> app = object.__new__(ReadOnlyWebApplication)
+            >>> app._render_browse_value_html(column="title", value="A & B")
+            'A &amp; B'
+
+
+        :param column: Column identifier used to infer presentation kind.
+        :param value: Raw cell value, with empty text rendered as an em dash.
+        :return: Escaped text or trusted markup wrapping escaped text.
+        """
         value_text = self._stringify_detail_value(value)
         if value_text == "":
             return "<span class='empty'>&mdash;</span>"
@@ -636,9 +1160,34 @@ class ReadOnlyWebApplication:
         return _escape(_short_text(value_text, width=72))
 
     def _row_dict(self, table: str, row) -> dict[str, object]:
+        """
+        Project all visible columns into a new dictionary without copying values.
+
+        Example:
+            >>> visible = app._row_dict("files", file_row)  # doctest: +SKIP
+
+
+        :param table: Schema context defining visible keys and their order.
+        :param row: Row-like value read through the shared accessor.
+        :return: Shallow visible-column projection, including absent values as None.
+        """
         return {column: _row_value(row, column) for column in self._visible_columns(table)}
 
     def _row_href(self, table: str, row) -> Optional[str]:
+        """
+        Build a table-detail URL when the row has a nonblank schema-selected ID.
+
+        Both components are percent-quoted. IDs need not be integers here and
+        zero is retained; existence is not checked.
+
+        Example:
+            >>> href = app._row_href("works", work)  # doctest: +SKIP
+
+
+        :param table: Table identifier used for ID lookup and the URL component.
+        :param row: Row-like object supplying the selected ID value.
+        :return: Root-relative detail URL, or None for missing ID column/value.
+        """
         id_column = self._id_column(table)
         if not id_column:
             return None
@@ -648,6 +1197,21 @@ class ReadOnlyWebApplication:
         return "/tables/{}/{}".format(quote(table, safe=""), quote(str(row_id), safe=""))
 
     def _row_label(self, table: str, row) -> str:
+        """
+        Join a visible ID and up to three total short display parts with separators.
+
+        The ID is prefixed with #. Non-ID fields follow compact display-column
+        order and are shortened to width 72; only None and empty strings are
+        skipped before shortening. This label is not HTML-escaped.
+
+        Example:
+            >>> label = app._row_label("works", work)  # doctest: +SKIP
+
+
+        :param table: Schema/display context and fallback label if no parts exist.
+        :param row: Row-like object from which visible values are projected.
+        :return: Composite label, or the supplied table name when no parts exist.
+        """
         row_data = self._row_dict(table, row)
         id_column = self._id_column(table)
         label_parts: list[str] = []
@@ -665,6 +1229,19 @@ class ReadOnlyWebApplication:
         return " | ".join(label_parts) if label_parts else table
 
     def _public_search_tables(self) -> list[str]:
+        """
+        Choose existing preferred search tables, otherwise all main-category tables.
+
+        Finding even one preferred table excludes other main tables from this
+        default selection. The fallback performs a second schema enumeration.
+        Explicit table browsing is not constrained by this search preference.
+
+        Example:
+            >>> searchable = app._public_search_tables()  # doctest: +SKIP
+
+
+        :return: Preferred-order names, or provider-order main names if none preferred exist.
+        """
         preferred = ("works", "agents", "human_agents", "org_agents", "series", "tags", "labels", "genres", "subjects", "files", "stores")
         available = set(self._all_tables())
         ordered = [table for table in preferred if table in available]
@@ -673,6 +1250,19 @@ class ReadOnlyWebApplication:
         return [table for table in self._all_tables() if self._table_category(table) == "main"]
 
     def _search_candidate_columns(self, table: str) -> list[str]:
+        """
+        Select up to ten visible fields for per-row global-search scoring.
+
+        Prefer conventional summary fields only when visible, then descriptive
+        keyword matches in schema order, then remaining columns without duplicates.
+
+        Example:
+            >>> candidates = app._search_candidate_columns("works")  # doctest: +SKIP
+
+
+        :param table: Schema context for visibility and summary-field preferences.
+        :return: Ordered visible candidate names, capped at ten.
+        """
         columns = self._visible_columns(table)
         if not columns:
             return []
@@ -697,6 +1287,17 @@ class ReadOnlyWebApplication:
 
     @staticmethod
     def _table_search_bonus(table: str) -> int:
+        """
+        Return the fixed relevance bias for an exact recognized table token.
+
+        Example:
+            >>> [ReadOnlyWebApplication._table_search_bonus(t) for t in ("works", "files", "unknown")]
+            [40, 8, 0]
+
+
+        :param table: Identifier stringified without stripping or case normalization.
+        :return: Nonnegative score bonus, zero for an unrecognized name.
+        """
         bonus = {
             "works": 40,
             "agents": 30,
@@ -714,6 +1315,22 @@ class ReadOnlyWebApplication:
 
     @staticmethod
     def _highlight_text(text: object, terms: list[str]) -> str:
+        """
+        Escape text and wrap nonoverlapping literal, case-insensitive matches in mark tags.
+
+        Distinct nonempty terms are tried longest first with regex IGNORECASE.
+        Unlike ranking, highlighting does not NFKC-normalize or case-fold text.
+        Regex metacharacters in terms are treated literally.
+
+        Example:
+            >>> ReadOnlyWebApplication._highlight_text("<A+B> & a", ["a+b"])
+            '&lt;<mark>A+B</mark>&gt; &amp; a'
+
+
+        :param text: Falsey-as-empty source to stringify and escape.
+        :param terms: Literal search strings; empty strings are ignored.
+        :return: Escaped HTML with generated mark elements, or plain escaped text.
+        """
         source = str(text or "")
         filtered_terms = [term for term in terms if term]
         if not source or not filtered_terms:
@@ -730,6 +1347,24 @@ class ReadOnlyWebApplication:
 
     @staticmethod
     def _extract_snippet(text: object, terms: list[str], *, width: int = 120) -> str:
+        """
+        Select a text window near the earliest lowercase term match.
+
+        The window begins up to max(10, width // 4) characters before the match.
+        Added ellipses can exceed width by six characters. Missing terms use the
+        shared short-text fallback; width is not validated. Lowercase matching
+        does not implement the Unicode normalization used by ranking.
+
+        Example:
+            >>> ReadOnlyWebApplication._extract_snippet("A small book", ["book"], width=20)
+            'A small book'
+
+
+        :param text: Falsey-as-empty source text to crop without HTML escaping.
+        :param terms: Literal strings searched case-insensitively, ignoring empties.
+        :param width: Desired source-window length in characters before ellipses.
+        :return: Unescaped snippet, shortened fallback, or empty text.
+        """
         source = str(text or "")
         if not source:
             return ""
@@ -751,6 +1386,24 @@ class ReadOnlyWebApplication:
         return snippet
 
     def _global_search_entry(self, table: str, row, query_text: str) -> Optional[dict[str, object]]:
+        """
+        Score a row across primary text, composite label, and candidate columns.
+
+        NFKC/case-folded exact, prefix, all-term, and partial matches receive
+        additive weights plus the table bonus. Candidate-column weights decrease
+        with position. The first matching column supplies the snippet source;
+        display-only matches can leave match_column empty. Backend read failures
+        propagate rather than making a row appear unmatched.
+
+        Example:
+            >>> entry = app._global_search_entry("works", work, "ocean")  # doctest: +SKIP
+
+
+        :param table: Table used for display hooks, searchable fields, and score bias.
+        :param row: Original row retained in a successful result, not copied.
+        :param query_text: Query whose stripped normalized form and tokens drive matching.
+        :return: Table/row/score/match_column/snippet/sort_key mapping, or None for blank/no match.
+        """
         needle = _normalized_search_text(str(query_text or "").strip())
         terms = _search_terms(query_text)
         normalized_terms = [_normalized_search_text(term) for term in terms]
@@ -836,10 +1489,34 @@ class ReadOnlyWebApplication:
         }
 
     def _global_search_entries(self, query_text: str, *, table_filter: str = "") -> list[dict[str, object]]:
+        """
+        Delegate full ranked search enumeration to the shared read-model backend.
+
+        Example:
+            >>> entries = app._global_search_entries("ocean", table_filter="works")  # doctest: +SKIP
+
+
+        :param query_text: Search text forwarded without local normalization.
+        :param table_filter: Optional table restriction interpreted by the backend.
+        :return: Backend's ordered entry list; no local pagination or error suppression.
+        """
         return self.read_model.search_entries(query_text, table_filter=table_filter)
 
     @staticmethod
     def _group_search_entries(entries: list[dict[str, object]]) -> dict[str, list[dict[str, object]]]:
+        """
+        Group raw search entries by their required, stringified table key.
+
+        Example:
+            >>> entry = {"table": "works", "score": 3}
+            >>> ReadOnlyWebApplication._group_search_entries([entry])["works"][0] is entry
+            True
+
+
+        :param entries: Raw result mappings, each required to contain table.
+        :return: First-seen table groups preserving input order and entry identity.
+        :raises KeyError: An entry lacks the required table key.
+        """
         grouped: dict[str, list[dict[str, object]]] = {}
         for entry in entries:
             grouped.setdefault(str(entry["table"]), []).append(entry)
@@ -847,6 +1524,17 @@ class ReadOnlyWebApplication:
 
     @staticmethod
     def _group_search_result_payload(entries: list[dict[str, object]]) -> dict[str, list[dict[str, object]]]:
+        """
+        Group projected search results, using an empty key for missing/falsey tables.
+
+        Example:
+            >>> ReadOnlyWebApplication._group_search_result_payload([{}])
+            {'': [{}]}
+
+
+        :param entries: Projected result mappings whose table field is optional.
+        :return: Insertion-ordered groups retaining original mapping objects and order.
+        """
         grouped: dict[str, list[dict[str, object]]] = {}
         for entry in entries:
             grouped.setdefault(str(entry.get("table") or ""), []).append(entry)
@@ -862,6 +1550,29 @@ class ReadOnlyWebApplication:
         total: int,
         offset_key: str,
     ) -> str:
+        """
+        Render Previous/Next links and numeric range information for a result page.
+
+        Query mappings are copied before changing the offset. Oversized offsets
+        are not clamped and can display an inverted range. Nonpositive limits
+        avoid division but do not create meaningful paging; callers should pass
+        a positive limit. An empty/nonpositive total produces no markup.
+
+        Example:
+            >>> app = object.__new__(ReadOnlyWebApplication)
+            >>> html = app._render_pager(path="/search", query_values={"q": "a"}, offset=0, limit=10, total=11, offset_key="offset")
+            >>> "Next" in html and "Showing 1-10 of 11" in html
+            True
+
+
+        :param path: Link path without an existing query; a question mark is appended.
+        :param query_values: Scalar query parameters retained in navigation URLs.
+        :param offset: Zero-based start, expected nonnegative but not validated here.
+        :param limit: Requested page length used for range and navigation arithmetic.
+        :param total: Total matching records, not merely the visible count.
+        :param offset_key: Query key to replace in copied Previous/Next parameters.
+        :return: Escaped-link HTML and range text, or an empty string.
+        """
         if total <= 0:
             return ""
 
@@ -896,6 +1607,20 @@ class ReadOnlyWebApplication:
 
     @staticmethod
     def _pretty_credit_role(value: object) -> str:
+        """
+        Translate known contributor roles and prettify unknown role tokens.
+
+        Unknown alphabetic tokens up to four characters become uppercase;
+        others replace underscores/hyphens with spaces and use title case.
+
+        Example:
+            >>> [ReadOnlyWebApplication._pretty_credit_role(v) for v in ("aut", "xyz", "guest_editor", "")]
+            ['Author', 'XYZ', 'Guest Editor', 'Contributors']
+
+
+        :param value: Falsey-as-empty role string, stripped before classification.
+        :return: Unescaped human role label, with Contributors for blank input.
+        """
         text = str(value or "").strip()
         if not text:
             return "Contributors"
@@ -924,9 +1649,34 @@ class ReadOnlyWebApplication:
         return text.replace("_", " ").replace("-", " ").title()
 
     def _work_credit_entries(self, row) -> list[dict[str, object]]:
+        """
+        Delegate work-credit discovery and ordering to the shared read model.
+
+        Example:
+            >>> credits = app._work_credit_entries(work)  # doctest: +SKIP
+
+
+        :param row: Work row whose linked contributor credits should be read.
+        :return: Backend credit-entry list; errors propagate without local fallback.
+        """
         return self.read_model.work_credit_entries(row)
 
     def _render_work_credits_section(self, row) -> str:
+        """
+        Read and render work credits in first-seen role groups.
+
+        Entry order is retained, not sorted here despite the priority-order
+        caption. Table/row/role fields are required; links and labels come from
+        host hooks. Scalar labels are escaped, but link destinations are not
+        independently validated. Every returned credit is displayed.
+
+        Example:
+            >>> html = app._render_work_credits_section(work)  # doctest: +SKIP
+
+
+        :param row: Work row passed to shared credit discovery.
+        :return: Contributor section HTML, or empty text when no credits exist.
+        """
         entries = self._work_credit_entries(row)
         if not entries:
             return ""
@@ -989,6 +1739,23 @@ class ReadOnlyWebApplication:
 """.format(sections="".join(sections))
 
     def _render_work_credits_payload_section(self, detail_payload: dict[str, object]) -> str:
+        """
+        Render precomputed contributor credits without querying their row objects.
+
+        Entries are shallow-copied into first-seen role groups; absent/falsey roles
+        use Contributors. Entity-provided links, labels, types, and priorities are
+        escaped for markup, not validated as trusted URL destinations. Ordering
+        and completeness belong to the payload provider.
+
+        Example:
+            >>> app = object.__new__(ReadOnlyWebApplication)
+            >>> app._render_work_credits_payload_section({"credits": []})
+            ''
+
+
+        :param detail_payload: Mapping containing optional credit mappings with entity summaries.
+        :return: Credits section HTML, or empty text when the credit list is empty.
+        """
         entries = list(detail_payload.get("credits", []) or [])
         if not entries:
             return ""
@@ -1051,6 +1818,22 @@ class ReadOnlyWebApplication:
 """.format(sections="".join(sections))
 
     def _render_work_formats_section(self, detail_payload: dict[str, object]) -> str:
+        """
+        Render all projected work-file formats and their supplied acquisition links.
+
+        Media, role, delivery, and nonblank size are display hints, not validated
+        media facts. Download/preview links are escaped but not resolved, checked
+        against the host download setting, or restricted to a URL scheme here.
+
+        Example:
+            >>> app = object.__new__(ReadOnlyWebApplication)
+            >>> app._render_work_formats_section({"files": []})
+            ''
+
+
+        :param detail_payload: Work detail mapping with an optional files sequence.
+        :return: Format-card section HTML, or empty text for no projected files.
+        """
         files = list(detail_payload.get("files", []) or [])
         if not files:
             return ""
@@ -1093,14 +1876,26 @@ class ReadOnlyWebApplication:
 """.format(cards="".join(cards))
 
     def _ordered_related_tables(self, row) -> list[str]:
+        """
+        Order unique related-table candidates by preferred group then name.
+
+        A truthy row.linkable_tables supplies candidates; an empty value falls
+        back to model discovery when row.table is present. Candidates are
+        stringified, so None becomes the literal name None rather than being
+        discarded. The current row's table and empty strings are excluded.
+
+        Example:
+            >>> tables = app._ordered_related_tables(work)  # doctest: +SKIP
+
+
+        :param row: Object optionally exposing table and linkable_tables attributes.
+        :return: Deterministically ordered unique names without fetching linked rows.
+        """
         table = str(getattr(row, "table", "") or "")
-        try:
-            candidate_tables = list(
-                getattr(row, "linkable_tables", None)
-                or self.model.related_tables(table)
-            )
-        except Exception:
-            candidate_tables = []
+        candidate_tables = list(
+            getattr(row, "linkable_tables", None)
+            or (self.model.related_tables(table) if table else ())
+        )
         return sorted(
             {str(one) for one in candidate_tables if str(one) and str(one) != table},
             key=lambda name: (
@@ -1110,6 +1905,17 @@ class ReadOnlyWebApplication:
         )
 
     def _render_related_pill_section(self, linked_table: str, rows: list[object]) -> str:
+        """
+        Render every linked row as a compact label pill, linked when an ID exists.
+
+        Example:
+            >>> html = app._render_related_pill_section("labels", labels)  # doctest: +SKIP
+
+
+        :param linked_table: Schema context and humanized section title source.
+        :param rows: Ordered linked rows to display without pagination or truncation.
+        :return: Counted section HTML with escaped labels and root-relative row links.
+        """
         pills = []
         for row in rows:
             href = self._row_href(linked_table, row)
@@ -1127,6 +1933,20 @@ class ReadOnlyWebApplication:
 """.format(title=_escape(self._pretty_table_name(linked_table)), count=len(rows), items="".join(pills))
 
     def _render_related_note_section(self, linked_table: str, rows: list[object]) -> str:
+        """
+        Render linked note-like rows as excerpt cards with composite labels.
+
+        Each primary-text excerpt is shortened to width 280 after the primary
+        label helper's own shortening. The list itself is not capped.
+
+        Example:
+            >>> html = app._render_related_note_section("notes", notes)  # doctest: +SKIP
+
+
+        :param linked_table: Note-like table used for headings, links, and labels.
+        :param rows: Linked rows retained in their supplied order.
+        :return: Section HTML with escaped excerpts and linked or unlinked card labels.
+        """
         cards = []
         for row in rows:
             href = self._row_href(linked_table, row)
@@ -1151,6 +1971,20 @@ class ReadOnlyWebApplication:
 """.format(title=_escape(self._pretty_table_name(linked_table)), count=len(rows), items="".join(cards))
 
     def _render_related_agent_section(self, linked_table: str, rows: list[object]) -> str:
+        """
+        Render all linked contributors with primary labels and optional agent types.
+
+        Agent-type hints are shortened to width 48 and escaped; rows are neither
+        grouped by credit role nor reordered in this generic related renderer.
+
+        Example:
+            >>> html = app._render_related_agent_section("agents", agents)  # doctest: +SKIP
+
+
+        :param linked_table: Contributor table supplying identity and label context.
+        :param rows: Linked contributor rows to display in input order.
+        :return: Counted contributor-card section HTML without list pagination.
+        """
         cards = []
         for row in rows:
             href = self._row_href(linked_table, row)
@@ -1179,6 +2013,17 @@ class ReadOnlyWebApplication:
 """.format(title=_escape(self._pretty_table_name(linked_table)), count=len(rows), items="".join(cards))
 
     def _render_related_default_section(self, linked_table: str, rows: list[object]) -> str:
+        """
+        Render an uncapped linked-row list using escaped composite labels.
+
+        Example:
+            >>> html = app._render_related_default_section("items", items)  # doctest: +SKIP
+
+
+        :param linked_table: Table used for section title, ID lookup, and labels.
+        :param rows: Related rows retained in input order, linked when possible.
+        :return: Counted list-section HTML, including a section for an empty list.
+        """
         items = []
         for row in rows:
             href = self._row_href(linked_table, row)
@@ -1196,6 +2041,16 @@ class ReadOnlyWebApplication:
 """.format(title=_escape(self._pretty_table_name(linked_table)), count=len(rows), items="".join(items))
 
     def _related_rows_by_table(self, row) -> dict[str, list[object]]:
+        """
+        Delegate related-row grouping to the shared metadata read model.
+
+        Example:
+            >>> groups = app._related_rows_by_table(work)  # doctest: +SKIP
+
+
+        :param row: Entity whose relationships should be resolved.
+        :return: Backend's ordered table-to-rows mapping; read failures propagate.
+        """
         return self.read_model.related_rows_by_table(row)
 
     def _render_related_sections(
@@ -1205,6 +2060,23 @@ class ReadOnlyWebApplication:
         related_rows_by_table: Optional[dict[str, list[object]]] = None,
         exclude_tables: Optional[set[str]] = None,
     ) -> str:
+        """
+        Render related groups through pill, note, contributor, or generic owners.
+
+        A falsey supplied mapping, including an explicit empty dict, triggers a
+        fresh relationship query. Mapping order is preserved, excluded table
+        names are exact, and empty row lists in a nonempty mapping still render
+        sections. Neither rows nor groups are capped here.
+
+        Example:
+            >>> html = app._render_related_sections(work, exclude_tables={"agents"})  # doctest: +SKIP
+
+
+        :param row: Entity used when relationships need to be queried.
+        :param related_rows_by_table: Optional nonempty precomputed groups to reuse.
+        :param exclude_tables: Table names stringified and omitted from output.
+        :return: Linked-entities wrapper HTML, or empty text if no sections remain.
+        """
         sections: list[str] = []
         pill_tables = {"tags", "labels", "genres", "subjects", "languages", "series"}
         note_tables = {"notes", "comments", "synopses", "annotations"}
@@ -1242,6 +2114,24 @@ class ReadOnlyWebApplication:
         code_values: bool,
         include_empty: bool = True,
     ) -> str:
+        """
+        Render requested detail columns as escaped-name/value table rows.
+
+        Column order and duplicates are retained. Missing keys act like None;
+        empty suppression compares stringified text, not generic truthiness.
+
+        Example:
+            >>> app = object.__new__(ReadOnlyWebApplication)
+            >>> app._render_detail_table_rows({}, ["title"], code_values=False, include_empty=False)
+            ''
+
+
+        :param row_data: Mapping of column names to raw display values.
+        :param columns: Ordered names to render, including any intentional duplicates.
+        :param code_values: Request code styling for ordinary nonempty detail values.
+        :param include_empty: Keep em-dash rows for absent/empty values when true.
+        :return: Concatenated tr elements without a surrounding table.
+        """
         detail_rows: list[str] = []
         for column in columns:
             value_text = self._stringify_detail_value(row_data.get(column))
@@ -1258,6 +2148,20 @@ class ReadOnlyWebApplication:
         row_data: dict[str, object],
         columns: list[str],
     ) -> str:
+        """
+        Wrap nonempty detail rows in a titled card with ordinary value styling.
+
+        Example:
+            >>> app = object.__new__(ReadOnlyWebApplication)
+            >>> app._render_detail_card(title="Identity", row_data={}, columns=["name"])
+            ''
+
+
+        :param title: Card heading escaped as text.
+        :param row_data: Column/value mapping passed to detail-row rendering.
+        :param columns: Ordered fields to include, with empty values omitted.
+        :return: Card HTML, or empty text when no nonempty rows survive.
+        """
         rows = self._render_detail_table_rows(row_data, columns, code_values=False, include_empty=False)
         if not rows:
             return ""
@@ -1282,6 +2186,28 @@ class ReadOnlyWebApplication:
         related_rows_by_table: dict[str, list[object]],
         detail_payload: dict[str, object],
     ) -> str:
+        """
+        Assemble a work detail fragment from row values and projected metadata.
+
+        The hero prefers payload title, then stored title variants and identity.
+        Visible fields are grouped into title, record, date, and remaining cards;
+        empty cards disappear. Contributor and format sections use the payload,
+        while other related sections use row groups and exclude contributor
+        tables. At most six format labels become hero pills; related lists are
+        not capped. Actions are trusted HTML, while metadata text is escaped.
+
+        Example:
+            >>> html = app._render_work_detail_page(row=work, row_id=1, row_data=values, actions=[], related_rows_by_table=related, detail_payload=payload)  # doctest: +SKIP
+
+
+        :param row: Work row retained for relationship fallback when groups are empty.
+        :param row_id: Display identity used in the hero and last-resort title.
+        :param row_data: Preprojected values; conventional title fields are read directly.
+        :param actions: Already-rendered action fragments concatenated without escaping.
+        :param related_rows_by_table: Related row groups for hero counts and entity sections.
+        :param detail_payload: Projected work, credits, formats, and file metadata.
+        :return: Work-body HTML fragment, not the surrounding document layout.
+        """
         metadata = dict(detail_payload.get("work") or {})
         title = self._stringify_detail_value(
             metadata.get("title") or row_data.get("work_title") or row_data.get("work_canonical_title") or row_data.get("work_sort_title") or row_id
@@ -1383,6 +2309,21 @@ class ReadOnlyWebApplication:
 
     @staticmethod
     def _preview_kind_from_name(file_name: str) -> Optional[str]:
+        """
+        Classify a filename suffix as image, HTML, text, or unsupported.
+
+        Matching is case-insensitive and does not inspect file bytes. Image
+        includes SVG and HTML includes XHTML; neither implies passive or
+        sanitized content. Unsupported suffixes return None.
+
+        Example:
+            >>> [ReadOnlyWebApplication._preview_kind_from_name(n) for n in ("a.SVG", "a.xhtml", "a.json", "a.epub")]
+            ['image', 'html', 'text', None]
+
+
+        :param file_name: Falsey-as-empty path-like name whose last suffix is examined.
+        :return: image, html, text, or None; no safety or readability guarantee.
+        """
         suffix = Path(str(file_name or "")).suffix.lower()
         if suffix in {".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"}:
             return "image"
@@ -1393,9 +2334,32 @@ class ReadOnlyWebApplication:
         return None
 
     def _preview_kind_for_file_row(self, file_row) -> Optional[str]:
+        """
+        Classify the projected download filename without reading the asset.
+
+        Example:
+            >>> kind = app._preview_kind_for_file_row(file_row)  # doctest: +SKIP
+
+
+        :param file_row: Legacy file row used to select a visible download name.
+        :return: Filename-based preview token or None for an unsupported suffix.
+        """
         return self._preview_kind_from_name(self._download_name_for_file_row(file_row))
 
     def _preview_content_type(self, file_row) -> Optional[str]:
+        """
+        Choose preview MIME hints from the selected filename and preview kind.
+
+        HTML/text declare UTF-8 without transcoding any bytes. Images use MIME
+        guessing with an octet-stream fallback; no content inspection occurs.
+
+        Example:
+            >>> media_type = app._preview_content_type(file_row)  # doctest: +SKIP
+
+
+        :param file_row: File row supplying the projected filename and suffix.
+        :return: HTML/text/image media hint, or None when no preview kind is supported.
+        """
         preview_kind = self._preview_kind_for_file_row(file_row)
         if preview_kind == "html":
             return "text/html; charset=utf-8"
@@ -1407,6 +2371,21 @@ class ReadOnlyWebApplication:
         return None
 
     def _file_capabilities(self, file_row) -> dict[str, object]:
+        """
+        Describe potential file delivery without reading its bytes.
+
+        Target resolution takes precedence over a stored-file reader here,
+        unlike delivery handlers, which try a reader first. Preview kind is
+        exposed only for a resolvable delivery. A local-file target is supported
+        for overrides; the built-in target resolver currently produces redirects.
+
+        Example:
+            >>> capabilities = app._file_capabilities(file_row)  # doctest: +SKIP
+
+
+        :param file_row: Legacy file row used for Core acquisition resolution.
+        :return: target/stored_file/downloadable/preview_kind/delivery mapping, without delivery validation.
+        """
         target = self._resolve_file_target(file_row)
         stored_file = None if target is not None else self._resolve_storage_file(file_row)
         downloadable = target is not None or stored_file is not None
@@ -1437,6 +2416,26 @@ class ReadOnlyWebApplication:
         related_rows_by_table: dict[str, list[object]],
         detail_payload: dict[str, object],
     ) -> str:
+        """
+        Assemble a file detail fragment from projected identity and delivery hints.
+
+        Visible fields become identity, location/access, classification, date,
+        and remaining cards. Hero relationship counts come from the payload,
+        while rendered relationship sections use the separate row mapping.
+        Availability hints and supplied actions do not trigger byte validation.
+
+        Example:
+            >>> html = app._render_file_detail_page(row=file_row, row_id=1, row_data=values, actions=[], related_rows_by_table=related, detail_payload=payload)  # doctest: +SKIP
+
+
+        :param row: File row available for relationship fallback.
+        :param row_id: Identity displayed in the hero and used as a title fallback.
+        :param row_data: Projected file values used for cards and filename fallbacks.
+        :param actions: Trusted action HTML fragments, concatenated without escaping.
+        :param related_rows_by_table: Related rows used for entity-section rendering.
+        :param detail_payload: File, related-summary, delivery, name, and preview projections.
+        :return: File-body HTML fragment with escaped metadata, without the outer layout.
+        """
         payload = dict(detail_payload)
         file_meta = dict(payload.get("file") or {})
         title = self._stringify_detail_value(
@@ -1572,6 +2571,26 @@ class ReadOnlyWebApplication:
         actions: list[str],
         related_rows_by_table: dict[str, list[object]],
     ) -> str:
+        """
+        Retain the earlier store-detail renderer shadowed by the later definition.
+
+        This source definition builds identity, access, capability, date, and
+        other visible-field cards plus linked entities. Python replaces it with
+        the later method of the same name during class creation, so ordinary
+        application calls do not invoke this body. It is documented separately
+        without deleting or reordering the duplicate implementation.
+
+        Example:
+            >>> fragment = extracted_earlier_renderer(app, row=store, row_id=1, row_data=values, actions=[], related_rows_by_table=related)  # doctest: +SKIP
+
+
+        :param row: Store row available for fallback relationship discovery.
+        :param row_id: Identity displayed in the hero and used as a title fallback.
+        :param row_data: Store values supplying hero hints and grouped detail cards.
+        :param actions: Trusted action markup concatenated without escaping.
+        :param related_rows_by_table: Related rows for hero counts and linked sections.
+        :return: Store-body HTML with escaped metadata, without the document layout.
+        """
         title = self._stringify_detail_value(row_data.get("store_name") or row_id)
         root_uri = self._stringify_detail_value(row_data.get("store_root_uri"))
         kind = self._stringify_detail_value(row_data.get("store_kind"))
@@ -1676,6 +2695,25 @@ class ReadOnlyWebApplication:
         actions: list[str],
         related_rows_by_table: dict[str, list[object]],
     ) -> str:
+        """
+        Render the active store-detail fragment, overriding the earlier duplicate.
+
+        The hero shows escaped name/root/kind/protocol hints and selected linked
+        counts. Visible fields are partitioned into identity, access, capability,
+        date, and remaining cards, omitting empty values. Caller-provided action
+        HTML is trusted; this renderer does not verify storage health or access.
+
+        Example:
+            >>> html = app._render_store_detail_page(row=store, row_id=1, row_data=values, actions=[], related_rows_by_table=related)  # doctest: +SKIP
+
+
+        :param row: Store row used if empty groups cause relationship rediscovery.
+        :param row_id: Display identity and fallback title when the store name is falsey.
+        :param row_data: Store values supplying hero hints and grouped detail cards.
+        :param actions: Already-rendered action fragments concatenated without escaping.
+        :param related_rows_by_table: Row groups for hero counts and linked sections.
+        :return: Store-body HTML fragment without an outer document layout.
+        """
         title = self._stringify_detail_value(row_data.get("store_name") or row_id)
         root_uri = self._stringify_detail_value(row_data.get("store_root_uri"))
         kind = self._stringify_detail_value(row_data.get("store_kind"))
@@ -1776,10 +2814,45 @@ class ReadOnlyWebApplication:
         )
 
     def _table_page_rows(self, table: str, *, offset: int, limit: int) -> list[object]:
+        """
+        Materialize all table rows and take a Python slice for display.
+
+        This is not provider-side pagination. Negative offsets/limits retain
+        Python slicing semantics when callers bypass request coercion.
+
+        Example:
+            >>> rows = app._table_page_rows("works", offset=0, limit=20)  # doctest: +SKIP
+
+
+        :param table: Exact table identifier forwarded to shared enumeration.
+        :param offset: Slice start, normally a nonnegative request offset.
+        :param limit: Slice length used to compute the exclusive end.
+        :return: New visible row list, with original row objects and provider ordering.
+        """
         rows = self.read_model.rows_for_table(table)
         return rows[offset : offset + limit]
 
     def _render_layout(self, *, title: str, body_html: str) -> str:
+        """
+        Wrap trusted body markup in the generic site's HTML and inline styles.
+
+        Site/page titles are escaped. Optional database-path exposure performs
+        a fresh database.info query; exceptions from that optional hint are
+        suppressed and omit it. This differs from the Calibre layout override's
+        failure policy. Body markup is not escaped or sanitized here.
+
+        Example:
+            >>> app = object.__new__(ReadOnlyWebApplication)
+            >>> app.config = ReadOnlyWebConfig(title="A & B")
+            >>> html = app._render_layout(title="Home", body_html="<p>content</p>")
+            >>> "A &amp; B" in html and "<p>content</p>" in html
+            True
+
+
+        :param title: Page-specific title escaped into the document title.
+        :param body_html: Already-rendered body fragment inserted verbatim.
+        :return: Complete HTML document with navigation, styles, and optional path hint.
+        """
         db_hint = ""
         if self.config.expose_database_path:
             try:
@@ -2063,6 +3136,19 @@ class ReadOnlyWebApplication:
         )
 
     def _render_home_page(self) -> str:
+        """
+        Render all schema groups with table links, counts, and search controls.
+
+        Count failures carrying code read_query_unavailable display an unavailable
+        hint; all other count failures propagate. Helper and relationship tables
+        are included, not restricted to the preferred public-search tables.
+
+        Example:
+            >>> html = app._render_home_page()  # doctest: +SKIP
+
+
+        :return: Complete home HTML document; counts are independent reads, not a snapshot.
+        """
         section_titles = {
             "main": "Main tables",
             "helper": "Helper tables",
@@ -2081,15 +3167,19 @@ class ReadOnlyWebApplication:
             cards: list[str] = []
             for table in grouped.get(category, []):
                 try:
-                    count = self.read_model.table_record_count(table)
-                except Exception:
-                    count = -1
+                    count_text = "{} rows".format(self.read_model.table_record_count(table))
+                except Exception as exc:
+                    # Optional counts may be unavailable in cache-only mode.
+                    # Do not confuse a known capability limit with a failed read.
+                    if getattr(exc, "code", None) != "read_query_unavailable":
+                        raise
+                    count_text = "count unavailable"
                 href = "/tables/{}".format(quote(table, safe=""))
                 cards.append(
-                    "<a class='stat' href='{href}'><strong>{table}</strong><span class='meta'>{count} rows</span></a>".format(
+                    "<a class='stat' href='{href}'><strong>{table}</strong><span class='meta'>{count}</span></a>".format(
                         href=_escape(href),
                         table=_escape(table),
-                        count="?" if count < 0 else count,
+                        count=count_text,
                     )
                 )
             sections.append(
@@ -2112,6 +3202,21 @@ class ReadOnlyWebApplication:
         return self._render_layout(title="Home", body_html="".join(body))
 
     def _render_search_form(self, values: dict[str, str]) -> str:
+        """
+        Render global-search and exact-field GET forms from schema and selections.
+
+        Global table choices use preferred public tables; the exact form exposes
+        all tables and only the currently selected table's visible columns.
+        Invalid selections fall back to the first available option. Page-size
+        options are a bounded fixed/default/max set, and offsets are not retained.
+
+        Example:
+            >>> html = app._render_search_form({"table": "works", "q": "ocean"})  # doctest: +SKIP
+
+
+        :param values: Optional text selections for global/exact query, table, column, and limits.
+        :return: Two-form HTML fragment with escaped values; schema-read failures propagate.
+        """
         global_q = str(values.get("global_q", "") or "")
         search_table = str(values.get("search_table", "") or "")
         global_limit = _coerce_int(values.get("global_limit"), default=self.config.default_page_size, minimum=1, maximum=self.config.max_page_size)
@@ -2223,6 +3328,22 @@ class ReadOnlyWebApplication:
         )
 
     def _render_table_page(self, table: str, query: dict[str, list[str]]) -> str:
+        """
+        Render a counted table slice using up to eight visible display columns.
+
+        Only first query values are used. Limit is coerced between one and the
+        configured maximum; offset is coerced nonnegative but not clamped to
+        the table size. Rows are fully enumerated before slicing. Unknown tables
+        produce explanatory HTML, not an HTTP status change in this helper.
+
+        Example:
+            >>> html = app._render_table_page("works", {"limit": ["20"], "offset": ["0"]})  # doctest: +SKIP
+
+
+        :param table: Exact schema table name to count, read, and label.
+        :param query: Parsed multi-value query mapping for limit and offset.
+        :return: Complete table HTML document; count/read failures remain exceptions.
+        """
         if not self._table_exists(table):
             return self._render_layout(title="Missing table", body_html="<section class='panel'><h2>Unknown table</h2></section>")
         limit = _coerce_int((query.get("limit") or [None])[0], default=self.config.default_page_size, minimum=1, maximum=self.config.max_page_size)
@@ -2287,6 +3408,22 @@ class ReadOnlyWebApplication:
         return self._render_layout(title="Table {}".format(table), body_html=body + self._render_search_form({"table": table}))
 
     def _render_row_page(self, table: str, raw_row_id: str) -> str:
+        """
+        Resolve one integer row ID and render specialized or generic detail HTML.
+
+        Unknown tables, invalid IDs, and missing rows yield explanatory pages
+        that the dispatcher wraps in 200. Works/files/stores use their specialized
+        renderers; other tables use coded detail rows and linked sections. Enabled
+        file actions require capability discovery. Read/resolution errors propagate.
+
+        Example:
+            >>> html = app._render_row_page("works", "1")  # doctest: +SKIP
+
+
+        :param table: Exact table name checked before attempting ID conversion.
+        :param raw_row_id: ID string converted with int; conversion failures become a page.
+        :return: Complete detail or explanatory HTML, without selecting an HTTP status.
+        """
         if not self._table_exists(table):
             return self._render_layout(title="Missing table", body_html="<section class='panel'><h2>Unknown table</h2></section>")
         try:
@@ -2366,6 +3503,23 @@ class ReadOnlyWebApplication:
         )
 
     def _render_search_page(self, query: dict[str, list[str]]) -> str:
+        """
+        Render ranked global results and optional exact-field results independently.
+
+        First query values drive both forms. A q value without table/column acts
+        as a global-query alias when global_q is absent; the form is rendered
+        before this alias is applied. Global results use shared ranked payloads;
+        exact results require an existing table and visible column, then slice
+        all returned matches locally. Both searches may appear on one page.
+        Invalid exact selections silently omit that section, not an error page.
+
+        Example:
+            >>> html = app._render_search_page({"global_q": ["ocean"], "global_limit": ["20"]})  # doctest: +SKIP
+
+
+        :param query: Parsed query lists containing global/exact terms, selectors, limits, and offsets.
+        :return: Complete escaped-result HTML with per-search paging; backend errors propagate.
+        """
         values = {
             "global_q": (query.get("global_q") or [""])[0],
             "search_table": (query.get("search_table") or [""])[0],
@@ -2541,6 +3695,21 @@ class ReadOnlyWebApplication:
         return self._render_layout(title="Search", body_html="".join(body))
 
     def _resolve_file_target(self, file_row) -> Optional[_ResolvedFileTarget]:
+        """
+        Resolve an enabled legacy-file acquisition into an external redirect target.
+
+        Missing or nonconvertible IDs and nonredirect deliveries return None.
+        Resolution errors propagate; locations are stringified without URL
+        validation and may be empty. This implementation does not produce local
+        filesystem targets, although downstream helpers support overridden ones.
+
+        Example:
+            >>> target = app._resolve_file_target(file_row)  # doctest: +SKIP
+
+
+        :param file_row: Row containing file_id and projected naming information.
+        :return: Redirect target, or None when downloads are disabled or no redirect applies.
+        """
         if not self.config.enable_file_downloads:
             return None
         file_id = _row_value(file_row, "file_id")
@@ -2548,12 +3717,10 @@ class ReadOnlyWebApplication:
             return None
         file_name = self._download_name_for_file_row(file_row)
         try:
-            resolved = self.model.acquisition_resolve(
-                "legacy-file",
-                int(file_id),
-            )
-        except Exception:
+            numeric_id = int(file_id)
+        except (TypeError, ValueError, OverflowError):
             return None
+        resolved = self.model.acquisition_resolve("legacy-file", numeric_id)
         delivery = str(resolved.get("delivery") or "")
         if delivery == "redirect":
             return _ResolvedFileTarget(
@@ -2564,16 +3731,52 @@ class ReadOnlyWebApplication:
         return None
 
     def _download_name_for_file_row(self, file_row) -> str:
+        """
+        Choose a visible file name, original name, storage key, or download.bin.
+
+        This performs no basename extraction, content validation, or header
+        sanitization; hidden-column rules can change which fallback is selected.
+
+        Example:
+            >>> name = app._download_name_for_file_row(file_row)  # doctest: +SKIP
+
+
+        :param file_row: Row projected through the files table's visible columns.
+        :return: Stringified first truthy naming value, or download.bin.
+        """
         row = self._row_dict("files", file_row)
         return str(row.get("file_name") or row.get("file_original_name") or row.get("file_storage_key") or "download.bin")
 
     def _storage_lookup_metadata(self, file_row) -> dict[str, object]:
+        """
+        Build visible file metadata with a separate shallow file_row projection.
+
+        Example:
+            >>> metadata = app._storage_lookup_metadata(file_row)  # doctest: +SKIP
+
+
+        :param file_row: Legacy file row projected through visible columns.
+        :return: New top-level dict with a distinct nested file_row dict sharing cell values.
+        """
         row = self._row_dict("files", file_row)
         metadata: dict[str, object] = dict(row)
         metadata["file_row"] = dict(row)
         return metadata
 
     def _refresh_storage_manager(self) -> bool:
+        """
+        Request storage refresh with replacement enabled and startup-on-add disabled.
+
+        Command exceptions become False; this does not prove no partial mutation
+        occurred. Truth conversion of a returned receipt happens outside the
+        exception handler and may itself raise for an unusual object.
+
+        Example:
+            >>> refreshed = app._refresh_storage_manager()  # doctest: +SKIP
+
+
+        :return: Truth value of the Core command result, or False for a command failure.
+        """
         try:
             result = self.core.command(
                 "storage.refresh",
@@ -2584,18 +3787,30 @@ class ReadOnlyWebApplication:
         return bool(result)
 
     def _resolve_storage_file(self, file_row):
+        """
+        Create a Core-backed byte reader for an enabled readable legacy-file ID.
+
+        Common integer-conversion errors return None. Acquisition-resolution
+        failures propagate; a truthy readable receipt creates an adapter without
+        actually reading bytes or proving successful delivery.
+
+        Example:
+            >>> stored = app._resolve_storage_file(file_row)  # doctest: +SKIP
+
+
+        :param file_row: Row supplying file_id for legacy-file acquisition resolution.
+        :return: CoreStoredFile adapter, or None for disabled/missing/invalid/unreadable acquisition.
+        """
         if not self.config.enable_file_downloads:
             return None
         file_id = _row_value(file_row, "file_id")
         if file_id in (None, ""):
             return None
         try:
-            resolved = self.model.acquisition_resolve(
-                "legacy-file",
-                int(file_id),
-            )
-        except Exception:
+            numeric_id = int(file_id)
+        except (TypeError, ValueError, OverflowError):
             return None
+        resolved = self.model.acquisition_resolve("legacy-file", numeric_id)
         if not bool(resolved.get("readable", False)):
             return None
         return _CoreStoredFile(
@@ -2605,6 +3820,29 @@ class ReadOnlyWebApplication:
         )
 
     def _serve_file_download(self, raw_file_id: str, environ) -> _Response:
+        """
+        Deliver a legacy file, preferring buffered store bytes over redirect fallback.
+
+        Invalid IDs return 400 and absent rows 404. Stored strings become UTF-8
+        bytes; other nonbytes values pass through bytes(). Unsupported reads with
+        no fallback return 501, missing stored content falls through to fallback,
+        acquisition_unavailable errors return 501, and other read/response-build
+        failures return 502. Initial lookup/resolution and final fallback errors
+        are outside that handler and propagate. A supported fallback after
+        NotImplementedError is resolved again before delivery.
+
+        Disabled downloads normally yield 404 after row lookup, not 403. Stored
+        payloads are fully buffered without a size cap, range handling, or HEAD
+        suppression. Redirect locations and overridden local targets are trusted.
+
+        Example:
+            >>> response = app._serve_file_download("1", {})  # doctest: +SKIP
+
+
+        :param raw_file_id: File identity stripped and converted to int.
+        :param environ: WSGI environment used only if fallback streams a local file.
+        :return: Attachment, redirect, or explicit error response according to delivery outcome.
+        """
         try:
             file_id = int(str(raw_file_id).strip())
         except Exception:
@@ -2654,6 +3892,27 @@ class ReadOnlyWebApplication:
         return self._file_response(Path(target.location), download_name=target.download_name, environ=environ)
 
     def _serve_file_preview(self, raw_file_id: str, environ) -> _Response:
+        """
+        Deliver supported filename-based previews with inline disposition when local.
+
+        ID/row failures return 400/404. Preview-kind rejection returns 415 before
+        checking whether downloads are enabled. Stored-byte coercion and 501/502
+        translation follow download handling; missing bytes can fall back, while
+        initial and final resolution failures remain exceptions. Redirects retain
+        the external response's content policy rather than an inline override.
+
+        HTML and SVG bytes are not sanitized, isolated, or checked against their
+        suffix. UTF-8 MIME hints do not transcode existing byte payloads. The
+        historical error text's word safe is not a content-safety guarantee.
+
+        Example:
+            >>> response = app._serve_file_preview("1", {})  # doctest: +SKIP
+
+
+        :param raw_file_id: Legacy file identity stripped and converted to int.
+        :param environ: WSGI wrapper configuration for an overridden local-file fallback.
+        :return: Inline payload, redirect, or explicit error response without HEAD suppression.
+        """
         try:
             file_id = int(str(raw_file_id).strip())
         except Exception:
@@ -2726,11 +3985,21 @@ class ReadOnlyWebApplication:
 
 def add_metadata_read_source_arguments(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     """
-    Add metadata read-source selection arguments to a web parser.
+    Mutate a parser with database/cache selection, cache type, and fallback flags.
+
+    This declares options only; it does not initialize a cache. Adding them to
+    a parser that already owns these option strings follows argparse's conflict
+    policy rather than being idempotent.
+
+    Example:
+        >>> parser = add_metadata_read_source_arguments(argparse.ArgumentParser())
+        >>> args = parser.parse_args(["--metadata-read-source", "cache", "--no-cache-db-fallback"])
+        >>> (args.metadata_read_source, args.cache_type, args.no_cache_db_fallback)
+        ('cache', 'schema_backed', True)
 
 
-    :param parser:
-    :return:
+    :param parser: Existing parser to extend in place with shared read-source options.
+    :return: The same parser instance for composition by other web entrypoints.
     """
     parser.add_argument(
         "--metadata-read-source",
@@ -2753,11 +4022,18 @@ def add_metadata_read_source_arguments(parser: argparse.ArgumentParser) -> argpa
 
 def metadata_read_source_help_epilog(command: str) -> str:
     """
-    Build help text describing metadata read-source selection.
+    Format shared CLI examples and notes about startup cache selection.
+
+    The supplied command is interpolated verbatim, not shell-quoted. Producing
+    this text performs no Core access and makes no runtime selection itself.
+
+    Example:
+        >>> "serve --database /path/to/library.sqlite" in metadata_read_source_help_epilog("serve")
+        True
 
 
-    :param command:
-    :return:
+    :param command: Display command prefix to insert into each usage example.
+    :return: Multiline explanatory text suitable for RawDescriptionHelpFormatter.
     """
     return (
         "Examples:\n"
@@ -2773,11 +4049,19 @@ def metadata_read_source_help_epilog(command: str) -> str:
 
 def metadata_read_source_config_kwargs(args: argparse.Namespace) -> dict[str, object]:
     """
-    Extract metadata read-source configuration from parsed arguments.
+    Translate parser attributes into web-configuration keyword values.
+
+    Strings are coerced but not validated or normalized. The negative fallback
+    flag is inverted using truth conversion; all three attributes are required.
+
+    Example:
+        >>> args = argparse.Namespace(metadata_read_source="cache", cache_type="schema_backed", no_cache_db_fallback=True)
+        >>> metadata_read_source_config_kwargs(args)["metadata_cache_allow_database_fallback"]
+        False
 
 
-    :param args:
-    :return:
+    :param args: Parsed namespace exposing read-source, cache-type, and fallback options.
+    :return: New mapping for the three metadata-related ReadOnlyWebConfig fields.
     """
     return {
         "metadata_read_source": str(args.metadata_read_source),
@@ -2788,10 +4072,18 @@ def metadata_read_source_config_kwargs(args: argparse.Namespace) -> dict[str, ob
 
 def build_arg_parser() -> argparse.ArgumentParser:
     """
-    Build the read-only web surface command-line parser.
+    Build the generic web parser with Core, cache, listener, and presentation options.
+
+    Integer options are parsed but page-size positivity is enforced later by
+    main. Constructing or parsing this parser does not start a listener or Core.
+
+    Example:
+        >>> args = build_arg_parser().parse_args(["--database", "library.sqlite", "--page-size", "0"])
+        >>> (args.page_size, args.port, args.metadata_read_source)
+        (0, 8080, 'database')
 
 
-    :return:
+    :return: Fresh argparse parser with shared read-source help and application defaults.
     """
     parser = argparse.ArgumentParser(
         description="Run the LiuXin read-only web interface.",
@@ -2819,14 +4111,26 @@ def build_metadata_read_source(
     allow_database_fallback: bool = True,
 ) -> CoreSurfaceModel:
     """
-    Construct the configured metadata read source for a web surface.
+    Validate a compatibility selector and wrap the supplied Core in a surface model.
+
+    Database/db/cache/storage_cache are accepted after stripping and lowercasing;
+    falsey source means database. Cache type and fallback are retained signature
+    compatibility only and are discarded. Actual cache selection belongs to
+    Core composition, so this helper neither loads a cache nor reconfigures a
+    remote daemon or borrowed client.
+
+    Example:
+        >>> client = object()
+        >>> isinstance(build_metadata_read_source(client, source="cache"), CoreSurfaceModel)
+        True
 
 
-    :param core:
-    :param source:
-    :param cache_type:
-    :param allow_database_fallback:
-    :return:
+    :param core: Borrowed Core client to retain in the query adapter.
+    :param source: Compatibility selector validated but not used to change Core state.
+    :param cache_type: Ignored compatibility argument; composition chooses the actual cache.
+    :param allow_database_fallback: Ignored compatibility flag; Core owns fallback policy.
+    :return: New CoreSurfaceModel wrapping the supplied client without querying it.
+    :raises ValueError: The normalized selector is not a recognized database/cache alias.
     """
     normalized_source = str(source or "database").strip().lower()
     if normalized_source not in {"database", "db", "cache", "storage_cache"}:
@@ -2843,11 +4147,21 @@ def build_metadata_read_source(
 
 def main(argv: Optional[list[str]] = None) -> int:
     """
-    Run the web readonly command-line entry point.
+    Compose Core and run the blocking stdlib read-only web server.
+
+    Page sizes are independently clamped to at least one. Local composition
+    enables storage and disables maintenance; exact cache selection forwards its
+    type and fallback policy. Core and server are context-managed. The printed
+    URL precedes binding and contains the requested port, including zero rather
+    than the assigned ephemeral port. Interrupts and runtime failures propagate.
+
+    Example:
+        >>> main(["--database", "library.sqlite", "--host", "127.0.0.1", "--port", "8080"])  # doctest: +SKIP
 
 
-    :param argv:
-    :return:
+    :param argv: Argument tokens without program name, or None to use process arguments.
+    :return: Zero after normal server termination and both context managers exit.
+    :raises SystemExit: Argparse handles help or rejects invalid command-line arguments.
     """
     parser = build_arg_parser()
     args = parser.parse_args(argv)

@@ -1,16 +1,9 @@
 
 """
-Holds database macros.
+Portable link lookup macros attached to a database facade.
 
-Holds the base class for the macros - should include an implementation of all the given macros using the basic db
-methods.
-Each of the individual macros implementations should subclass this - so all the necessary methods will be there and
-will have a functional implementation
-
-
-Macros make working with the database easier - they are common operations which can be usefully speeded up
-by re-writing them in a backend dependent way.
-E.g,
+``MacrosBase`` provides link retrieval in set, ordered-list and typed forms.
+It is not yet the common ancestor of all backend macro implementations.
 """
 
 from __future__ import annotations
@@ -27,14 +20,25 @@ if TYPE_CHECKING:
 # Todo: Actually make this the base.
 class MacrosBase:
     """
-    Base class for macros.
+    Hold a database facade for portable link retrieval.
+
+    ``db`` supplies row lookup, link traversal and driver-wrapper column naming.
+
+    Example:
+        ``MacrosBase(db).get_link_data("works", "agents", work_id)`` returns
+        the linked agent IDs without retaining duplicates.
     """
 
     def __init__(self, db: "DatabaseAPI"):
         """
-        Attaches to the underlying database to provide additional services.
+        Retain the database facade without opening or closing connections.
 
-        :param db:
+        Example:
+            ``macros = MacrosBase(db)`` keeps ``db`` as ``macros.db``.
+
+
+        :param db: Database facade providing row/link access and a driver wrapper.
+        :return: None; stores the facade.
         """
         self.db = db
 
@@ -46,14 +50,23 @@ class MacrosBase:
                       typed: bool = False,
                       priority: bool = False):
         """
-        Return an object containing the data for a.
+        Collect linked IDs, optionally grouped by link type and preserving traversal order.
 
-        :param table1:
-        :param table2:
-        :param table1_id:
-        :param typed:
-        :param priority:
-        :return:
+        Unordered results use sets; priority results use lists in the order returned by
+        ``get_interlinked_rows`` without an additional sort. Typed results are defaultdicts
+        whose missing groups create an empty set or list.
+
+        Example:
+            ``get_link_data("works", "agents", work_id, typed=True)`` groups agent IDs
+            by the type column on each work/agent interlink row.
+
+
+        :param table1: Source table containing the selected row.
+        :param table2: Target table whose linked row IDs are collected.
+        :param table1_id: ID used to look up the source row.
+        :param typed: Whether to look up each interlink row and group by its type.
+        :param priority: Whether to retain traversal order and duplicates in lists.
+        :return: A set or list of IDs, or a defaultdict mapping link types to those containers.
         """
         table2_id_col = self.db.driver_wrapper.get_id_column(table2)
 

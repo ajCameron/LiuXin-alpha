@@ -1,3 +1,14 @@
+"""
+Verify relation containers normalize identities and preserve cardinality.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test relation container contracts through its owning regression module::
+
+        python -m pytest -q tests/metadata/containers/test_relation_container_contracts.py
+"""
 from __future__ import annotations
 
 import pytest
@@ -87,7 +98,27 @@ from LiuXin_alpha.metadata.metadata_types import (
 
 
 class _RowDriver:
+    """
+    Provide the RowDriver test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise RowDriver through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_relation_container_contracts.py
+    """
     def identify_table_from_row_dict(self, row_dict: dict[str, object]) -> str:
+        """
+        Infer a test table name from the row's identifying columns.
+
+        Example:
+            Exercise RowDriver.identify table from row dict through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_relation_container_contracts.py
+
+
+        :param row_dict: Value supplied for row dict in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         if "work_id" in row_dict:
             return "works"
         if "expression_id" in row_dict:
@@ -99,9 +130,32 @@ class _RowDriver:
         raise AssertionError(f"unexpected row payload: {row_dict!r}")
 
     def get_allowed_tables_snapshot(self) -> tuple[str, ...]:
+        """
+        Return the immutable table set advertised by the test driver.
+
+        Example:
+            Exercise RowDriver.get allowed tables snapshot through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_relation_container_contracts.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return ("works", "expressions", "manifestations", "items")
 
     def get_id_column(self, table: str) -> str:
+        """
+        Return the configured identity column for a table.
+
+        Example:
+            Exercise RowDriver.get id column through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_relation_container_contracts.py
+
+
+        :param table: Table name addressed by the test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return {
             "works": "work_id",
             "expressions": "expression_id",
@@ -110,16 +164,60 @@ class _RowDriver:
         }[table]
 
     def check_for_intralink_table(self, _table: str) -> bool:
+        """
+        Return whether the named test table represents a self-link.
+
+        Example:
+            Exercise RowDriver.check for intralink table through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_relation_container_contracts.py
+
+
+        :param _table: Value supplied for table in the focused test operation.
+        :return: True when the tested condition is satisfied; otherwise False.
+        """
         return False
 
     def get_interlinked_tables(self, _table: str) -> tuple[str, ...]:
+        """
+        Return the table pair connected by a test link table.
+
+        Example:
+            Exercise RowDriver.get interlinked tables through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_relation_container_contracts.py
+
+
+        :param _table: Value supplied for table in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return tuple()
 
 
 class _RowDatabase:
+    """
+    Provide the RowDatabase test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise RowDatabase through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_relation_container_contracts.py
+    """
     driver_wrapper = _RowDriver()
 
     def get_column_headings(self, table: str) -> set[str]:
+        """
+        Return the known column names for a test table.
+
+        Example:
+            Exercise RowDatabase.get column headings through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_relation_container_contracts.py
+
+
+        :param table: Table name addressed by the test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return {
             "works": {"work_id", "work_title"},
             "expressions": {"expression_id", "expression_label"},
@@ -129,10 +227,33 @@ class _RowDatabase:
 
 
 def _row(row_dict: dict[str, object]) -> Row:
+    """
+    Perform the row test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise row through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_relation_container_contracts.py
+
+
+    :param row_dict: Value supplied for row dict in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return Row(database=_RowDatabase(), row_dict=row_dict)
 
 
 def test_expression_and_manifestation_mapping_serializes_row_targets() -> None:
+    """
+    Verify expression and manifestation mapping serializes row targets.
+
+    Example:
+        Exercise test expression and manifestation mapping serializes row targets through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_relation_container_contracts.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     work_row = _row(
         {
             "work_id": 7,
@@ -208,6 +329,17 @@ def test_expression_and_manifestation_mapping_serializes_row_targets() -> None:
 
 
 def test_expression_relation_helpers_preserve_primary_and_alias_contracts() -> None:
+    """
+    Verify expression relation helpers preserve primary and alias contracts.
+
+    Example:
+        Exercise test expression relation helpers preserve primary and alias contracts through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_relation_container_contracts.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     metadata = ExpressionMetadata()
     first = ExpressionRelationLink(
         target={"work_id": 1, "work_title": "Fallback"},
@@ -248,6 +380,17 @@ def test_expression_relation_helpers_preserve_primary_and_alias_contracts() -> N
 
 
 def test_expression_title_container_handles_unicode_order_and_validation() -> None:
+    """
+    Verify expression title container handles unicode order and validation.
+
+    Example:
+        Exercise test expression title container handles unicode order and validation through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_relation_container_contracts.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     titles = ExpressionTitlesContainer(expression_id=42)
     main = titles.ensure_kind(TitleKind.MAIN)
     first = ExpressionTitle(
@@ -327,6 +470,17 @@ def test_expression_title_container_handles_unicode_order_and_validation() -> No
 
 
 def test_expression_identifier_container_enforces_scheme_and_shape() -> None:
+    """
+    Verify expression identifier container enforces scheme and shape.
+
+    Example:
+        Exercise test expression identifier container enforces scheme and shape through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_relation_container_contracts.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     identifiers = ExpressionIdentifiersContainer(expression_id=42)
     primary = ExpressionIdentifier(
         scheme=IdentifierScheme.URI,
@@ -386,6 +540,17 @@ def test_expression_identifier_container_enforces_scheme_and_shape() -> None:
 
 
 def test_expression_agent_credit_container_validates_roles_and_unicode() -> None:
+    """
+    Verify expression agent credit container validates roles and unicode.
+
+    Example:
+        Exercise test expression agent credit container validates roles and unicode through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_relation_container_contracts.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     credits = ExpressionAgentCreditsContainer(expression_id=42)
     translator = ExpressionAgentCredit(
         agent_id=10,
@@ -448,6 +613,17 @@ def test_expression_agent_credit_container_validates_roles_and_unicode() -> None
 
 
 def test_expression_note_and_label_containers_validate_unicode_shape() -> None:
+    """
+    Verify expression note and label containers validate unicode shape.
+
+    Example:
+        Exercise test expression note and label containers validate unicode shape through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_relation_container_contracts.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     notes = ExpressionNotesContainer(expression_id=42)
     descriptions = notes.ensure_kind(NoteKind.DESCRIPTION)
     primary_note = ExpressionNote(
@@ -559,6 +735,17 @@ def test_expression_note_and_label_containers_validate_unicode_shape() -> None:
 
 
 def test_expression_subject_and_language_containers_validate_unicode_shape() -> None:
+    """
+    Verify expression subject and language containers validate unicode shape.
+
+    Example:
+        Exercise test expression subject and language containers validate unicode shape through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_relation_container_contracts.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     subjects = ExpressionSubjectsContainer(expression_id=42)
     topics = subjects.ensure_kind(SubjectKind.TOPIC)
     primary_subject = ExpressionSubject(
@@ -649,6 +836,17 @@ def test_expression_subject_and_language_containers_validate_unicode_shape() -> 
 
 
 def test_expression_series_and_rating_containers_validate_value_contracts() -> None:
+    """
+    Verify expression series and rating containers validate value contracts.
+
+    Example:
+        Exercise test expression series and rating containers validate value contracts through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_relation_container_contracts.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     series = ExpressionSeriesEntriesContainer(expression_id=42)
     main_series = series.ensure_kind(SeriesKind.SERIES)
     primary_entry = ExpressionSeriesEntry(
@@ -757,6 +955,17 @@ def test_expression_series_and_rating_containers_validate_value_contracts() -> N
 
 
 def test_expression_resource_and_date_containers_validate_value_contracts() -> None:
+    """
+    Verify expression resource and date containers validate value contracts.
+
+    Example:
+        Exercise test expression resource and date containers validate value contracts through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_relation_container_contracts.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     resources = ExpressionResourcesContainer(expression_id=42)
     authority = resources.ensure_kind(ResourceKind.AUTHORITY)
     primary_resource = ExpressionResource(
@@ -859,6 +1068,17 @@ def test_expression_resource_and_date_containers_validate_value_contracts() -> N
 
 
 def test_title_container_fallbacks_mutators_and_wemi_slice() -> None:
+    """
+    Verify title container fallbacks mutators and wemi slice.
+
+    Example:
+        Exercise test title container fallbacks mutators and wemi slice through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_relation_container_contracts.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     work_titles = WorkTitlesContainer(work_id=1)
     expression_titles = ExpressionTitlesContainer(expression_id=2)
     manifestation_titles = ManifestationTitlesContainer(manifestation_id=3)
@@ -967,6 +1187,17 @@ def test_title_container_fallbacks_mutators_and_wemi_slice() -> None:
 
 
 def test_identifier_and_agent_credit_missing_and_mutation_helpers() -> None:
+    """
+    Verify identifier and agent credit missing and mutation helpers.
+
+    Example:
+        Exercise test identifier and agent credit missing and mutation helpers through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_relation_container_contracts.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     identifiers = ExpressionIdentifiersContainer(expression_id=42)
 
     assert identifiers.has_scheme(IdentifierScheme.URI) is False
@@ -1058,6 +1289,17 @@ def test_identifier_and_agent_credit_missing_and_mutation_helpers() -> None:
 
 
 def test_relation_value_missing_kind_and_mutation_helpers() -> None:
+    """
+    Verify relation value missing kind and mutation helpers.
+
+    Example:
+        Exercise test relation value missing kind and mutation helpers through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_relation_container_contracts.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     notes = ExpressionNotesContainer(expression_id=42)
     assert notes.kind_text(NoteKind.REVIEW) == ""
     assert notes.all_titles() == tuple()
@@ -1683,6 +1925,22 @@ def test_target_specific_relation_value_payloads(
     target_id: int,
     expected_payload: dict[str, object],
 ) -> None:
+    """
+    Verify target specific relation value payloads.
+
+    Example:
+        Exercise test target specific relation value payloads through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_relation_container_contracts.py
+
+
+    :param factory: Value supplied for factory in the focused test operation.
+    :param target_kind: Value supplied for target kind in the focused test operation.
+    :param target_id: Value supplied for target id in the focused test operation.
+    :param expected_payload: Value supplied for expected payload in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     value = factory()
     value.validate()
 

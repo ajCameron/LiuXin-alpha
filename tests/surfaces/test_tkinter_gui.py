@@ -1,3 +1,14 @@
+"""
+Provide test tkinter gui utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test tkinter gui through a consuming regression::
+
+        python -m pytest -q tests/surfaces/test_tkinter_gui.py
+"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -21,34 +32,120 @@ from tests.metadata.containers.test_item_metadata_hydrator import (
 
 
 class _FakeDriverWrapper:
+    """
+    Provide the fakedriverwrapper contract for validated ebook processing.
+
+    Example:
+        Exercise  FakeDriverWrapper through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_tkinter_gui.py
+    """
     def get_id_column(self, table: str) -> str:
+        """
+        Return id column under the format's safety and compatibility rules.
+
+        Example:
+            Exercise  FakeDriverWrapper.get id column through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :param table: Value supplied for table under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return {
             "items": "item_id",
             "tags": "tag_id",
         }.get(table, f"{table}_id")
 
     def is_view(self, table: str) -> bool:
+        """
+        Return whether is view holds for the supplied ebook data.
+
+        Example:
+            Exercise  FakeDriverWrapper.is view through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :param table: Value supplied for table under the utility contract.
+        :return: True when the documented condition holds; otherwise False.
+        """
         del table
         return False
 
     def get_interlinked_tables(self, table: str):
+        """
+        Return interlinked tables under the format's safety and compatibility rules.
+
+        Example:
+            Exercise  FakeDriverWrapper.get interlinked tables through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :param table: Value supplied for table under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         del table
         return []
 
 
 class _FakeRow:
+    """
+    Provide the fakerow contract for validated ebook processing.
+
+    Example:
+        Exercise  FakeRow through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_tkinter_gui.py
+    """
     def __init__(self, table: str, row_dict: dict[str, object]) -> None:
+        """
+        Initialize and validate the fakerow state.
+
+        Example:
+            Exercise  FakeRow.  init   through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :param table: Value supplied for table under the utility contract.
+        :param row_dict: Value supplied for row dict under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.table = table
         self.row_dict = dict(row_dict)
         self.row_id = self.row_dict.get(_FakeDriverWrapper().get_id_column(table))
 
 
 class _FakeDatabase:
+    """
+    Provide the fakedatabase contract for validated ebook processing.
+
+    Example:
+        Exercise  FakeDatabase through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_tkinter_gui.py
+    """
     driver_wrapper = _FakeDriverWrapper()
     type = "SQLite"
     metadata = {"database_path": "library.sqlite"}
 
     def __init__(self) -> None:
+        """
+        Initialize and validate the fakedatabase state.
+
+        Example:
+            Exercise  FakeDatabase.  init   through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         self.closed = False
         self.tables = {
             "items": ("item_id", "title", "creator"),
@@ -65,23 +162,104 @@ class _FakeDatabase:
         }
 
     def get_tables_and_columns(self):
+        """
+        Return tables and columns under the format's safety and compatibility rules.
+
+        Example:
+            Exercise  FakeDatabase.get tables and columns through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return dict(self.tables)
 
     def get_tables(self, force_refresh: bool = False):
+        """
+        Return tables under the format's safety and compatibility rules.
+
+        Example:
+            Exercise  FakeDatabase.get tables through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :param force_refresh: Value supplied for force refresh under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         del force_refresh
         return tuple(self.tables)
 
     def get_column_headings(self, table: str):
+        """
+        Return column headings under the format's safety and compatibility rules.
+
+        Example:
+            Exercise  FakeDatabase.get column headings through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :param table: Value supplied for table under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return tuple(self.tables[str(table)])
 
     def get_record_count(self, table: str) -> int:
+        """
+        Return record count under the format's safety and compatibility rules.
+
+        Example:
+            Exercise  FakeDatabase.get record count through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :param table: Value supplied for table under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return len(self.rows[str(table)])
 
     def get_all_rows(self, table: str, iterator_return: bool = False):
+        """
+        Return all rows under the format's safety and compatibility rules.
+
+        Example:
+            Exercise  FakeDatabase.get all rows through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :param table: Value supplied for table under the utility contract.
+        :param iterator_return: Value supplied for iterator return under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         del iterator_return
         return iter(self.rows[str(table)])
 
     def search(self, table: str, column: str, search_term: str):
+        """
+        Perform the search operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  FakeDatabase.search through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :param table: Value supplied for table under the utility contract.
+        :param column: Value supplied for column under the utility contract.
+        :param search_term: Value supplied for search term under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         needle = str(search_term).lower()
         return [
             row
@@ -90,6 +268,20 @@ class _FakeDatabase:
         ]
 
     def get_row_from_id(self, table: str, row_id: int):
+        """
+        Return row from id under the format's safety and compatibility rules.
+
+        Example:
+            Exercise  FakeDatabase.get row from id through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :param table: Value supplied for table under the utility contract.
+        :param row_id: Value supplied for row id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         id_column = self.driver_wrapper.get_id_column(table)
         return next(
             (
@@ -101,11 +293,44 @@ class _FakeDatabase:
         )
 
     def close(self) -> None:
+        """
+        Perform the close operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  FakeDatabase.close through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.closed = True
 
 
 class _FakeCacheMainTable:
+    """
+    Provide the fakecachemaintable contract for validated ebook processing.
+
+    Example:
+        Exercise  FakeCacheMainTable through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_tkinter_gui.py
+    """
     def __init__(self, database: _FakeDatabase, table: str) -> None:
+        """
+        Initialize and validate the fakecachemaintable state.
+
+        Example:
+            Exercise  FakeCacheMainTable.  init   through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :param database: Value supplied for database under the utility contract.
+        :param table: Value supplied for table under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.column_headings = tuple(database.tables[str(table)])
         self._rows = {
             int(row.row_id): dict(row.row_dict)
@@ -114,14 +339,47 @@ class _FakeCacheMainTable:
         self.row_ids = tuple(sorted(self._rows))
 
     def get_row_snapshot(self, row_id: int) -> dict[str, object]:
+        """
+        Return row snapshot under the format's safety and compatibility rules.
+
+        Example:
+            Exercise  FakeCacheMainTable.get row snapshot through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :param row_id: Value supplied for row id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return dict(self._rows[int(row_id)])
 
 
 class _FakeStorageCache:
+    """
+    Provide the fakestoragecache contract for validated ebook processing.
+
+    Example:
+        Exercise  FakeStorageCache through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_tkinter_gui.py
+    """
     is_loaded = False
     is_initialized = False
 
     def __init__(self, database: _FakeDatabase) -> None:
+        """
+        Initialize and validate the fakestoragecache state.
+
+        Example:
+            Exercise  FakeStorageCache.  init   through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :param database: Value supplied for database under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.db = database
         self.main_tables = {
             table: _FakeCacheMainTable(database, table)
@@ -135,34 +393,131 @@ class _FakeStorageCache:
 
     @property
     def capabilities(self) -> StorageCacheCapabilities:
+        """
+        Perform the capabilities operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  FakeStorageCache.capabilities through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return StorageCacheCapabilities()
 
     def read(self) -> None:
+        """
+        Perform the read operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  FakeStorageCache.read through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.read_calls += 1
         self.is_loaded = True
         self.is_initialized = True
 
     def reload(self) -> None:
+        """
+        Perform the reload operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  FakeStorageCache.reload through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.reload_calls += 1
         self.is_loaded = True
         self.is_initialized = True
 
     def assert_ready(self) -> None:
+        """
+        Perform the assert ready operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  FakeStorageCache.assert ready through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if not self.is_loaded or not self.is_initialized:
             raise RuntimeError("cache not ready")
 
     def clear(self) -> None:
+        """
+        Perform the clear operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  FakeStorageCache.clear through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.is_loaded = False
         self.is_initialized = False
 
     def get_main_table(self, table: str) -> _FakeCacheMainTable:
+        """
+        Return main table under the format's safety and compatibility rules.
+
+        Example:
+            Exercise  FakeStorageCache.get main table through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :param table: Value supplied for table under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.main_tables[str(table)]
 
     def close(self) -> None:
+        """
+        Perform the close operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  FakeStorageCache.close through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.closed = True
 
 
 def test_tkinter_backend_lists_tables_and_pages_rows() -> None:
+    """
+    Perform the test tkinter backend lists tables and pages rows operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test tkinter backend lists tables and pages rows through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     backend = TkGuiBackend(_FakeDatabase())
 
     assert backend.table_summaries()[0].name == "items"
@@ -192,6 +547,18 @@ def test_tkinter_backend_lists_tables_and_pages_rows() -> None:
 
 
 def test_tkinter_backend_search_and_details() -> None:
+    """
+    Perform the test tkinter backend search and details operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test tkinter backend search and details through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     backend = TkGuiBackend(_FakeDatabase())
 
     page = backend.page_rows("items", search_column="title", search_text="permutation")
@@ -202,6 +569,18 @@ def test_tkinter_backend_search_and_details() -> None:
 
 
 def test_tkinter_backend_metadata_message_for_non_item_rows() -> None:
+    """
+    Perform the test tkinter backend metadata message for non item rows operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test tkinter backend metadata message for non item rows through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     backend = TkGuiBackend(_FakeDatabase())
     tag_row = backend.page_rows("tags").rows[0]
 
@@ -210,6 +589,18 @@ def test_tkinter_backend_metadata_message_for_non_item_rows() -> None:
 
 
 def test_tkinter_metadata_edit_payload_parses_relation_and_identifier_values() -> None:
+    """
+    Perform the test tkinter metadata edit payload parses relation and identifier values operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test tkinter metadata edit payload parses relation and identifier values through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     field, values = parse_metadata_edit_payload("genres", "Cyberpunk; Space Opera\nCyberpunk")
 
     assert field == "genre"
@@ -227,6 +618,18 @@ def test_tkinter_metadata_edit_payload_parses_relation_and_identifier_values() -
 
 
 def test_tkinter_metadata_write_result_formatter_summarizes_report() -> None:
+    """
+    Perform the test tkinter metadata write result formatter summarizes report operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test tkinter metadata write result formatter summarizes report through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     rendered = format_metadata_write_result(
         {
             "item_id": 1,
@@ -252,6 +655,18 @@ def test_tkinter_metadata_write_result_formatter_summarizes_report() -> None:
 
 
 def test_tkinter_backend_closes_database() -> None:
+    """
+    Perform the test tkinter backend closes database operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test tkinter backend closes database through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db = _FakeDatabase()
     backend = TkGuiBackend(db)
 
@@ -261,6 +676,18 @@ def test_tkinter_backend_closes_database() -> None:
 
 
 def test_tkinter_session_exposes_only_core_contract() -> None:
+    """
+    Perform the test tkinter session exposes only core contract operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test tkinter session exposes only core contract through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db = _FakeDatabase()
     session = TkGuiSession.from_database(
         db,
@@ -288,6 +715,18 @@ def test_tkinter_session_exposes_only_core_contract() -> None:
 
 
 def test_tkinter_session_configures_cache_read_source() -> None:
+    """
+    Perform the test tkinter session configures cache read source operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test tkinter session configures cache read source through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db = _FakeDatabase()
     cache = _FakeStorageCache(db)
     session = TkGuiSession.from_database(
@@ -320,6 +759,18 @@ def test_tkinter_session_configures_cache_read_source() -> None:
 
 
 def test_tkinter_session_selects_cache_read_source_after_open() -> None:
+    """
+    Perform the test tkinter session selects cache read source after open operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test tkinter session selects cache read source after open through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db = _FakeDatabase()
     cache = _FakeStorageCache(db)
     session = TkGuiSession.from_database(
@@ -343,6 +794,18 @@ def test_tkinter_session_selects_cache_read_source_after_open() -> None:
 
 
 def test_tkinter_backend_can_wrap_core_session() -> None:
+    """
+    Perform the test tkinter backend can wrap core session operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test tkinter backend can wrap core session through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db = _FakeDatabase()
     session = TkGuiSession.from_database(
         db,
@@ -361,6 +824,18 @@ def test_tkinter_backend_can_wrap_core_session() -> None:
 
 
 def test_tkinter_backend_writes_metadata_through_core_session() -> None:
+    """
+    Perform the test tkinter backend writes metadata through core session operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test tkinter backend writes metadata through core session through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db = _build_metadata_fake_database()
     session = TkGuiSession.from_database(
         db,
@@ -383,6 +858,18 @@ def test_tkinter_backend_writes_metadata_through_core_session() -> None:
 
 
 def test_tkinter_backend_replaces_metadata_field_text_through_core_session() -> None:
+    """
+    Perform the test tkinter backend replaces metadata field text through core session operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test tkinter backend replaces metadata field text through core session through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db = _build_metadata_fake_database()
     session = TkGuiSession.from_database(
         db,
@@ -409,6 +896,18 @@ def test_tkinter_backend_replaces_metadata_field_text_through_core_session() -> 
 
 
 def test_tkinter_task_runner_delivers_success_and_done_callbacks() -> None:
+    """
+    Perform the test tkinter task runner delivers success and done callbacks operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test tkinter task runner delivers success and done callbacks through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     runner = TkGuiTaskRunner()
     successes: list[object] = []
     done: list[str] = []
@@ -429,10 +928,34 @@ def test_tkinter_task_runner_delivers_success_and_done_callbacks() -> None:
 
 
 def test_tkinter_task_runner_delivers_errors() -> None:
+    """
+    Perform the test tkinter task runner delivers errors operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test tkinter task runner delivers errors through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     runner = TkGuiTaskRunner()
     errors: list[str] = []
 
     def _fail() -> None:
+        """
+        Perform the fail operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise test tkinter task runner delivers errors. fail through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raise ValueError("bad task")
 
     try:
@@ -449,6 +972,18 @@ def test_tkinter_task_runner_delivers_errors() -> None:
 
 
 def test_tkinter_task_runner_can_schedule_tk_polling() -> None:
+    """
+    Perform the test tkinter task runner can schedule tk polling operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test tkinter task runner can schedule tk polling through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     scheduled: list[tuple[int, object]] = []
     runner = TkGuiTaskRunner(after=lambda delay_ms, callback: scheduled.append((delay_ms, callback)))
     try:
@@ -462,6 +997,18 @@ def test_tkinter_task_runner_can_schedule_tk_polling() -> None:
 
 
 def test_tkinter_gui_real_tk_smoke_renders_fake_backend() -> None:
+    """
+    Perform the test tkinter gui real tk smoke renders fake backend operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test tkinter gui real tk smoke renders fake backend through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     tk = pytest.importorskip("tkinter")
     try:
         root = tk.Tk()
@@ -499,6 +1046,18 @@ def test_tkinter_gui_real_tk_smoke_renders_fake_backend() -> None:
 
 
 def test_tkinter_gui_parser_builds_config() -> None:
+    """
+    Perform the test tkinter gui parser builds config operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test tkinter gui parser builds config through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     args = build_arg_parser().parse_args(
         [
             "--database",

@@ -1,4 +1,14 @@
-"""Small standards-shaped ISO images for dependency-free storage tests."""
+"""
+Build deterministic ISO-9660, Joliet and Rock Ridge images for storage tests.
+
+The module keeps generated data, ordering and failure modes explicit so consumers
+can assert stable behavior.
+
+Example:
+    Exercise iso image through a consuming regression::
+
+        python -m pytest -q tests/storage/store_backend_plugins/iso_readonly/test_iso_readonly_storage_backend.py
+"""
 
 from __future__ import annotations
 
@@ -14,6 +24,14 @@ BLOCK_SIZE = 2048
 
 @dataclasses.dataclass(slots=True)
 class _Node:
+    """
+    Represent the Node state used by deterministic test-support operations.
+
+    Example:
+        Exercise  Node through a consuming regression::
+
+            python -m pytest -q tests/storage/store_backend_plugins/iso_readonly/test_iso_readonly_storage_backend.py
+    """
     name: str | bytes | None
     payload: bytes | None = None
     children: dict[str | bytes, "_Node"] = dataclasses.field(default_factory=dict)
@@ -26,11 +44,35 @@ class _Node:
 
     @property
     def is_directory(self) -> bool:
+        """
+        Return whether is directory holds for the fixture value.
+
+        Example:
+            Exercise  Node.is directory through a consuming regression::
+
+                python -m pytest -q tests/storage/store_backend_plugins/iso_readonly/test_iso_readonly_storage_backend.py
+
+
+        :return: True when the requested fixture condition holds; otherwise False.
+        """
         return self.payload is None
 
 
 def build_joliet_iso(path: pathlib.Path, files: Mapping[str, bytes]) -> pathlib.Path:
-    """Build an ISO 9660 image with a Joliet Unicode namespace."""
+    """
+    Build an ISO 9660 image with a Joliet Unicode namespace.
+
+    Example:
+        Exercise build joliet iso through a consuming regression::
+
+            python -m pytest -q tests/storage/store_backend_plugins/iso_readonly/test_iso_readonly_storage_backend.py
+
+
+    :param path: Filesystem path read, written or validated by the fixture operation.
+    :param files: Files included in the generated fixture or assertion.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
 
     return _build_iso(path, files, namespace="joliet")
 
@@ -39,13 +81,39 @@ def build_rock_ridge_iso(
     path: pathlib.Path,
     files: Mapping[bytes, bytes],
 ) -> pathlib.Path:
-    """Build an ISO 9660 image whose Rock Ridge names retain raw bytes."""
+    """
+    Build an ISO 9660 image whose Rock Ridge names retain raw bytes.
+
+    Example:
+        Exercise build rock ridge iso through a consuming regression::
+
+            python -m pytest -q tests/storage/store_backend_plugins/iso_readonly/test_iso_readonly_storage_backend.py
+
+
+    :param path: Filesystem path read, written or validated by the fixture operation.
+    :param files: Files included in the generated fixture or assertion.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
 
     return _build_iso(path, files, namespace="rock-ridge")
 
 
 def build_iso9660_iso(path: pathlib.Path, files: Mapping[str, bytes]) -> pathlib.Path:
-    """Build a primary-volume-only ISO 9660 image."""
+    """
+    Build a primary-volume-only ISO 9660 image.
+
+    Example:
+        Exercise build iso9660 iso through a consuming regression::
+
+            python -m pytest -q tests/storage/store_backend_plugins/iso_readonly/test_iso_readonly_storage_backend.py
+
+
+    :param path: Filesystem path read, written or validated by the fixture operation.
+    :param files: Files included in the generated fixture or assertion.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
 
     return _build_iso(path, files, namespace="iso9660")
 
@@ -56,6 +124,22 @@ def _build_iso(
     *,
     namespace: Literal["joliet", "rock-ridge", "iso9660"],
 ) -> pathlib.Path:
+    """
+    Build iso for deterministic fixture consumers.
+
+    Example:
+        Exercise  build iso through a consuming regression::
+
+            python -m pytest -q tests/storage/store_backend_plugins/iso_readonly/test_iso_readonly_storage_backend.py
+
+
+    :param path: Filesystem path read, written or validated by the fixture operation.
+    :param files: Files included in the generated fixture or assertion.
+    :param namespace: Value supplied for namespace under the deterministic fixture
+        contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     root = _tree(files)
     directories = _directories(root)
     regular_files = _files(root)
@@ -153,6 +237,19 @@ def _build_iso(
 
 
 def _tree(files: Mapping[str, bytes] | Mapping[bytes, bytes]) -> _Node:
+    """
+    Perform the tree step with deterministic fixture inputs.
+
+    Example:
+        Exercise  tree through a consuming regression::
+
+            python -m pytest -q tests/storage/store_backend_plugins/iso_readonly/test_iso_readonly_storage_backend.py
+
+
+    :param files: Files included in the generated fixture or assertion.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     root = _Node(None)
     expected_type: type[str] | type[bytes] | None = None
     for key, payload in files.items():
@@ -176,9 +273,34 @@ def _tree(files: Mapping[str, bytes] | Mapping[bytes, bytes]) -> _Node:
 
 
 def _directories(root: _Node) -> list[_Node]:
+    """
+    Perform the directories step with deterministic fixture inputs.
+
+    Example:
+        Exercise  directories through a consuming regression::
+
+            python -m pytest -q tests/storage/store_backend_plugins/iso_readonly/test_iso_readonly_storage_backend.py
+
+
+    :param root: Root directory containing the fixture corpus or generated tree.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     result: list[_Node] = []
 
     def visit(node: _Node) -> None:
+        """
+        Perform the visit step with deterministic fixture inputs.
+
+        Example:
+            Exercise  directories.visit through a consuming regression::
+
+                python -m pytest -q tests/storage/store_backend_plugins/iso_readonly/test_iso_readonly_storage_backend.py
+
+
+        :param node: Value supplied for node under the deterministic fixture contract.
+        :return: None; fixture state or the supplied destination is updated in place.
+        """
         if not node.is_directory:
             return
         result.append(node)
@@ -190,6 +312,19 @@ def _directories(root: _Node) -> list[_Node]:
 
 
 def _files(root: _Node) -> list[_Node]:
+    """
+    Perform the files step with deterministic fixture inputs.
+
+    Example:
+        Exercise  files through a consuming regression::
+
+            python -m pytest -q tests/storage/store_backend_plugins/iso_readonly/test_iso_readonly_storage_backend.py
+
+
+    :param root: Root directory containing the fixture corpus or generated tree.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     return [
         node
         for directory in _directories(root)
@@ -199,18 +334,69 @@ def _files(root: _Node) -> list[_Node]:
 
 
 def _blocks(length: int) -> int:
+    """
+    Perform the blocks step with deterministic fixture inputs.
+
+    Example:
+        Exercise  blocks through a consuming regression::
+
+            python -m pytest -q tests/storage/store_backend_plugins/iso_readonly/test_iso_readonly_storage_backend.py
+
+
+    :param length: Value supplied for length under the deterministic fixture contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     return (length + BLOCK_SIZE - 1) // BLOCK_SIZE
 
 
 def _both16(value: int) -> bytes:
+    """
+    Perform the both16 step with deterministic fixture inputs.
+
+    Example:
+        Exercise  both16 through a consuming regression::
+
+            python -m pytest -q tests/storage/store_backend_plugins/iso_readonly/test_iso_readonly_storage_backend.py
+
+
+    :param value: Fixture value normalized, encoded, stored or returned.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     return value.to_bytes(2, "little") + value.to_bytes(2, "big")
 
 
 def _both32(value: int) -> bytes:
+    """
+    Perform the both32 step with deterministic fixture inputs.
+
+    Example:
+        Exercise  both32 through a consuming regression::
+
+            python -m pytest -q tests/storage/store_backend_plugins/iso_readonly/test_iso_readonly_storage_backend.py
+
+
+    :param value: Fixture value normalized, encoded, stored or returned.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     return value.to_bytes(4, "little") + value.to_bytes(4, "big")
 
 
 def _recording_time() -> bytes:
+    """
+    Perform the recording time step with deterministic fixture inputs.
+
+    Example:
+        Exercise  recording time through a consuming regression::
+
+            python -m pytest -q tests/storage/store_backend_plugins/iso_readonly/test_iso_readonly_storage_backend.py
+
+
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     return bytes((124, 1, 2, 3, 4, 5, 0))
 
 
@@ -222,6 +408,26 @@ def _directory_record(
     directory: bool,
     system_use: bytes = b"",
 ) -> bytes:
+    """
+    Perform the directory record step with deterministic fixture inputs.
+
+    Example:
+        Exercise  directory record through a consuming regression::
+
+            python -m pytest -q tests/storage/store_backend_plugins/iso_readonly/test_iso_readonly_storage_backend.py
+
+
+    :param identifier: Value supplied for identifier under the deterministic fixture
+        contract.
+    :param lba: Value supplied for lba under the deterministic fixture contract.
+    :param size: Value supplied for size under the deterministic fixture contract.
+    :param directory: Value supplied for directory under the deterministic fixture
+        contract.
+    :param system_use: Value supplied for system use under the deterministic fixture
+        contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     padding = b"\x00" if len(identifier) % 2 == 0 else b""
     length = 33 + len(identifier) + len(padding) + len(system_use)
     if length > 255:
@@ -241,6 +447,20 @@ def _directory_record(
 
 
 def _identifier(node: _Node, *, layout: str) -> bytes:
+    """
+    Perform the identifier step with deterministic fixture inputs.
+
+    Example:
+        Exercise  identifier through a consuming regression::
+
+            python -m pytest -q tests/storage/store_backend_plugins/iso_readonly/test_iso_readonly_storage_backend.py
+
+
+    :param node: Value supplied for node under the deterministic fixture contract.
+    :param layout: Value supplied for layout under the deterministic fixture contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     if layout == "primary":
         return node.alias
     assert isinstance(node.name, str)
@@ -249,6 +469,19 @@ def _identifier(node: _Node, *, layout: str) -> bytes:
 
 
 def _rock_ridge_name(node: _Node) -> bytes:
+    """
+    Perform the rock ridge name step with deterministic fixture inputs.
+
+    Example:
+        Exercise  rock ridge name through a consuming regression::
+
+            python -m pytest -q tests/storage/store_backend_plugins/iso_readonly/test_iso_readonly_storage_backend.py
+
+
+    :param node: Value supplied for node under the deterministic fixture contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     if isinstance(node.name, bytes):
         return node.name
     assert isinstance(node.name, str)
@@ -256,6 +489,19 @@ def _rock_ridge_name(node: _Node) -> bytes:
 
 
 def _nm_entries(name: bytes) -> bytes:
+    """
+    Perform the nm entries step with deterministic fixture inputs.
+
+    Example:
+        Exercise  nm entries through a consuming regression::
+
+            python -m pytest -q tests/storage/store_backend_plugins/iso_readonly/test_iso_readonly_storage_backend.py
+
+
+    :param name: Stable fixture, profile, member or field name.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     chunks = [name[index : index + 240] for index in range(0, len(name), 240)] or [b""]
     entries = []
     for index, chunk in enumerate(chunks):
@@ -265,10 +511,36 @@ def _nm_entries(name: bytes) -> bytes:
 
 
 def _sp_entry() -> bytes:
+    """
+    Perform the sp entry step with deterministic fixture inputs.
+
+    Example:
+        Exercise  sp entry through a consuming regression::
+
+            python -m pytest -q tests/storage/store_backend_plugins/iso_readonly/test_iso_readonly_storage_backend.py
+
+
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     return b"SP" + bytes((7, 1, 190, 239, 0))
 
 
 def _node_extent(node: _Node, *, layout: str) -> tuple[int, int]:
+    """
+    Perform the node extent step with deterministic fixture inputs.
+
+    Example:
+        Exercise  node extent through a consuming regression::
+
+            python -m pytest -q tests/storage/store_backend_plugins/iso_readonly/test_iso_readonly_storage_backend.py
+
+
+    :param node: Value supplied for node under the deterministic fixture contract.
+    :param layout: Value supplied for layout under the deterministic fixture contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     if node.is_directory:
         if layout == "primary":
             return node.primary_lba, node.primary_blocks * BLOCK_SIZE
@@ -278,6 +550,22 @@ def _node_extent(node: _Node, *, layout: str) -> tuple[int, int]:
 
 
 def _directory_record_length(node: _Node, *, layout: str, rock_ridge: bool) -> int:
+    """
+    Perform the directory record length step with deterministic fixture inputs.
+
+    Example:
+        Exercise  directory record length through a consuming regression::
+
+            python -m pytest -q tests/storage/store_backend_plugins/iso_readonly/test_iso_readonly_storage_backend.py
+
+
+    :param node: Value supplied for node under the deterministic fixture contract.
+    :param layout: Value supplied for layout under the deterministic fixture contract.
+    :param rock_ridge: Value supplied for rock ridge under the deterministic fixture
+        contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     identifier = _identifier(node, layout=layout)
     system_use = _nm_entries(_rock_ridge_name(node)) if rock_ridge else b""
     return len(
@@ -292,6 +580,22 @@ def _directory_record_length(node: _Node, *, layout: str, rock_ridge: bool) -> i
 
 
 def _directory_blocks(node: _Node, *, layout: str, rock_ridge: bool) -> int:
+    """
+    Perform the directory blocks step with deterministic fixture inputs.
+
+    Example:
+        Exercise  directory blocks through a consuming regression::
+
+            python -m pytest -q tests/storage/store_backend_plugins/iso_readonly/test_iso_readonly_storage_backend.py
+
+
+    :param node: Value supplied for node under the deterministic fixture contract.
+    :param layout: Value supplied for layout under the deterministic fixture contract.
+    :param rock_ridge: Value supplied for rock ridge under the deterministic fixture
+        contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     lengths = [34 + (7 if rock_ridge and node.name is None else 0), 34]
     lengths.extend(
         _directory_record_length(child, layout=layout, rock_ridge=rock_ridge)
@@ -307,9 +611,34 @@ def _directory_blocks(node: _Node, *, layout: str, rock_ridge: bool) -> int:
 
 
 def _parent_map(root: _Node) -> dict[int, _Node]:
+    """
+    Perform the parent map step with deterministic fixture inputs.
+
+    Example:
+        Exercise  parent map through a consuming regression::
+
+            python -m pytest -q tests/storage/store_backend_plugins/iso_readonly/test_iso_readonly_storage_backend.py
+
+
+    :param root: Root directory containing the fixture corpus or generated tree.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     parents: dict[int, _Node] = {id(root): root}
 
     def visit(node: _Node) -> None:
+        """
+        Perform the visit step with deterministic fixture inputs.
+
+        Example:
+            Exercise  parent map.visit through a consuming regression::
+
+                python -m pytest -q tests/storage/store_backend_plugins/iso_readonly/test_iso_readonly_storage_backend.py
+
+
+        :param node: Value supplied for node under the deterministic fixture contract.
+        :return: None; fixture state or the supplied destination is updated in place.
+        """
         for child in node.children.values():
             if child.is_directory:
                 parents[id(child)] = node
@@ -326,6 +655,23 @@ def _directory_payload(
     layout: str,
     rock_ridge: bool,
 ) -> bytes:
+    """
+    Perform the directory payload step with deterministic fixture inputs.
+
+    Example:
+        Exercise  directory payload through a consuming regression::
+
+            python -m pytest -q tests/storage/store_backend_plugins/iso_readonly/test_iso_readonly_storage_backend.py
+
+
+    :param node: Value supplied for node under the deterministic fixture contract.
+    :param root: Root directory containing the fixture corpus or generated tree.
+    :param layout: Value supplied for layout under the deterministic fixture contract.
+    :param rock_ridge: Value supplied for rock ridge under the deterministic fixture
+        contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     parents = _parent_map(root)
     parent = parents[id(node)]
     node_lba, node_size = _node_extent(node, layout=layout)
@@ -373,12 +719,41 @@ def _directory_payload(
 
 
 def _path_identifier(node: _Node, *, layout: str) -> bytes:
+    """
+    Perform the path identifier step with deterministic fixture inputs.
+
+    Example:
+        Exercise  path identifier through a consuming regression::
+
+            python -m pytest -q tests/storage/store_backend_plugins/iso_readonly/test_iso_readonly_storage_backend.py
+
+
+    :param node: Value supplied for node under the deterministic fixture contract.
+    :param layout: Value supplied for layout under the deterministic fixture contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     if node.name is None:
         return b"\x00"
     return _identifier(node, layout=layout)
 
 
 def _path_table_size(directories: list[_Node], *, layout: str) -> int:
+    """
+    Perform the path table size step with deterministic fixture inputs.
+
+    Example:
+        Exercise  path table size through a consuming regression::
+
+            python -m pytest -q tests/storage/store_backend_plugins/iso_readonly/test_iso_readonly_storage_backend.py
+
+
+    :param directories: Value supplied for directories under the deterministic fixture
+        contract.
+    :param layout: Value supplied for layout under the deterministic fixture contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     total = 0
     for node in directories:
         identifier = _path_identifier(node, layout=layout)
@@ -392,6 +767,23 @@ def _path_table(
     layout: str,
     byte_order: Literal["little", "big"],
 ) -> bytes:
+    """
+    Perform the path table step with deterministic fixture inputs.
+
+    Example:
+        Exercise  path table through a consuming regression::
+
+            python -m pytest -q tests/storage/store_backend_plugins/iso_readonly/test_iso_readonly_storage_backend.py
+
+
+    :param directories: Value supplied for directories under the deterministic fixture
+        contract.
+    :param layout: Value supplied for layout under the deterministic fixture contract.
+    :param byte_order: Value supplied for byte order under the deterministic fixture
+        contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     numbers = {id(node): index for index, node in enumerate(directories, start=1)}
     parents = _parent_map(directories[0])
     result = bytearray()
@@ -416,6 +808,26 @@ def _volume_descriptor(
     volume_blocks: int,
     table_locations: Mapping[tuple[str, str], tuple[int, int]],
 ) -> bytes:
+    """
+    Perform the volume descriptor step with deterministic fixture inputs.
+
+    Example:
+        Exercise  volume descriptor through a consuming regression::
+
+            python -m pytest -q tests/storage/store_backend_plugins/iso_readonly/test_iso_readonly_storage_backend.py
+
+
+    :param descriptor_type: Value supplied for descriptor type under the deterministic
+        fixture contract.
+    :param root: Root directory containing the fixture corpus or generated tree.
+    :param layout: Value supplied for layout under the deterministic fixture contract.
+    :param volume_blocks: Value supplied for volume blocks under the deterministic
+        fixture contract.
+    :param table_locations: Value supplied for table locations under the deterministic
+        fixture contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     descriptor = bytearray(BLOCK_SIZE)
     descriptor[0] = descriptor_type
     descriptor[1:6] = b"CD001"

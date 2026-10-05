@@ -1,4 +1,14 @@
-"""Tests for provisioning non-database test assets (books/covers)."""
+"""
+Provide deterministic test resources manager assets test support for the test suite.
+
+The module keeps generated data, ordering and failure modes explicit so consumers
+can assert stable behavior.
+
+Example:
+    Exercise test resources manager assets test through a consuming regression::
+
+        python -m pytest -q tests/support/test_resources_manager_assets_test.py
+"""
 
 from __future__ import annotations
 
@@ -8,11 +18,38 @@ import pytest
 
 
 def _write_bytes(path: Path, data: bytes = b"x") -> None:
+    """
+    Write bytes for deterministic fixture consumers.
+
+    Example:
+        Exercise  write bytes through a consuming regression::
+
+            python -m pytest -q tests/support/test_resources_manager_assets_test.py
+
+
+    :param path: Filesystem path read, written or validated by the fixture operation.
+    :param data: Bytes or structured data consumed by the operation.
+    :return: None; fixture state or the supplied destination is updated in place.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(data)
 
 
 def test_provision_test_books_and_covers(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """
+    Verify provision test books and covers.
+
+    Example:
+        Exercise test provision test books and covers through a consuming regression::
+
+            python -m pytest -q tests/support/test_resources_manager_assets_test.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate dependencies and mutable process
+        state.
+    :param tmp_path: Pytest-managed temporary directory for generated fixture data.
+    :return: None; completion is expressed through state changes or assertions.
+    """
     from tests.support.test_resources_manager import TestResourcesManager
 
     # Arrange: create a fake on-disk LiuXin_data tree.
@@ -40,6 +77,20 @@ def test_provision_test_books_and_covers(monkeypatch: pytest.MonkeyPatch, tmp_pa
 
 
 def test_provision_test_books_selective(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """
+    Verify provision test books selective.
+
+    Example:
+        Exercise test provision test books selective through a consuming regression::
+
+            python -m pytest -q tests/support/test_resources_manager_assets_test.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate dependencies and mutable process
+        state.
+    :param tmp_path: Pytest-managed temporary directory for generated fixture data.
+    :return: None; completion is expressed through state changes or assertions.
+    """
     from tests.support.test_resources_manager import TestResourcesManager
 
     src_books = tmp_path / "src_books"

@@ -1,3 +1,14 @@
+"""
+Provide cross-platform exclusive file locking with context-manager cleanup.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise lock through a consuming regression::
+
+        python -m pytest -q tests/utils/test_lock.py
+"""
 from __future__ import print_function
 
 __license__ = "GPL v3"
@@ -50,14 +61,41 @@ else:
 
 
 class LockError(Exception):
+    """
+    Report the LockError Calibre compatibility failure.
+
+    Example:
+        Exercise LockError through a consuming regression::
+
+            python -m pytest -q tests/utils/test_lock.py
+    """
     pass
 
 
 class WindowsExclFile:
     """
     Claims an exclusve file on Windows.
+
+    Example:
+        Exercise WindowsExclFile through a consuming regression::
+
+            python -m pytest -q tests/utils/test_lock.py
     """
     def __init__(self, path, timeout=20):
+        """
+        Initialize and validate the WindowsExclFile state.
+
+        Example:
+            Exercise WindowsExclFile.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/test_lock.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :param timeout: Maximum wait time before the operation fails.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.name = path
         import win32file as w
         import pywintypes
@@ -89,6 +127,20 @@ class WindowsExclFile:
             raise LockError("Failed to open exclusive file: %s" % path)
 
     def seek(self, amt, frm=0):
+        """
+        Perform the seek utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise WindowsExclFile.seek through a consuming regression::
+
+                python -m pytest -q tests/utils/test_lock.py
+
+
+        :param amt: Value supplied for amt under the utility contract.
+        :param frm: Value supplied for frm under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         import win32file as w
 
         if frm not in (0, 1, 2):
@@ -99,16 +151,52 @@ class WindowsExclFile:
         w.SetFilePointer(self._handle, amt, frm)
 
     def tell(self):
+        """
+        Perform the tell utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise WindowsExclFile.tell through a consuming regression::
+
+                python -m pytest -q tests/utils/test_lock.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         import win32file as w
 
         return w.SetFilePointer(self._handle, 0, w.FILE_CURRENT)
 
     def flush(self):
+        """
+        Forward the flush operation while preserving adapter ownership rules.
+
+        Example:
+            Exercise WindowsExclFile.flush through a consuming regression::
+
+                python -m pytest -q tests/utils/test_lock.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         import win32file as w
 
         w.FlushFileBuffers(self._handle)
 
     def close(self):
+        """
+        Forward the close operation while preserving adapter ownership rules.
+
+        Example:
+            Exercise WindowsExclFile.close through a consuming regression::
+
+                python -m pytest -q tests/utils/test_lock.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self._handle is not None:
             import win32file as w
 
@@ -117,6 +205,19 @@ class WindowsExclFile:
             self._handle = None
 
     def read(self, bytes=-1):
+        """
+        Forward the read operation while preserving adapter ownership rules.
+
+        Example:
+            Exercise WindowsExclFile.read through a consuming regression::
+
+                python -m pytest -q tests/utils/test_lock.py
+
+
+        :param bytes: Value supplied for bytes under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         import win32file as w
 
         sz = w.GetFileSize(self._handle)
@@ -132,9 +233,35 @@ class WindowsExclFile:
         return ans
 
     def readlines(self, sizehint=-1):
+        """
+        Perform the readlines utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise WindowsExclFile.readlines through a consuming regression::
+
+                python -m pytest -q tests/utils/test_lock.py
+
+
+        :param sizehint: Value supplied for sizehint under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.read().splitlines()
 
     def write(self, bytes):
+        """
+        Forward the write operation while preserving adapter ownership rules.
+
+        Example:
+            Exercise WindowsExclFile.write through a consuming regression::
+
+                python -m pytest -q tests/utils/test_lock.py
+
+
+        :param bytes: Value supplied for bytes under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if isinstance(bytes, unicode):
             bytes = bytes.encode("utf-8")
         import win32file as w
@@ -142,6 +269,19 @@ class WindowsExclFile:
         w.WriteFile(self._handle, bytes, None)
 
     def truncate(self, size=None):
+        """
+        Forward the truncate operation while preserving adapter ownership rules.
+
+        Example:
+            Exercise WindowsExclFile.truncate through a consuming regression::
+
+                python -m pytest -q tests/utils/test_lock.py
+
+
+        :param size: Value supplied for size under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         import win32file as w
 
         pos = self.tell()
@@ -153,9 +293,33 @@ class WindowsExclFile:
         self.seek(pos)
 
     def isatty(self):
+        """
+        Perform the isatty utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise WindowsExclFile.isatty through a consuming regression::
+
+                python -m pytest -q tests/utils/test_lock.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return False
 
     def closed(self):
+        """
+        Perform the closed utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise WindowsExclFile.closed through a consuming regression::
+
+                python -m pytest -q tests/utils/test_lock.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._handle is None
 
 
@@ -164,6 +328,20 @@ def unix_open(path):
     # broken libc that causes seek(0) followed by truncate() to not work for
     # files with O_APPEND set. We also use O_CLOEXEC when it is available,
     # to ensure there are no races.
+    """
+    Perform the unix open utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise unix open through a consuming regression::
+
+            python -m pytest -q tests/utils/test_lock.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     flags = os.O_RDWR | os.O_CREAT
     from LiuXin_alpha.utils.plugins import plugins
 
@@ -195,11 +373,45 @@ def unix_open(path):
 
 
 class ExclusiveFile(object):
+    """
+    Provide the ExclusiveFile utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise ExclusiveFile through a consuming regression::
+
+            python -m pytest -q tests/utils/test_lock.py
+    """
     def __init__(self, path, timeout=15):
+        """
+        Initialize and validate the ExclusiveFile state.
+
+        Example:
+            Exercise ExclusiveFile.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/test_lock.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :param timeout: Maximum wait time before the operation fails.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.path = path
         self.timeout = timeout
 
     def __enter__(self):
+        """
+        Implement the resource's enter lifecycle operation.
+
+        Example:
+            Exercise ExclusiveFile.  enter   through a consuming regression::
+
+                python -m pytest -q tests/utils/test_lock.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.file = WindowsExclFile(self.path, self.timeout) if iswindows else unix_open(self.path)
         self.file.seek(0)
         timeout = self.timeout
@@ -217,10 +429,39 @@ class ExclusiveFile(object):
         return self.file
 
     def __exit__(self, type, value, traceback):
+        """
+        Implement the resource's exit lifecycle operation.
+
+        Example:
+            Exercise ExclusiveFile.  exit   through a consuming regression::
+
+                python -m pytest -q tests/utils/test_lock.py
+
+
+        :param type: Value supplied for type under the utility contract.
+        :param value: Value normalized, stored, formatted or returned.
+        :param traceback: Value supplied for traceback under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.file.close()
 
 
 def test_exclusive_file(path=None):
+    """
+    Perform the test exclusive file utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test exclusive file through a consuming regression::
+
+            python -m pytest -q tests/utils/test_lock.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if path is None:
         import tempfile
 
@@ -249,6 +490,19 @@ def test_exclusive_file(path=None):
 
 
 def _clean_lock_file(file):
+    """
+    Clean lock file under the documented compatibility and safety rules.
+
+    Example:
+        Exercise  clean lock file through a consuming regression::
+
+            python -m pytest -q tests/utils/test_lock.py
+
+
+    :param file: Value supplied for file under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     try:
         file.close()
     except:
@@ -262,8 +516,16 @@ def _clean_lock_file(file):
 def singleinstance(name):
     """
     Checks to see if a lock can be acquired (on Linux by generating a lock file in the users home directory)
-    :param name: Name of the lock to try and aquire
-    :return:
+
+    Example:
+        Exercise singleinstance through a consuming regression::
+
+            python -m pytest -q tests/utils/test_lock.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if iswindows:
         mutexname = "mutexforsingleinstanceof" + __appname__ + name

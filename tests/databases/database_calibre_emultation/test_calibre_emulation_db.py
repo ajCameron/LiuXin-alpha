@@ -1,3 +1,11 @@
+"""
+Check read-only Calibre database access, schema metadata, custom and auxiliary database discovery, and version-plan warnings.
+
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_db.py
+"""
 from __future__ import annotations
 
 import sqlite3
@@ -15,12 +23,38 @@ from LiuXin_alpha.databases.database_driver_plugins.SQL.calibre_database_generat
 
 
 def test_calibre_db_from_root_raises_when_missing(tmp_path) -> None:
+    """
+    Construct a database descriptor for an empty directory and check schema_info raises CalibreLibraryNotFoundError.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_db.py::test_calibre_db_from_root_raises_when_missing
+
+
+    :param tmp_path: Pytest-provided temporary directory for isolated database and
+        fixture files.
+    :return: None; failed expectations raise AssertionError.
+    """
     db = CalibreDB.from_root(tmp_path)
     with pytest.raises(CalibreLibraryNotFoundError):
         _ = db.schema_info()
 
 
 def test_calibre_db_connects_readonly_and_blocks_writes(provision_calibre_library) -> None:
+    """
+    Open a reader connection and check CREATE TABLE raises sqlite3.OperationalError; close the connection in finally.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_db.py::test_calibre_db_connects_readonly_and_blocks_writes
+
+
+    :param provision_calibre_library: Fixture factory creating an isolated blank
+        library; skips when SQLite lacks the required FTS5 support.
+    :return: None; failed expectations raise AssertionError.
+    """
     lib = provision_calibre_library(name="lib_ro")
     db = CalibreDB.from_root(lib.root)
 
@@ -33,6 +67,19 @@ def test_calibre_db_connects_readonly_and_blocks_writes(provision_calibre_librar
 
 
 def test_schema_info_matches_calibre_sql_snapshot(provision_calibre_library) -> None:
+    """
+    Check schema application_id and user_version match the bundled SQL snapshot metadata.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_db.py::test_schema_info_matches_calibre_sql_snapshot
+
+
+    :param provision_calibre_library: Fixture factory creating an isolated blank
+        library; skips when SQLite lacks the required FTS5 support.
+    :return: None; failed expectations raise AssertionError.
+    """
     lib = provision_calibre_library(name="lib_schema")
     db = CalibreDB.from_root(lib.root)
 
@@ -44,6 +91,19 @@ def test_schema_info_matches_calibre_sql_snapshot(provision_calibre_library) -> 
 
 
 def test_schema_info_contains_core_tables_and_triggers(provision_calibre_library) -> None:
+    """
+    Check a required subset of core tables exists and at least one trigger is reported.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_db.py::test_schema_info_contains_core_tables_and_triggers
+
+
+    :param provision_calibre_library: Fixture factory creating an isolated blank
+        library; skips when SQLite lacks the required FTS5 support.
+    :return: None; failed expectations raise AssertionError.
+    """
     lib = provision_calibre_library(name="lib_core")
     db = CalibreDB.from_root(lib.root)
 
@@ -55,6 +115,19 @@ def test_schema_info_contains_core_tables_and_triggers(provision_calibre_library
 
 
 def test_schema_info_custom_columns_detected(provision_calibre_library) -> None:
+    """
+    Create a series custom column and check introspection includes its label, numeric ID, and datatype.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_db.py::test_schema_info_custom_columns_detected
+
+
+    :param provision_calibre_library: Fixture factory creating an isolated blank
+        library; skips when SQLite lacks the required FTS5 support.
+    :return: None; failed expectations raise AssertionError.
+    """
     lib = provision_calibre_library(name="lib_cc")
 
     # Create a custom column using the builder so the DB is realistic.
@@ -72,6 +145,19 @@ def test_schema_info_custom_columns_detected(provision_calibre_library) -> None:
 
 
 def test_schema_info_detects_optional_aux_dbs(provision_calibre_library) -> None:
+    """
+    Provision notes and full-text auxiliary databases in best-effort mode and check both presence flags.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_db.py::test_schema_info_detects_optional_aux_dbs
+
+
+    :param provision_calibre_library: Fixture factory creating an isolated blank
+        library; skips when SQLite lacks the required FTS5 support.
+    :return: None; failed expectations raise AssertionError.
+    """
     lib = provision_calibre_library(
         name="lib_aux",
         create_notes_db=True,
@@ -85,6 +171,19 @@ def test_schema_info_detects_optional_aux_dbs(provision_calibre_library) -> None
     assert info.has_fts is True
 
 def test_schema_info_includes_version_plan(provision_calibre_library) -> None:
+    """
+    Check the generated library’s plan agrees with its PRAGMAs, has a known version ceiling, and contains no warnings.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_db.py::test_schema_info_includes_version_plan
+
+
+    :param provision_calibre_library: Fixture factory creating an isolated blank
+        library; skips when SQLite lacks the required FTS5 support.
+    :return: None; failed expectations raise AssertionError.
+    """
     lib = provision_calibre_library(name="lib_version_plan")
     db = CalibreDB.from_root(lib.root)
 
@@ -99,6 +198,19 @@ def test_schema_info_includes_version_plan(provision_calibre_library) -> None:
 
 def test_schema_info_version_plan_warns_on_mismatch_and_newer_schema(tmp_path) -> None:
     # Build a minimal-but-valid Calibre-ish DB with mismatched pragma values.
+    """
+    Build a core schema with mismatched application ID and a newer version, then require both warning categories and an accepted mismatch/newer status.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_db.py::test_schema_info_version_plan_warns_on_mismatch_and_newer_schema
+
+
+    :param tmp_path: Pytest-provided temporary directory for isolated database and
+        fixture files.
+    :return: None; failed expectations raise AssertionError.
+    """
     from LiuXin_alpha.databases.database_driver_plugins.SQL.calibre_database_generator import calibre_metadata_user_version
 
     root = tmp_path / "badlib"

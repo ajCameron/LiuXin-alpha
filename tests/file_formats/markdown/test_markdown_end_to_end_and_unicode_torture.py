@@ -1,3 +1,14 @@
+"""
+Provide test markdown end to end and unicode torture utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test markdown end to end and unicode torture through a consuming regression::
+
+        python -m pytest -q tests/file_formats/markdown/test_markdown_end_to_end_and_unicode_torture.py
+"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -6,6 +17,18 @@ import pytest
 
 
 def test_markdown_unicode_torture_end_to_end() -> None:
+    """
+    Perform the test markdown unicode torture end to end operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test markdown unicode torture end to end through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_end_to_end_and_unicode_torture.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats import markdown
 
     source = (
@@ -26,6 +49,18 @@ def test_markdown_unicode_torture_end_to_end() -> None:
 
 
 def test_markdown_deterministic_output_same_input() -> None:
+    """
+    Perform the test markdown deterministic output same input operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test markdown deterministic output same input through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_end_to_end_and_unicode_torture.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats import markdown
 
     source = "# Same\n\nParagraph with [^1].\n\n[^1]: deterministic"
@@ -38,6 +73,19 @@ def test_markdown_deterministic_output_same_input() -> None:
 
 
 def test_markdown_from_file_end_to_end_with_invalid_utf8(tmp_path: Path) -> None:
+    """
+    Perform the test markdown from file end to end with invalid utf8 operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test markdown from file end to end with invalid utf8 through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_end_to_end_and_unicode_torture.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.markdown import markdownFromFile
 
     src = tmp_path / "input.md"
@@ -61,6 +109,19 @@ def test_markdown_from_file_end_to_end_with_invalid_utf8(tmp_path: Path) -> None
     ],
 )
 def test_markdown_convert_accepts_bytes_like_inputs(payload: bytes | bytearray | memoryview) -> None:
+    """
+    Perform the test markdown convert accepts bytes like inputs operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test markdown convert accepts bytes like inputs through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_end_to_end_and_unicode_torture.py
+
+
+    :param payload: Value supplied for payload under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.markdown import Markdown
 
     html = Markdown().convert(payload)
@@ -70,6 +131,18 @@ def test_markdown_convert_accepts_bytes_like_inputs(payload: bytes | bytearray |
 
 
 def test_txt_processor_convert_markdown_integration_unicode() -> None:
+    """
+    Perform the test txt processor convert markdown integration unicode operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test txt processor convert markdown integration unicode through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_end_to_end_and_unicode_torture.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.txt.processor import convert_markdown
 
     source = (

@@ -1,3 +1,14 @@
+"""
+Verify public metadata-family protocols remain aligned with their implementations.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test metadata family api impl parity through its owning regression module::
+
+        python -m pytest -q tests/metadata/api/test_metadata_family_api_impl_parity.py
+"""
 from __future__ import annotations
 
 import importlib
@@ -39,11 +50,33 @@ REMOVED_API_FAMILY_MODULES = [
 
 
 def test_api_family_modules_are_not_duplicated_as_leaf_files() -> None:
+    """
+    Verify api family modules remain not duplicated as leaf files.
+
+    Example:
+        Exercise test api family modules are not duplicated as leaf files through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_metadata_family_api_impl_parity.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     for path in REMOVED_API_FAMILY_MODULES:
         assert not path.exists(), f"API-side concrete family module still exists: {path}"
 
 
 def test_api_root_does_not_reexport_canonical_container_implementations() -> None:
+    """
+    Verify api root does not reexport canonical container implementations.
+
+    Example:
+        Exercise test api root does not reexport canonical container implementations through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_metadata_family_api_impl_parity.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     api_module = importlib.import_module(
         "LiuXin_alpha.metadata.api.containers_api.wemi_containers_api"
     )

@@ -70,19 +70,22 @@ Those now live as explicit benchmark resources:
 
 and can also be built with custom counts via:
 
-- [build_benchmark_test_db.py](/home/blackjane/LiuXin-alpha-wsl/scripts/build_benchmark_test_db.py)
+- [build_benchmark_test_db.py](../scripts/build_benchmark_test_db.py)
 
 The first benchmark harness now exists separately from pytest:
 
-- [benchmark_read_paths.py](/home/blackjane/LiuXin-alpha-wsl/scripts/benchmark_read_paths.py)
-- [benchmark_surface_paths.py](/home/blackjane/LiuXin-alpha-wsl/scripts/benchmark_surface_paths.py)
-- [benchmark_baseline_suite.py](/home/blackjane/LiuXin-alpha-wsl/scripts/benchmark_baseline_suite.py)
-- [summarize_benchmark_report.py](/home/blackjane/LiuXin-alpha-wsl/scripts/summarize_benchmark_report.py)
+- [benchmark_read_paths.py](../scripts/benchmark_read_paths.py)
+- [benchmark_surface_paths.py](../scripts/benchmark_surface_paths.py)
+- [benchmark_baseline_suite.py](../scripts/benchmark_baseline_suite.py)
+- [summarize_benchmark_report.py](../scripts/summarize_benchmark_report.py)
 
-Current baseline artifact:
+Historical baseline outputs were named `benchmark-baseline-2026-03-18.json`
+and `benchmark-baseline-2026-03-18-summary.md`. They are not included in this
+checkout; they are not current, reproducible verification artifacts.
 
-- [benchmark-baseline-2026-03-18.json](/home/blackjane/LiuXin-alpha-wsl/working-memory/test-results/benchmark-baseline-2026-03-18.json)
-- [benchmark-baseline-2026-03-18-summary.md](/home/blackjane/LiuXin-alpha-wsl/working-memory/test-results/benchmark-baseline-2026-03-18-summary.md)
+To collect a fresh local baseline, run `scripts/benchmark_baseline_suite.py`
+from the repository root with an explicit `--output` path, then use
+`scripts/summarize_benchmark_report.py` to render that JSON report.
 
 Benchmark profile rule:
 
@@ -272,7 +275,7 @@ correctness fixtures.
 ## Current Validation
 
 The first semantic-family pass is live and covered in
-[test_test_resources_manager.py](/home/blackjane/LiuXin-alpha-wsl/tests/databases/test_test_resources_manager.py):
+[test_test_resources_manager.py](../tests/databases/test_test_resources_manager.py):
 
 - imported provider discovery now ignores helper modules without supported
   entrypoints
@@ -295,7 +298,7 @@ The first semantic-family pass is live and covered in
 
 Current validation:
 
-- [test_test_resources_manager.py](/home/blackjane/LiuXin-alpha-wsl/tests/databases/test_test_resources_manager.py)
+- [test_test_resources_manager.py](../tests/databases/test_test_resources_manager.py)
   - `52 passed`
-- [test_property_support_registry.py](/home/blackjane/LiuXin-alpha-wsl/tests/support/test_databases/test_db_properties/test_property_support_registry.py)
+- [test_property_support_registry.py](../tests/support/test_databases/test_db_properties/test_property_support_registry.py)
   - `32 passed`

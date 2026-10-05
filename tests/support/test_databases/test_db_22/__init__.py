@@ -1,3 +1,14 @@
+"""
+Build the deterministic test_db_22 database fixture and its declared content profile.
+
+The module keeps generated data, ordering and failure modes explicit so consumers
+can assert stable behavior.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/databases/test_test_resources_manager.py
+"""
 from __future__ import print_function
 
 from LiuXin_alpha.exceptions import DatabaseIntegrityError
@@ -8,15 +19,44 @@ from ..test_db_21 import TestDB21Builer
 class TestDB22Builer(TestDB21Builer):
     """
     Preforms build for test db 21 - which has a table almost identical to series - but with a different name.
+
+    Example:
+        Exercise TestDB22Builer through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
     """
 
     def add_new_main_tables(self, scatch_db):
 
+        """
+        Add the profile-specific main tables and their schema metadata.
+
+        Example:
+            Exercise TestDB22Builer.add new main tables through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param scatch_db: Scratch database receiving deterministic schema and rows.
+        :return: None; fixture state or the supplied destination is updated in place.
+        """
         super(TestDB22Builer, self).add_new_main_tables(scatch_db)
 
     # Todo: Actually custom TABLES
     def add_custom_columns(self, scratch_db):
 
+        """
+        Add custom columns for deterministic fixture consumers.
+
+        Example:
+            Exercise TestDB22Builer.add custom columns through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param scratch_db: Scratch database receiving deterministic schema and rows.
+        :return: None; fixture state or the supplied destination is updated in place.
+        """
         test_titles_cc_1_name = "do_not_read"
         scratch_db.driver_wrapper.create_custom_column(in_table="titles", name=test_titles_cc_1_name)
 
@@ -104,12 +144,23 @@ def build_test_db(
     test_asset_version=None,
 ):
     """
-    Construct the test database specified by this module.
-    In this case a blank database is constructed and filled with data - before being copied into the test_databases
-    folder.
-    :param dst_file_path: The file to write the database to after it's been built.
-    :param dump: HERE IGNORED
-    :return:
+    Construct the test database specified by this module. In this case a blank database is constructed and filled with data - before being copied into the test_databases folder.
+
+    Example:
+        Exercise build test db through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param dst_file_path: Destination file written with the generated database or asset.
+    :param dump: Value supplied for dump under the deterministic fixture contract.
+    :param plugin_name: Value supplied for plugin name under the deterministic fixture
+        contract.
+    :param new_db_uuid: Value supplied for new db uuid under the deterministic fixture
+        contract.
+    :param test_asset_version: Value supplied for test asset version under the
+        deterministic fixture contract.
+    :return: None; fixture state or the supplied destination is updated in place.
     """
     test_db_builder = TestDB22Builer(
         dst_file_path=dst_file_path,

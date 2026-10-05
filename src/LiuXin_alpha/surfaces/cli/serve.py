@@ -1,4 +1,12 @@
-"""Guarded facade for the packaged HTTP application surfaces."""
+"""
+Launch packaged HTTP surfaces through a shared, loopback-guarded CLI facade.
+
+Application modules are imported only after bind validation and argument
+translation. They own server startup, shutdown, and further validation. The
+unsafe-bind override supplies neither authentication nor TLS; Core RPC serving
+is a separate command family. This facade forwards explicit database/endpoint
+selectors, not system-root/profile selectors.
+"""
 
 from __future__ import annotations
 
@@ -20,6 +28,19 @@ _SURFACES = {
 
 
 def _is_loopback(host: str) -> bool:
+    """
+    Recognize localhost or a literal loopback address without DNS resolution.
+
+    Normalization is used for classification only, not for the eventual bind.
+
+    Example:
+        >>> [_is_loopback(value) for value in (" LOCALHOST ", "::1", "0.0.0.0")]
+        [True, True, False]
+
+
+    :param host: Host value to stringify, strip, lowercase, and classify.
+    :return: Whether the normalized value is localhost or a loopback IP literal.
+    """
     token = str(host).strip().lower()
     if token == "localhost":
         return True
@@ -30,6 +51,30 @@ def _is_loopback(host: str) -> bool:
 
 
 def cmd_serve(args: argparse.Namespace) -> int:
+    """
+    Validate a surface bind and delegate to that application's CLI entrypoint.
+
+    A truthy database takes precedence over the endpoint. System-root/profile
+    selectors are neither resolved nor forwarded here. The original host is
+    forwarded even though bind classification uses a normalized spelling.
+    Database-path exposure applies only to web, web-write, and calibre; cache
+    options omit web-write; the OPDS grouping limit applies only to opds/calibre.
+    Other accepted but inapplicable flags are silently omitted.
+
+    Print the security warning before importing the application. Import,
+    application, output, and integer-conversion failures propagate, including
+    the application's SystemExit; this adapter does not manage a server itself.
+
+    Example:
+        >>> cmd_serve(parsed_loopback_web_args)  # doctest: +SKIP
+
+
+    :param args: Parsed serve leaf with explicit connection, bind, paging,
+        cache, download, and unsafe-bind options.
+    :return: The selected application's main result converted to an integer.
+    :raises ValueError: A non-loopback bind lacks the explicit unsafe override.
+    :raises KeyError: The supplied surface name is not registered.
+    """
     if not _is_loopback(args.host) and not args.allow_unsafe_remote_bind:
         raise ValueError(
             "Refusing a non-loopback bind: this packaged surface has no "
@@ -81,6 +126,25 @@ def _surface_parser(
     *,
     help_text: str,
 ) -> None:
+    """
+    Register one HTTP surface with common connection and presentation options.
+
+    All surfaces accept the same flags, even those ignored for that application
+    by cmd_serve. Defaults select loopback and database-backed metadata; numeric
+    ranges, paths, authentication, and server availability are not checked here.
+
+    Example:
+        >>> root = argparse.ArgumentParser()
+        >>> _surface_parser(root.add_subparsers(), "web", help_text="Web UI")
+        >>> root.parse_args(["web", "--database", "catalogue.sqlite"]).host
+        '127.0.0.1'
+
+
+    :param commands: Subparser collection to mutate with the named leaf.
+    :param name: Surface token stored for cmd_serve's module lookup.
+    :param help_text: Description displayed in the parent command's help.
+    :return: None; the parser and its handler defaults are registered in place.
+    """
     parser = commands.add_parser(name, help=help_text)
     add_connection_arguments(parser)
     parser.add_argument("--host", default="127.0.0.1")
@@ -108,11 +172,20 @@ def build_serve_parser(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
     """
-    Build the `serve` command-line parser.
+    Register required web, web-write, api, opds, and calibre serve subcommands.
+
+    Parser construction imports no application and opens no listener. Core RPC
+    is deliberately outside this family and is served through ``core serve``.
+
+    Example:
+        >>> root = argparse.ArgumentParser()
+        >>> build_serve_parser(root.add_subparsers())
+        >>> root.parse_args(["serve", "opds", "--database", "db.sqlite"]).serve_surface
+        'opds'
 
 
-    :param subparsers:
-    :return:
+    :param subparsers: Root CLI subparser collection receiving the serve family.
+    :return: None; all five leaves are installed with cmd_serve as their handler.
     """
     parser = subparsers.add_parser(
         "serve",

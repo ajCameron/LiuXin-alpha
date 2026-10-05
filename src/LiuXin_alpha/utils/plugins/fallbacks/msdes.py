@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 """
-Pure-python fallback for the compiled ``msdes`` extension.
+Provide msdes utility behavior.
 
-Implements classic DES in ECB mode, matching the C extension API:
-    - deskey(key8: bytes, edf: int) -> None
-      edf must be 0 (EN0) for encryption, or 1 (DE1) for decryption.
-    - des(data: bytes) -> bytes
-      data length must be a multiple of 8. Operates block-by-block.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
 
-This is intended for compatibility (slow but functional), not high performance.
+Example:
+    Exercise msdes through a consuming regression::
+
+        python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
 """
 
 from __future__ import annotations
@@ -20,6 +20,14 @@ DE1 = 1  # decrypt
 
 
 class MsDesError(Exception):
+    """
+    Report the MsDesError Calibre compatibility failure.
+
+    Example:
+        Exercise MsDesError through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+    """
     pass
 
 
@@ -150,7 +158,21 @@ _subkeys: List[int] = []  # 16 subkeys, each 48-bit
 
 
 def _permute(x: int, table: List[int], in_bits: int) -> int:
-    """Generic bit permutation. table entries are 1-based bit indices from MSB."""
+    """
+    Generic bit permutation. table entries are 1-based bit indices from MSB.
+
+    Example:
+        Exercise  permute through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param x: Value supplied for x under the utility contract.
+    :param table: Value supplied for table under the utility contract.
+    :param in_bits: Value supplied for in bits under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     out = 0
     for t in table:
         out = (out << 1) | ((x >> (in_bits - t)) & 1)
@@ -158,11 +180,39 @@ def _permute(x: int, table: List[int], in_bits: int) -> int:
 
 
 def _left_rotate28(v: int, s: int) -> int:
+    """
+    Perform the left rotate28 utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  left rotate28 through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param v: Value supplied for v under the utility contract.
+    :param s: Value supplied for s under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     v &= (1 << 28) - 1
     return ((v << s) | (v >> (28 - s))) & ((1 << 28) - 1)
 
 
 def deskey(key: bytes, edf: int) -> None:
+    """
+    Perform the deskey utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise deskey through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param key: Metadata, identifier or local-variable key.
+    :param edf: Value supplied for edf under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     global _subkeys
     if not isinstance(key, (bytes, bytearray, memoryview)):
         raise TypeError("Key must be bytes-like")
@@ -195,6 +245,20 @@ def deskey(key: bytes, edf: int) -> None:
 
 def _f(r32: int, k48: int) -> int:
     # Expand 32->48
+    """
+    Perform the f utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  f through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param r32: Value supplied for r32 under the utility contract.
+    :param k48: Value supplied for k48 under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     e = _permute(r32, E, 32)
     x = e ^ k48
     # S-box substitution: split into 8 groups of 6 bits
@@ -210,6 +274,19 @@ def _f(r32: int, k48: int) -> int:
 
 
 def _des_block(block8: bytes) -> bytes:
+    """
+    Perform the des block utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  des block through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param block8: Value supplied for block8 under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if len(_subkeys) != 16:
         raise MsDesError("No key schedule set; call deskey() first")
 
@@ -227,6 +304,19 @@ def _des_block(block8: bytes) -> bytes:
 
 
 def des(data: bytes) -> bytes:
+    """
+    Perform the des utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise des through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if not isinstance(data, (bytes, bytearray, memoryview)):
         raise TypeError("Input must be bytes-like")
     b = bytes(data)

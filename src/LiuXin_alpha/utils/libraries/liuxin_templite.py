@@ -2,7 +2,15 @@
 # -*- coding: utf-8 -*-
 
 """
-Small template engine used by legacy conversion templates.
+Compile and render small text templates with explicit context lookup.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise liuxin templite through a consuming regression::
+
+        python -m pytest -q tests/scripts/test_docstring_migration.py
 """
 
 from __future__ import annotations
@@ -14,9 +22,31 @@ from LiuXin_alpha.utils.localization import trans as _
 
 
 class Templite(object):
+    """
+    Provide the Templite utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise Templite through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_docstring_migration.py
+    """
     auto_emit = re.compile(r"(^['\"])|(^[a-zA-Z0-9_\[\]'\"]+$)")
 
     def __init__(self, template, start="${", end="}$"):
+        """
+        Initialize and validate the Templite state.
+
+        Example:
+            Exercise Templite.  init   through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+        :param template: Template expression parsed or evaluated.
+        :param start: Value supplied for start under the utility contract.
+        :param end: Value supplied for end under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         if len(start) != 2 or len(end) != 2:
             raise ValueError("each delimiter must be two characters long")
         delimiter = re.compile("%s(.*?)%s" % (re.escape(start), re.escape(end)), re.DOTALL)
@@ -54,6 +84,20 @@ class Templite(object):
         self.__code = compile("\n".join(tokens), "<templite %r>" % template[:20], "exec")
 
     def render(self, __namespace=None, **kw):
+        """
+        Perform the render utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise Templite.render through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+        :param __namespace: Value supplied for namespace under the utility contract.
+        :param kw: Value supplied for kw under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         namespace = {"_": _}
         if __namespace:
             namespace.update(__namespace)
@@ -69,5 +113,18 @@ class Templite(object):
         return "".join(self.__output)
 
     def write(self, *args):
+        """
+        Forward the write operation while preserving adapter ownership rules.
+
+        Example:
+            Exercise Templite.write through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for a in args:
             self.__output.append(str(a))

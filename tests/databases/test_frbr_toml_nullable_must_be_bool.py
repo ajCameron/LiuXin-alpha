@@ -1,7 +1,14 @@
-"""Regression: TOML `nullable` must be a *real* bool.
+"""
+Reject string-valued nullable settings in interlink and intralink TOML.
 
-We intentionally refuse stringly-typed values like "true"/"false" for the `nullable` key,
-so schema semantics can't silently flip via Python truthiness.
+Writes temporary specs and redirects the generator through pytest patches. These
+cases use in-memory connections without explicit close calls and exercise parser
+entry points rather than a complete build.
+
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/test_frbr_toml_nullable_must_be_bool.py
 """
 
 from __future__ import annotations
@@ -13,6 +20,23 @@ import pytest
 
 @pytest.mark.usefixtures("tmp_path")
 def test_interlinks_nullable_rejects_string(monkeypatch, tmp_path):
+    """
+    Reject nullable set to the string false during interlink input sanity checks.
+
+    Requires TypeError identifying entry zero and the TOML-boolean requirement.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_toml_nullable_must_be_bool.py::test_interlinks_nullable_rejects_string
+
+
+    :param monkeypatch: Pytest patch fixture; restores replaced generator or lookup
+        attributes after the test.
+    :param tmp_path: Pytest-provided temporary directory for isolated database or TOML
+        files.
+    :return: None; failed expectations raise AssertionError.
+    """
     from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator_frbr import database_generator as dg
 
     # Point the generator at our temporary TOML spec directory.
@@ -38,6 +62,24 @@ nullable = "false"
 
 @pytest.mark.usefixtures("tmp_path")
 def test_intralinks_nullable_rejects_string(monkeypatch, tmp_path):
+    """
+    Reject nullable set to the string false while reading requested intralinks.
+
+    Creates a minimal works table first so the test reaches nullable validation, then
+    checks the entry-zero diagnostic.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_toml_nullable_must_be_bool.py::test_intralinks_nullable_rejects_string
+
+
+    :param monkeypatch: Pytest patch fixture; restores replaced generator or lookup
+        attributes after the test.
+    :param tmp_path: Pytest-provided temporary directory for isolated database or TOML
+        files.
+    :return: None; failed expectations raise AssertionError.
+    """
     from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator_frbr import database_generator as dg
 
     monkeypatch.setattr(dg, "__folder__", str(tmp_path))

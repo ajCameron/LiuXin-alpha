@@ -1,3 +1,11 @@
+"""
+Check OPF metadata decoding, filesystem-only sidecar iteration, malformed XML fallback, and cover-path containment.
+
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_b4_opf_sidecar.py
+"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -11,6 +19,22 @@ from LiuXin_alpha.utils.calibre_compat.calibre_database_emulation import parse_m
 def _write_min_opf(path: Path) -> None:
     # A deliberately small OPF2-ish payload (Calibre sidecar style).
     # Use single quotes for JSON attributes to avoid XML escaping noise.
+    """
+    Write the fixed UTF-8 OPF fixture with core metadata and scalar, series, and multi-value custom metadata.
+
+    Example:
+        >>> import tempfile
+        >>> with tempfile.TemporaryDirectory() as directory:
+        ...     target = Path(directory) / 'metadata.opf'
+        ...     _write_min_opf(target)
+        ...     parsed = parse_metadata_opf(target)
+        ...     print(parsed.title, parsed.user_metadata['#mood'])
+        Test Book brooding
+
+
+    :param path: Destination metadata.opf path beneath an existing directory.
+    :return: None; overwrites the destination without creating parent directories.
+    """
     opf = """<?xml version="1.0" encoding="utf-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" unique-identifier="uuid_id" version="2.0">
   <metadata xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:opf="http://www.idpf.org/2007/opf">
@@ -37,6 +61,19 @@ def _write_min_opf(path: Path) -> None:
 
 
 def test_parse_metadata_opf_extracts_core_fields(tmp_path: Path) -> None:
+    """
+    Check OPF title, ordered authors/tags/languages, series, rating, and three custom-value shapes.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_b4_opf_sidecar.py::test_parse_metadata_opf_extracts_core_fields
+
+
+    :param tmp_path: Pytest-provided temporary directory for isolated database and
+        fixture files.
+    :return: None; failed expectations raise AssertionError.
+    """
     opf_path = tmp_path / "metadata.opf"
     _write_min_opf(opf_path)
 
@@ -58,6 +95,19 @@ def test_parse_metadata_opf_extracts_core_fields(tmp_path: Path) -> None:
 
 def test_sidecar_reader_streams_without_metadata_db(tmp_path: Path) -> None:
     # Create a minimal Calibre-ish folder layout.
+    """
+    Create OPF, cover, and EPUB files without metadata.db and check one payload with a synthetic-ID warning and discovered file references.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_b4_opf_sidecar.py::test_sidecar_reader_streams_without_metadata_db
+
+
+    :param tmp_path: Pytest-provided temporary directory for isolated database and
+        fixture files.
+    :return: None; failed expectations raise AssertionError.
+    """
     root = tmp_path / "Library"
     book_dir = root / "Ada Lovelace" / "Test Book (1)"
     book_dir.mkdir(parents=True)
@@ -77,6 +127,19 @@ def test_sidecar_reader_streams_without_metadata_db(tmp_path: Path) -> None:
 
 
 def test_sidecar_reader_best_effort_on_mangled_xml(tmp_path: Path) -> None:
+    """
+    Write malformed OPF XML and check sidecar iteration yields one payload using the book-folder name as its title.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_b4_opf_sidecar.py::test_sidecar_reader_best_effort_on_mangled_xml
+
+
+    :param tmp_path: Pytest-provided temporary directory for isolated database and
+        fixture files.
+    :return: None; failed expectations raise AssertionError.
+    """
     root = tmp_path / "Library"
     book_dir = root / "Someone" / "Broken (2)"
     book_dir.mkdir(parents=True)
@@ -91,6 +154,19 @@ def test_sidecar_reader_best_effort_on_mangled_xml(tmp_path: Path) -> None:
 
 
 def test_open_cover_guardrail(tmp_path: Path) -> None:
+    """
+    Check opening a cover outside the library root raises CalibreUnsafePathError.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_b4_opf_sidecar.py::test_open_cover_guardrail
+
+
+    :param tmp_path: Pytest-provided temporary directory for isolated database and
+        fixture files.
+    :return: None; failed expectations raise AssertionError.
+    """
     root = tmp_path / "Library"
     root.mkdir()
     outside = tmp_path / "outside.jpg"

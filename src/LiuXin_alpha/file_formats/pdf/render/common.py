@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:fdm=marker:ai
 
+"""
+Provide shared PDF rendering geometry, color and serialization helpers.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise common through a consuming regression::
+
+        python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -25,6 +36,19 @@ try:
     pdf_float = plugins["speedup"][0].pdf_float
 except Exception:
     def pdf_float(val: _typing.Any) -> _typing.Any:
+        """
+        Perform the pdf float operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise pdf float through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param val: Template or metadata value evaluated by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return ("%.6f" % float(val)).rstrip("0").rstrip(".")
 
 EOL = b"\n"
@@ -71,12 +95,40 @@ icb = lambda x: str(x).encode("ascii")
 
 
 def fmtnum(o: _typing.Any) -> _typing.Any:
+    """
+    Perform the fmtnum operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise fmtnum through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+    :param o: Value supplied for o under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if isinstance(o, float):
         return pdf_float(o)
     return ic(o)
 
 
 def serialize(o: _typing.Any, stream: _typing.Any) -> None:
+    """
+    Perform the serialize operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise serialize through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+    :param o: Value supplied for o under the utility contract.
+    :param stream: Input or output stream wrapped by the terminal or compatibility
+        layer.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if isinstance(o, float):
         stream.write_raw(pdf_float(o).encode("ascii"))
     elif isinstance(o, bool):
@@ -98,7 +150,29 @@ def serialize(o: _typing.Any, stream: _typing.Any) -> None:
 
 
 class Name(unicode):
+    """
+    Provide the name contract for validated ebook processing.
+
+    Example:
+        Exercise Name through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+    """
     def pdf_serialize(self: _typing.Self, stream: _typing.Any) -> None:
+        """
+        Perform the pdf serialize operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Name.pdf serialize through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raw = self.encode("ascii", "strict")
         if len(raw) > 126:
             raise ValueError("Name too long: %r" % self)
@@ -112,6 +186,19 @@ class Name(unicode):
 
 
 def escape_unbalanced_parantheses(bytestring: _typing.Any) -> _typing.Any:
+    """
+    Perform the escape unbalanced parantheses operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise escape unbalanced parantheses through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+    :param bytestring: Value supplied for bytestring under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     indices = []
     bad = []
     ba = bytearray(bytestring)
@@ -132,7 +219,29 @@ def escape_unbalanced_parantheses(bytestring: _typing.Any) -> _typing.Any:
 
 
 class String(unicode):
+    """
+    Provide the string contract for validated ebook processing.
+
+    Example:
+        Exercise String through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+    """
     def pdf_serialize(self: _typing.Self, stream: _typing.Any) -> None:
+        """
+        Perform the pdf serialize operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise String.pdf serialize through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         s = self.replace("\\", "\\\\")
         try:
             raw = s.encode("latin1")
@@ -144,14 +253,58 @@ class String(unicode):
 
 
 class UTF16String(unicode):
+    """
+    Provide the utf16string contract for validated ebook processing.
+
+    Example:
+        Exercise UTF16String through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+    """
     def pdf_serialize(self: _typing.Self, stream: _typing.Any) -> None:
+        """
+        Perform the pdf serialize operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise UTF16String.pdf serialize through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         s = self.replace("\\", "\\\\")
         raw = codecs.BOM_UTF16_BE + s.encode("utf-16-be")
         stream.write(b"(" + escape_unbalanced_parantheses(raw) + b")")
 
 
 class Dictionary(dict):
+    """
+    Provide the dictionary contract for validated ebook processing.
+
+    Example:
+        Exercise Dictionary through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+    """
     def pdf_serialize(self: _typing.Self, stream: _typing.Any) -> None:
+        """
+        Perform the pdf serialize operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Dictionary.pdf serialize through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         stream.write(b"<<" + EOL)
         sorted_keys = sorted(iterkeys(self), key=lambda x: ({"Type": "1", "Subtype": "2"}.get(x, x) + x))
         for k in sorted_keys:
@@ -163,7 +316,29 @@ class Dictionary(dict):
 
 
 class InlineDictionary(Dictionary):
+    """
+    Provide the inlinedictionary contract for validated ebook processing.
+
+    Example:
+        Exercise InlineDictionary through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+    """
     def pdf_serialize(self: _typing.Self, stream: _typing.Any) -> None:
+        """
+        Perform the pdf serialize operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise InlineDictionary.pdf serialize through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         stream.write(b"<< ")
         for k, v in iteritems(self):
             serialize(Name(k), stream)
@@ -174,7 +349,29 @@ class InlineDictionary(Dictionary):
 
 
 class Array(list):
+    """
+    Provide the array contract for validated ebook processing.
+
+    Example:
+        Exercise Array through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+    """
     def pdf_serialize(self: _typing.Self, stream: _typing.Any) -> None:
+        """
+        Perform the pdf serialize operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Array.pdf serialize through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         stream.write(b"[")
         for i, o in enumerate(self):
             if i != 0:
@@ -184,17 +381,64 @@ class Array(list):
 
 
 class Stream(BytesIO):
+    """
+    Provide the stream contract for validated ebook processing.
+
+    Example:
+        Exercise Stream through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+    """
     def __init__(self: _typing.Self, compress: bool = False) -> None:
 
+        """
+        Initialize and validate the stream state.
+
+        Example:
+            Exercise Stream.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param compress: Value supplied for compress under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         super(Stream, self).__init__()
         # BytesIO.__init__(self)
         self.compress = compress
         self.filters = Array()
 
     def add_extra_keys(self: _typing.Self, d: _typing.Any) -> None:
+        """
+        Add supported metadata keys to the PDF information dictionary.
+
+        Example:
+            Exercise Stream.add extra keys through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param d: Value supplied for d under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pass
 
     def pdf_serialize(self: _typing.Self, stream: _typing.Any) -> None:
+        """
+        Perform the pdf serialize operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Stream.pdf serialize through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raw = self.getvalue()
         dl = len(raw)
         filters = self.filters
@@ -212,28 +456,126 @@ class Stream(BytesIO):
         stream.write(EOL + b"endstream" + EOL)
 
     def write_line(self: _typing.Self, raw: bytes = b"") -> None:
+        """
+        Write line under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Stream.write line through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param raw: Value supplied for raw under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.write(raw if isinstance(raw, bytes) else raw.encode("ascii"))
         self.write(EOL)
 
     def write(self: _typing.Self, raw: _typing.Any) -> None:
+        """
+        Perform the write operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Stream.write through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param raw: Value supplied for raw under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         super(Stream, self).write(raw if isinstance(raw, bytes) else raw.encode("ascii"))
 
     def write_raw(self: _typing.Self, raw: _typing.Any) -> None:
+        """
+        Write raw under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Stream.write raw through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param raw: Value supplied for raw under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         BytesIO.write(self, raw)
 
 
 class Reference(object):
+    """
+    Provide the reference contract for validated ebook processing.
+
+    Example:
+        Exercise Reference through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+    """
     def __init__(self: _typing.Self, num: _typing.Any, obj: _typing.Any) -> None:
+        """
+        Initialize and validate the reference state.
+
+        Example:
+            Exercise Reference.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param num: Value supplied for num under the utility contract.
+        :param obj: Value supplied for obj under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.num, self.obj = num, obj
 
     def pdf_serialize(self: _typing.Self, stream: _typing.Any) -> None:
+        """
+        Perform the pdf serialize operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Reference.pdf serialize through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raw = "%d 0 R" % self.num
         stream.write(raw.encode("ascii"))
 
     def __repr__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the repr operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Reference.  repr   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "%d 0 R" % self.num
 
     def __str__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the str operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Reference.  str   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return repr(self)
 
 

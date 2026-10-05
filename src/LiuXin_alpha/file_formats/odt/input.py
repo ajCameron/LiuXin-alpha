@@ -1,3 +1,14 @@
+"""
+Convert ODT packages into normalized OEB content and resources.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise input through a consuming regression::
+
+        python -m pytest -q tests/file_formats/odt/test_odt_container_framework.py
+"""
 from __future__ import with_statement
 from __future__ import annotations
 
@@ -20,6 +31,14 @@ except ModuleNotFoundError:
     parseString = None
 
     class CSSRule:  # type: ignore[no-redef]
+        """
+        Provide the cssrule contract for validated ebook processing.
+
+        Example:
+            Exercise CSSRule through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odt/test_odt_container_framework.py
+        """
         STYLE_RULE = 1
 
 from LiuXin_alpha.file_formats.odf.draw import Frame as odFrame, Image as odImage
@@ -42,6 +61,14 @@ __docformat__ = "restructuredtext en"
 
 
 class Extract(ODF2XHTML):
+    """
+    Provide the extract contract for validated ebook processing.
+
+    Example:
+        Exercise Extract through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odt/test_odt_container_framework.py
+    """
     required_members = ("META-INF/manifest.xml", "meta.xml", "content.xml")
     max_archive_members = 4096
     max_member_uncompressed_size = 256 * 1024 * 1024
@@ -50,6 +77,20 @@ class Extract(ODF2XHTML):
     min_compression_ratio_check_size = 1024 * 1024
 
     def validate_container_members(self: _typing.Self, stream: _typing.Any) -> None:
+        """
+        Validate container members under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Extract.validate container members through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odt/test_odt_container_framework.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
 
         stream.seek(0)
@@ -79,6 +120,19 @@ class Extract(ODF2XHTML):
             stream.seek(0)
 
     def extract_pictures(self: _typing.Self, zf: _typing.Any) -> None:
+        """
+        Extract pictures under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Extract.extract pictures through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odt/test_odt_container_framework.py
+
+
+        :param zf: Value supplied for zf under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if not os.path.exists("Pictures"):
             os.makedirs("Pictures")
         pictures_root = os.path.abspath("Pictures")
@@ -102,6 +156,20 @@ class Extract(ODF2XHTML):
                 f.write(data)
 
     def fix_markup(self: _typing.Self, html: _typing.Any, log: _typing.Any) -> _typing.Any:
+        """
+        Perform the fix markup operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Extract.fix markup through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odt/test_odt_container_framework.py
+
+
+        :param html: Value supplied for html under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         root = etree.fromstring(html)
         self.filter_css(root, log)
         self.extract_css(root, log)
@@ -112,6 +180,20 @@ class Extract(ODF2XHTML):
         return html
 
     def extract_css(self: _typing.Self, root: _typing.Any, log: _typing.Any) -> None:
+        """
+        Extract css under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Extract.extract css through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odt/test_odt_container_framework.py
+
+
+        :param root: Root directory that bounds path resolution or traversal.
+        :param log: Value supplied for log under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         ans = []
         for s in root.xpath('//*[local-name() = "style" and @type="text/css"]'):
             ans.append(s.text)
@@ -141,6 +223,19 @@ class Extract(ODF2XHTML):
             f.write(css.encode("utf-8"))
 
     def get_css_for_class(self: _typing.Self, cls: _typing.Any) -> _typing.Any:
+        """
+        Return css for class under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Extract.get css for class through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odt/test_odt_container_framework.py
+
+
+        :param cls: Value supplied for cls under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not cls:
             return None
         if self.css is None:
@@ -152,6 +247,20 @@ class Extract(ODF2XHTML):
                     return rule
 
     def epubify_markup(self: _typing.Self, root: _typing.Any, log: _typing.Any) -> None:
+        """
+        Perform the epubify markup operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Extract.epubify markup through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odt/test_odt_container_framework.py
+
+
+        :param root: Root directory that bounds path resolution or traversal.
+        :param log: Value supplied for log under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         from LiuXin_alpha.file_formats.oeb.base import XPath, XHTML
 
         # Fix empty title tags
@@ -233,6 +342,20 @@ class Extract(ODF2XHTML):
                 div2.attrib["style"] = "display:inline;" + style
 
     def filter_css(self: _typing.Self, root: _typing.Any, log: _typing.Any) -> None:
+        """
+        Perform the filter css operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Extract.filter css through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odt/test_odt_container_framework.py
+
+
+        :param root: Root directory that bounds path resolution or traversal.
+        :param log: Value supplied for log under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if CSSParser is None:
             return
         style = root.xpath('//*[local-name() = "style" and @type="text/css"]')
@@ -253,6 +376,19 @@ class Extract(ODF2XHTML):
                         x.set("class", orig + " " + " ".join(extra))
 
     def do_filter_css(self: _typing.Self, css: _typing.Any) -> tuple[_typing.Any, ...]:
+        """
+        Perform the do filter css operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Extract.do filter css through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odt/test_odt_container_framework.py
+
+
+        :param css: Value supplied for css under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if parseString is None:
             return css, {}
 
@@ -284,6 +420,20 @@ class Extract(ODF2XHTML):
         return css_text, sel_map
 
     def search_page_img(self: _typing.Self, mi: _typing.Any, log: _typing.Any) -> None:
+        """
+        Perform the search page img operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Extract.search page img through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odt/test_odt_container_framework.py
+
+
+        :param mi: Metadata object exposed to the template function.
+        :param log: Value supplied for log under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for frm in self.document.topnode.getElementsByType(odFrame):
             try:
                 if frm.getAttrNS(odTEXTNS, "anchor-type") == "page":
@@ -294,6 +444,20 @@ class Extract(ODF2XHTML):
 
     def filter_cover(self: _typing.Self, mi: _typing.Any, log: _typing.Any) -> None:
         # filter the Element tree (remove the detected cover)
+        """
+        Perform the filter cover operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Extract.filter cover through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odt/test_odt_container_framework.py
+
+
+        :param mi: Metadata object exposed to the template function.
+        :param log: Value supplied for log under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if mi.cover and mi.odf_cover_frame:
             for frm in self.document.topnode.getElementsByType(odFrame):
                 # search the right frame
@@ -317,12 +481,19 @@ class Extract(ODF2XHTML):
 
     def filter_load(self: _typing.Self, odffile: _typing.Any, mi: _typing.Any, log: _typing.Any) -> None:
         """
-        This is an adaption from ODF2XHTML. It adds a step between load and parse of the document where the Element
-        tree can be modified.
-        :param odffile:
-        :param mi:
-        :param log:
-        :return:
+        This is an adaption from ODF2XHTML. It adds a step between load and parse of the document where the Element tree can be modified.
+
+        Example:
+            Exercise Extract.filter load through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odt/test_odt_container_framework.py
+
+
+        :param odffile: Value supplied for odffile under the utility contract.
+        :param mi: Metadata object exposed to the template function.
+        :param log: Value supplied for log under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # first load the odf structure
         self.lines = []
@@ -341,6 +512,22 @@ class Extract(ODF2XHTML):
         self._walknode(self.document.topnode)
 
     def __call__(self: _typing.Self, stream: _typing.Any, odir: _typing.Any, log: _typing.Any) -> _typing.Any:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Extract.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odt/test_odt_container_framework.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param odir: Value supplied for odir under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.file_formats.opf.opf2 import OPFCreator
 
         from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile

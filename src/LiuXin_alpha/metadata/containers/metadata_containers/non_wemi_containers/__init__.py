@@ -1,4 +1,14 @@
-"""Concrete non-WEMI metadata main-table containers."""
+"""
+Export concrete non-WEMI row values and same-table tree relations.
+
+The facade exposes the shared row base, all registered main-table dataclasses and
+genre/subject/series relation helpers. These values can be built without opening a
+database.
+
+Example:
+    >>> LanguageRow(language="English").display_name
+    'English'
+"""
 
 from LiuXin_alpha.metadata.containers.metadata_containers.non_wemi_containers._row_base import (
     MetadataRowMapping,

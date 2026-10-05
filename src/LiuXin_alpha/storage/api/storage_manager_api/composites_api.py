@@ -1,5 +1,9 @@
 """
-Composite Digital Asset domain facade.
+Define Composite catalogue mutation, member resolution, and availability assessment.
+
+Operations retain the distinction between logical membership relationships and the
+atomic Assets/Replicas that carry bytes. Metadata changes do not assemble or delete
+member payloads.
 """
 
 import abc
@@ -18,56 +22,58 @@ from LiuXin_alpha.storage.api.storage_manager_api.models import (
 
 class CompositeDigitalAssetAPI(abc.ABC):
     """
-    Operations over ordered logical assemblies of atomic Assets.
+    Define catalogue and resolution operations for logical assemblies of atomic Assets.
 
-    Composite Assets do not directly contain bytes or own Replicas. Resolution
-    preserves each membership relationship and pairs it with a selected atomic
-    Asset and Replica.
+    Composites own membership relationships and metadata rather than direct Replica claims or byte
+    streams. Resolution pairs each available member relationship with an atomic selection,
+    preserving its role, labels, path, and position.
 
     Example:
-        >>> members = manager.resolve_composite_digital_asset(  # doctest: +SKIP
-        ...     CompositeDigitalAssetID(3),
-        ... )
+        >>> members = manager.resolve_composite_digital_asset(composite_id)  # doctest: +SKIP
     """
 
+    # Todo: Add the ability to make a compositie digital asset from a series of digital assets - it might be in convenience
+
+    # Todo: Again, less than elegant to have to declare and then call "declare_composite_digital_asset_from_declaration" can also exist
     @abc.abstractmethod
     def declare_composite_digital_asset(
         self,
         declaration: CompositeDigitalAssetDeclaration,
     ) -> CompositeDigitalAssetRecord:
         """
-        Register a new logical assembly and its ordered memberships.
+        Register a new logical assembly whose referenced atomic Assets must be known. This creates
+        Composite metadata without publishing or combining member bytes.
 
         Example:
-            >>> record = manager.declare_composite_digital_asset(  # doctest: +SKIP
-            ...     declaration,
-            ... )
+            >>> composite = manager.declare_composite_digital_asset(declaration)  # doctest: +SKIP
 
 
-        :param declaration:
-        :return:
+        :param declaration: Membership sequence, optional name, and attributes for the new Composite.
+        :return: New Composite record with its assigned identity and revision.
         """
         ...
 
+    # Todo: Also be good to get from a composite digital asset hash - which should exist
+    # Todo: That's a good idea! A composite digital asset hash - stores the file names and hashes for all the files
     @abc.abstractmethod
     def get_composite_digital_asset_record(
         self,
         composite_digital_asset_id: CompositeDigitalAssetID,
     ) -> CompositeDigitalAssetRecord:
         """
-        Return one Composite record or raise ``CompositeDigitalAssetNotFound``.
+        Resolve a Composite catalogue identity or raise CompositeDigitalAssetNotFound without
+        probing member availability.
 
         Example:
-            >>> record = manager.get_composite_digital_asset_record(  # doctest: +SKIP
-            ...     CompositeDigitalAssetID(3),
-            ... )
+            >>> composite = manager.get_composite_digital_asset_record(composite_id)  # doctest: +SKIP
 
 
-        :param composite_digital_asset_id:
-        :return:
+        :param composite_digital_asset_id: Manager-assigned Composite identity to resolve.
+        :return: Registered Composite record for the requested identity.
         """
         ...
 
+    # Todo: Also be good to have methods to update individual asset properties
     @abc.abstractmethod
     def replace_composite_digital_asset(
         self,
@@ -77,18 +83,20 @@ class CompositeDigitalAssetAPI(abc.ABC):
         if_revision: str | None = None,
     ) -> CompositeDigitalAssetRecord:
         """
-        Replace Composite metadata and membership atomically in metadata.
+        Replace the full membership and descriptive metadata while retaining the Composite identity.
+
+        An optional revision guards stale updates. The implementation owns metadata transaction
+        guarantees and validates referenced Assets; replacing membership does not move, delete, or
+        concatenate member bytes.
 
         Example:
-            >>> record = manager.replace_composite_digital_asset(  # doctest: +SKIP
-            ...     CompositeDigitalAssetID(3), declaration, if_revision="v2",
-            ... )
+            >>> updated = manager.replace_composite_digital_asset(composite_id, declaration, if_revision=composite.revision)  # doctest: +SKIP
 
 
-        :param composite_digital_asset_id:
-        :param declaration:
-        :param if_revision:
-        :return:
+        :param composite_digital_asset_id: Manager-assigned Composite identity to resolve.
+        :param declaration: Complete replacement membership and descriptive metadata.
+        :param if_revision: Expected current revision, or None to omit the optimistic precondition.
+        :return: Replacement Composite record with the retained identity and resulting revision.
         """
         ...
 
@@ -97,15 +105,13 @@ class CompositeDigitalAssetAPI(abc.ABC):
         self,
     ) -> Iterator[CompositeDigitalAssetRecord]:
         """
-        Iterate over known Composite Digital Asset records.
+        Iterate registered Composite records without resolving their members. Ordering and snapshot
+        guarantees belong to the implementation.
 
         Example:
-            >>> records = list(  # doctest: +SKIP
-            ...     manager.iter_composite_digital_asset_records(),
-            ... )
+            >>> composites = tuple(manager.iter_composite_digital_asset_records())  # doctest: +SKIP
 
-
-        :return:
+        :return: Iterator of known Composite catalogue records.
         """
         ...
 
@@ -118,21 +124,24 @@ class CompositeDigitalAssetAPI(abc.ABC):
         if_revision: str | None = None,
     ) -> bool:
         """
-        Forget a Composite identity without deleting member Assets.
+        Forget Composite metadata without deleting its atomic members or their bytes.
+
+        The default requires the Composite to have no protected links or provenance references.
+        Waiving that check does not imply cascading removal of referencing metadata; persistence
+        constraints may still apply.
 
         Example:
-            >>> forgotten = manager.forget_composite_digital_asset(  # doctest: +SKIP
-            ...     CompositeDigitalAssetID(3), require_unlinked=True,
-            ... )
+            >>> removed = manager.forget_composite_digital_asset(composite_id, if_revision=composite.revision)  # doctest: +SKIP
 
 
-        :param composite_digital_asset_id:
-        :param require_unlinked:
-        :param if_revision:
-        :return:
+        :param composite_digital_asset_id: Manager-assigned Composite identity to resolve.
+        :param require_unlinked: Whether existing Item/provenance references must prevent forgetting.
+        :param if_revision: Expected current revision, or None to omit the optimistic precondition.
+        :return: True after removal, or False for an absent identity; revision, reference, and repository errors can propagate.
         """
         ...
 
+    # Todo: There should be a better container for an entire composite digit asset....
     @abc.abstractmethod
     def resolve_composite_digital_asset(
         self,
@@ -142,20 +151,20 @@ class CompositeDigitalAssetAPI(abc.ABC):
         require_verified: bool = False,
     ) -> tuple[CompositeDigitalAssetMemberResolution, ...]:
         """
-        Resolve required members without discarding names, paths or roles.
+        Resolve available members while preserving their complete relationship metadata.
 
-        Missing required members raise ``CompositeDigitalAssetIncomplete``.
+        Unavailable optional members may be omitted; an unavailable required member raises
+        CompositeDigitalAssetIncomplete. Returned selections describe observed routing choices
+        rather than open readers or a lasting availability guarantee.
 
         Example:
-            >>> resolved = manager.resolve_composite_digital_asset(  # doctest: +SKIP
-            ...     CompositeDigitalAssetID(3), require_verified=True,
-            ... )
+            >>> members = manager.resolve_composite_digital_asset(composite_id, require_verified=True)  # doctest: +SKIP
 
 
-        :param composite_digital_asset_id:
-        :param preferred_store_ref:
-        :param require_verified:
-        :return:
+        :param composite_digital_asset_id: Manager-assigned Composite identity to resolve.
+        :param preferred_store_ref: Optional Store UUID to prefer without excluding eligible copies elsewhere.
+        :param require_verified: Whether selection requires a recorded VERIFIED state; this flag does not itself request fresh digest verification.
+        :return: Tuple of available member resolutions in the implementation's delivery order, provided required members resolve.
         """
         ...
 
@@ -165,16 +174,18 @@ class CompositeDigitalAssetAPI(abc.ABC):
         composite_digital_asset_id: CompositeDigitalAssetID,
     ) -> CompositeDigitalAssetAvailabilityAssessment:
         """
-        Assess membership completeness and current readability.
+        Assess required-member catalogue presence and Replica selection without exporting bytes.
+
+        Optional members need not affect readability. Counts and diagnostics represent the
+        observations made by the implementation; they are not an atomic snapshot across repositories
+        and Stores.
 
         Example:
-            >>> assessment = manager.assess_composite_digital_asset(  # doctest: +SKIP
-            ...     CompositeDigitalAssetID(3),
-            ... )
+            >>> assessment = manager.assess_composite_digital_asset(composite_id)  # doctest: +SKIP
 
 
-        :param composite_digital_asset_id:
-        :return:
+        :param composite_digital_asset_id: Manager-assigned Composite identity to resolve.
+        :return: Required-member availability counts and missing/error diagnostics.
         """
         ...
 

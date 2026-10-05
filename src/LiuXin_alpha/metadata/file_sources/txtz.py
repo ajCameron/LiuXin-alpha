@@ -1,5 +1,13 @@
 """
-Read/write metadata from TXTZ archives.
+Read and update TXTZ metadata with embedded OPF, plain-text and cover fallbacks.
+
+The module keeps malformed-input, optional dependency and resource ownership
+behavior explicit for registry callers.
+
+Example:
+    Exercise txtz with pytest::
+
+        python -m pytest -q tests/metadata/file_sources/test_txtz_metadata_source.py
 """
 
 from __future__ import annotations
@@ -9,11 +17,13 @@ import os
 import posixpath
 from collections.abc import Iterable
 
+from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
+    CalibreLikeLiuXinBookMetaData as MetaInformation,
+)
 from LiuXin_alpha.metadata.file_sources.extz import ExtzFormatError
 from LiuXin_alpha.metadata.file_sources.extz import get_metadata as extz_get_metadata
 from LiuXin_alpha.metadata.file_sources.extz import set_metadata as extz_set_metadata
 from LiuXin_alpha.metadata.file_sources.txt import get_metadata as txt_get_metadata
-from LiuXin_alpha.metadata.metadata import MetaData as MetaInformation
 from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.logging import default_log
@@ -26,6 +36,18 @@ _COVER_EXTENSIONS = {"jpg", "jpeg", "png", "webp", "gif", "bmp"}
 
 
 def _values(raw):
+    """
+    Perform the format-specific values operation used by this metadata source.
+
+    Example:
+        Exercise  values with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_txtz_metadata_source.py
+
+
+    :param raw: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or serialized value described above.
+    """
     if raw is None:
         return []
     if isinstance(raw, dict):
@@ -39,16 +61,52 @@ def _values(raw):
 
 
 def _first(raw):
+    """
+    Return the first usable first under fallback policy.
+
+    Example:
+        Exercise  first with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_txtz_metadata_source.py
+
+
+    :param raw: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or serialized value described above.
+    """
     vals = _values(raw)
     return vals[0] if vals else None
 
 
 def _title_is_unknown(md) -> bool:
+    """
+    Perform the format-specific title is unknown operation used by this metadata source.
+
+    Example:
+        Exercise  title is unknown with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_txtz_metadata_source.py
+
+
+    :param md: Metadata object supplying or receiving the supported fields.
+    :return: Parsed, normalized or serialized value described above.
+    """
     title = str(_first(getattr(md, "title", None)) or "").strip()
     return title == "" or title.lower() == "unknown"
 
 
 def _authors_are_unknown(md) -> bool:
+    """
+    Perform the format-specific authors are unknown operation used by this metadata source.
+
+    Example:
+        Exercise  authors are unknown with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_txtz_metadata_source.py
+
+
+    :param md: Metadata object supplying or receiving the supported fields.
+    :return: Parsed, normalized or serialized value described above.
+    """
     authors = [str(x).strip() for x in _values(getattr(md, "authors", None)) if str(x).strip()]
     if not authors:
         return True
@@ -56,6 +114,18 @@ def _authors_are_unknown(md) -> bool:
 
 
 def _clear_default_authors(md) -> None:
+    """
+    Clear default authors while keeping shared state coherent.
+
+    Example:
+        Exercise  clear default authors with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_txtz_metadata_source.py
+
+
+    :param md: Metadata object supplying or receiving the supported fields.
+    :return: None.
+    """
     try:
         raw_data = object.__getattribute__(md, "_data")
     except Exception:
@@ -70,6 +140,19 @@ def _clear_default_authors(md) -> None:
 
 
 def _set_authors(md, authors: Iterable[str]) -> None:
+    """
+    Set authors while preserving unrelated metadata state.
+
+    Example:
+        Exercise  set authors with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_txtz_metadata_source.py
+
+
+    :param md: Metadata object supplying or receiving the supported fields.
+    :param authors: Ordered input values processed by this operation.
+    :return: None.
+    """
     vals = [str(x).strip() for x in authors if str(x).strip()]
     if not vals:
         return
@@ -85,6 +168,19 @@ def _set_authors(md, authors: Iterable[str]) -> None:
 
 
 def _source_name(target_file) -> str:
+    """
+    Return the best available source label for fallback titles and diagnostics.
+
+    Example:
+        Exercise  source name with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_txtz_metadata_source.py
+
+
+    :param target_file: Caller-supplied path, path-like object or stream described by
+        this operation.
+    :return: Parsed, normalized or serialized value described above.
+    """
     if isinstance(target_file, os.PathLike):
         return os.fspath(target_file)
     if isinstance(target_file, str):
@@ -93,6 +189,20 @@ def _source_name(target_file) -> str:
 
 
 def _safe_seek(stream, pos: int | None) -> None:
+    """
+    Perform seek without propagating optional or recovery failures.
+
+    Example:
+        Exercise  safe seek with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_txtz_metadata_source.py
+
+
+    :param stream: Caller-supplied path, path-like object or stream described by this
+        operation.
+    :param pos: Offset, bound or scalar value used by the operation.
+    :return: None.
+    """
     if pos is None or not hasattr(stream, "seek"):
         return
     try:
@@ -102,6 +212,19 @@ def _safe_seek(stream, pos: int | None) -> None:
 
 
 def _read_source_bytes(target_file) -> tuple[bytes, str]:
+    """
+    Read the complete source payload from bytes, a path or a stream and restore a caller-owned stream position when available.
+
+    Example:
+        Exercise  read source bytes with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_txtz_metadata_source.py
+
+
+    :param target_file: Caller-supplied path, path-like object or stream described by
+        this operation.
+    :return: Parsed, normalized or serialized value described above.
+    """
     source_name = _source_name(target_file)
 
     if isinstance(target_file, os.PathLike):
@@ -135,10 +258,33 @@ def _read_source_bytes(target_file) -> tuple[bytes, str]:
 
 
 def _fallback_metadata() -> MetaInformation:
+    """
+    Build minimally usable metadata for missing or explicitly tolerated malformed input.
+
+    Example:
+        Exercise  fallback metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_txtz_metadata_source.py
+
+
+    :return: Parsed, normalized or serialized value described above.
+    """
     return MetaInformation(_("Unknown"), [_("Unknown")])
 
 
 def _txt_member_key(name: str) -> tuple[int, int, str]:
+    """
+    Return the deterministic preference key used to select a TXT member from TXTZ.
+
+    Example:
+        Exercise  txt member key with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_txtz_metadata_source.py
+
+
+    :param name: Name, type or encoding selector used for lookup or interpretation.
+    :return: Parsed, normalized or serialized value described above.
+    """
     norm = name.replace("\\", "/").lstrip("./")
     base = posixpath.basename(norm).lower()
     pri = {"index.txt": 0, "book.txt": 1, "text.txt": 2}.get(base, 10)
@@ -146,6 +292,19 @@ def _txt_member_key(name: str) -> tuple[int, int, str]:
 
 
 def _find_txt_member(zf: ZipFile) -> str | None:
+    """
+    Return the preferred plain-text member from an open TXTZ archive.
+
+    Example:
+        Exercise  find txt member with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_txtz_metadata_source.py
+
+
+    :param zf: Open container used for member lookup and reads; ownership remains with
+        the caller.
+    :return: Parsed, normalized or serialized value described above.
+    """
     candidates = [name for name in zf.namelist() if str(name).lower().endswith(".txt")]
     if not candidates:
         return None
@@ -153,6 +312,19 @@ def _find_txt_member(zf: ZipFile) -> str | None:
 
 
 def _find_cover_member(zf: ZipFile) -> str | None:
+    """
+    Return the preferred conventional cover member from an open TXTZ archive.
+
+    Example:
+        Exercise  find cover member with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_txtz_metadata_source.py
+
+
+    :param zf: Open container used for member lookup and reads; ownership remains with
+        the caller.
+    :return: Parsed, normalized or serialized value described above.
+    """
     candidates = []
     for name in zf.namelist():
         norm = str(name).replace("\\", "/").lstrip("./")
@@ -172,6 +344,21 @@ def _find_cover_member(zf: ZipFile) -> str | None:
 
 
 def _fallback_from_txt_member(target_file, md, *, extract_cover: bool) -> bool:
+    """
+    Fill missing metadata and optional cover data from TXTZ members.
+
+    Example:
+        Exercise  fallback from txt member with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_txtz_metadata_source.py
+
+
+    :param target_file: Caller-supplied path, path-like object or stream described by
+        this operation.
+    :param md: Metadata object supplying or receiving the supported fields.
+    :param extract_cover: Request cover discovery or cover payload extraction when true.
+    :return: Parsed, normalized or serialized value described above.
+    """
     found_metadata_source = False
     try:
         raw, source_name = _read_source_bytes(target_file)
@@ -210,7 +397,20 @@ def _fallback_from_txt_member(target_file, md, *, extract_cover: bool) -> bool:
 
 def get_metadata(target_file, extract_cover: bool = True, *, fallback_on_parse_error: bool = False):
     """
-    Read TXTZ metadata. Prefer OPF/EXTZ metadata; fall back to embedded .txt parsing.
+    Read metadata from the supported path, bytes or stream input while applying module ownership and fallback policy.
+
+    Example:
+        Exercise get metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_txtz_metadata_source.py
+
+
+    :param target_file: Caller-supplied path, path-like object or stream described by
+        this operation.
+    :param extract_cover: Request cover discovery or cover payload extraction when true.
+    :param fallback_on_parse_error: Return safe default metadata after parse errors when
+        true; otherwise raise the format error.
+    :return: Parsed, normalized or serialized value described above.
     """
     try:
         md = extz_get_metadata(target_file, extract_cover=extract_cover)
@@ -229,7 +429,18 @@ def get_metadata(target_file, extract_cover: bool = True, *, fallback_on_parse_e
 
 def set_metadata(target_file, mi):
     """
-    Write TXTZ metadata via the EXTZ writer.
+    Rewrite supported metadata fields without taking ownership of a caller-supplied stream.
+
+    Example:
+        Exercise set metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_txtz_metadata_source.py
+
+
+    :param target_file: Caller-supplied path, path-like object or stream described by
+        this operation.
+    :param mi: Metadata object supplying or receiving the supported fields.
+    :return: None.
     """
     return extz_set_metadata(target_file, mi)
 

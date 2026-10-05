@@ -1,6 +1,6 @@
 
 """
-Allows generating, getting e.t.c. table names.
+Resolve conventional SQL column names and validate names against the driver schema.
 """
 
 import re
@@ -19,27 +19,42 @@ from LiuXin_alpha.utils.logging import default_log
 
 class TableNamesMixin:
     """
-    Methods to generate names of columns, tables, e.t.c.
+    Provide schema-based ID, display, timestamp and tree-column discovery.
+
+    Several choices are naming heuristics rather than SQLite constraint inspection.
+
+    Example:
+        ``driver.direct_get_id_column("books")`` chooses the conventional ID heading.
     """
 
     # Todo: To driver base class
     @ staticmethod
     def direct_get_column_name(table_name: str) -> str:
         """
-        Return a column name for the given table name - just takes the singular form of the table name,
+        Map a plural table name to its conventional singular column base.
 
-        :param table_name:
-        :return:
+        Example:
+            >>> TableNamesMixin.direct_get_column_name("books")
+            'book'
+
+
+        :param table_name: Table name used by the naming convention or schema lookup.
+        :return: The pluralizer's singular form.
         """
         return plural_singular_mapper(table_name)
 
     def direct_validate_existing_table_name(self, test_name):
         """
-        Test to see if a candidate table name is valid (contains no SQL control characters).
+        Check a trimmed name against cached tables and selected symmetric wrappers.
 
-        Intended to help with SQL injection attack proofing. Should be spread to all columns as well.
-        :param test_name:
-        :return True/False:
+        Reject semicolon, colon and ampersand. Accept bare names or backtick, backslash, percent and underscore wrappers; this tests existing-name membership and does not guarantee accepted wrappers are valid SQL syntax.
+
+        Example:
+            ``driver.direct_validate_existing_table_name("`books`")`` succeeds when books is known.
+
+
+        :param test_name: Candidate coerced to Unicode; decoding failure raises InputIntegrityError.
+        :return: Whether the name matches an accepted existing-table spelling.
         """
         # If the name matches a pre-existing one it is automatically valid (this function is used to validate input)
         # Not to validate potential new table names.
@@ -84,15 +99,17 @@ class TableNamesMixin:
             table: str,
             tables_and_columns: Optional[dict[str, list[str]]] = None) -> str:
         """
-        Every table in the database should have an id column - this function returns it.
+        Choose literal id, otherwise the shortest heading ending in _id.
 
-        Currently, assumes that
-         - there is a column with a name ending in "id"
-          - if this is true for multiple rows the shortest string ending in "id" is the id column.
-        Should be tested every time a new column/table is added
-        :param table:
-        :param tables_and_columns:
-        :return:
+        Length ties preserve schema order. Unknown tables or absent candidates raise InputIntegrityError; this does not inspect primary-key constraints.
+
+        Example:
+            ``driver.direct_get_id_column("books")`` selects book_id when no literal id column exists.
+
+
+        :param table: Existing table name used for schema lookup.
+        :param tables_and_columns: Accepted but ignored; the current schema mapping is always fetched.
+        :return: The selected ID column name.
         """
 
         table = force_unicode(table)
@@ -133,11 +150,17 @@ class TableNamesMixin:
             table: str,
             tables_and_columns: Optional[dict[str, list[str]]] = None) -> str:
         """
-        Return the id column for a given table.
+        Choose literal datestamp, otherwise the shortest recognized timestamp heading.
 
-        :param table:
-        :param tables_and_columns:
-        :return:
+        Recognize _datestamp, _timestamp and their _ep_k variants. Unknown tables or absent candidates raise InputIntegrityError; ties preserve schema order.
+
+        Example:
+            ``driver.direct_get_datestamp_column("books")`` locates a conventional timestamp field.
+
+
+        :param table: Existing table name used for schema lookup.
+        :param tables_and_columns: Accepted but ignored; the current schema mapping is always fetched.
+        :return: The selected timestamp column name.
         """
         table = force_unicode(table)
         tables_and_columns = self.direct_get_tables_and_columns()
@@ -182,12 +205,18 @@ class TableNamesMixin:
             column_heading: str,
             headings_and_columns: Optional[dict[str, list[str]]] = None) -> str:
         """
-        Takes a column heading (and optionally a headings and columns dict). Works out the table it falls into.
+        Return the first table containing a column in the supplied or current mapping.
 
-        :param column_heading: Each column heading should be unique in the database
-        :param headings_and_columns: COMPLETELY SUPERFLUOUS
-        :param print_error: Will be replaced with LiuXin debug print
-        :return:
+        Ambiguity is resolved by mapping order; an unknown column raises InputIntegrityError.
+
+        Example:
+            >>> TableNamesMixin().direct_identify_table_from_column("book_id", {"books": ["book_id"]})
+            'books'
+
+
+        :param column_heading: Exact column heading to locate.
+        :param headings_and_columns: Optional table-to-column-list mapping; ``None`` reads the driver schema.
+        :return: The first matching table name.
         """
         if headings_and_columns is None:
             headings_and_columns_local = self.direct_get_tables_and_columns()
@@ -207,10 +236,16 @@ class TableNamesMixin:
 
     def direct_get_display_column(self, table_name: str) -> str:
         """
-        Gets the display column for a table (currently based off the shortest column which is not the id column).
+        Choose the shortest non-ID column without mutating the schema cache.
 
-        :param table_name:
-        :return display_column:
+        Ties preserve heading order. A table with no remaining columns raises DatabaseIntegrityError; the choice is a naming heuristic, not semantic metadata.
+
+        Example:
+            ``driver.direct_get_display_column("books")`` identifies the shortest non-ID heading.
+
+
+        :param table_name: Table name used by the naming convention or schema lookup.
+        :return: The selected display column name.
         """
         table_name = deepcopy(table_name)
         table_id_column = self.direct_get_id_column(table_name)
@@ -230,13 +265,14 @@ class TableNamesMixin:
 
     def direct_get_full_column_name(self, target_table: str) -> Optional[str]:
         """
-        Rows which are part of a tree like structure should have a full column.
+        Find the first heading ending in _full, ignoring suffix case.
 
-        Use to store a string representation of the tree this row is in.
-        This method finds and returns that
-        column.
-        :param target_table:
-        :return target_table_full_column:
+        Example:
+            ``driver.direct_get_full_column_name("series")`` locates the stored path column if present.
+
+
+        :param target_table: Existing table whose derived column is required.
+        :return: The matching column, or ``None``; unknown table keys raise KeyError.
         """
         table_and_columns = self.direct_get_tables_and_columns()
         columns = table_and_columns[target_table]
@@ -251,13 +287,14 @@ class TableNamesMixin:
 
     def direct_get_tree_id_column(self, target_table: str) -> Optional[str]:
         """
-        Each table which is in the form of a tree like structure has a tree_id column.
+        Find the first heading ending in _tree_id, ignoring suffix case.
 
-        The entry in this column is unique for every tree in the table.
-        If none is present then it's assumed that the table isn't organized in a
-        tree like structure.
-        :param target_table:
-        :return:
+        Example:
+            ``driver.direct_get_tree_id_column("series")`` locates the grouping column if present.
+
+
+        :param target_table: Existing table whose derived column is required.
+        :return: The matching column, or ``None``; unknown table keys raise KeyError.
         """
         table_and_columns = self.direct_get_tables_and_columns()
         columns = table_and_columns[target_table]
@@ -273,10 +310,15 @@ class TableNamesMixin:
     @staticmethod
     def direct_get_table_col_base(table_name: str) -> str:
         """
-        Returns the base name for a column in the given table. e.g. "title" for "titles"
+        Return the singular table base using the pluralizers module.
 
-        :param table_name: Return the base column for this table
-        :return:
+        Example:
+            >>> TableNamesMixin.direct_get_table_col_base("books")
+            'book'
+
+
+        :param table_name: Table name used by the naming convention or schema lookup.
+        :return: The conventional singular column base.
         """
         from LiuXin_alpha.utils.language_tools.pluralizers import plural_singular_mapper
 
@@ -287,13 +329,16 @@ class TableNamesMixin:
     # ``*_parent_id`` column to point at the row above them.
     def direct_get_parent_column_name(self, table_name: str) -> Optional[str] | bool:
         """
-        Returns the parent column name for a table with a tree like structure - if it exists.
+        Find a heading ending in _parent or _parent_id, ignoring case.
 
-        Takes a table name. Works out if the table has an element ending in "_parent" and returns the parent column name
-        if it exists.
-        Returns False otherwise
-        :param table_name:
-        :return parent_column_name/False:
+        When several match, prefer a sole _parent_id candidate; otherwise raise DatabaseIntegrityError. An unknown table raises InputIntegrityError.
+
+        Example:
+            ``driver.direct_get_parent_column_name("series")`` accepts legacy and foreign-key-style parent headings.
+
+
+        :param table_name: Table name used by the naming convention or schema lookup.
+        :return: The parent column name, or ``False`` when there is none.
         """
         table_name = deepcopy(table_name)
         tables_and_columns = self.direct_get_tables_and_columns()
@@ -331,10 +376,19 @@ class TableNamesMixin:
     @staticmethod
     def direct_validate_table_name(table_name: str) -> bool:
         """
-        Validate that the given table name is valid.
+        Test a name against the ASCII letters-and-underscores regular expression.
 
-        :param table_name: The name of the table to preform validation for.
-        :return:
+        Digits are rejected. The regex uses dollar anchoring, so it also accepts a trailing newline; this is not a complete SQL identifier validation rule.
+
+        Example:
+            >>> TableNamesMixin.direct_validate_table_name("book_links")
+            True
+            >>> TableNamesMixin.direct_validate_table_name("books2")
+            False
+
+
+        :param table_name: Table name used by the naming convention or schema lookup.
+        :return: Whether the regex matches the supplied string.
         """
         table_name_regex = r"^[a-zA-Z_]+$"
         if re.match(table_name_regex, table_name):

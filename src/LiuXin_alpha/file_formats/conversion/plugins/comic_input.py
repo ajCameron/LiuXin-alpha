@@ -1,3 +1,14 @@
+"""
+Convert comic archives and images into normalized conversion input.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise comic input through a consuming regression::
+
+        python -m pytest -q tests/file_formats/comic/test_comic_modernized.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -30,6 +41,14 @@ Based on ideas from comiclrf created by FangornUK.
 
 class ComicInput(InputFormatPlugin):
 
+    """
+    Convert comicinput sources into the normalized OEB pipeline model.
+
+    Example:
+        Exercise ComicInput through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_modernized.py
+    """
     name = "Comic Input"
     author = "Kovid Goyal"
     description = "Optimize comic files (.cbz, .cbr, .cbc) for viewing on portable devices"
@@ -163,6 +182,19 @@ class ComicInput(InputFormatPlugin):
     }
 
     def _warn(self: _typing.Self, message: _typing.Any) -> None:
+        """
+        Perform the warn operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ComicInput. warn through a consuming regression::
+
+                python -m pytest -q tests/file_formats/comic/test_comic_modernized.py
+
+
+        :param message: Value supplied for message under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         log = getattr(self, "log", None)
         warn = getattr(log, "warning", None) or getattr(log, "warn", None)
         if warn is not None:
@@ -178,6 +210,24 @@ class ComicInput(InputFormatPlugin):
         details: _typing.Any = None,
         add_warning: bool = False,
     ) -> _typing.Any:
+        """
+        Perform the report loss event operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ComicInput. report loss event through a consuming regression::
+
+                python -m pytest -q tests/file_formats/comic/test_comic_modernized.py
+
+
+        :param code: Value supplied for code under the utility contract.
+        :param message: Value supplied for message under the utility contract.
+        :param source_format: Value supplied for source format under the utility contract.
+        :param count: Value supplied for count under the utility contract.
+        :param details: Value supplied for details under the utility contract.
+        :param add_warning: Value supplied for add warning under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         holder = getattr(self, "opts", None)
         if holder is None:
             return None
@@ -203,6 +253,22 @@ class ComicInput(InputFormatPlugin):
         )
 
     def _warn_recoverable_loss(self: _typing.Self, *, code: _typing.Any, message: _typing.Any, source_format: _typing.Any, details: _typing.Any = None) -> None:
+        """
+        Perform the warn recoverable loss operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ComicInput. warn recoverable loss through a consuming regression::
+
+                python -m pytest -q tests/file_formats/comic/test_comic_modernized.py
+
+
+        :param code: Value supplied for code under the utility contract.
+        :param message: Value supplied for message under the utility contract.
+        :param source_format: Value supplied for source format under the utility contract.
+        :param details: Value supplied for details under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._warn(message)
         self._report_loss_event(
             code=code,
@@ -213,6 +279,19 @@ class ComicInput(InputFormatPlugin):
         )
 
     def normalized_archive_member_name(self: _typing.Self, name: _typing.Any) -> _typing.Any:
+        """
+        Perform the normalized archive member name operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ComicInput.normalized archive member name through a consuming regression::
+
+                python -m pytest -q tests/file_formats/comic/test_comic_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return normalized_zip_member_name(
             name,
             member_label="comic archive",
@@ -220,6 +299,20 @@ class ComicInput(InputFormatPlugin):
         )
 
     def should_preflight_zip_archive(self: _typing.Self, source: _typing.Any, ext_hint: _typing.Any = None) -> bool:
+        """
+        Perform the should preflight zip archive operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ComicInput.should preflight zip archive through a consuming regression::
+
+                python -m pytest -q tests/file_formats/comic/test_comic_modernized.py
+
+
+        :param source: Value supplied for source under the utility contract.
+        :param ext_hint: Value supplied for ext hint under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if ext_hint and ext_hint.lower() in {"cbz", "cbc", "zip"}:
             return True
 
@@ -236,6 +329,20 @@ class ComicInput(InputFormatPlugin):
         return False
 
     def should_preflight_rar_archive(self: _typing.Self, source: _typing.Any, ext_hint: _typing.Any = None) -> bool:
+        """
+        Perform the should preflight rar archive operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ComicInput.should preflight rar archive through a consuming regression::
+
+                python -m pytest -q tests/file_formats/comic/test_comic_modernized.py
+
+
+        :param source: Value supplied for source under the utility contract.
+        :param ext_hint: Value supplied for ext hint under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if ext_hint and ext_hint.lower() in {"cbr", "rar"}:
             return True
 
@@ -274,6 +381,20 @@ class ComicInput(InputFormatPlugin):
         return False
 
     def validate_zip_archive_members(self: _typing.Self, source: _typing.Any, label: str = "comic archive") -> None:
+        """
+        Validate zip archive members under the format's safety and compatibility rules.
+
+        Example:
+            Exercise ComicInput.validate zip archive members through a consuming regression::
+
+                python -m pytest -q tests/file_formats/comic/test_comic_modernized.py
+
+
+        :param source: Value supplied for source under the utility contract.
+        :param label: Value supplied for label under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
 
         if hasattr(source, "seek"):
@@ -313,6 +434,19 @@ class ComicInput(InputFormatPlugin):
                     pass
 
     def _rar_source_path(self: _typing.Self, source: _typing.Any) -> _typing.Any:
+        """
+        Perform the rar source path operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ComicInput. rar source path through a consuming regression::
+
+                python -m pytest -q tests/file_formats/comic/test_comic_modernized.py
+
+
+        :param source: Value supplied for source under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         path = os.fspath(source) if isinstance(source, os.PathLike) else source
         if isinstance(path, str) and os.path.exists(path):
             return os.path.abspath(path)
@@ -328,6 +462,20 @@ class ComicInput(InputFormatPlugin):
         raise ValueError("RAR archive source is not readable")
 
     def _rar_infos_from_external_listing(self: _typing.Self, path: _typing.Any) -> _typing.Any:
+        """
+        Perform the rar infos from external listing operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ComicInput. rar infos from external listing through a consuming regression::
+
+                python -m pytest -q tests/file_formats/comic/test_comic_modernized.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.utils.decompression import unrar
 
         with open(path, "rb") as stream:
@@ -346,6 +494,20 @@ class ComicInput(InputFormatPlugin):
         ]
 
     def _rar_archive_infos(self: _typing.Self, path: _typing.Any) -> _typing.Any:
+        """
+        Perform the rar archive infos operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ComicInput. rar archive infos through a consuming regression::
+
+                python -m pytest -q tests/file_formats/comic/test_comic_modernized.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             from LiuXin_alpha.utils.decompression.rarfile import rarfile
 
@@ -361,6 +523,20 @@ class ComicInput(InputFormatPlugin):
                 ) from listing_error
 
     def validate_rar_archive_members(self: _typing.Self, source: _typing.Any, label: str = "comic archive") -> None:
+        """
+        Validate rar archive members under the format's safety and compatibility rules.
+
+        Example:
+            Exercise ComicInput.validate rar archive members through a consuming regression::
+
+                python -m pytest -q tests/file_formats/comic/test_comic_modernized.py
+
+
+        :param source: Value supplied for source under the utility contract.
+        :param label: Value supplied for label under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         path = self._rar_source_path(source)
         try:
             infos = self._rar_archive_infos(path)
@@ -451,15 +627,37 @@ class ComicInput(InputFormatPlugin):
             )
 
     def warn_preflight_rejection(self: _typing.Self, source: _typing.Any, error: _typing.Any) -> None:
+        """
+        Perform the warn preflight rejection operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ComicInput.warn preflight rejection through a consuming regression::
+
+                python -m pytest -q tests/file_formats/comic/test_comic_modernized.py
+
+
+        :param source: Value supplied for source under the utility contract.
+        :param error: Value supplied for error under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         path = getattr(source, "name", source)
         self._warn("Comic preflight rejected %s: %s" % (path, error))
 
     def get_comics_from_collection(self: _typing.Self, stream: _typing.Any) -> _typing.Any:
         """
-        Extract comics from a collection (which seems to be a zipped together collection of comics with a comix.txt file
-        which describes the contents of the bundle).
-        :param stream:
-        :return:
+        Extract comics from a collection (which seems to be a zipped together collection of comics with a comix.txt file which describes the contents of the bundle).
+
+        Example:
+            Exercise ComicInput.get comics from collection through a consuming regression::
+
+                python -m pytest -q tests/file_formats/comic/test_comic_modernized.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         from LiuXin_alpha.utils.decompression.libunzip import extract as zipextract
 
@@ -522,6 +720,20 @@ class ComicInput(InputFormatPlugin):
 
     def get_pages(self: _typing.Self, comic: _typing.Any, tdir2: _typing.Any) -> _typing.Any:
 
+        """
+        Return pages under the format's safety and compatibility rules.
+
+        Example:
+            Exercise ComicInput.get pages through a consuming regression::
+
+                python -m pytest -q tests/file_formats/comic/test_comic_modernized.py
+
+
+        :param comic: Value supplied for comic under the utility contract.
+        :param tdir2: Value supplied for tdir2 under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.file_formats.comic.input import (
             extract_comic,
             process_pages,
@@ -565,9 +777,37 @@ class ComicInput(InputFormatPlugin):
         return new_pages
 
     def get_images(self: _typing.Self) -> _typing.Any:
+        """
+        Return images under the format's safety and compatibility rules.
+
+        Example:
+            Exercise ComicInput.get images through a consuming regression::
+
+                python -m pytest -q tests/file_formats/comic/test_comic_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._images
 
     def _stream_to_path(self: _typing.Self, stream: _typing.Any, tdir: _typing.Any, ext_hint: _typing.Any) -> _typing.Any:
+        """
+        Perform the stream to path operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ComicInput. stream to path through a consuming regression::
+
+                python -m pytest -q tests/file_formats/comic/test_comic_modernized.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param tdir: Value supplied for tdir under the utility contract.
+        :param ext_hint: Value supplied for ext hint under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         stream_name = getattr(stream, "name", None)
         if stream_name and os.path.exists(stream_name):
             return os.path.abspath(stream_name)
@@ -597,6 +837,24 @@ class ComicInput(InputFormatPlugin):
         return os.path.abspath(input_name)
 
     def convert(self: _typing.Self, stream: _typing.Any, options: _typing.Any, file_ext: _typing.Any, log: _typing.Any, accelerators: _typing.Any) -> _typing.Any:
+        """
+        Convert the supplied source into the stage's normalized output representation.
+
+        Example:
+            Exercise ComicInput.convert through a consuming regression::
+
+                python -m pytest -q tests/file_formats/comic/test_comic_modernized.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param options: Value supplied for options under the utility contract.
+        :param file_ext: Value supplied for file ext under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :param accelerators: Value supplied for accelerators under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.metadata.utils import calibreMetaInformation as MetaInformation
         from LiuXin_alpha.file_formats.opf.opf2 import OPFCreator
         from LiuXin_alpha.file_formats.toc import TOC
@@ -646,6 +904,19 @@ class ComicInput(InputFormatPlugin):
             entries = []
 
             def href(local_x: _typing.Any) -> _typing.Any:
+                """
+                Perform the href operation under explicit file-format and conversion rules.
+
+                Example:
+                    Exercise ComicInput.convert.href through a consuming regression::
+
+                        python -m pytest -q tests/file_formats/comic/test_comic_modernized.py
+
+
+                :param local_x: Value supplied for local x under the utility contract.
+                :return: The normalized value, metadata record, path, stream result or collection
+                    described above.
+                """
                 if len(comics) == 1:
                     return os.path.basename(local_x)
                 return "/".join(local_x.split(os.sep)[-2:])
@@ -686,8 +957,16 @@ class ComicInput(InputFormatPlugin):
     def create_wrappers(self: _typing.Self, pages: _typing.Any) -> _typing.Any:
         """
         Create a wrapper for the pictures which form the parts of the comic.
-        :param pages:
-        :return:
+
+        Example:
+            Exercise ComicInput.create wrappers through a consuming regression::
+
+                python -m pytest -q tests/file_formats/comic/test_comic_modernized.py
+
+
+        :param pages: Value supplied for pages under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         from LiuXin_alpha.file_formats.oeb.base import XHTML_NS
 

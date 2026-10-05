@@ -1,8 +1,13 @@
 """
-Local metadata-source plugin package.
+Expose deterministic discovery and explicit imports for metadata sources backed by local datasets.
 
-This package hosts metadata integrations backed by local datasets instead of
-live network scraping.
+The module makes ordering, fallback, ownership and optional-integration behavior
+explicit for callers.
+
+Example:
+    Exercise   init   with the owning regression module::
+
+        python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
 """
 
 from __future__ import annotations
@@ -17,18 +22,31 @@ KNOWN_LOCAL_SOURCE_MODULES: tuple[str, ...] = ("isfdb",)
 
 def iter_known_local_source_modules() -> tuple[str, ...]:
     """
-    Return the known local-source module names in deterministic order.
+    Return explicitly supported local-source module names in stable declaration order.
+
+    Example:
+        Exercise iter known local source modules with the owning regression module::
+
+            python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+    :return: The normalized row, metadata object or value described above.
     """
     return KNOWN_LOCAL_SOURCE_MODULES
 
 
 def import_local_source_module(module_name: str) -> ModuleType:
     """
-    Import and return a local-source module by short name.
+    Import one local-source module by short name and propagate genuine import failures.
 
-    Raises:
-        ValueError: if module_name is empty.
-        ModuleNotFoundError: if the module has not been ported yet.
+    Example:
+        Exercise import local source module with the owning regression module::
+
+            python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+    :param module_name: Short source-module name below the current package.
+    :return: The normalized row, metadata object or value described above.
     """
     name = str(module_name or "").strip()
     if not name:

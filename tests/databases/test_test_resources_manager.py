@@ -1,3 +1,15 @@
+"""
+Check fixture discovery, isolated provisioning, semantic data, and real store-backed assets.
+
+SQLite inspection connections close after use. Asset-read checks also open a
+Database with the selected driver; pytest owns the provisioned directories. Slow
+cases cover all legacy profiles and the smoke benchmark.
+
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/test_test_resources_manager.py
+"""
 from __future__ import annotations
 
 import sqlite3
@@ -30,6 +42,20 @@ SEMANTIC_DB_NAMES = (
 
 
 def _relation_exists(conn: sqlite3.Connection, name: str) -> bool:
+    """
+    Check sqlite_master for an exact table or view name using a bound parameter.
+
+    Example:
+        >>> conn = sqlite3.connect(':memory:')
+        >>> _relation_exists(conn, 'absent')
+        False
+        >>> conn.close()
+
+
+    :param conn: Caller-owned SQLite connection; this helper does not close it.
+    :param name: Resource or schema object name, as described above.
+    :return: True when the relation exists, otherwise False.
+    """
     row = conn.execute(
         "SELECT 1 FROM sqlite_master WHERE type IN ('table', 'view') AND name = ? LIMIT 1;",
         (name,),
@@ -38,13 +64,44 @@ def _relation_exists(conn: sqlite3.Connection, name: str) -> bool:
 
 
 def _count_relation(conn: sqlite3.Connection, name: str) -> int:
+    """
+    Count rows in an existing table or view, returning zero for a missing relation.
+
+    Example:
+        >>> conn = sqlite3.connect(':memory:')
+        >>> _count_relation(conn, 'absent')
+        0
+        >>> conn.close()
+
+
+    :param conn: Caller-owned SQLite connection; this helper does not close it.
+    :param name: Trusted relation name interpolated into the count query without
+        identifier escaping.
+    :return: Integer row count, or zero if the relation is absent.
+    """
     if not _relation_exists(conn, name):
         return 0
     return int(conn.execute(f"SELECT COUNT(*) FROM {name};").fetchone()[0])
 
 
 def _read_stored_bytes(db: Database, *, store_id: int, storage_key: str) -> bytes:
-    """Read a fixture asset through the public Store/Location API."""
+    """
+    Resolve a store row to its registered store and read the located asset.
+
+    Assert that storage and the requested store row exist. Storage lookup and read
+    errors propagate; the caller retains ownership of the Database.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param db: Open Database with its storage manager initialized.
+    :param store_id: Store row ID converted to int before lookup.
+    :param storage_key: Key passed to the registered store locator.
+    :return: Bytes returned by the located storage object.
+    """
 
     assert db.storage is not None
     store_row = db.get_row_from_id("stores", int(store_id))
@@ -54,6 +111,17 @@ def _read_stored_bytes(db: Database, *, store_id: int, storage_key: str) -> byte
 
 
 def _expected_book_count(name: str) -> int:
+    """
+    Select fixed counts for special legacy fixtures, otherwise use the profile or twelve-book fallback.
+
+    Example:
+        >>> [_expected_book_count(n) for n in ('test_db_0', 'test_db_2', 'test_db_13')]
+        [0, 1, 0]
+
+
+    :param name: Resource or schema object name, as described above.
+    :return: Expected integer book count.
+    """
     if name == "test_db_0":
         return 0
     if name == "test_db_2":
@@ -68,12 +136,36 @@ def _expected_book_count(name: str) -> int:
 
 
 def _expected_title_count(name: str) -> int:
+    """
+    Return one title for test_db_0 and the expected book count for other fixtures.
+
+    Example:
+        >>> _expected_title_count('test_db_0')
+        1
+
+
+    :param name: Resource or schema object name, as described above.
+    :return: Expected integer title count.
+    """
     if name == "test_db_0":
         return 1
     return _expected_book_count(name)
 
 
 def _expected_asset_counts(name: str) -> tuple[int, int]:
+    """
+    Select asset counts for test_db_3, test_db_5, and test_db_11; other fixtures have none.
+
+    Example:
+        >>> _expected_asset_counts('test_db_3')
+        (497, 2440)
+        >>> _expected_asset_counts('test_db_0')
+        (0, 0)
+
+
+    :param name: Resource or schema object name, as described above.
+    :return: Tuple of expected folder and file counts.
+    """
     if name == "test_db_3":
         return 497, 2440
     if name in {"test_db_5", "test_db_11"}:
@@ -83,6 +175,19 @@ def _expected_asset_counts(name: str) -> tuple[int, int]:
 
 
 def _count_titles(db_path: Path) -> int:
+    """
+    Open SQLite, count titles, and close the connection even if inspection fails.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param db_path: Path of the SQLite database to open; the helper closes its
+        connection.
+    :return: Integer title count; asserts that the count query returned a row.
+    """
     conn = sqlite3.connect(str(db_path))
     try:
         row = conn.execute("SELECT COUNT(*) FROM titles;").fetchone()
@@ -93,6 +198,19 @@ def _count_titles(db_path: Path) -> int:
 
 
 def test_resources_manager_lists_default_dbs(test_resources_manager) -> None:
+    """
+    Check that fixture discovery includes legacy databases zero, two, three, and thirteen.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py::test_resources_manager_lists_default_dbs
+
+
+    :param test_resources_manager: Configured fixture resource manager used for
+        discovery and provisioning.
+    :return: None; failed expectations raise AssertionError.
+    """
     names = test_resources_manager.available_test_databases()
     assert "test_db_0" in names
     assert "test_db_2" in names
@@ -101,17 +219,56 @@ def test_resources_manager_lists_default_dbs(test_resources_manager) -> None:
 
 
 def test_resources_manager_lists_full_legacy_range(test_resources_manager) -> None:
+    """
+    Check that discovery contains all twenty-six legacy database names.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py::test_resources_manager_lists_full_legacy_range
+
+
+    :param test_resources_manager: Configured fixture resource manager used for
+        discovery and provisioning.
+    :return: None; failed expectations raise AssertionError.
+    """
     names = set(test_resources_manager.available_test_databases())
     expected = set(ALL_TEST_DB_NAMES)
     assert expected.issubset(names)
 
 
 def test_resources_manager_lists_benchmark_dbs(test_resources_manager) -> None:
+    """
+    Check that discovery contains the smoke, medium, and large benchmark names.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py::test_resources_manager_lists_benchmark_dbs
+
+
+    :param test_resources_manager: Configured fixture resource manager used for
+        discovery and provisioning.
+    :return: None; failed expectations raise AssertionError.
+    """
     names = set(test_resources_manager.available_test_databases())
     assert set(BENCHMARK_DB_NAMES).issubset(names)
 
 
 def test_resources_manager_lists_semantic_dbs_via_supported_imported_entrypoints(test_resources_manager) -> None:
+    """
+    Check supported semantic fixture names are discoverable and internal builder modules are excluded.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py::test_resources_manager_lists_semantic_dbs_via_supported_imported_entrypoints
+
+
+    :param test_resources_manager: Configured fixture resource manager used for
+        discovery and provisioning.
+    :return: None; failed expectations raise AssertionError.
+    """
     names = set(test_resources_manager.available_test_databases())
     assert set(SEMANTIC_DB_NAMES).issubset(names)
     assert "_semantic_fixture_builders" not in names
@@ -120,6 +277,19 @@ def test_resources_manager_lists_semantic_dbs_via_supported_imported_entrypoints
 
 
 def test_imported_provider_prefers_supported_semantic_modules_only(test_resources_manager) -> None:
+    """
+    Check semantic fixtures resolve to imported providers, allowing the metadata-rich prebuilt exception, while test_db_1 uses its built-in specification.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py::test_imported_provider_prefers_supported_semantic_modules_only
+
+
+    :param test_resources_manager: Configured fixture resource manager used for
+        discovery and provisioning.
+    :return: None; failed expectations raise AssertionError.
+    """
     for name in SEMANTIC_DB_NAMES:
         provider_name = type(test_resources_manager._db_registry.resolve(name)).__name__
         if name == "metadata_rich_db_1":
@@ -130,6 +300,19 @@ def test_imported_provider_prefers_supported_semantic_modules_only(test_resource
 
 
 def test_provisioned_database_opens(provision_test_database) -> None:
+    """
+    Open provisioned test_db_0 and check that titles exists as a table or view.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py::test_provisioned_database_opens
+
+
+    :param provision_test_database: Fixture factory that provisions an isolated copy of
+        a named database.
+    :return: None; failed expectations raise AssertionError.
+    """
     provisioned = provision_test_database("test_db_0")
 
     # DB should be a valid sqlite file with expected schema.
@@ -144,6 +327,19 @@ def test_provisioned_database_opens(provision_test_database) -> None:
 
 
 def test_test_db_2_generates_and_is_pruned(provision_test_database) -> None:
+    """
+    Check the pruned fixture has one book, the expected four tags, matching tag links, and tag facets.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py::test_test_db_2_generates_and_is_pruned
+
+
+    :param provision_test_database: Fixture factory that provisions an isolated copy of
+        a named database.
+    :return: None; failed expectations raise AssertionError.
+    """
     provisioned = provision_test_database("test_db_2")
 
     conn = sqlite3.connect(str(provisioned.db_path))
@@ -190,6 +386,19 @@ def test_test_db_2_generates_and_is_pruned(provision_test_database) -> None:
 
 
 def test_test_db_3_generates_formats_fixture(provision_test_database) -> None:
+    """
+    Check the single-book format fixture has 497 folders, 2440 files, expected extension counts, matching links, and no foreign-key violations.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py::test_test_db_3_generates_formats_fixture
+
+
+    :param provision_test_database: Fixture factory that provisions an isolated copy of
+        a named database.
+    :return: None; failed expectations raise AssertionError.
+    """
     provisioned = provision_test_database("test_db_3")
 
     conn = sqlite3.connect(str(provisioned.db_path))
@@ -224,6 +433,19 @@ def test_test_db_3_generates_formats_fixture(provision_test_database) -> None:
 @pytest.mark.catalog
 @pytest.mark.slow
 def test_benchmark_db_smoke_generates_expected_shape(provision_test_database) -> None:
+    """
+    Check the smoke benchmark has 250 books, 1000 folders, 4000 files, matching links, and no foreign-key violations.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py::test_benchmark_db_smoke_generates_expected_shape
+
+
+    :param provision_test_database: Fixture factory that provisions an isolated copy of
+        a named database.
+    :return: None; failed expectations raise AssertionError.
+    """
     provisioned = provision_test_database("benchmark_db_smoke")
 
     conn = sqlite3.connect(str(provisioned.db_path))
@@ -250,6 +472,21 @@ def test_benchmark_db_smoke_generates_expected_shape(provision_test_database) ->
 @pytest.mark.slow
 @pytest.mark.parametrize("db_name", ALL_TEST_DB_NAMES)
 def test_all_test_db_profiles_smoke_and_shape(provision_test_database, db_name: str) -> None:
+    """
+    Check each legacy profile passes integrity and foreign-key checks and has its expected title, book, asset, and link counts.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py::test_all_test_db_profiles_smoke_and_shape
+
+
+    :param provision_test_database: Fixture factory that provisions an isolated copy of
+        a named database.
+    :param db_name: Legacy fixture name selected by pytest from test_db_0 through
+        test_db_25.
+    :return: None; failed expectations raise AssertionError.
+    """
     provisioned = provision_test_database(db_name)
     conn = sqlite3.connect(str(provisioned.db_path))
     try:
@@ -291,6 +528,19 @@ def test_all_test_db_profiles_smoke_and_shape(provision_test_database, db_name: 
 
 @pytest.mark.catalog
 def test_semantic_asset_profile_partition(provision_test_database) -> None:
+    """
+    Check that only the three designated asset-heavy legacy profiles contain folders and files.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py::test_semantic_asset_profile_partition
+
+
+    :param provision_test_database: Fixture factory that provisions an isolated copy of
+        a named database.
+    :return: None; failed expectations raise AssertionError.
+    """
     asset_set = set(ASSET_HEAVY_DB_NAMES)
     all_file_counts: dict[str, int] = {}
     all_folder_counts: dict[str, int] = {}
@@ -327,6 +577,22 @@ def test_provisioned_profiles_do_not_materialize_legacy_folder_stores(
     expected_folders: int,
     expected_files: int,
 ) -> None:
+    """
+    Check selected profiles have the expected folder/file counts without a physical legacy folder_stores table.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py::test_provisioned_profiles_do_not_materialize_legacy_folder_stores
+
+
+    :param provision_test_database: Fixture factory that provisions an isolated copy of
+        a named database.
+    :param db_name: Selected legacy fixture, test_db_4 or test_db_11.
+    :param expected_folders: Expected number of folder rows for this case.
+    :param expected_files: Expected number of file rows for this case.
+    :return: None; failed expectations raise AssertionError.
+    """
     provisioned = provision_test_database(db_name)
     conn = sqlite3.connect(str(provisioned.db_path))
     try:
@@ -346,6 +612,19 @@ def test_provisioned_profiles_do_not_materialize_legacy_folder_stores(
 
 @pytest.mark.catalog
 def test_semantic_book_count_bands(provision_test_database) -> None:
+    """
+    Check fixed small-fixture book counts and the relative sizes of test_db_20, test_db_4, and test_db_17.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py::test_semantic_book_count_bands
+
+
+    :param provision_test_database: Fixture factory that provisions an isolated copy of
+        a named database.
+    :return: None; failed expectations raise AssertionError.
+    """
     counts: dict[str, int] = {}
     for db_name in ("test_db_2", "test_db_16", "test_db_7", "test_db_8", "test_db_14", "test_db_17", "test_db_4", "test_db_20"):
         provisioned = provision_test_database(db_name)
@@ -364,6 +643,21 @@ def test_semantic_book_count_bands(provision_test_database) -> None:
     assert counts["test_db_20"] > counts["test_db_4"] > counts["test_db_17"]
 
 def test_provisioned_copies_are_independent(tmp_path, test_resources_manager) -> None:
+    """
+    Insert a title into one of two provisioned copies and check that only its title count increases.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py::test_provisioned_copies_are_independent
+
+
+    :param tmp_path: Pytest-provided temporary directory for isolated database or TOML
+        files.
+    :param test_resources_manager: Configured fixture resource manager used for
+        discovery and provisioning.
+    :return: None; failed expectations raise AssertionError.
+    """
     db1 = test_resources_manager.provision_named_test_database(name="test_db_0", dst_dir=tmp_path / "a")
     db2 = test_resources_manager.provision_named_test_database(name="test_db_0", dst_dir=tmp_path / "b")
 
@@ -384,6 +678,19 @@ def test_provisioned_copies_are_independent(tmp_path, test_resources_manager) ->
 
 @pytest.mark.catalog
 def test_metadata_rich_db_0_provisions_distinct_optional_metadata(provision_test_database) -> None:
+    """
+    Check integrity, exact titles, role values, and expected counts across the three-book optional-metadata fixture.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py::test_metadata_rich_db_0_provisions_distinct_optional_metadata
+
+
+    :param provision_test_database: Fixture factory that provisions an isolated copy of
+        a named database.
+    :return: None; failed expectations raise AssertionError.
+    """
     provisioned = provision_test_database("metadata_rich_db_0")
     conn = sqlite3.connect(str(provisioned.db_path))
     try:
@@ -429,6 +736,19 @@ def test_metadata_rich_db_0_provisions_distinct_optional_metadata(provision_test
 
 @pytest.mark.catalog
 def test_metadata_rich_db_1_provisions_multilingual_dense_metadata(provision_test_database) -> None:
+    """
+    Check integrity, exact multilingual titles, and expected metadata and asset-link counts across the four-book fixture.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py::test_metadata_rich_db_1_provisions_multilingual_dense_metadata
+
+
+    :param provision_test_database: Fixture factory that provisions an isolated copy of
+        a named database.
+    :return: None; failed expectations raise AssertionError.
+    """
     provisioned = provision_test_database("metadata_rich_db_1")
     conn = sqlite3.connect(str(provisioned.db_path))
     try:
@@ -475,6 +795,23 @@ def test_metadata_rich_db_1_provisions_multilingual_dense_metadata(provision_tes
 
 @pytest.mark.catalog
 def test_stores_assets_db_0_provisions_real_store_backed_assets(provision_test_database, driver_spec, tmp_path: Path) -> None:
+    """
+    Check single-store asset counts and path containment, then read the first EPUB through the selected database driver.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py::test_stores_assets_db_0_provisions_real_store_backed_assets
+
+
+    :param provision_test_database: Fixture factory that provisions an isolated copy of
+        a named database.
+    :param driver_spec: Selected database driver specification, including its ID and
+        Database db_type.
+    :param tmp_path: Pytest temporary-directory fixture, accepted but unused in this
+        check.
+    :return: None; failed expectations raise AssertionError.
+    """
     provisioned = provision_test_database("stores_assets_db_0")
     conn = sqlite3.connect(str(provisioned.db_path))
     try:
@@ -534,6 +871,21 @@ def test_stores_assets_db_0_provisions_real_store_backed_assets(provision_test_d
 
 @pytest.mark.catalog
 def test_stores_assets_db_1_provisions_multi_store_assets(provision_test_database, driver_spec) -> None:
+    """
+    Check two-store counts and roots, then read expected primary EPUB and secondary MOBI bytes.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py::test_stores_assets_db_1_provisions_multi_store_assets
+
+
+    :param provision_test_database: Fixture factory that provisions an isolated copy of
+        a named database.
+    :param driver_spec: Selected database driver specification, including its ID and
+        Database db_type.
+    :return: None; failed expectations raise AssertionError.
+    """
     provisioned = provision_test_database("stores_assets_db_1")
     conn = sqlite3.connect(str(provisioned.db_path))
     try:
@@ -586,6 +938,21 @@ def test_stores_assets_db_1_provisions_multi_store_assets(provision_test_databas
 
 @pytest.mark.catalog
 def test_images_covers_db_0_provisions_cover_heavy_store_assets(provision_test_database, driver_spec) -> None:
+    """
+    Check image roles, cover priorities, counts, and path containment, then read a PNG signature through storage.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py::test_images_covers_db_0_provisions_cover_heavy_store_assets
+
+
+    :param provision_test_database: Fixture factory that provisions an isolated copy of
+        a named database.
+    :param driver_spec: Selected database driver specification, including its ID and
+        Database db_type.
+    :return: None; failed expectations raise AssertionError.
+    """
     provisioned = provision_test_database("images_covers_db_0")
     conn = sqlite3.connect(str(provisioned.db_path))
     try:
@@ -640,6 +1007,21 @@ def test_images_covers_db_0_provisions_cover_heavy_store_assets(provision_test_d
 
 @pytest.mark.catalog
 def test_images_covers_db_1_provisions_cover_variants_and_gaps(provision_test_database, driver_spec) -> None:
+    """
+    Check image variants and the uncovered fourth book, then read a PNG signature through storage.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py::test_images_covers_db_1_provisions_cover_variants_and_gaps
+
+
+    :param provision_test_database: Fixture factory that provisions an isolated copy of
+        a named database.
+    :param driver_spec: Selected database driver specification, including its ID and
+        Database db_type.
+    :return: None; failed expectations raise AssertionError.
+    """
     provisioned = provision_test_database("images_covers_db_1")
     conn = sqlite3.connect(str(provisioned.db_path))
     try:
@@ -684,6 +1066,19 @@ def test_images_covers_db_1_provisions_cover_variants_and_gaps(provision_test_da
 
 @pytest.mark.catalog
 def test_custom_columns_populated_db_0_provisions_live_generated_tables(provision_test_database) -> None:
+    """
+    Check custom-column metadata, generated tables, row counts, tag values, ratings, and boolean values.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py::test_custom_columns_populated_db_0_provisions_live_generated_tables
+
+
+    :param provision_test_database: Fixture factory that provisions an isolated copy of
+        a named database.
+    :return: None; failed expectations raise AssertionError.
+    """
     provisioned = provision_test_database("custom_columns_populated_db_0")
     conn = sqlite3.connect(str(provisioned.db_path))
     try:
@@ -750,6 +1145,19 @@ def test_custom_columns_populated_db_0_provisions_live_generated_tables(provisio
 
 @pytest.mark.catalog
 def test_custom_columns_populated_db_1_provisions_series_and_scalar_variants(provision_test_database) -> None:
+    """
+    Check five custom-column definitions, generated row/link counts, and fractional series extras.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py::test_custom_columns_populated_db_1_provisions_series_and_scalar_variants
+
+
+    :param provision_test_database: Fixture factory that provisions an isolated copy of
+        a named database.
+    :return: None; failed expectations raise AssertionError.
+    """
     provisioned = provision_test_database("custom_columns_populated_db_1")
     conn = sqlite3.connect(str(provisioned.db_path))
     try:
@@ -786,6 +1194,19 @@ def test_custom_columns_populated_db_1_provisions_series_and_scalar_variants(pro
 
 @pytest.mark.catalog
 def test_identifiers_db_0_provisions_rich_identifier_views(provision_test_database) -> None:
+    """
+    Check entity/item identifier counts, view resource types and origins, and the expected scheme/value pairs.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py::test_identifiers_db_0_provisions_rich_identifier_views
+
+
+    :param provision_test_database: Fixture factory that provisions an isolated copy of
+        a named database.
+    :return: None; failed expectations raise AssertionError.
+    """
     provisioned = provision_test_database("identifiers_db_0")
     conn = sqlite3.connect(str(provisioned.db_path))
     try:
@@ -831,6 +1252,19 @@ def test_identifiers_db_0_provisions_rich_identifier_views(provision_test_databa
 
 @pytest.mark.catalog
 def test_identifiers_db_1_provisions_wider_identifier_matrix(provision_test_database) -> None:
+    """
+    Check the wider identifier fixture has the expected entity/item totals and resource-type view counts.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py::test_identifiers_db_1_provisions_wider_identifier_matrix
+
+
+    :param provision_test_database: Fixture factory that provisions an isolated copy of
+        a named database.
+    :return: None; failed expectations raise AssertionError.
+    """
     provisioned = provision_test_database("identifiers_db_1")
     conn = sqlite3.connect(str(provisioned.db_path))
     try:
@@ -855,6 +1289,19 @@ def test_identifiers_db_1_provisions_wider_identifier_matrix(provision_test_data
 
 @pytest.mark.catalog
 def test_pathological_relations_db_0_provisions_dense_relation_graph(provision_test_database) -> None:
+    """
+    Check dense relation counts, per-book maxima, and one label shared by all eight books.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py::test_pathological_relations_db_0_provisions_dense_relation_graph
+
+
+    :param provision_test_database: Fixture factory that provisions an isolated copy of
+        a named database.
+    :return: None; failed expectations raise AssertionError.
+    """
     provisioned = provision_test_database("pathological_relations_db_0")
     conn = sqlite3.connect(str(provisioned.db_path))
     try:
@@ -898,6 +1345,19 @@ def test_pathological_relations_db_0_provisions_dense_relation_graph(provision_t
 
 @pytest.mark.catalog
 def test_weird_data_db_0_provisions_unicode_and_odd_paths(provision_test_database) -> None:
+    """
+    Check exact Unicode titles and unusual filenames, expected counts, and existing asset paths beneath the provisioned root.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py::test_weird_data_db_0_provisions_unicode_and_odd_paths
+
+
+    :param provision_test_database: Fixture factory that provisions an isolated copy of
+        a named database.
+    :return: None; failed expectations raise AssertionError.
+    """
     provisioned = provision_test_database("weird_data_db_0")
     conn = sqlite3.connect(str(provisioned.db_path))
     try:

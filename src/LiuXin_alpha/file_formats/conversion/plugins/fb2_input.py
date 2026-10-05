@@ -1,5 +1,15 @@
-from __future__ import with_statement
-from __future__ import annotations
+"""
+Convert FB2 content into the normalized ebook conversion pipeline.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise fb2 input through a consuming regression::
+
+        python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+"""
+from __future__ import annotations, with_statement
 
 import typing as _typing
 
@@ -14,6 +24,9 @@ import re
 from io import BytesIO
 
 from LiuXin_alpha.customize.conversion import InputFormatPlugin, OptionRecommendation
+from LiuXin_alpha.file_formats.conversion.plugins._workdir import (
+    choose_conversion_workdir,
+)
 from LiuXin_alpha.file_formats.fb2.archive import (
     DEFAULT_MAX_ARCHIVE_MEMBERS,
     DEFAULT_MAX_COMPRESSION_RATIO,
@@ -23,20 +36,15 @@ from LiuXin_alpha.file_formats.fb2.archive import (
     FB2ZipError,
     extract_fb2_payload_from_bytes,
 )
-from LiuXin_alpha.file_formats.conversion.plugins._workdir import (
-    choose_conversion_workdir,
-)
-
-from LiuXin_alpha.utils.calibre import CurrentDir
-from LiuXin_alpha.utils.calibre import guess_type
+from LiuXin_alpha.utils.calibre import CurrentDir, guess_type
 from LiuXin_alpha.utils.libraries.liuxin_etree import LXML_AVAILABLE, etree
-from LiuXin_alpha.utils.localization import trans as _
-from LiuXin_alpha.utils.logging import default_log
-from LiuXin_alpha.utils.resources import P
 
 # Py2/Py3
 from LiuXin_alpha.utils.libraries.liuxin_six import dict_iteritems as iteritems
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.logging import default_log
+from LiuXin_alpha.utils.resources import P
 
 __license__ = "GPL v3"
 __copyright__ = "2008, Anatoly Shipitsin <norguhtar at gmail.com>"
@@ -47,8 +55,19 @@ FB21NS = "http://www.gribuser.ru/xml/fictionbook/2.1"
 
 def _get_fb2_metadata(stream: _typing.Any, file_ext: _typing.Any) -> _typing.Any:
     """
-    Resolve metadata using the legacy path when available, with a fallback to
-    the metadata reader plugin registry.
+    Resolve metadata using the legacy path when available, with a fallback to the metadata reader plugin registry.
+
+    Example:
+        Exercise  get fb2 metadata through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+    :param stream: Input or output stream wrapped by the terminal or compatibility
+        layer.
+    :param file_ext: Value supplied for file ext under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     try:
         from LiuXin_alpha.metadata.meta import get_metadata as legacy_get_metadata
@@ -61,6 +80,14 @@ def _get_fb2_metadata(stream: _typing.Any, file_ext: _typing.Any) -> _typing.Any
 
 class FB2Input(InputFormatPlugin):
 
+    """
+    Convert fb2input sources into the normalized OEB pipeline model.
+
+    Example:
+        Exercise FB2Input through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+    """
     name = "FB2 Input"
     author = "Anatoly Shipitsin"
     description = "Convert FB2 and FBZ files to HTML"
@@ -87,12 +114,41 @@ class FB2Input(InputFormatPlugin):
     }
 
     def _warn(self: _typing.Self, message: _typing.Any) -> None:
+        """
+        Perform the warn operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise FB2Input. warn through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param message: Value supplied for message under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         log = getattr(self, "log", None)
         warn = getattr(log, "warning", None) or getattr(log, "warn", None)
         if warn is not None:
             warn(message)
 
     def warn_preflight_rejection(self: _typing.Self, stream: _typing.Any, log: _typing.Any, error: _typing.Any) -> None:
+        """
+        Perform the warn preflight rejection operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise FB2Input.warn preflight rejection through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param log: Value supplied for log under the utility contract.
+        :param error: Value supplied for error under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         warn = getattr(log, "warning", None) or getattr(log, "warn", None)
         if warn is None:
             return
@@ -100,6 +156,20 @@ class FB2Input(InputFormatPlugin):
         warn("FB2 preflight rejected %s: %s" % (source, error))
 
     def extract_input_payload(self: _typing.Self, raw_container: _typing.Any, file_ext: _typing.Any) -> _typing.Any:
+        """
+        Extract input payload under the format's safety and compatibility rules.
+
+        Example:
+            Exercise FB2Input.extract input payload through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param raw_container: Value supplied for raw container under the utility contract.
+        :param file_ext: Value supplied for file ext under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return extract_fb2_payload_from_bytes(
             raw_container,
             label="FB2 input",
@@ -112,6 +182,19 @@ class FB2Input(InputFormatPlugin):
         )
 
     def embedded_binary_filename_is_unsafe(self: _typing.Self, name: _typing.Any) -> bool:
+        """
+        Perform the embedded binary filename is unsafe operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise FB2Input.embedded binary filename is unsafe through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not name:
             return True
         normalized = str(name).replace("\\", "/")
@@ -127,6 +210,22 @@ class FB2Input(InputFormatPlugin):
         )
 
     def safe_embedded_binary_filename(self: _typing.Self, binary_id: _typing.Any, content_type: _typing.Any, index: _typing.Any, used_names: _typing.Any) -> _typing.Any:
+        """
+        Perform the safe embedded binary filename operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise FB2Input.safe embedded binary filename through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param binary_id: Value supplied for binary id under the utility contract.
+        :param content_type: Value supplied for content type under the utility contract.
+        :param index: Value supplied for index under the utility contract.
+        :param used_names: Value supplied for used names under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         original_name = str(binary_id or "").strip()
         candidate = original_name
         content_ext = str(content_type or "").rpartition("/")[-1].lower()
@@ -162,6 +261,20 @@ class FB2Input(InputFormatPlugin):
         return unique_candidate
 
     def decode_embedded_binary(self: _typing.Self, raw: _typing.Any, binary_id: _typing.Any) -> _typing.Any:
+        """
+        Perform the decode embedded binary operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise FB2Input.decode embedded binary through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param raw: Value supplied for raw under the utility contract.
+        :param binary_id: Value supplied for binary id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if isinstance(raw, bytes):
             compact = b"".join(raw.split())
         else:
@@ -177,9 +290,31 @@ class FB2Input(InputFormatPlugin):
             return None
 
     def convert(self: _typing.Self, stream: _typing.Any, options: _typing.Any, file_ext: _typing.Any, log: _typing.Any, accelerators: _typing.Any) -> _typing.Any:
-        from LiuXin_alpha.file_formats.chardet import xml_to_unicode
-        from LiuXin_alpha.file_formats.oeb.base import XLINK_NS, XHTML_NS, RECOVER_PARSER
+        """
+        Convert the supplied source into the stage's normalized output representation.
+
+        Example:
+            Exercise FB2Input.convert through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param options: Value supplied for options under the utility contract.
+        :param file_ext: Value supplied for file ext under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :param accelerators: Value supplied for accelerators under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
+        from LiuXin_alpha.file_formats.oeb.base import (
+            RECOVER_PARSER,
+            XHTML_NS,
+            XLINK_NS,
+        )
         from LiuXin_alpha.file_formats.opf.opf2 import OPFCreator
+        from LiuXin_alpha.utils.libraries.calibre_chardet import xml_to_unicode
 
         if not LXML_AVAILABLE or getattr(etree, "XSLT", None) is None:
             raise RuntimeError("FB2 input conversion requires lxml with XSLT support")
@@ -342,8 +477,16 @@ class FB2Input(InputFormatPlugin):
     def extract_embedded_content(self: _typing.Self, doc: _typing.Any) -> None:
         """
         Extract and decode content embedded in the document.
-        :param doc:
-        :return:
+
+        Example:
+            Exercise FB2Input.extract embedded content through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param doc: Value supplied for doc under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
 
         self.binary_map = {}

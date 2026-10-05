@@ -1,5 +1,16 @@
 #!/usr/bin/python
 
+"""
+Build and refresh the bundled dateutil zoneinfo archive.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise updatezinfo through a consuming regression::
+
+        python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+"""
 from __future__ import print_function
 
 from dateutil.zoneinfo import rebuild
@@ -14,6 +25,18 @@ NAME = re.compile("tzdata(.*).tar.gz")
 
 
 def main():
+    """
+    Perform the main utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise main through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if len(sys.argv) == 2:
         tzdata = sys.argv[1]
     else:

@@ -1,4 +1,35 @@
-"""Identity specifications for exact-default catalog entities."""
+"""
+Declare the eleven exact-default entity specifications used by Catalog repositories.
+
+Tag, Label, Genre, Subject, Series, and Language specifications enable an opt-in
+approximate text field. Their configured text identity fields are case-folded;
+hash fields retain case-sensitive exact normalization. Genre, Subject, and Series
+parent fields restrict matching only when supplied. Language lookup spans names and code
+variants, while its mutable=False flag makes repository writes read-only.
+
+Rating identity includes the numeric value plus scale/source when supplied, but
+scalar exact lookup compares the value alone. Comment, Synopsis, and Note compare
+text with case-sensitive NFKC/whitespace normalization and no approximate field.
+Comment and Annotation set reusable=False for repository creation policy while
+still permitting matching reads. Annotation candidate matching requires an Item
+scope plus kind, anchor type, and anchor start; other supplied identity fields
+further constrain the row. Scalar lookup checks the anchor under Item scope.
+
+Label and Series declare normalized destination/source pairs used by repository
+writes. Exact matching does not require those derived columns to be populated.
+No specification in this module supplies scope defaults. Values are constructed
+at import without schema validation, and frozen specifications still contain
+mutable alias dictionaries. EXACT_ENTITY_SPECS preserves declaration order;
+EXACT_ENTITY_SPEC_BY_TABLE is an ordinary dictionary referencing the same objects.
+
+Example:
+    >>> EXACT_ENTITY_SPEC_BY_TABLE["tags"] is TAG_SPEC
+    True
+    >>> LANGUAGE_SPEC.mutable, COMMENT_SPEC.reusable
+    (False, False)
+    >>> ANNOTATION_SPEC.required_scope_fields
+    ('annotation_item_id',)
+"""
 
 from __future__ import annotations
 

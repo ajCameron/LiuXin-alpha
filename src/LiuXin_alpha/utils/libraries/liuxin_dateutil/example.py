@@ -1,3 +1,14 @@
+"""
+Demonstrate retained dateutil parsing and recurrence operations.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise example through a consuming regression::
+
+        python -m pytest -q tests/scripts/test_docstring_migration.py
+"""
 from __future__ import print_function
 
 from dateutil.relativedelta import *

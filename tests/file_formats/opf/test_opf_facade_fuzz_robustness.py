@@ -1,3 +1,14 @@
+"""
+Provide test opf facade fuzz robustness utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test opf facade fuzz robustness through a consuming regression::
+
+        python -m pytest -q tests/file_formats/opf/test_opf_facade_fuzz_robustness.py
+"""
 from __future__ import annotations
 
 import importlib
@@ -67,10 +78,37 @@ BAD_CHARS = "\x00\x01\x02\x1f\x7f"
 
 @pytest.fixture()
 def opf_mod(legacy_liuxin_alias):
+    """
+    Perform the opf mod operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise opf mod through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf_facade_fuzz_robustness.py
+
+
+    :param legacy_liuxin_alias: Value supplied for legacy liuxin alias under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return importlib.import_module("LiuXin_alpha.file_formats.opf.opf")
 
 
 def _contains_forbidden_xml_char(text: str) -> bool:
+    """
+    Perform the contains forbidden xml char operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  contains forbidden xml char through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf_facade_fuzz_robustness.py
+
+
+    :param text: Text parsed, normalized or rendered.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     for ch in text:
         cp = ord(ch)
         if cp == 0x7F:
@@ -88,12 +126,42 @@ def _contains_forbidden_xml_char(text: str) -> bool:
 
 
 def _rand_text(rng: random.Random, *, max_len: int = 40, with_bad_controls: bool = False) -> str:
+    """
+    Perform the rand text operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  rand text through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf_facade_fuzz_robustness.py
+
+
+    :param rng: Value supplied for rng under the utility contract.
+    :param max_len: Value supplied for max len under the utility contract.
+    :param with_bad_controls: Value supplied for with bad controls under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     chars = SAFE_CHARS + (BAD_CHARS if with_bad_controls else "")
     length = rng.randint(1, max_len)
     return "".join(rng.choice(chars) for _ in range(length)).strip() or "seed"
 
 
 def _mutate_parseable_payload(rng: random.Random, payload: bytes) -> bytes:
+    """
+    Perform the mutate parseable payload operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  mutate parseable payload through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf_facade_fuzz_robustness.py
+
+
+    :param rng: Value supplied for rng under the utility contract.
+    :param payload: Value supplied for payload under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     root = etree.fromstring(payload)
     metadata = root.xpath("./opf:metadata", namespaces={"opf": OPF_NS})[0]
 
@@ -133,6 +201,20 @@ def _mutate_parseable_payload(rng: random.Random, payload: bytes) -> bytes:
 
 @pytest.mark.parametrize("base_payload", [OPF2_MINIMAL, OPF3_MINIMAL])
 def test_randomized_parseable_inputs_roundtrip_without_xml_breakage(opf_mod, base_payload: bytes) -> None:
+    """
+    Perform the test randomized parseable inputs roundtrip without xml breakage operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test randomized parseable inputs roundtrip without xml breakage through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf_facade_fuzz_robustness.py
+
+
+    :param opf_mod: Value supplied for opf mod under the utility contract.
+    :param base_payload: Value supplied for base payload under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     for seed in range(35):
         rng = random.Random(1000 + seed)
         payload = _mutate_parseable_payload(rng, base_payload)

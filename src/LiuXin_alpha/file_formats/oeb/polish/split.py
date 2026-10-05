@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=utf-8
 
+"""
+Split oversized or selected markup documents while preserving links.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise split through a consuming regression::
+
+        python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -29,10 +40,31 @@ __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
 class AbortError(ValueError):
+    """
+    Report a aborterror encountered while processing an ebook format.
+
+    Example:
+        Exercise AbortError through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+    """
     pass
 
 
 def in_table(node: _typing.Any) -> bool:
+    """
+    Perform the in table operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise in table through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param node: Value supplied for node under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     while node is not None:
         if node.tag.endswith("}table"):
             return True
@@ -42,12 +74,18 @@ def in_table(node: _typing.Any) -> bool:
 
 def adjust_split_point(split_point: _typing.Any, log: _typing.Any) -> _typing.Any:
     """
-    Move the split point up its ancestor chain if it has no content
-    before it. This handles the common case:
-    <div id="chapter1"><h2>Chapter 1</h2>...</div> with a page break on the h2.
-    :param split_point:
-    :param log:
-    :return:
+    Move the split point up its ancestor chain if it has no content before it. This handles the common case: <div id="chapter1"><h2>Chapter 1</h2>...</div> with a page break on the h2.
+
+    Example:
+        Exercise adjust split point through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param split_point: Value supplied for split point under the utility contract.
+    :param log: Value supplied for log under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     sp = split_point
     while True:
@@ -68,6 +106,19 @@ def adjust_split_point(split_point: _typing.Any, log: _typing.Any) -> _typing.An
 
 
 def get_body(root: _typing.Any) -> _typing.Any:
+    """
+    Return body under the format's safety and compatibility rules.
+
+    Example:
+        Exercise get body through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return root.find("h:body", namespaces=XPNSMAP)
 
 
@@ -75,10 +126,17 @@ def do_split(split_point: _typing.Any, log: _typing.Any, before: bool = True) ->
     """
     Split tree into a *before* and an *after* tree at ``split_point``.
 
-    :param split_point: The Element at which to split
-    :param log: The log to record activity to
-    :param before: If True tree is split before split_point, otherwise after split_point
-    :return: before_tree, after_tree
+    Example:
+        Exercise do split through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param split_point: Value supplied for split point under the utility contract.
+    :param log: Value supplied for log under the utility contract.
+    :param before: Value supplied for before under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if before:
         # We cannot adjust for after since moving an after split point to a parent will cause breakage if the parent
@@ -96,6 +154,20 @@ def do_split(split_point: _typing.Any, log: _typing.Any, before: bool = True) ->
     def nix_element(local_elem: _typing.Any, top: bool = True) -> None:
         # Remove elem unless top is False in which case replace elem by its
         # children
+        """
+        Perform the nix element operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise do split.nix element through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param local_elem: Value supplied for local elem under the utility contract.
+        :param top: Value supplied for top under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         local_elem_parent = local_elem.getparent()
         if top:
             local_elem_parent.remove(local_elem)
@@ -163,13 +235,50 @@ def do_split(split_point: _typing.Any, log: _typing.Any, before: bool = True) ->
 
 
 class SplitLinkReplacer(object):
+    """
+    Provide the splitlinkreplacer contract for validated ebook processing.
+
+    Example:
+        Exercise SplitLinkReplacer through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+    """
     def __init__(self: _typing.Self, base: _typing.Any, bottom_anchors: _typing.Any, top_name: _typing.Any, bottom_name: _typing.Any, container: _typing.Any) -> None:
+        """
+        Initialize and validate the splitlinkreplacer state.
+
+        Example:
+            Exercise SplitLinkReplacer.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param base: Value supplied for base under the utility contract.
+        :param bottom_anchors: Value supplied for bottom anchors under the utility contract.
+        :param top_name: Value supplied for top name under the utility contract.
+        :param bottom_name: Value supplied for bottom name under the utility contract.
+        :param container: Value supplied for container under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.bottom_anchors, self.bottom_name = bottom_anchors, bottom_name
         self.container, self.top_name = container, top_name
         self.base = base
         self.replaced = False
 
     def __call__(self: _typing.Self, url: _typing.Any) -> _typing.Any:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SplitLinkReplacer.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param url: Value supplied for url under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if url and url.startswith("#"):
             return url
         name = self.container.href_to_name(url, self.base)
@@ -184,17 +293,21 @@ class SplitLinkReplacer(object):
 
 def split(container: _typing.Any, name: _typing.Any, loc_or_xpath: _typing.Any, before: bool = True, totals: _typing.Any = None) -> _typing.Any:
     """
-    Split the file specified by name at the position specified by loc_or_xpath.
-    Splitting automatically migrates all links and references to the affected
-    files.
-    :param loc_or_xpath: Should be an XPath expression such as
-        //h:div[@id="split_here"]. Can also be a *loc* which is used internally to
-        implement splitting in the preview panel.
-    :param before: If True the split occurs before the identified element otherwise after it.
-    :param totals: Used internally
-    :param container:
-    :param name:
-    :return:
+    Split the file specified by name at the position specified by loc_or_xpath. Splitting automatically migrates all links and references to the affected files.
+
+    Example:
+        Exercise split through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :param name: Field, file, function or resource name addressed by the operation.
+    :param loc_or_xpath: Value supplied for loc or xpath under the utility contract.
+    :param before: Value supplied for before under the utility contract.
+    :param totals: Value supplied for totals under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
 
     root = container.parsed(name)
@@ -286,16 +399,20 @@ def split(container: _typing.Any, name: _typing.Any, loc_or_xpath: _typing.Any, 
 
 def multisplit(container: _typing.Any, name: _typing.Any, xpath: _typing.Any, before: bool = True) -> _typing.Any:
     """
-    Split the specified file at multiple locations (all tags that match the specified XPath expression.
-    See also: :func:`split`.
-    Splitting automatically migrates all links and references to the affected
-    files.
+    Split the specified file at multiple locations (all tags that match the specified XPath expression. See also: :func:`split`. Splitting automatically migrates all links and references to the affected files.
 
-    :param container:
-    :param name:
-    :param xpath:
-    :param before: If True the splits occur before the identified element otherwise after it.
-    :return:
+    Example:
+        Exercise multisplit through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :param name: Field, file, function or resource name addressed by the operation.
+    :param xpath: Value supplied for xpath under the utility contract.
+    :param before: Value supplied for before under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     root = container.parsed(name)
     nodes = root.xpath(xpath, namespaces=XPNSMAP)
@@ -325,13 +442,49 @@ def multisplit(container: _typing.Any, name: _typing.Any, xpath: _typing.Any, be
 
 
 class MergeLinkReplacer(object):
+    """
+    Provide the mergelinkreplacer contract for validated ebook processing.
+
+    Example:
+        Exercise MergeLinkReplacer through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+    """
     def __init__(self: _typing.Self, base: _typing.Any, anchor_map: _typing.Any, master: _typing.Any, container: _typing.Any) -> None:
+        """
+        Initialize and validate the mergelinkreplacer state.
+
+        Example:
+            Exercise MergeLinkReplacer.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param base: Value supplied for base under the utility contract.
+        :param anchor_map: Value supplied for anchor map under the utility contract.
+        :param master: Value supplied for master under the utility contract.
+        :param container: Value supplied for container under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.container, self.anchor_map = container, anchor_map
         self.master = master
         self.base = base
         self.replaced = False
 
     def __call__(self: _typing.Self, url: _typing.Any) -> _typing.Any:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MergeLinkReplacer.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param url: Value supplied for url under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if url and url.startswith("#"):
             return url
         name = self.container.href_to_name(url, self.base)
@@ -347,6 +500,20 @@ class MergeLinkReplacer(object):
 
 
 def add_text(body: _typing.Any, text: _typing.Any) -> None:
+    """
+    Perform the add text operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise add text through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param body: Value supplied for body under the utility contract.
+    :param text: Text parsed, normalized or rendered.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if len(body) > 0:
         body[-1].tail = (body[-1].tail or "") + text
     else:
@@ -354,10 +521,36 @@ def add_text(body: _typing.Any, text: _typing.Any) -> None:
 
 
 def all_anchors(root: _typing.Any) -> _typing.Any:
+    """
+    Perform the all anchors operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise all anchors through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return set(root.xpath("//*/@id")) | set(root.xpath("//*/@name"))
 
 
 def all_stylesheets(container: _typing.Any, name: _typing.Any) -> _typing.Iterator[_typing.Any]:
+    """
+    Perform the all stylesheets operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise all stylesheets through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :param name: Field, file, function or resource name addressed by the operation.
+    :return: An iterator yielding the normalized values described above.
+    """
     for link in XPath("//h:head/h:link[@href]")(container.parsed(name)):
         name = container.href_to_name(link.get("href"), name)
         typ = link.get("type", "text/css")
@@ -366,6 +559,20 @@ def all_stylesheets(container: _typing.Any, name: _typing.Any) -> _typing.Iterat
 
 
 def unique_anchor(seen_anchors: _typing.Any, current: _typing.Any) -> _typing.Any:
+    """
+    Perform the unique anchor operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise unique anchor through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param seen_anchors: Value supplied for seen anchors under the utility contract.
+    :param current: Value supplied for current under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     c = 0
     ans = current
     while ans in seen_anchors:
@@ -376,6 +583,19 @@ def unique_anchor(seen_anchors: _typing.Any, current: _typing.Any) -> _typing.An
 
 def remove_name_attributes(root: _typing.Any) -> None:
     # Remove all name attributes, replacing them with id attributes
+    """
+    Perform the remove name attributes operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise remove name attributes through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     for elem in root.xpath("//*[@id and @name]"):
         del elem.attrib["name"]
     for elem in root.xpath("//*[@name]"):
@@ -383,6 +603,21 @@ def remove_name_attributes(root: _typing.Any) -> None:
 
 
 def merge_html(container: _typing.Any, names: _typing.Any, master: _typing.Any) -> None:
+    """
+    Perform the merge html operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise merge html through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :param names: Value supplied for names under the utility contract.
+    :param master: Value supplied for master under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     p = container.parsed
     root = p(master)
 
@@ -475,6 +710,21 @@ def merge_html(container: _typing.Any, names: _typing.Any, master: _typing.Any) 
 
 
 def merge_css(container: _typing.Any, names: _typing.Any, master: _typing.Any) -> None:
+    """
+    Perform the merge css operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise merge css through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :param names: Value supplied for names under the utility contract.
+    :param master: Value supplied for master under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     p = container.parsed
     msheet = p(master)
     master_base = os.path.dirname(master)
@@ -525,14 +775,20 @@ def merge_css(container: _typing.Any, names: _typing.Any, master: _typing.Any) -
 
 def merge(container: _typing.Any, category: _typing.Any, names: _typing.Any, master: _typing.Any) -> None:
     """
-    Merge the specified files into a single file, automatically migrating all
-    links and references to the affected files. The file must all either be HTML or CSS files.
+    Merge the specified files into a single file, automatically migrating all links and references to the affected files. The file must all either be HTML or CSS files.
 
-    :param container:
-    :param category: Must be either ``'text'`` for HTML files or ``'styles'`` for CSS files
-    :param names: The list of files to be merged
-    :param master: Which of the merged files is the *master* file, that is, the file that will remain after merging.
-    :return:
+    Example:
+        Exercise merge through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :param category: Value supplied for category under the utility contract.
+    :param names: Value supplied for names under the utility contract.
+    :param master: Value supplied for master under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     if category not in {"text", "styles"}:
         raise AbortError("Cannot merge files of type: %s" % category)

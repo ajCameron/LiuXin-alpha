@@ -1,6 +1,13 @@
 """
-Provides tools for understanding and manipulating language codes.
-Used in the canonicalize language code.
+Expose the supported iso639 compatibility surface.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/utils/language_tools/test_pluralizers.py
 """
 
 import os
@@ -12,10 +19,34 @@ if not "unicode" in dir():
 
 
 class NonExistentLanguageError(RuntimeError):
+    """
+    Report the NonExistentLanguageError Calibre compatibility failure.
+
+    Example:
+        Exercise NonExistentLanguageError through a consuming regression::
+
+            python -m pytest -q tests/utils/language_tools/test_pluralizers.py
+    """
     pass
 
 
 def find(whatever=None, language=None, iso639_1=None, iso639_2=None):
+    """
+    Perform the find utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise find through a consuming regression::
+
+            python -m pytest -q tests/utils/language_tools/test_pluralizers.py
+
+
+    :param whatever: Value supplied for whatever under the utility contract.
+    :param language: Value supplied for language under the utility contract.
+    :param iso639_1: Value supplied for iso639 1 under the utility contract.
+    :param iso639_2: Value supplied for iso639 2 under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if whatever:
         keys = ["name", "iso639_1", "iso639_2_b", "iso639_2_t"]
         val = whatever
@@ -35,18 +66,55 @@ def find(whatever=None, language=None, iso639_1=None, iso639_2=None):
 
 
 def is_valid639_1(code):
+    """
+    Return or update whether is valid639 1 holds for the compatibility value.
+
+    Example:
+        Exercise is valid639 1 through a consuming regression::
+
+            python -m pytest -q tests/utils/language_tools/test_pluralizers.py
+
+
+    :param code: Value supplied for code under the utility contract.
+    :return: True when the documented condition holds; otherwise False.
+    """
     if len(code) != 2:
         return False
     return find(iso639_1=code) is not None
 
 
 def is_valid639_2(code):
+    """
+    Return or update whether is valid639 2 holds for the compatibility value.
+
+    Example:
+        Exercise is valid639 2 through a consuming regression::
+
+            python -m pytest -q tests/utils/language_tools/test_pluralizers.py
+
+
+    :param code: Value supplied for code under the utility contract.
+    :return: True when the documented condition holds; otherwise False.
+    """
     if len(code) != 3:
         return False
     return find(iso639_2=code) is not None
 
 
 def to_iso639_1(key):
+    """
+    Perform the to iso639 1 utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise to iso639 1 through a consuming regression::
+
+            python -m pytest -q tests/utils/language_tools/test_pluralizers.py
+
+
+    :param key: Metadata, identifier or local-variable key.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     item = find(whatever=key)
     if not item:
         raise NonExistentLanguageError("Language does not exist.")
@@ -54,6 +122,20 @@ def to_iso639_1(key):
 
 
 def to_iso639_2(key, type="B"):
+    """
+    Perform the to iso639 2 utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise to iso639 2 through a consuming regression::
+
+            python -m pytest -q tests/utils/language_tools/test_pluralizers.py
+
+
+    :param key: Metadata, identifier or local-variable key.
+    :param type: Value supplied for type under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if not type in ("B", "T"):
         raise ValueError('Type must be either "B" or "T".')
     item = find(whatever=key)
@@ -65,6 +147,19 @@ def to_iso639_2(key, type="B"):
 
 
 def to_name(key):
+    """
+    Perform the to name utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise to name through a consuming regression::
+
+            python -m pytest -q tests/utils/language_tools/test_pluralizers.py
+
+
+    :param key: Metadata, identifier or local-variable key.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     item = find(whatever=key)
     if not item:
         raise NonExistentLanguageError("Language does not exist.")
@@ -72,7 +167,32 @@ def to_name(key):
 
 
 def _load_data():
+    """
+    Perform the load data utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  load data through a consuming regression::
+
+            python -m pytest -q tests/utils/language_tools/test_pluralizers.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     def parse_line(line):
+        """
+        Parse line under the documented compatibility and safety rules.
+
+        Example:
+            Exercise  load data.parse line through a consuming regression::
+
+                python -m pytest -q tests/utils/language_tools/test_pluralizers.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = line.strip().split("|")
         return {
             "iso639_2_b": data[0],

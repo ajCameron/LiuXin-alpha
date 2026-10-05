@@ -1,4 +1,14 @@
-"""Semantic catalogue, discovery, and acquisition commands."""
+"""
+Translate catalogue, browsing, and acquisition CLI requests into Core operations.
+
+JSON specifications are read on the CLI host before dispatch. Core owns semantic
+validation, persistence, and resource resolution. Common query/command adapters
+publish receipts after closing their storage-enabled session and return zero
+without interpreting receipt status; a publication failure does not undo a
+mutation. Confirmation policies differ: entity deletion, WEMI unlink, and
+metadata merge refuse without --yes, while custom-field deletion previews locally.
+Acquisition byte output uses a CLI-host destination, not a Core-host file path.
+"""
 
 from __future__ import annotations
 
@@ -21,6 +31,21 @@ from LiuXin_alpha.surfaces.cli.common import (
 
 
 def _query(args: argparse.Namespace, operation: str, payload: dict[str, Any]) -> int:
+    """
+    Query a storage-enabled Core session and publish its receipt after exit.
+
+    The request is passed by identity; returned status/shape is not validated.
+    Connection, query, cleanup, serialization, and publication errors propagate.
+
+    Example:
+        >>> _query(args, "browse.categories", {})  # doctest: +SKIP
+
+
+    :param args: Connection selectors and JSON publication controls.
+    :param operation: Exact registered Core query name.
+    :param payload: Request dictionary forwarded without copying or normalization.
+    :return: Zero after output, even if the returned receipt reports failure.
+    """
     with open_cli_core(args, enable_storage_manager=True) as core:
         result = core.query(operation, payload)
     emit_json(result, args)
@@ -28,6 +53,21 @@ def _query(args: argparse.Namespace, operation: str, payload: dict[str, Any]) ->
 
 
 def _command(args: argparse.Namespace, operation: str, payload: dict[str, Any]) -> int:
+    """
+    Execute a Core command and publish its receipt after the session exits.
+
+    No generic confirmation or receipt-status check is added. Failures propagate;
+    an accepted mutation is not rolled back if cleanup or publication later fails.
+
+    Example:
+        >>> _command(args, "catalog.entity.create", declaration)  # doctest: +SKIP
+
+
+    :param args: Connection selectors and JSON publication controls.
+    :param operation: Exact registered Core command name.
+    :param payload: Request dictionary forwarded by identity, without validation.
+    :return: Zero once output completes, without interpreting the command receipt.
+    """
     with open_cli_core(args, enable_storage_manager=True) as core:
         result = core.command(operation, payload)
     emit_json(result, args)
@@ -35,11 +75,37 @@ def _command(args: argparse.Namespace, operation: str, payload: dict[str, Any]) 
 
 
 def _core_json(parser: argparse.ArgumentParser) -> None:
+    """
+    Add shared Core selection and JSON publication flags to one command leaf.
+
+    Example:
+        >>> parser = argparse.ArgumentParser()
+        >>> _core_json(parser)
+        >>> parser.parse_args(["--database", "db.sqlite"]).database
+        'db.sqlite'
+
+
+    :param parser: Mutable leaf parser receiving connection and output options.
+    :return: None; no connection or output is performed during registration.
+    """
     add_connection_arguments(parser)
     add_json_output(parser)
 
 
 def cmd_catalog_search(args: argparse.Namespace) -> int:
+    """
+    Search catalogue text with integer paging and optional table restrictions.
+
+    Copy truthy table selections to a list, retaining duplicates/order. Text and
+    table names are not normalized, and numeric bounds are not clamped locally.
+
+    Example:
+        >>> cmd_catalog_search(parsed_catalog_search_args)  # doctest: +SKIP
+
+
+    :param args: Common connection/output controls plus text, limit, offset, table.
+    :return: Zero after publishing the search.global query receipt.
+    """
     payload: dict[str, Any] = {
         "text": args.text,
         "limit": int(args.limit),
@@ -51,6 +117,17 @@ def cmd_catalog_search(args: argparse.Namespace) -> int:
 
 
 def cmd_catalog_entity_list(args: argparse.Namespace) -> int:
+    """
+    Request one repository's entity page without locally validating its name.
+
+    Example:
+        >>> cmd_catalog_entity_list(parsed_entity_list_args)  # doctest: +SKIP
+
+
+    :param args: Common controls, repository token, and integer-convertible
+        limit/offset; negative values are forwarded rather than clamped.
+    :return: Zero after publishing catalog.entity.list's receipt.
+    """
     return _query(
         args,
         "catalog.entity.list",
@@ -63,6 +140,17 @@ def cmd_catalog_entity_list(args: argparse.Namespace) -> int:
 
 
 def cmd_catalog_entity_show(args: argparse.Namespace) -> int:
+    """
+    Fetch one semantic repository entity by its integer-converted identifier.
+
+    Example:
+        >>> cmd_catalog_entity_show(parsed_entity_show_args)  # doctest: +SKIP
+
+
+    :param args: Common controls, repository name, and entity_id; Core resolves
+        existence and repository-specific semantics.
+    :return: Zero after publishing catalog.entity.get's receipt.
+    """
     return _query(
         args,
         "catalog.entity.get",
@@ -71,6 +159,22 @@ def cmd_catalog_entity_show(args: argparse.Namespace) -> int:
 
 
 def cmd_catalog_entity_match(args: argparse.Namespace) -> int:
+    """
+    Match a CLI-host candidate declaration, optionally creating on no match.
+
+    Load candidate and any truthy hints-file selection as JSON objects before
+    opening Core. Include parent_id when non-None, including zero, and source
+    only when truthy. The create flag selects the mutating match-or-create
+    command instead of catalog.match; there is no separate --yes requirement.
+
+    Example:
+        >>> cmd_catalog_entity_match(parsed_entity_match_args)  # doctest: +SKIP
+
+
+    :param args: Common controls plus repository, candidate_file, parent_id,
+        source, hints_file, and create; file selectors belong to the CLI host.
+    :return: Zero after publishing the match query or match-or-create receipt.
+    """
     payload: dict[str, Any] = {
         "repository": args.repository,
         "candidate": load_json_object(args.candidate_file),
@@ -90,6 +194,21 @@ def cmd_catalog_entity_match(args: argparse.Namespace) -> int:
 
 
 def cmd_catalog_entity_write(args: argparse.Namespace) -> int:
+    """
+    Create or update an entity from a CLI-host JSON object.
+
+    Only the exact entity_action 'update' includes entity_id and selects update;
+    all other direct-call values select create. The parser constrains normal CLI
+    calls. No confirmation flag or local entity-field schema is enforced here.
+
+    Example:
+        >>> cmd_catalog_entity_write(parsed_entity_update_args)  # doctest: +SKIP
+
+
+    :param args: Common controls, repository, data_file, entity_action, and an
+        integer-convertible entity_id for update.
+    :return: Zero after publishing the create/update command receipt.
+    """
     payload: dict[str, Any] = {
         "repository": args.repository,
         "data": load_json_object(args.data_file),
@@ -102,6 +221,22 @@ def cmd_catalog_entity_write(args: argparse.Namespace) -> int:
 
 
 def cmd_catalog_entity_delete(args: argparse.Namespace) -> int:
+    """
+    Delete a repository entity only after explicit confirmation.
+
+    Refusal happens before opening Core and produces no preview.
+
+    Example:
+        >>> cmd_catalog_entity_delete(argparse.Namespace(yes=False))
+        Traceback (most recent call last):
+        ...
+        ValueError: Catalogue entity deletion requires --yes.
+
+
+    :param args: Common controls, yes confirmation, repository, and entity_id.
+    :return: Zero after publishing the confirmed deletion receipt.
+    :raises ValueError: Confirmation is absent or entity_id cannot convert to int.
+    """
     if not args.yes:
         raise ValueError("Catalogue entity deletion requires --yes.")
     return _command(
@@ -112,6 +247,17 @@ def cmd_catalog_entity_delete(args: argparse.Namespace) -> int:
 
 
 def cmd_catalog_bundle(args: argparse.Namespace) -> int:
+    """
+    Request a hydrated WEMI bundle for one level and entity identifier.
+
+    Example:
+        >>> cmd_catalog_bundle(parsed_catalog_bundle_args)  # doctest: +SKIP
+
+
+    :param args: Common controls, unmodified WEMI level, and entity_id converted
+        to int; hydration and level validation are Core responsibilities.
+    :return: Zero after publishing catalog.bundle.get's receipt.
+    """
     return _query(
         args,
         "catalog.bundle.get",
@@ -120,6 +266,20 @@ def cmd_catalog_bundle(args: argparse.Namespace) -> int:
 
 
 def cmd_catalog_graph(args: argparse.Namespace) -> int:
+    """
+    Request a Work graph with separate expression, manifestation, and Item caps.
+
+    Convert all identifiers/counts to integers without checking positive ranges
+    or enforcing the requested caps locally.
+
+    Example:
+        >>> cmd_catalog_graph(parsed_catalog_graph_args)  # doctest: +SKIP
+
+
+    :param args: Common controls plus work_id, max_expressions,
+        max_manifestations, and max_items.
+    :return: Zero after publishing catalog.graph.get's receipt.
+    """
     return _query(
         args,
         "catalog.graph.get",
@@ -133,12 +293,36 @@ def cmd_catalog_graph(args: argparse.Namespace) -> int:
 
 
 def cmd_catalog_item_summary(args: argparse.Namespace) -> int:
+    """
+    Fetch Core's semantic summary for one Item, not its acquisition bytes.
+
+    Example:
+        >>> cmd_catalog_item_summary(parsed_catalog_item_args)  # doctest: +SKIP
+
+
+    :param args: Common controls and an integer-convertible item_id.
+    :return: Zero after publishing catalog.item.summary's receipt.
+    """
     return _query(
         args, "catalog.item.summary", {"item_id": int(args.item_id)}
     )
 
 
 def cmd_catalog_hierarchy(args: argparse.Namespace) -> int:
+    """
+    List adjacent WEMI entities in the requested parent/child direction.
+
+    Direction and level pass through unchanged; only the CLI parser restricts
+    direction choices. This adapter does not traverse the hierarchy itself.
+
+    Example:
+        >>> cmd_catalog_hierarchy(parsed_catalog_hierarchy_args)  # doctest: +SKIP
+
+
+    :param args: Common controls plus level, integer-convertible entity_id,
+        and direction.
+    :return: Zero after publishing catalog.hierarchy.list's receipt.
+    """
     return _query(
         args,
         "catalog.hierarchy.list",
@@ -151,6 +335,17 @@ def cmd_catalog_hierarchy(args: argparse.Namespace) -> int:
 
 
 def cmd_catalog_identifiers(args: argparse.Namespace) -> int:
+    """
+    Fetch complete identifier records or Core's primary-value projection.
+
+    Example:
+        >>> cmd_catalog_identifiers(parsed_identifier_list_args)  # doctest: +SKIP
+
+
+    :param args: Common controls, level, entity_id, and primary_only selecting
+        primary-values instead of the identifiers.list operation.
+    :return: Zero after publishing the chosen identifier query receipt.
+    """
     operation = (
         "catalog.identifiers.primary-values"
         if args.primary_only
@@ -164,6 +359,20 @@ def cmd_catalog_identifiers(args: argparse.Namespace) -> int:
 
 
 def cmd_catalog_identifiers_set(args: argparse.Namespace) -> int:
+    """
+    Replace entity identifiers using a CLI-host JSON object or array.
+
+    Validate only the top-level container before opening Core; element schemas
+    and replacement semantics belong to Core. No --yes gate is imposed.
+
+    Example:
+        >>> cmd_catalog_identifiers_set(parsed_identifier_set_args)  # doctest: +SKIP
+
+
+    :param args: Common controls, level, entity_id, and identifiers_file selector.
+    :return: Zero after publishing catalog.identifiers.replace's receipt.
+    :raises ValueError: Decoded identifiers are neither a dict nor a list.
+    """
     identifiers = load_json_file(args.identifiers_file)
     if not isinstance(identifiers, (dict, list)):
         raise ValueError("Identifiers JSON must contain an object or array.")
@@ -179,6 +388,17 @@ def cmd_catalog_identifiers_set(args: argparse.Namespace) -> int:
 
 
 def cmd_catalog_agents(args: argparse.Namespace) -> int:
+    """
+    List agents attached to one entity, optionally restricted by a truthy role.
+
+    Example:
+        >>> cmd_catalog_agents(parsed_agent_list_args)  # doctest: +SKIP
+
+
+    :param args: Common controls plus level, entity_id, and optional role token;
+        only entity_id is integer-coerced.
+    :return: Zero after publishing catalog.agents.list's receipt.
+    """
     payload: dict[str, Any] = {
         "level": args.level,
         "entity_id": int(args.entity_id),
@@ -189,6 +409,19 @@ def cmd_catalog_agents(args: argparse.Namespace) -> int:
 
 
 def cmd_catalog_annotations(args: argparse.Namespace) -> int:
+    """
+    List an Item's annotations with optional user and annotation-kind filters.
+
+    A non-None user_id, including zero, is integer-converted; a falsey kind is
+    omitted. No local ownership or permission inference is performed.
+
+    Example:
+        >>> cmd_catalog_annotations(parsed_annotation_list_args)  # doctest: +SKIP
+
+
+    :param args: Common controls, item_id, optional user_id, and kind.
+    :return: Zero after publishing catalog.annotations.list's receipt.
+    """
     payload: dict[str, Any] = {"item_id": int(args.item_id)}
     if args.user_id is not None:
         payload["user_id"] = int(args.user_id)
@@ -198,6 +431,17 @@ def cmd_catalog_annotations(args: argparse.Namespace) -> int:
 
 
 def cmd_catalog_agent_resolve(args: argparse.Namespace) -> int:
+    """
+    Ask Core to resolve an agent name with an optional truthy role restriction.
+
+    Example:
+        >>> cmd_catalog_agent_resolve(parsed_agent_resolve_args)  # doctest: +SKIP
+
+
+    :param args: Common controls plus name and role, forwarded without trimming
+        or local ambiguity resolution.
+    :return: Zero after publishing catalog.agent.resolve's receipt.
+    """
     payload = {"name": args.name}
     if args.role:
         payload["role"] = args.role
@@ -205,6 +449,19 @@ def cmd_catalog_agent_resolve(args: argparse.Namespace) -> int:
 
 
 def cmd_catalog_agent_link(args: argparse.Namespace) -> int:
+    """
+    Attach an agent to an entity with optional role and ordering priority.
+
+    Convert both IDs and a non-None priority to integers; zero priority is kept.
+    No confirmation or local relationship/existence validation is performed.
+
+    Example:
+        >>> cmd_catalog_agent_link(parsed_agent_link_args)  # doctest: +SKIP
+
+
+    :param args: Common controls, agent_id, level, entity_id, role, and priority.
+    :return: Zero after publishing catalog.agent.link's receipt.
+    """
     payload: dict[str, Any] = {
         "agent_id": int(args.agent_id),
         "level": args.level,
@@ -218,6 +475,20 @@ def cmd_catalog_agent_link(args: argparse.Namespace) -> int:
 
 
 def cmd_catalog_agent_create(args: argparse.Namespace) -> int:
+    """
+    Create a person or organisation agent from a CLI-host JSON object.
+
+    Remove all 'create-' substrings from agent_action to build the command
+    suffix. Normal CLI choices constrain it; direct callers are not allowlisted.
+    The loaded specification is sent as the payload, not nested under another key.
+
+    Example:
+        >>> cmd_catalog_agent_create(parsed_create_person_args)  # doctest: +SKIP
+
+
+    :param args: Common controls, agent_action, and spec_file JSON selector.
+    :return: Zero after publishing the selected agent-creation receipt.
+    """
     payload = load_json_object(args.spec_file)
     return _command(
         args,
@@ -227,11 +498,38 @@ def cmd_catalog_agent_create(args: argparse.Namespace) -> int:
 
 
 def cmd_catalog_wemi_create(args: argparse.Namespace) -> int:
+    """
+    Submit a complete WEMI creation declaration loaded on the CLI host.
+
+    Only JSON-object shape is checked locally; Core validates its work,
+    expression, manifestation, and optional Item declarations.
+
+    Example:
+        >>> cmd_catalog_wemi_create(parsed_wemi_create_args)  # doctest: +SKIP
+
+
+    :param args: Common controls and spec_file supplying the direct Core payload.
+    :return: Zero after publishing catalog.wemi.create's receipt.
+    """
     payload = load_json_object(args.spec_file)
     return _command(args, "catalog.wemi.create", payload)
 
 
 def cmd_catalog_wemi_link(args: argparse.Namespace) -> int:
+    """
+    Create an explicit parent/child WEMI relationship with optional link facts.
+
+    Preserve explicit false primary and zero priority by omitting them only for
+    None. Origin is included only when truthy. Core owns level and cycle validation.
+
+    Example:
+        >>> cmd_catalog_wemi_link(parsed_wemi_link_args)  # doctest: +SKIP
+
+
+    :param args: Common controls, parent_level/parent_id, child_level/child_id,
+        and primary, priority, origin; IDs/priority convert to int.
+    :return: Zero after publishing catalog.wemi.link's receipt.
+    """
     payload: dict[str, Any] = {
         "parent_level": args.parent_level,
         "parent_id": int(args.parent_id),
@@ -248,6 +546,20 @@ def cmd_catalog_wemi_link(args: argparse.Namespace) -> int:
 
 
 def cmd_catalog_wemi_unlink(args: argparse.Namespace) -> int:
+    """
+    Remove an explicit WEMI edge only after confirmation, without a preview.
+
+    Example:
+        >>> cmd_catalog_wemi_unlink(argparse.Namespace(yes=False))
+        Traceback (most recent call last):
+        ...
+        ValueError: WEMI unlinking requires --yes.
+
+
+    :param args: Common controls, yes flag, and parent/child level-ID pairs.
+    :return: Zero after publishing the confirmed catalog.wemi.unlink receipt.
+    :raises ValueError: Confirmation is absent or an endpoint ID is not an integer.
+    """
     if not args.yes:
         raise ValueError("WEMI unlinking requires --yes.")
     return _command(
@@ -263,6 +575,20 @@ def cmd_catalog_wemi_unlink(args: argparse.Namespace) -> int:
 
 
 def cmd_catalog_metadata_write(args: argparse.Namespace) -> int:
+    """
+    Attach or replace entity metadata from a CLI-host JSON object.
+
+    The action is appended directly to 'catalog.metadata.'; parser choices,
+    rather than this handler, constrain it to attach/replace. No --yes gate applies.
+
+    Example:
+        >>> cmd_catalog_metadata_write(parsed_metadata_attach_args)  # doctest: +SKIP
+
+
+    :param args: Common controls, catalog_metadata_action, level, entity_id,
+        and data_file; data is decoded before opening Core.
+    :return: Zero after publishing the selected metadata command receipt.
+    """
     return _command(
         args,
         "catalog.metadata." + args.catalog_metadata_action,
@@ -275,6 +601,22 @@ def cmd_catalog_metadata_write(args: argparse.Namespace) -> int:
 
 
 def cmd_catalog_metadata_merge(args: argparse.Namespace) -> int:
+    """
+    Merge source entity metadata into a target only with explicit confirmation.
+
+    Refusal precedes dispatch and emits no preview; merge policy belongs to Core.
+
+    Example:
+        >>> cmd_catalog_metadata_merge(argparse.Namespace(yes=False))
+        Traceback (most recent call last):
+        ...
+        ValueError: Catalogue metadata merge requires --yes.
+
+
+    :param args: Common controls, yes flag, level, source_id, and target_id.
+    :return: Zero after publishing catalog.metadata.merge's receipt.
+    :raises ValueError: Confirmation is absent or an ID cannot convert to int.
+    """
     if not args.yes:
         raise ValueError("Catalogue metadata merge requires --yes.")
     return _command(
@@ -289,6 +631,18 @@ def cmd_catalog_metadata_merge(args: argparse.Namespace) -> int:
 
 
 def cmd_catalog_fields(args: argparse.Namespace) -> int:
+    """
+    Fetch a named metadata field or list definitions by kind/composite policy.
+
+    A truthy key selects a single-field query and ignores the listing filters.
+
+    Example:
+        >>> cmd_catalog_fields(parsed_catalog_fields_args)  # doctest: +SKIP
+
+
+    :param args: Common controls, optional key, kind, and no_composites flag.
+    :return: Zero after publishing catalog.fields.get or catalog.fields.list.
+    """
     payload: dict[str, Any] = {}
     if args.key:
         return _query(args, "catalog.fields.get", {"key": args.key})
@@ -298,6 +652,25 @@ def cmd_catalog_fields(args: argparse.Namespace) -> int:
 
 
 def _custom_field_match(fields: Any, reference: str) -> dict[str, Any]:
+    """
+    Require one list entry whose stringified number or exact label matches.
+
+    Strip only the reference, not stored labels; comparisons are case-sensitive.
+    Skip non-dicts and count duplicate entries separately. Missing numbers
+    stringify to 'None', and missing labels to an empty string; these can match
+    unusual references. A definition matching both keys still counts only once.
+
+    Example:
+        >>> field = {"num": 7, "label": "rating"}
+        >>> _custom_field_match([None, field], " 7 ") is field
+        True
+
+
+    :param fields: Core's fields value; only a list is accepted as its container.
+    :param reference: Identifier/label to stringify and trim before matching.
+    :return: The original matching dictionary, not a copy.
+    :raises ValueError: The container is invalid or there is not exactly one match.
+    """
     if not isinstance(fields, list):
         raise ValueError("Core returned an invalid custom-field list.")
     token = str(reference).strip()
@@ -315,10 +688,34 @@ def _custom_field_match(fields: Any, reference: str) -> dict[str, Any]:
 
 
 def cmd_catalog_custom_fields_list(args: argparse.Namespace) -> int:
+    """
+    Publish all Core custom-field definitions without local projection.
+
+    Example:
+        >>> cmd_catalog_custom_fields_list(parsed_custom_list_args)  # doctest: +SKIP
+
+
+    :param args: Common Core connection and JSON publication controls.
+    :return: Zero after publishing custom-fields.list's receipt.
+    """
     return _query(args, "custom-fields.list", {})
 
 
 def cmd_catalog_custom_fields_show(args: argparse.Namespace) -> int:
+    """
+    Select one custom-field definition from Core's complete returned list.
+
+    Close the session before matching and emitting a one-key field envelope.
+    Invalid envelopes and ambiguous/missing matches propagate as errors.
+
+    Example:
+        >>> cmd_catalog_custom_fields_show(parsed_custom_show_args)  # doctest: +SKIP
+
+
+    :param args: Common controls and field, an exact label or stringified number.
+    :return: Zero after publishing the uniquely matched field definition.
+    :raises ValueError: The fields list is invalid or the reference is not unique.
+    """
     with open_cli_core(args, enable_storage_manager=True) as core:
         result = core.query("custom-fields.list", {})
     field = _custom_field_match(result.get("fields"), args.field)
@@ -327,6 +724,21 @@ def cmd_catalog_custom_fields_show(args: argparse.Namespace) -> int:
 
 
 def cmd_catalog_custom_fields_create(args: argparse.Namespace) -> int:
+    """
+    Create a custom field from typed options and optional CLI-host display JSON.
+
+    Include label/display only for truthy selectors, and make_category whenever
+    non-None, preserving false. Creation uses the payload key 'editable'; update
+    uses 'is_editable'. No datatype/table/display schema is validated locally.
+
+    Example:
+        >>> cmd_catalog_custom_fields_create(parsed_custom_create_args)  # doctest: +SKIP
+
+
+    :param args: Common controls plus name, datatype, multiple, not_editable,
+        table, label, display_file, and make_category.
+    :return: Zero after publishing custom-fields.create's receipt.
+    """
     payload: dict[str, Any] = {
         "name": args.name,
         "datatype": args.datatype,
@@ -344,6 +756,23 @@ def cmd_catalog_custom_fields_create(args: argparse.Namespace) -> int:
 
 
 def cmd_catalog_custom_fields_update(args: argparse.Namespace) -> int:
+    """
+    Update a numbered custom field, with typed options overriding JSON changes.
+
+    A None changes_file starts an empty mapping; other selectors are read on the
+    CLI host. Non-None name/label include empty strings, editable writes the key
+    is_editable, and a truthy display_file replaces display. Reject a still-empty
+    change mapping before opening Core; field/value semantics remain Core-owned.
+
+    Example:
+        >>> cmd_catalog_custom_fields_update(parsed_custom_update_args)  # doctest: +SKIP
+
+
+    :param args: Common controls, num, changes_file, name, label, editable,
+        and display_file; unspecified typed fields are None.
+    :return: Zero after publishing custom-fields.update's receipt.
+    :raises ValueError: No changes are supplied or num cannot convert to int.
+    """
     changes = (
         {} if args.changes_file is None else load_json_object(args.changes_file)
     )
@@ -365,6 +794,21 @@ def cmd_catalog_custom_fields_update(args: argparse.Namespace) -> int:
 
 
 def cmd_catalog_custom_fields_delete(args: argparse.Namespace) -> int:
+    """
+    Preview a custom-field deletion locally, or execute it when yes is truthy.
+
+    A non-None number and truthy label are included; direct callers can supply
+    both, although the parser makes them mutually exclusive. Preview opens no
+    Core session and proves neither field existence nor deletion feasibility.
+
+    Example:
+        >>> cmd_catalog_custom_fields_delete(parsed_custom_delete_args)  # doctest: +SKIP
+
+
+    :param args: Common controls, num/label selector, and yes execution flag.
+    :return: Zero after emitting either the preview or the command receipt.
+    :raises ValueError: Neither selector contributes a value, or num is invalid.
+    """
     payload: dict[str, Any] = {}
     if args.num is not None:
         payload["num"] = int(args.num)
@@ -387,10 +831,33 @@ def cmd_catalog_custom_fields_delete(args: argparse.Namespace) -> int:
 
 
 def cmd_browse_categories(args: argparse.Namespace) -> int:
+    """
+    Request Core's category overview without adding local paging or filters.
+
+    Example:
+        >>> cmd_browse_categories(parsed_browse_categories_args)  # doctest: +SKIP
+
+
+    :param args: Common Core connection and JSON publication controls.
+    :return: Zero after publishing browse.categories' receipt.
+    """
     return _query(args, "browse.categories", {})
 
 
 def cmd_browse_category(args: argparse.Namespace) -> int:
+    """
+    List category items with explicit paging and sort direction.
+
+    Limit/offset are integer-converted without clamping; category/sort pass
+    through unchanged and descending is inverted into ascending.
+
+    Example:
+        >>> cmd_browse_category(parsed_browse_category_args)  # doctest: +SKIP
+
+
+    :param args: Common controls, category, limit, offset, sort, and descending.
+    :return: Zero after publishing browse.category.items' receipt.
+    """
     return _query(
         args,
         "browse.category.items",
@@ -405,6 +872,20 @@ def cmd_browse_category(args: argparse.Namespace) -> int:
 
 
 def cmd_browse_works(args: argparse.Namespace) -> int:
+    """
+    Browse paged Work projections with optional category and text selectors.
+
+    Omit selectors only for None, retaining empty text and zero category_id.
+    Only limit/offset are converted here; the parser normally types category_id.
+
+    Example:
+        >>> cmd_browse_works(parsed_browse_works_args)  # doctest: +SKIP
+
+
+    :param args: Common controls, limit, offset, sort, descending, category,
+        category_id, and text; Core interprets filtering and sort semantics.
+    :return: Zero after publishing browse.works' receipt.
+    """
     payload: dict[str, Any] = {
         "limit": int(args.limit),
         "offset": int(args.offset),
@@ -419,10 +900,34 @@ def cmd_browse_works(args: argparse.Namespace) -> int:
 
 
 def cmd_browse_work(args: argparse.Namespace) -> int:
+    """
+    Fetch one Work's browsing projection rather than its complete WEMI graph.
+
+    Example:
+        >>> cmd_browse_work(parsed_browse_work_args)  # doctest: +SKIP
+
+
+    :param args: Common controls and an integer-convertible work_id.
+    :return: Zero after publishing browse.work's receipt.
+    """
     return _query(args, "browse.work", {"work_id": int(args.work_id)})
 
 
 def cmd_acquire_query(args: argparse.Namespace) -> int:
+    """
+    List a Work's formats/covers or resolve a resource without reading bytes.
+
+    Exact formats/cover actions use work_id; every other direct-call action uses
+    acquisition.resolve with kind/resource_id. The parser constrains CLI actions.
+
+    Example:
+        >>> cmd_acquire_query(parsed_acquire_formats_args)  # doctest: +SKIP
+
+
+    :param args: Common controls, acquire_action, and either work_id or
+        kind/resource_id; the selected identifier is integer-converted.
+    :return: Zero after publishing the selected acquisition query receipt.
+    """
     if args.acquire_action in {"formats", "cover"}:
         operation = "acquisition." + args.acquire_action
         payload = {"work_id": int(args.work_id)}
@@ -433,6 +938,24 @@ def cmd_acquire_query(args: argparse.Namespace) -> int:
 
 
 def cmd_acquire_get(args: argparse.Namespace) -> int:
+    """
+    Read a Core resource and publish decoded bytes to a CLI-host destination.
+
+    Fetch the complete receipt and close Core before decoding content. The shared
+    byte publisher buffers stdout ('-') and handles filesystem collision/replacement
+    policy; this handler neither streams Core chunks nor validates the file format.
+    For file output, print resource/byte-count JSON to stderr only after publication.
+    A later diagnostic failure cannot retract already published bytes. Fetch,
+    decoding, serialization, and output errors propagate; no rollback is added.
+
+    Example:
+        >>> cmd_acquire_get(parsed_acquire_get_args)  # doctest: +SKIP
+
+
+    :param args: Connection controls, kind, resource_id, file_output, and
+        replace_file_output; this leaf does not use JSON output flags.
+    :return: Zero after byte publication and any file-output diagnostic.
+    """
     with open_cli_core(args, enable_storage_manager=True) as core:
         result = core.query(
             "acquisition.read",
@@ -456,11 +979,24 @@ def build_catalog_parser(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
     """
-    Build the `catalog` command-line parser.
+    Register the catalog/catalogue tree for semantic reads, writes, and browsing.
+
+    Every leaf receives common connection/JSON options. Nested action selection
+    is required; show/get aliases, paging defaults, tri-state link/editability
+    flags, and custom-field selector exclusivity are declared here. Parsing does
+    not validate positive ranges, repository schemas, files, or confirmation
+    policy beyond providing the handlers' flags, and performs no Core operations.
+
+    Example:
+        >>> root = argparse.ArgumentParser()
+        >>> build_catalog_parser(root.add_subparsers())
+        >>> args = root.parse_args(["catalogue", "browse", "works"])
+        >>> args.limit, args.offset, args.sort
+        (100, 0, 'title')
 
 
-    :param subparsers:
-    :return:
+    :param subparsers: Root CLI collection receiving catalog and its alias.
+    :return: None; nested parsers and command handlers are installed in place.
     """
     parser = subparsers.add_parser(
         "catalog", aliases=["catalogue"], help="Search, browse, and edit semantic catalogue entities."
@@ -720,11 +1256,22 @@ def build_acquisition_parser(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
     """
-    Build the `acquisition` command-line parser.
+    Register acquire/acquisition discovery and binary get/read command leaves.
+
+    Formats, cover, and resolve publish JSON; get/read instead requires a byte
+    destination and an explicit replacement flag for overwriting files. Parser
+    construction does not resolve resources, open Core, or touch the destination.
+
+    Example:
+        >>> root = argparse.ArgumentParser()
+        >>> build_acquisition_parser(root.add_subparsers())
+        >>> args = root.parse_args(["acquire", "read", "file", "7", "book.epub"])
+        >>> args.resource_id, args.file_output, args.replace_file_output
+        (7, 'book.epub', False)
 
 
-    :param subparsers:
-    :return:
+    :param subparsers: Root CLI collection receiving the acquisition family.
+    :return: None; all leaves and aliases are added with their handler defaults.
     """
     parser = subparsers.add_parser(
         "acquire", aliases=["acquisition"], help="Resolve and safely retrieve catalogue resources."

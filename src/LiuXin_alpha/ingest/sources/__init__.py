@@ -1,4 +1,11 @@
-"""Discovery-source contracts and built-in remote content providers."""
+"""
+Export the discovery contract, native/wget implementations, and shared rate defaults.
+
+Imports expose implementation objects eagerly but do not start a crawl or probe
+an executable. Source discovery supplies candidate URLs; Store backends own byte
+access, and ingest pipelines own catalogue writes. Backend-specific preference
+aliases share the modern crawler default with legacy-key fallbacks.
+"""
 
 from .api import DiscoveredUrlCallback, DiscoverySourceAPI, LogLineCallback, ObservedUrlCallback
 from .crawler_defaults import (

@@ -13,6 +13,17 @@
 # $Revision: 1.41 $
 # $Date: 2006/03/24 23:50:07 $
 
+"""
+Coordinate the retained RTF-to-XML conversion pipeline.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise ParseRtf through a consuming regression::
+
+        python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -108,6 +119,11 @@ def Handle_Main():
 class InvalidRtfException(Exception):
     """
     handle invalid RTF
+
+    Example:
+        Exercise InvalidRtfException through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
     """
 
     pass
@@ -116,6 +132,11 @@ class InvalidRtfException(Exception):
 class RtfInvalidCodeException(Exception):
     """
     handle bugs in program
+
+    Example:
+        Exercise RtfInvalidCodeException through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
     """
 
     pass
@@ -124,6 +145,11 @@ class RtfInvalidCodeException(Exception):
 class ParseRtf:
     """
     Main class for controlling the rest of the parsing.
+
+    Example:
+        Exercise ParseRtf through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
     """
 
     def __init__(
@@ -150,20 +176,40 @@ class ParseRtf:
         default_encoding: str = "cp1252",
     ) -> None:
         """
-        Requires:
-        'file' --file to parse
-        'char_data' --file containing character maps
-        'dtd' --path to dtd
-        Possible parameters, but not necessary:
-            'output' --a file to output the parsed file. (Default is standard
-            output.)
-            'temp_dir' --directory for temporary output (If not provided, the
-            script tries to output to directory where is script is executed.)
-            'deb_dir' --debug directory. If a debug_dir is provided, the script
-            will copy each run through as a file to examine in the debug_dir
-            'check_brackets' -- make sure the brackets match up after each run
-            through a file. Only for debugging.
-        Returns: Nothing
+        Requires: 'file' --file to parse 'char_data' --file containing character maps 'dtd' --path to dtd Possible parameters, but not necessary: 'output' --a file to output the parsed file. (Default is standard output.) 'temp_dir' --directory for temporary output (If not provided, the script tries to output to directory where is script is executed.) 'deb_dir' --debug directory. If a debug_dir is provided, the script will copy each run through as a file to examine in the debug_dir 'check_brackets' -- make sure the brackets match up after each run through a file. Only for debugging. Returns: Nothing
+
+        Example:
+            Exercise ParseRtf.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param in_file: Value supplied for in file under the utility contract.
+        :param out_file: Value supplied for out file under the utility contract.
+        :param out_dir: Value supplied for out dir under the utility contract.
+        :param dtd: Value supplied for dtd under the utility contract.
+        :param deb_dir: Value supplied for deb dir under the utility contract.
+        :param convert_symbol: Value supplied for convert symbol under the utility contract.
+        :param convert_wingdings: Value supplied for convert wingdings under the utility
+            contract.
+        :param convert_zapf: Value supplied for convert zapf under the utility contract.
+        :param convert_caps: Value supplied for convert caps under the utility contract.
+        :param run_level: Value supplied for run level under the utility contract.
+        :param indent: Value supplied for indent under the utility contract.
+        :param replace_illegals: Value supplied for replace illegals under the utility
+            contract.
+        :param form_lists: Value supplied for form lists under the utility contract.
+        :param headings_to_sections: Value supplied for headings to sections under the
+            utility contract.
+        :param group_styles: Value supplied for group styles under the utility contract.
+        :param group_borders: Value supplied for group borders under the utility contract.
+        :param empty_paragraphs: Value supplied for empty paragraphs under the utility
+            contract.
+        :param no_dtd: Value supplied for no dtd under the utility contract.
+        :param char_data: Value supplied for char data under the utility contract.
+        :param default_encoding: Value supplied for default encoding under the utility
+            contract.
+        :return: None; validated state is stored on the receiving object.
         """
 
         self.__file = in_file
@@ -193,7 +239,20 @@ class ParseRtf:
         self.__default_encoding = default_encoding
 
     def __check_file(self: _typing.Self, the_file: _typing.Any, type: _typing.Any) -> None:
-        """Check to see if files exist"""
+        """
+        Check to see if files exist
+
+        Example:
+            Exercise ParseRtf.  check file through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param the_file: Value supplied for the file under the utility contract.
+        :param type: Value supplied for type under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if hasattr(the_file, "read"):
             return
         if the_file is None:
@@ -207,7 +266,19 @@ class ParseRtf:
             raise RtfInvalidCodeException(msg)
 
     def __check_dir(self: _typing.Self, the_dir: _typing.Any) -> int | None:
-        """Check to see if directory exists"""
+        """
+        Check to see if directory exists
+
+        Example:
+            Exercise ParseRtf.  check dir through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param the_dir: Value supplied for the dir under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not the_dir:
             return
         dir_exists = os.path.isdir(the_dir)
@@ -218,12 +289,16 @@ class ParseRtf:
 
     def parse_rtf(self: _typing.Self) -> _typing.Any:
         """
-        Parse the file by calling on other classes.
-        Requires:
-            Nothing
-        Returns:
-            A parsed file in XML, either to standard output or to a file,
-            depending on the value of 'output' when the instance was created.
+        Parse the file by calling on other classes. Requires: Nothing Returns: A parsed file in XML, either to standard output or to a file, depending on the value of 'output' when the instance was created.
+
+        Example:
+            Exercise ParseRtf.parse rtf through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         self.__temp_file = self.__make_temp_file(self.__file)
         # if the self.__deb_dir is true, then create a copy object,
@@ -590,6 +665,19 @@ class ParseRtf:
         return self.__exit_level
 
     def __bracket_match(self: _typing.Self, file_name: _typing.Any) -> None:
+        """
+        Perform the bracket match operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ParseRtf.  bracket match through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param file_name: Value supplied for file name under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.__run_level > 2:
             good_br, msg = self.__check_brack_obj.check_brackets()
             if good_br:
@@ -600,13 +688,38 @@ class ParseRtf:
                 sys.stderr.write(f"{msg}\n")
 
     def __return_code(self: _typing.Self, num: _typing.Any) -> None:
+        """
+        Perform the return code operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ParseRtf.  return code through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param num: Value supplied for num under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if num is None:
             return
         if int(num) > self.__exit_level:
             self.__exit_level = num
 
     def __make_temp_file(self: _typing.Self, file: _typing.Any) -> _typing.Any:
-        """Make a temporary file to parse"""
+        """
+        Make a temporary file to parse
+
+        Example:
+            Exercise ParseRtf.  make temp file through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param file: Value supplied for file under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         write_file = "rtf_write_file"
         read_obj = file if hasattr(file, "read") else open_for_read(file)
         with open_for_write(write_file) as write_obj:

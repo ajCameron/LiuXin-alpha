@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""Create, read, update, traverse, and delete catalog WEMI records."""
+"""
+Demonstrate repository CRUD and traversal across a Work/Expression/Manifestation/Item chain.
+
+Create a Work, update its canonical title, match or create its descendants, and
+delete a separate disposable Work. Print IDs, title lookup, relationship lists,
+and the deletion observation. The shared context chooses temporary or retained
+catalogue storage and owns cleanup; no ebook payload is read or written here.
+"""
 
 from __future__ import annotations
 
@@ -15,7 +22,18 @@ from LiuXin_alpha.catalog.api import MetadataCandidate
 
 
 def parse_args() -> argparse.Namespace:
-    """Return command-line arguments for the CRUD example."""
+    """
+    Parse process arguments for the repository CRUD demonstration. The shared --database option
+    yields a Path when supplied and None otherwise. Directory expansion, refusal of an existing
+    retained path, temporary allocation, and template handling occur only when open_catalog_example
+    is entered.
+
+    Example:
+        >>> args = parse_args()  # doctest: +SKIP
+
+
+    :return: Namespace with the optional database path; help or invalid syntax raises SystemExit.
+    """
 
     parser = argparse.ArgumentParser(
         description="Catalog repository and WEMI traversal example"
@@ -25,7 +43,21 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
-    """Run a complete repository-backed WEMI round trip."""
+    """
+    Create a Frankenstein WEMI chain and print repository reads and traversal results. In the shared
+    catalogue context, create the Work with its original title/year, update canonical_title, and
+    match or create an English Expression, digital Manifestation, and Item with a demonstration
+    location string. Create/delete a second Work. Report the required Work, whitespace/case-varied
+    original-title lookup, both Work/Expression traversal directions, descendant lists, and whether
+    the disposable Work is absent. Print before leaving the context. These observations are not
+    assertions and do not independently change the zero return status.
+
+    Example:
+        >>> exit_code = main()  # doctest: +SKIP
+
+
+    :return: Zero after reporting and context cleanup; uncaught parsing, catalogue, rendering, or cleanup failures propagate.
+    """
 
     args = parse_args()
     with open_catalog_example(args.database) as session:

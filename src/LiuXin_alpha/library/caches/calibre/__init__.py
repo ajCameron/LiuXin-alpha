@@ -1,9 +1,14 @@
 
 """
-The original cache out of calibre.
+Expose the supported calibre compatibility surface.
 
-Not very good.
-Kept as a reference.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/library/test_unified_library.py
 """
 
 

@@ -1,3 +1,14 @@
+"""
+Provide test htmlz container framework utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test htmlz container framework through a consuming regression::
+
+        python -m pytest -q tests/file_formats/htmlz/test_htmlz_container_framework.py
+"""
 from __future__ import annotations
 
 import zipfile
@@ -24,6 +35,19 @@ from tests.support.file_format_unicode import assert_fragments_present, assert_n
 
 
 def test_htmlz_fixture_builds_valid_container_shape_and_unicode_payload(tmp_path: Path) -> None:
+    """
+    Perform the test htmlz fixture builds valid container shape and unicode payload operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test htmlz fixture builds valid container shape and unicode payload through a consuming regression::
+
+            python -m pytest -q tests/file_formats/htmlz/test_htmlz_container_framework.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     fixture = build_unicode_htmlz(tmp_path / "container_Καλημέρα_世界.htmlz", include_image=True)
 
     with zipfile.ZipFile(fixture.path, "r") as zf:
@@ -62,6 +86,19 @@ def test_htmlz_fixture_builds_valid_container_shape_and_unicode_payload(tmp_path
 
 
 def test_htmlz_fixture_supports_optional_metadata_css_image_and_extra_assets(tmp_path: Path) -> None:
+    """
+    Perform the test htmlz fixture supports optional metadata css image and extra assets operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test htmlz fixture supports optional metadata css image and extra assets through a consuming regression::
+
+            python -m pytest -q tests/file_formats/htmlz/test_htmlz_container_framework.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     extra_assets = {
         "assets/audio مرحبا.bin": ("application/octet-stream", b"audio"),
         "assets/深/theme_世界.css": ("text/css", b"body { color: #123456; }"),
@@ -90,6 +127,19 @@ def test_htmlz_fixture_supports_optional_metadata_css_image_and_extra_assets(tmp
 
 
 def test_htmlz_fixture_rewrite_helper_removes_replaces_and_adds_members(tmp_path: Path) -> None:
+    """
+    Perform the test htmlz fixture rewrite helper removes replaces and adds members operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test htmlz fixture rewrite helper removes replaces and adds members through a consuming regression::
+
+            python -m pytest -q tests/file_formats/htmlz/test_htmlz_container_framework.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     fixture = build_unicode_htmlz(tmp_path / "base.htmlz")
     rewritten = tmp_path / "rewritten.htmlz"
     replacement_html = (
@@ -119,6 +169,20 @@ def test_htmlz_input_accepts_fixture_preserves_unicode_metadata_and_cover(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    """
+    Perform the test htmlz input accepts fixture preserves unicode metadata and cover operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test htmlz input accepts fixture preserves unicode metadata and cover through a consuming regression::
+
+            python -m pytest -q tests/file_formats/htmlz/test_htmlz_container_framework.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.conversion.plugins.htmlz_input import HTMLZInput
 
     fixture = build_unicode_htmlz(tmp_path / "plugin_Καλημέρα_世界.htmlz", include_image=True)
@@ -173,6 +237,20 @@ def test_htmlz_input_accepts_non_index_top_level_xhtml(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    """
+    Perform the test htmlz input accepts non index top level xhtml operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test htmlz input accepts non index top level xhtml through a consuming regression::
+
+            python -m pytest -q tests/file_formats/htmlz/test_htmlz_container_framework.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.conversion.plugins.htmlz_input import HTMLZInput
 
     fixture = build_unicode_htmlz(
@@ -206,6 +284,20 @@ def test_htmlz_input_warns_and_prefers_index_when_multiple_top_level_html_files(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    """
+    Perform the test htmlz input warns and prefers index when multiple top level html files operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test htmlz input warns and prefers index when multiple top level html files through a consuming regression::
+
+            python -m pytest -q tests/file_formats/htmlz/test_htmlz_container_framework.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.conversion.plugins.htmlz_input import HTMLZInput
 
     fixture = build_unicode_htmlz(tmp_path / "base.htmlz", include_image=False)

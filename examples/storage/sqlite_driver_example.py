@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""Use the SQLite BLOB storage driver directly with commit-based writes."""
+"""
+Publish and read a BLOB directly through the SQLite storage driver.
+
+Create a fresh address-space UUID, commit an UPSERT with expected UTF-8 byte length
+and SHA-256, then read the result and enumerate object keys. Print stored digest,
+decoded content, and the declared atomic-publish capability. The SQLite file is a
+raw BLOB Store, not a LiuXin Asset/Replica catalogue.
+"""
 
 from __future__ import annotations
 
@@ -25,6 +32,17 @@ from LiuXin_alpha.storage.drivers import SQLiteStorageDriver
 
 
 def parse_args() -> argparse.Namespace:
+    """
+    Parse a required SQLite BLOB database path, an object key defaulting to example-object, and
+    payload text defaulting to SQLite driver example. Key parsing, including the prohibition on
+    slashes, happens in the driver rather than argparse.
+
+    Example:
+        >>> args = parse_args()  # doctest: +SKIP
+
+
+    :return: Parsed argparse namespace; help and invalid arguments raise SystemExit.
+    """
     parser = argparse.ArgumentParser(
         description=(
             "Write, commit, enumerate, and read a BLOB through the raw "
@@ -46,6 +64,21 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    """
+    Commit UTF-8 bytes to a SQLite BLOB Store and print readback plus inventory. Expand/resolve the
+    database path, compute expected size and SHA-256, and require an available driver startup
+    status. Parse the key and use UPSERT, permitting replacement of an existing object. Close the
+    write session around commit, read the returned object, and materialize the full inventory.
+    Report its stored digest when supplied; no concurrent publication observation or independent
+    readback-equality assertion is performed here. Always close the constructed driver, leaving the
+    committed database on disk.
+
+    Example:
+        >>> exit_code = main()  # doctest: +SKIP
+
+
+    :return: Zero after printing the report; parsing, storage, and cleanup errors propagate.
+    """
     args = parse_args()
     database = Path(args.database).expanduser().resolve()
     payload = args.payload.encode("utf-8")

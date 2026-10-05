@@ -1,53 +1,91 @@
+"""
+Provide test text browser utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test text browser through a consuming regression::
+
+        python -m pytest -q tests/surfaces/test_text_browser.py
+"""
 from __future__ import annotations
 
 import builtins
 import io
 import signal
-
 from pathlib import Path
 
 import pytest
 
-pytest.importorskip(
-    "LiuXin_alpha.surfaces.terminal",
-    reason="Terminal package is not exposed under surfaces/ in this checkout.",
-)
-
+from LiuXin_alpha.core import workflow_jobs as core_workflow_jobs
 from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.databases.row import Row
-from LiuXin_alpha.core import workflow_jobs as core_workflow_jobs
+from LiuXin_alpha.ingest.sources.wget_utils import WgetResult
+from LiuXin_alpha.library.library import Library
+from LiuXin_alpha.metadata.standardization import (
+    make_tag_search_term,
+    make_title_search_term,
+    standardize_genre,
+)
+from LiuXin_alpha.storage.store_backend_plugins.native_html_readonly import (
+    native_html_storage_backend as native_html_backend_module,
+)
+from LiuXin_alpha.storage.store_backend_plugins.rclone_http_readonly import (
+    rclone_http_storage_backend as rclone_backend_module,
+)
+from LiuXin_alpha.storage.store_backend_plugins.wget_html_readonly import (
+    wget_html_storage_backend as wget_backend_module,
+)
+from LiuXin_alpha.surfaces.terminal import app as terminal_app
+from LiuXin_alpha.surfaces.terminal import browser as browser_module
+from LiuXin_alpha.surfaces.terminal.app import main as browser_main
+from LiuXin_alpha.surfaces.terminal.browser import TextDatabaseBrowser
+from LiuXin_alpha.surfaces.terminal.browser_components import session as browser_session
 from LiuXin_alpha.surfaces.terminal.commands import DEFAULT_COMMAND_CLASSES
 from LiuXin_alpha.surfaces.terminal.commands import db as db_command_module
 from LiuXin_alpha.surfaces.terminal.commands import off as off_commands
 from LiuXin_alpha.surfaces.terminal.commands import on as on_commands
 from LiuXin_alpha.surfaces.terminal.commands import sync as sync_command_module
 from LiuXin_alpha.surfaces.terminal.plugins import TerminalLifecyclePluginAPI
-from LiuXin_alpha.surfaces.terminal import text_browser as text_browser_module
-from LiuXin_alpha.surfaces.terminal.text_browser import TextDatabaseBrowser, main as browser_main
-from LiuXin_alpha.library.library import Library
-from LiuXin_alpha.metadata.standardization import make_tag_search_term, make_title_search_term, standardize_genre
-from LiuXin_alpha.storage.store_backend_plugins.rclone_http_readonly import (
-    rclone_http_storage_backend as rclone_backend_module,
-)
-from LiuXin_alpha.storage.store_backend_plugins.native_html_readonly import (
-    native_html_storage_backend as native_html_backend_module,
-)
-from LiuXin_alpha.storage.store_backend_plugins.wget_html_readonly import (
-    wget_html_storage_backend as wget_backend_module,
-)
-from LiuXin_alpha.storage.store_backend_plugins.wget_html_readonly.wget_utils import WgetResult
 from LiuXin_alpha.utils.jobs import JobRequest
 from LiuXin_alpha.utils.jobs.manager import InMemoryJobManager
 from tests.support._surface_storage_tables import ensure_surface_asset_tables
 
 
 def _disable_rclone_streaming(*_args, **_kwargs):
-    """Force tests with an injected JSON runner down the legacy runner seam."""
+    """
+    Force tests with an injected JSON runner down the legacy runner seam.
+
+    Example:
+        Exercise  disable rclone streaming through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param _args: Value supplied for args under the utility contract.
+    :param _kwargs: Value supplied for kwargs under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
 
     raise RuntimeError("streaming process intentionally unavailable in this test")
 
 
 def _preferred_tag_table(db: Database) -> str:
+    """
+    Perform the preferred tag table operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  preferred tag table through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param db: Value supplied for db under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     tables = set(db.get_tables())
     if "tags" in tables:
         return "tags"
@@ -57,6 +95,20 @@ def _preferred_tag_table(db: Database) -> str:
 
 
 def _search_tag_rows(db: Database, tag_text: str):
+    """
+    Perform the search tag rows operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  search tag rows through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param db: Value supplied for db under the utility contract.
+    :param tag_text: Value supplied for tag text under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     norm = make_tag_search_term(tag_text)
     table = _preferred_tag_table(db)
     if table == "tags":
@@ -74,6 +126,26 @@ def _insert_store_row(
     is_read_only: int = 0,
     online_status: str = "online",
 ) -> int:
+    """
+    Perform the insert store row operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  insert store row through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param db: Value supplied for db under the utility contract.
+    :param name: Field, file, function or resource name addressed by the operation.
+    :param kind: Value supplied for kind under the utility contract.
+    :param root_uri: Value supplied for root uri under the utility contract.
+    :param access_protocol: Value supplied for access protocol under the utility
+        contract.
+    :param is_read_only: Value supplied for is read only under the utility contract.
+    :param online_status: Value supplied for online status under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     ensure_surface_asset_tables(db, include_file_store_links=True)
     row = Row.from_idless_row_dict(
         db,
@@ -97,6 +169,22 @@ def _insert_folder_row(
     name: str = "root",
     relpath: str = "root",
 ) -> int:
+    """
+    Perform the insert folder row operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  insert folder row through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param db: Value supplied for db under the utility contract.
+    :param store_id: Value supplied for store id under the utility contract.
+    :param name: Field, file, function or resource name addressed by the operation.
+    :param relpath: Value supplied for relpath under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     row = Row.from_idless_row_dict(
         db,
         row_dict={
@@ -110,7 +198,28 @@ def _insert_folder_row(
 
 
 class _PanelAwareBrowser(TextDatabaseBrowser):
+    """
+    Provide the panelawarebrowser contract for validated ebook processing.
+
+    Example:
+        Exercise  PanelAwareBrowser through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+    """
     def __init__(self, *args, **kwargs) -> None:
+        """
+        Initialize and validate the panelawarebrowser state.
+
+        Example:
+            Exercise  PanelAwareBrowser.  init   through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: None; validated state is stored on the receiving object.
+        """
         super().__init__(*args, **kwargs)
         self.panel_job_id: str | None = None
         self.panel_attach_calls = 0
@@ -120,28 +229,102 @@ class _PanelAwareBrowser(TextDatabaseBrowser):
         self.telemetry_detach_calls = 0
 
     def supports_job_output_panel(self) -> bool:
+        """
+        Perform the supports job output panel operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  PanelAwareBrowser.supports job output panel through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return True
 
     def attach_job_output_panel(self, job_id: str) -> bool:
+        """
+        Perform the attach job output panel operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  PanelAwareBrowser.attach job output panel through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+        :param job_id: Value supplied for job id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.panel_attach_calls += 1
         self.panel_job_id = str(job_id).strip() or None
         return True
 
     def detach_job_output_panel(self) -> bool:
+        """
+        Perform the detach job output panel operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  PanelAwareBrowser.detach job output panel through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.panel_detach_calls += 1
         had = self.panel_job_id is not None
         self.panel_job_id = None
         return had
 
     def supports_telemetry_panel(self) -> bool:
+        """
+        Perform the supports telemetry panel operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  PanelAwareBrowser.supports telemetry panel through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return True
 
     def attach_telemetry_panel(self, tables=None) -> bool:
+        """
+        Perform the attach telemetry panel operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  PanelAwareBrowser.attach telemetry panel through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+        :param tables: Value supplied for tables under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.telemetry_attach_calls += 1
         self.telemetry_tables = tuple(str(one) for one in (tables or ()))
         return True
 
     def detach_telemetry_panel(self) -> bool:
+        """
+        Perform the detach telemetry panel operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  PanelAwareBrowser.detach telemetry panel through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.telemetry_detach_calls += 1
         had = self.telemetry_tables is not None
         self.telemetry_tables = None
@@ -149,6 +332,20 @@ class _PanelAwareBrowser(TextDatabaseBrowser):
 
 
 def test_text_browser_session_basic_browsing(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser session basic browsing operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser session basic browsing through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_session.sqlite"
     output = io.StringIO()
 
@@ -194,6 +391,21 @@ def test_text_browser_session_basic_browsing(driver_spec, tmp_path: Path) -> Non
 
 
 def test_text_browser_main_non_interactive(driver_spec, tmp_path: Path, capsys) -> None:
+    """
+    Perform the test text browser main non interactive operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser main non interactive through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param capsys: Value supplied for capsys under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_main.sqlite"
 
     with Database(
@@ -236,7 +448,19 @@ def test_text_browser_main_non_interactive(driver_spec, tmp_path: Path, capsys) 
 
 
 def test_text_browser_parser_accepts_windowed_mode_options() -> None:
-    parser = text_browser_module.build_parser()
+    """
+    Perform the test text browser parser accepts windowed mode options operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser parser accepts windowed mode options through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
+    parser = terminal_app.build_parser()
     args = parser.parse_args(
         [
             "--database",
@@ -262,11 +486,40 @@ def test_text_browser_parser_accepts_windowed_mode_options() -> None:
 
 
 def test_text_browser_main_windowed_mode_dispatches(driver_spec, tmp_path: Path, monkeypatch) -> None:
+    """
+    Perform the test text browser main windowed mode dispatches operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser main windowed mode dispatches through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     db_path = tmp_path / "windowed_mode.sqlite"
     history_path = tmp_path / "windowed_history.txt"
     observed: dict[str, object] = {}
 
     def _fake_run_windowed(core, **kwargs):
+        """
+        Perform the fake run windowed operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise test text browser main windowed mode dispatches. fake run windowed through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+        :param core: Value supplied for core under the utility contract.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         observed["database_path"] = str(
             core.query("database.info")
             .get("metadata", {})
@@ -275,7 +528,7 @@ def test_text_browser_main_windowed_mode_dispatches(driver_spec, tmp_path: Path,
         observed.update(kwargs)
         return 17
 
-    monkeypatch.setattr(text_browser_module, "run_windowed_text_browser", _fake_run_windowed)
+    monkeypatch.setattr(terminal_app, "run_windowed_text_browser", _fake_run_windowed)
 
     rc = browser_main(
         [
@@ -310,12 +563,42 @@ def test_text_browser_main_windowed_mode_dispatches(driver_spec, tmp_path: Path,
 
 
 def test_text_browser_main_command_mode_overrides_windowed(driver_spec, tmp_path: Path, monkeypatch, capsys) -> None:
+    """
+    Perform the test text browser main command mode overrides windowed operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser main command mode overrides windowed through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :param capsys: Value supplied for capsys under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "windowed_ignored.sqlite"
 
     def _unexpected_windowed(*_args, **_kwargs):
+        """
+        Perform the unexpected windowed operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise test text browser main command mode overrides windowed. unexpected windowed through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+        :param _args: Value supplied for args under the utility contract.
+        :param _kwargs: Value supplied for kwargs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raise AssertionError("windowed UI should not run when --command is provided")
 
-    monkeypatch.setattr(text_browser_module, "run_windowed_text_browser", _unexpected_windowed)
+    monkeypatch.setattr(terminal_app, "run_windowed_text_browser", _unexpected_windowed)
 
     rc = browser_main(
         [
@@ -335,6 +618,20 @@ def test_text_browser_main_command_mode_overrides_windowed(driver_spec, tmp_path
 
 
 def test_text_browser_help_command_shows_specific_direct_command(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser help command shows specific direct command operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser help command shows specific direct command through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_help_direct.sqlite"
     output = io.StringIO()
 
@@ -356,6 +653,20 @@ def test_text_browser_help_command_shows_specific_direct_command(driver_spec, tm
 
 
 def test_text_browser_help_command_shows_group_details(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser help command shows group details operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser help command shows group details through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_help_group.sqlite"
     output = io.StringIO()
 
@@ -378,6 +689,20 @@ def test_text_browser_help_command_shows_group_details(driver_spec, tmp_path: Pa
 
 
 def test_text_browser_help_command_shows_group_subcommand_details(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser help command shows group subcommand details operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser help command shows group subcommand details through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_help_subcommand.sqlite"
     output = io.StringIO()
 
@@ -400,6 +725,20 @@ def test_text_browser_help_command_shows_group_subcommand_details(driver_spec, t
 
 
 def test_text_browser_clear_command_truncates_seekable_output(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser clear command truncates seekable output operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser clear command truncates seekable output through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_clear.sqlite"
     output = io.StringIO()
 
@@ -421,12 +760,41 @@ def test_text_browser_clear_command_truncates_seekable_output(driver_spec, tmp_p
 def test_text_browser_initialization_propagates_core_bootstrap_failure(
     driver_spec, tmp_path: Path, monkeypatch
 ) -> None:
+    """
+    Perform the test text browser initialization propagates core bootstrap failure operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser initialization propagates core bootstrap failure through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_core_runtime_warn.sqlite"
 
     def _fail_core_runtime(*_args, **_kwargs):
+        """
+        Perform the fail core runtime operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise test text browser initialization propagates core bootstrap failure. fail core runtime through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+        :param _args: Value supplied for args under the utility contract.
+        :param _kwargs: Value supplied for kwargs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raise RuntimeError("boom")
 
-    monkeypatch.setattr(text_browser_module, "coerce_surface_core", _fail_core_runtime)
+    monkeypatch.setattr(browser_module, "coerce_surface_core", _fail_core_runtime)
 
     with Database(
         metadata={"database_path": str(db_path)},
@@ -440,11 +808,35 @@ def test_text_browser_initialization_propagates_core_bootstrap_failure(
 
 
 def test_sync_store_options_default_to_incremental_crawler_db_writes() -> None:
+    """
+    Perform the test sync store options default to incremental crawler db writes operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test sync store options default to incremental crawler db writes through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     options = sync_command_module._parse_sync_store_options(["1"], usage="sync store <id>")
     assert options.crawler_incremental_db_writes is True
 
 
 def test_sync_store_options_can_disable_incremental_crawler_db_writes() -> None:
+    """
+    Perform the test sync store options can disable incremental crawler db writes operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test sync store options can disable incremental crawler db writes through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     options = sync_command_module._parse_sync_store_options(
         ["1", "--crawler-no-incremental-db-writes"],
         usage="sync store <id>",
@@ -453,6 +845,20 @@ def test_sync_store_options_can_disable_incremental_crawler_db_writes() -> None:
 
 
 def test_text_browser_help_includes_registered_search_command(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser help includes registered search command operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser help includes registered search command through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_help_search.sqlite"
     output = io.StringIO()
     with Database(
@@ -471,6 +877,20 @@ def test_text_browser_help_includes_registered_search_command(driver_spec, tmp_p
 
 
 def test_text_browser_core_command_aliases_are_registered(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser core command aliases are registered operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser core command aliases are registered through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_command_aliases.sqlite"
     output = io.StringIO()
     with Database(
@@ -493,6 +913,20 @@ def test_text_browser_core_command_aliases_are_registered(driver_spec, tmp_path:
 
 
 def test_text_browser_jobs_group_lists_subcommands(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser jobs group lists subcommands operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser jobs group lists subcommands through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_jobs_group.sqlite"
     output = io.StringIO()
     manager = InMemoryJobManager(max_workers=1, default_backend="serial")
@@ -519,6 +953,20 @@ def test_text_browser_jobs_group_lists_subcommands(driver_spec, tmp_path: Path) 
 
 
 def test_text_browser_db_group_lists_subcommands(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser db group lists subcommands operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser db group lists subcommands through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_db_group.sqlite"
     output = io.StringIO()
     with Database(
@@ -537,6 +985,21 @@ def test_text_browser_db_group_lists_subcommands(driver_spec, tmp_path: Path) ->
 
 
 def test_text_browser_db_unlock_locked_without_kill_raises(driver_spec, tmp_path: Path, monkeypatch) -> None:
+    """
+    Perform the test text browser db unlock locked without kill raises operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser db unlock locked without kill raises through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_db_unlock_locked.sqlite"
     output = io.StringIO()
 
@@ -569,6 +1032,21 @@ def test_text_browser_db_unlock_locked_without_kill_raises(driver_spec, tmp_path
 
 
 def test_text_browser_db_unlock_can_kill_external_holder(driver_spec, tmp_path: Path, monkeypatch) -> None:
+    """
+    Perform the test text browser db unlock can kill external holder operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser db unlock can kill external holder through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     db_path = tmp_path / "browser_db_unlock_kill.sqlite"
     output = io.StringIO()
 
@@ -577,16 +1055,58 @@ def test_text_browser_db_unlock_can_kill_external_holder(driver_spec, tmp_path: 
     sent_signals: list[tuple[set[int], int]] = []
 
     def _fake_probe(*args, **kwargs):
+        """
+        Perform the fake probe operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise test text browser db unlock can kill external holder. fake probe through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if state["killed"]:
             return True, ""
         return False, "database is locked"
 
     def _fake_list(*args, **kwargs):
+        """
+        Perform the fake list operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise test text browser db unlock can kill external holder. fake list through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if state["killed"]:
             return []
         return [holder]
 
     def _fake_signal(pids: set[int], sig: int):
+        """
+        Perform the fake signal operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise test text browser db unlock can kill external holder. fake signal through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+        :param pids: Value supplied for pids under the utility contract.
+        :param sig: Value supplied for sig under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         sent_signals.append((set(pids), int(sig)))
         state["killed"] = True
         return sorted(pids)
@@ -624,6 +1144,21 @@ def test_text_browser_db_unlock_can_kill_external_holder(driver_spec, tmp_path: 
 
 
 def test_text_browser_db_unlock_can_escalate_to_sudo(driver_spec, tmp_path: Path, monkeypatch) -> None:
+    """
+    Perform the test text browser db unlock can escalate to sudo operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser db unlock can escalate to sudo through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     db_path = tmp_path / "browser_db_unlock_sudo.sqlite"
     output = io.StringIO()
 
@@ -633,21 +1168,77 @@ def test_text_browser_db_unlock_can_escalate_to_sudo(driver_spec, tmp_path: Path
     sent_sudo: list[tuple[set[int], int]] = []
 
     def _fake_probe(*args, **kwargs):
+        """
+        Perform the fake probe operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise test text browser db unlock can escalate to sudo. fake probe through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if state["killed"]:
             return True, ""
         return False, "database is locked"
 
     def _fake_list(*args, **kwargs):
+        """
+        Perform the fake list operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise test text browser db unlock can escalate to sudo. fake list through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if state["killed"]:
             return []
         return [holder]
 
     def _fake_local_signal(pids: set[int], sig: int):
+        """
+        Perform the fake local signal operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise test text browser db unlock can escalate to sudo. fake local signal through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+        :param pids: Value supplied for pids under the utility contract.
+        :param sig: Value supplied for sig under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         sent_local.append((set(pids), int(sig)))
         # Simulate permission denied/no effect from local kill attempt.
         return []
 
     def _fake_sudo_signal(pids: set[int], sig: int):
+        """
+        Perform the fake sudo signal operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise test text browser db unlock can escalate to sudo. fake sudo signal through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+        :param pids: Value supplied for pids under the utility contract.
+        :param sig: Value supplied for sig under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         sent_sudo.append((set(pids), int(sig)))
         state["killed"] = True
         return sorted(pids)
@@ -689,6 +1280,20 @@ def test_text_browser_db_unlock_can_escalate_to_sudo(driver_spec, tmp_path: Path
 
 
 def test_text_browser_jobs_list_and_show(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser jobs list and show operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser jobs list and show through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_jobs_list_show.sqlite"
     output = io.StringIO()
     manager = InMemoryJobManager(max_workers=1, default_backend="serial")
@@ -723,6 +1328,21 @@ def test_text_browser_jobs_list_and_show(driver_spec, tmp_path: Path) -> None:
 
 
 def test_text_browser_jobs_commands_route_via_core_when_available(driver_spec, tmp_path: Path, monkeypatch) -> None:
+    """
+    Perform the test text browser jobs commands route via core when available operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser jobs commands route via core when available through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     db_path = tmp_path / "browser_jobs_core_route.sqlite"
     output = io.StringIO()
     manager = InMemoryJobManager(max_workers=1, default_backend="serial")
@@ -749,10 +1369,38 @@ def test_text_browser_jobs_commands_route_via_core_when_available(driver_spec, t
             original_command = shell.execute_core_command
 
             def _record_query(name: str, *, payload=None):
+                """
+                Perform the record query operation under explicit file-format and conversion rules.
+
+                Example:
+                    Exercise test text browser jobs commands route via core when available. record query through a consuming regression::
+
+                        python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+                :param name: Field, file, function or resource name addressed by the operation.
+                :param payload: Value supplied for payload under the utility contract.
+                :return: The normalized value, metadata record, path, stream result or collection
+                    described above.
+                """
                 query_calls.append(str(name))
                 return original_query(name, payload=payload)
 
             def _record_command(name: str, *, payload=None):
+                """
+                Perform the record command operation under explicit file-format and conversion rules.
+
+                Example:
+                    Exercise test text browser jobs commands route via core when available. record command through a consuming regression::
+
+                        python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+                :param name: Field, file, function or resource name addressed by the operation.
+                :param payload: Value supplied for payload under the utility contract.
+                :return: The normalized value, metadata record, path, stream result or collection
+                    described above.
+                """
                 command_calls.append(str(name))
                 return original_command(name, payload=payload)
 
@@ -771,6 +1419,20 @@ def test_text_browser_jobs_commands_route_via_core_when_available(driver_spec, t
 
 
 def test_text_browser_jobs_cancel_pending_job(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser jobs cancel pending job operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser jobs cancel pending job through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_jobs_cancel.sqlite"
     output = io.StringIO()
     manager = InMemoryJobManager(max_workers=1, default_backend="serial")
@@ -816,6 +1478,20 @@ def run(seconds):
 
 
 def test_text_browser_jobs_panel_command_attach_and_detach(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser jobs panel command attach and detach operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser jobs panel command attach and detach through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_jobs_panel.sqlite"
     output = io.StringIO()
     manager = InMemoryJobManager(max_workers=1, default_backend="process")
@@ -857,6 +1533,20 @@ def run():
 
 
 def test_text_browser_jobs_tail_shows_recent_log_lines(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser jobs tail shows recent log lines operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser jobs tail shows recent log lines through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_jobs_tail.sqlite"
     output = io.StringIO()
     manager = InMemoryJobManager(max_workers=1, default_backend="process")
@@ -897,6 +1587,20 @@ def run():
 
 
 def test_text_browser_default_commands_and_aliases_registered(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser default commands and aliases registered operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser default commands and aliases registered through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_default_commands.sqlite"
     with Database(
         metadata={"database_path": str(db_path)},
@@ -942,6 +1646,20 @@ def test_text_browser_default_commands_and_aliases_registered(driver_spec, tmp_p
 
 
 def test_text_browser_read_command_line_non_tty_streams(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser read command line non tty streams operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser read command line non tty streams through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_readline_non_tty.sqlite"
     output = io.StringIO()
     input_stream = io.StringIO("tables\n")
@@ -959,10 +1677,38 @@ def test_text_browser_read_command_line_non_tty_streams(driver_spec, tmp_path: P
 
 
 def test_text_browser_read_command_line_readline_mode_uses_input(monkeypatch, driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser read command line readline mode uses input operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser read command line readline mode uses input through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     db_path = tmp_path / "browser_readline_mode.sqlite"
     prompts: list[str] = []
 
     def _fake_input(prompt: str) -> str:
+        """
+        Perform the fake input operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise test text browser read command line readline mode uses input. fake input through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+        :param prompt: Value supplied for prompt under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         prompts.append(prompt)
         return "tables"
 
@@ -982,6 +1728,20 @@ def test_text_browser_read_command_line_readline_mode_uses_input(monkeypatch, dr
 
 
 def test_text_browser_command_completion_candidates_cover_help_and_groups(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser command completion candidates cover help and groups operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser command completion candidates cover help and groups through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_completion.sqlite"
 
     with Database(
@@ -1006,6 +1766,20 @@ def test_text_browser_command_completion_candidates_cover_help_and_groups(driver
 
 
 def test_text_browser_command_completion_candidates_cover_table_slots(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser command completion candidates cover table slots operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser command completion candidates cover table slots through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_table_completion.sqlite"
 
     with Database(
@@ -1049,6 +1823,20 @@ def test_text_browser_command_completion_candidates_cover_table_slots(driver_spe
 
 
 def test_text_browser_command_completion_candidates_cover_row_id_slots(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser command completion candidates cover row id slots operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser command completion candidates cover row id slots through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_row_id_completion.sqlite"
 
     with Database(
@@ -1108,11 +1896,45 @@ def test_text_browser_command_completion_candidates_cover_row_id_slots(driver_sp
 
 
 def test_text_browser_readline_mode_configures_command_completion(monkeypatch, driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser readline mode configures command completion operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser readline mode configures command completion through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     db_path = tmp_path / "browser_readline_completion.sqlite"
     prompts: list[str] = []
 
     class _FakeReadline:
+        """
+        Provide the fakereadline contract for validated ebook processing.
+
+        Example:
+            Exercise test text browser readline mode configures command completion. FakeReadline through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_text_browser.py
+        """
         def __init__(self) -> None:
+            """
+            Initialize and validate the fakereadline state.
+
+            Example:
+                Exercise test text browser readline mode configures command completion. FakeReadline.  init   through a consuming regression::
+
+                    python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+            :return: None; validated state is stored on the receiving object.
+            """
             self.binds: list[str] = []
             self.delims: list[str] = []
             self.completer = None
@@ -1120,27 +1942,116 @@ def test_text_browser_readline_mode_configures_command_completion(monkeypatch, d
             self.endidx = 0
 
         def parse_and_bind(self, spec: str) -> None:
+            """
+            Parse and bind under the format's safety and compatibility rules.
+
+            Example:
+                Exercise test text browser readline mode configures command completion. FakeReadline.parse and bind through a consuming regression::
+
+                    python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+            :param spec: Value supplied for spec under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.binds.append(spec)
 
         def set_completer_delims(self, delims: str) -> None:
+            """
+            Set completer delims under the format's safety and compatibility rules.
+
+            Example:
+                Exercise test text browser readline mode configures command completion. FakeReadline.set completer delims through a consuming regression::
+
+                    python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+            :param delims: Value supplied for delims under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.delims.append(delims)
 
         def set_completer(self, completer) -> None:
+            """
+            Set completer under the format's safety and compatibility rules.
+
+            Example:
+                Exercise test text browser readline mode configures command completion. FakeReadline.set completer through a consuming regression::
+
+                    python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+            :param completer: Value supplied for completer under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self.completer = completer
 
         def get_line_buffer(self) -> str:
+            """
+            Return line buffer under the format's safety and compatibility rules.
+
+            Example:
+                Exercise test text browser readline mode configures command completion. FakeReadline.get line buffer through a consuming regression::
+
+                    python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self.line_buffer
 
         def get_endidx(self) -> int:
+            """
+            Return endidx under the format's safety and compatibility rules.
+
+            Example:
+                Exercise test text browser readline mode configures command completion. FakeReadline.get endidx through a consuming regression::
+
+                    python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self.endidx
 
         def add_history(self, _line: str) -> None:
+            """
+            Perform the add history operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise test text browser readline mode configures command completion. FakeReadline.add history through a consuming regression::
+
+                    python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+            :param _line: Value supplied for line under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return None
 
     fake_readline = _FakeReadline()
-    monkeypatch.setattr(text_browser_module, "_readline", fake_readline, raising=False)
+    monkeypatch.setattr(browser_session, "_readline", fake_readline, raising=False)
 
     def _fake_input(prompt: str) -> str:
+        """
+        Perform the fake input operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise test text browser readline mode configures command completion. fake input through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+        :param prompt: Value supplied for prompt under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         prompts.append(prompt)
         return "help add st"
 
@@ -1172,6 +2083,21 @@ def test_text_browser_readline_mode_configures_command_completion(monkeypatch, d
 def test_text_browser_history_loads_and_saves_for_interactive_readline(
     monkeypatch, driver_spec, tmp_path: Path
 ) -> None:
+    """
+    Perform the test text browser history loads and saves for interactive readline operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser history loads and saves for interactive readline through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     db_path = tmp_path / "browser_history_interactive.sqlite"
     history_path = tmp_path / "history" / "liuxin_history.txt"
     history_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1181,16 +2107,65 @@ def test_text_browser_history_loads_and_saves_for_interactive_readline(
     writes: list[str] = []
 
     class _FakeReadline:
+        """
+        Provide the fakereadline contract for validated ebook processing.
+
+        Example:
+            Exercise test text browser history loads and saves for interactive readline. FakeReadline through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_text_browser.py
+        """
         def read_history_file(self, path: str) -> None:
+            """
+            Read history file under the format's safety and compatibility rules.
+
+            Example:
+                Exercise test text browser history loads and saves for interactive readline. FakeReadline.read history file through a consuming regression::
+
+                    python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+            :param path: Filesystem path read, written, normalized or validated by the
+                operation.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             reads.append(path)
 
         def write_history_file(self, path: str) -> None:
+            """
+            Write history file under the format's safety and compatibility rules.
+
+            Example:
+                Exercise test text browser history loads and saves for interactive readline. FakeReadline.write history file through a consuming regression::
+
+                    python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+            :param path: Filesystem path read, written, normalized or validated by the
+                operation.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             writes.append(path)
 
         def add_history(self, _line: str) -> None:
+            """
+            Perform the add history operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise test text browser history loads and saves for interactive readline. FakeReadline.add history through a consuming regression::
+
+                    python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+            :param _line: Value supplied for line under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return None
 
-    monkeypatch.setattr(text_browser_module, "_readline", _FakeReadline(), raising=False)
+    monkeypatch.setattr(browser_session, "_readline", _FakeReadline(), raising=False)
 
     with Database(
         metadata={"database_path": str(db_path)},
@@ -1209,6 +2184,21 @@ def test_text_browser_history_loads_and_saves_for_interactive_readline(
 
 
 def test_text_browser_history_not_used_without_interactive_readline(monkeypatch, driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser history not used without interactive readline operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser history not used without interactive readline through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     db_path = tmp_path / "browser_history_noninteractive.sqlite"
     history_path = tmp_path / "history" / "liuxin_history.txt"
 
@@ -1216,16 +2206,65 @@ def test_text_browser_history_not_used_without_interactive_readline(monkeypatch,
     writes: list[str] = []
 
     class _FakeReadline:
+        """
+        Provide the fakereadline contract for validated ebook processing.
+
+        Example:
+            Exercise test text browser history not used without interactive readline. FakeReadline through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_text_browser.py
+        """
         def read_history_file(self, path: str) -> None:
+            """
+            Read history file under the format's safety and compatibility rules.
+
+            Example:
+                Exercise test text browser history not used without interactive readline. FakeReadline.read history file through a consuming regression::
+
+                    python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+            :param path: Filesystem path read, written, normalized or validated by the
+                operation.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             reads.append(path)
 
         def write_history_file(self, path: str) -> None:
+            """
+            Write history file under the format's safety and compatibility rules.
+
+            Example:
+                Exercise test text browser history not used without interactive readline. FakeReadline.write history file through a consuming regression::
+
+                    python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+            :param path: Filesystem path read, written, normalized or validated by the
+                operation.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             writes.append(path)
 
         def add_history(self, _line: str) -> None:
+            """
+            Perform the add history operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise test text browser history not used without interactive readline. FakeReadline.add history through a consuming regression::
+
+                    python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+            :param _line: Value supplied for line under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return None
 
-    monkeypatch.setattr(text_browser_module, "_readline", _FakeReadline(), raising=False)
+    monkeypatch.setattr(browser_session, "_readline", _FakeReadline(), raising=False)
 
     with Database(
         metadata={"database_path": str(db_path)},
@@ -1243,6 +2282,20 @@ def test_text_browser_history_not_used_without_interactive_readline(monkeypatch,
 
 
 def test_text_browser_summary_invalid_args(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser summary invalid args operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser summary invalid args through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_summary_invalid.sqlite"
     output = io.StringIO()
     with Database(
@@ -1258,6 +2311,20 @@ def test_text_browser_summary_invalid_args(driver_spec, tmp_path: Path) -> None:
 
 
 def test_text_browser_quit_command_aliases(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser quit command aliases operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser quit command aliases through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_quit.sqlite"
     output = io.StringIO()
     with Database(
@@ -1274,6 +2341,20 @@ def test_text_browser_quit_command_aliases(driver_spec, tmp_path: Path) -> None:
 
 
 def test_text_browser_quit_command_rejects_args(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser quit command rejects args operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser quit command rejects args through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_quit_args.sqlite"
     output = io.StringIO()
     with Database(
@@ -1289,37 +2370,143 @@ def test_text_browser_quit_command_rejects_args(driver_spec, tmp_path: Path) -> 
 
 
 class _RecorderLifecyclePlugin(TerminalLifecyclePluginAPI):
+    """
+    Provide the recorderlifecycleplugin contract for validated ebook processing.
+
+    Example:
+        Exercise  RecorderLifecyclePlugin through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+    """
     name = "recorder"
 
     def __init__(self) -> None:
+        """
+        Initialize and validate the recorderlifecycleplugin state.
+
+        Example:
+            Exercise  RecorderLifecyclePlugin.  init   through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         self.started = 0
         self.stopped = 0
         self.shutdown_reasons: list[str] = []
 
     def on_startup(self, browser: TextDatabaseBrowser) -> None:
+        """
+        Perform the on startup operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  RecorderLifecyclePlugin.on startup through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+        :param browser: Value supplied for browser under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.started += 1
 
     def on_shutdown(self, browser: TextDatabaseBrowser, *, reason: str) -> None:
+        """
+        Perform the on shutdown operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  RecorderLifecyclePlugin.on shutdown through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+        :param browser: Value supplied for browser under the utility contract.
+        :param reason: Value supplied for reason under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.stopped += 1
         self.shutdown_reasons.append(reason)
 
 
 class _FailingShutdownPlugin(TerminalLifecyclePluginAPI):
+    """
+    Provide the failingshutdownplugin contract for validated ebook processing.
+
+    Example:
+        Exercise  FailingShutdownPlugin through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+    """
     name = "failing_shutdown"
 
     def __init__(self) -> None:
+        """
+        Initialize and validate the failingshutdownplugin state.
+
+        Example:
+            Exercise  FailingShutdownPlugin.  init   through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         self.started = 0
         self.stopped = 0
 
     def on_startup(self, browser: TextDatabaseBrowser) -> None:
+        """
+        Perform the on startup operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  FailingShutdownPlugin.on startup through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+        :param browser: Value supplied for browser under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.started += 1
 
     def on_shutdown(self, browser: TextDatabaseBrowser, *, reason: str) -> None:
+        """
+        Perform the on shutdown operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  FailingShutdownPlugin.on shutdown through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+        :param browser: Value supplied for browser under the utility contract.
+        :param reason: Value supplied for reason under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.stopped += 1
         raise RuntimeError("boom")
 
 
 def test_text_browser_lifecycle_plugins_run_on_quit(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser lifecycle plugins run on quit operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser lifecycle plugins run on quit through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_lifecycle.sqlite"
     output = io.StringIO()
     plugin = _RecorderLifecyclePlugin()
@@ -1340,6 +2527,20 @@ def test_text_browser_lifecycle_plugins_run_on_quit(driver_spec, tmp_path: Path)
 
 
 def test_text_browser_lifecycle_shutdown_runs_all_plugins(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser lifecycle shutdown runs all plugins operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser lifecycle shutdown runs all plugins through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_lifecycle_shutdown.sqlite"
     output = io.StringIO()
     recorder = _RecorderLifecyclePlugin()
@@ -1371,6 +2572,20 @@ def test_text_browser_lifecycle_shutdown_runs_all_plugins(driver_spec, tmp_path:
 
 
 def test_text_browser_new_store_wizard_creates_row(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser new store wizard creates row operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser new store wizard creates row through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_new_store.sqlite"
     output = io.StringIO()
     store_dir = tmp_path / "managed_store"
@@ -1418,6 +2633,20 @@ def test_text_browser_new_store_wizard_creates_row(driver_spec, tmp_path: Path) 
 
 
 def test_text_browser_new_store_wizard_updates_existing_row(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser new store wizard updates existing row operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser new store wizard updates existing row through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_new_store_update.sqlite"
     output = io.StringIO()
     store_dir = tmp_path / "existing_store"
@@ -1471,6 +2700,21 @@ def test_text_browser_new_store_wizard_refresh_routes_via_core_operations(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    """
+    Perform the test text browser new store wizard refresh routes via core operations operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser new store wizard refresh routes via core operations through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     db_path = tmp_path / "browser_new_store_core_refresh.sqlite"
     output = io.StringIO()
     store_dir = tmp_path / "core_refresh_store"
@@ -1492,6 +2736,20 @@ def test_text_browser_new_store_wizard_refresh_routes_via_core_operations(
     )
 
     def _unexpected_local_bootstrap(*args, **kwargs):
+        """
+        Perform the unexpected local bootstrap operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise test text browser new store wizard refresh routes via core operations. unexpected local bootstrap through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         del args, kwargs
         raise AssertionError("terminal should route store refresh via core when available")
 
@@ -1506,6 +2764,20 @@ def test_text_browser_new_store_wizard_refresh_routes_via_core_operations(
 
         shell = TextDatabaseBrowser(db, input=input_stream, output=output)
         def _record_command(name: str, *, payload=None):
+            """
+            Perform the record command operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise test text browser new store wizard refresh routes via core operations. record command through a consuming regression::
+
+                    python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+            :param name: Field, file, function or resource name addressed by the operation.
+            :param payload: Value supplied for payload under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             payload_dict = dict(payload or {})
             command_calls.append((str(name), payload_dict))
             if name == "storage.store.save":
@@ -1550,6 +2822,20 @@ def test_text_browser_new_store_wizard_refresh_routes_via_core_operations(
 
 
 def test_text_browser_new_store_wizard_refresh_works_with_default_core_runtime(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser new store wizard refresh works with default core runtime operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser new store wizard refresh works with default core runtime through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_new_store_default_core_refresh.sqlite"
     output = io.StringIO()
     store_dir = tmp_path / "default_core_refresh_store"
@@ -1592,6 +2878,20 @@ def test_text_browser_new_store_wizard_refresh_works_with_default_core_runtime(d
 
 
 def test_text_browser_new_store_wizard_rejects_args(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser new store wizard rejects args operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser new store wizard rejects args through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_new_store_args.sqlite"
     output = io.StringIO()
     with Database(
@@ -1607,6 +2907,20 @@ def test_text_browser_new_store_wizard_rejects_args(driver_spec, tmp_path: Path)
 
 
 def test_text_browser_add_group_lists_subcommands(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser add group lists subcommands operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser add group lists subcommands through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_add_group.sqlite"
     output = io.StringIO()
     with Database(
@@ -1637,6 +2951,20 @@ def test_text_browser_add_group_lists_subcommands(driver_spec, tmp_path: Path) -
 
 
 def test_text_browser_new_group_alias_lists_add_subcommands(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser new group alias lists add subcommands operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser new group alias lists add subcommands through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_new_group_alias.sqlite"
     output = io.StringIO()
     with Database(
@@ -1655,6 +2983,20 @@ def test_text_browser_new_group_alias_lists_add_subcommands(driver_spec, tmp_pat
 
 
 def test_text_browser_on_group_lists_subcommands(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser on group lists subcommands operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser on group lists subcommands through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_on_group.sqlite"
     output = io.StringIO()
     with Database(
@@ -1677,6 +3019,20 @@ def test_text_browser_on_group_lists_subcommands(driver_spec, tmp_path: Path) ->
 
 
 def test_text_browser_off_group_lists_subcommands(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser off group lists subcommands operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser off group lists subcommands through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_off_group.sqlite"
     output = io.StringIO()
     with Database(
@@ -1699,6 +3055,20 @@ def test_text_browser_off_group_lists_subcommands(driver_spec, tmp_path: Path) -
 
 
 def test_text_browser_show_group_lists_subcommands(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser show group lists subcommands operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser show group lists subcommands through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_show_group.sqlite"
     output = io.StringIO()
     with Database(
@@ -1722,6 +3092,20 @@ def test_text_browser_show_group_lists_subcommands(driver_spec, tmp_path: Path) 
 
 
 def test_text_browser_ingest_group_lists_subcommands(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser ingest group lists subcommands operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser ingest group lists subcommands through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_ingest_group.sqlite"
     output = io.StringIO()
     with Database(
@@ -1739,6 +3123,20 @@ def test_text_browser_ingest_group_lists_subcommands(driver_spec, tmp_path: Path
 
 
 def test_text_browser_ingest_disk_registers_ebook_files(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser ingest disk registers ebook files operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser ingest disk registers ebook files through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_ingest_disk.sqlite"
     output = io.StringIO()
     ingest_root = tmp_path / "ingest_root"
@@ -1780,6 +3178,20 @@ def test_text_browser_ingest_disk_registers_ebook_files(driver_spec, tmp_path: P
 
 
 def test_text_browser_ingest_disk_respects_extensions_filter(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser ingest disk respects extensions filter operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser ingest disk respects extensions filter through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_ingest_disk_extensions.sqlite"
     output = io.StringIO()
     ingest_root = tmp_path / "ingest_extensions_root"
@@ -1813,6 +3225,20 @@ def test_text_browser_ingest_disk_respects_extensions_filter(driver_spec, tmp_pa
 
 
 def test_text_browser_sync_group_lists_subcommands(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser sync group lists subcommands operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser sync group lists subcommands through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_sync_group.sqlite"
     output = io.StringIO()
     with Database(
@@ -1830,6 +3256,20 @@ def test_text_browser_sync_group_lists_subcommands(driver_spec, tmp_path: Path) 
 
 
 def test_text_browser_sync_store_by_id_registers_ebook_files(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser sync store by id registers ebook files operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser sync store by id registers ebook files through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_sync_store_by_id.sqlite"
     output = io.StringIO()
     sync_root = tmp_path / "sync_root"
@@ -1874,6 +3314,20 @@ def test_text_browser_sync_store_by_id_registers_ebook_files(driver_spec, tmp_pa
 
 
 def test_text_browser_sync_store_compact_subcommand_ref(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser sync store compact subcommand ref operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser sync store compact subcommand ref through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_sync_store_compact_subcommand_ref.sqlite"
     output = io.StringIO()
     sync_root = tmp_path / "sync_compact_ref_root"
@@ -1911,6 +3365,20 @@ def test_text_browser_sync_store_compact_subcommand_ref(driver_spec, tmp_path: P
 
 
 def test_text_browser_sync_store_by_name_respects_extensions_filter(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser sync store by name respects extensions filter operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser sync store by name respects extensions filter through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_sync_store_by_name.sqlite"
     output = io.StringIO()
     sync_root = tmp_path / "sync_by_name_root"
@@ -1947,6 +3415,20 @@ def test_text_browser_sync_store_by_name_respects_extensions_filter(driver_spec,
 
 
 def test_text_browser_sync_store_no_progress_suppresses_progress_lines(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser sync store no progress suppresses progress lines operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser sync store no progress suppresses progress lines through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_sync_store_no_progress.sqlite"
     output = io.StringIO()
     sync_root = tmp_path / "sync_no_progress_root"
@@ -1982,6 +3464,20 @@ def test_text_browser_sync_store_no_progress_suppresses_progress_lines(driver_sp
 
 
 def test_text_browser_sync_store_json_output_disables_progress_lines(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser sync store json output disables progress lines operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser sync store json output disables progress lines through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_sync_store_json_output.sqlite"
     output = io.StringIO()
     sync_root = tmp_path / "sync_json_root"
@@ -2018,6 +3514,21 @@ def test_text_browser_sync_store_json_output_disables_progress_lines(driver_spec
 
 
 def test_text_browser_sync_store_background_submits_job(driver_spec, tmp_path: Path, monkeypatch) -> None:
+    """
+    Perform the test text browser sync store background submits job operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser sync store background submits job through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     db_path = tmp_path / "browser_sync_store_background.sqlite"
     output = io.StringIO()
     sync_root = tmp_path / "sync_background_root"
@@ -2028,6 +3539,19 @@ def test_text_browser_sync_store_background_submits_job(driver_spec, tmp_path: P
     captured_kwargs: dict[str, object] = {}
 
     def _fake_run_sync_store_job(**kwargs):
+        """
+        Perform the fake run sync store job operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise test text browser sync store background submits job. fake run sync store job through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         captured_kwargs.update(kwargs)
         return {"store_row_id": 1, "inserted_files": 1, "errors": []}
 
@@ -2071,6 +3595,21 @@ def test_text_browser_sync_store_background_submits_job(driver_spec, tmp_path: P
 
 
 def test_text_browser_sync_store_background_job_panel_attaches(driver_spec, tmp_path: Path, monkeypatch) -> None:
+    """
+    Perform the test text browser sync store background job panel attaches operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser sync store background job panel attaches through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     db_path = tmp_path / "browser_sync_store_background_panel.sqlite"
     output = io.StringIO()
     sync_root = tmp_path / "sync_background_panel_root"
@@ -2081,6 +3620,19 @@ def test_text_browser_sync_store_background_job_panel_attaches(driver_spec, tmp_
     captured_kwargs: dict[str, object] = {}
 
     def _fake_run_sync_store_job(**kwargs):
+        """
+        Perform the fake run sync store job operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise test text browser sync store background job panel attaches. fake run sync store job through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         captured_kwargs.update(kwargs)
         return {"store_row_id": 1, "inserted_files": 1, "errors": []}
 
@@ -2122,6 +3674,20 @@ def test_text_browser_sync_store_background_job_panel_attaches(driver_spec, tmp_
 
 
 def test_text_browser_telemetry_panel_attaches_and_detaches(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser telemetry panel attaches and detaches operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser telemetry panel attaches and detaches through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_telemetry_panel.sqlite"
     output = io.StringIO()
 
@@ -2153,6 +3719,21 @@ def test_text_browser_telemetry_panel_attaches_and_detaches(driver_spec, tmp_pat
 
 
 def test_text_browser_sync_store_background_forwards_wget_incremental_flag(driver_spec, tmp_path: Path, monkeypatch) -> None:
+    """
+    Perform the test text browser sync store background forwards wget incremental flag operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser sync store background forwards wget incremental flag through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     db_path = tmp_path / "browser_sync_store_background_wget_incremental_flag.sqlite"
     output = io.StringIO()
     sync_root = tmp_path / "sync_background_wget_incremental_flag_root"
@@ -2163,6 +3744,19 @@ def test_text_browser_sync_store_background_forwards_wget_incremental_flag(drive
     captured_kwargs: dict[str, object] = {}
 
     def _fake_run_sync_store_job(**kwargs):
+        """
+        Perform the fake run sync store job operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise test text browser sync store background forwards wget incremental flag. fake run sync store job through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         captured_kwargs.update(kwargs)
         return {"store_row_id": 1, "inserted_files": 1, "errors": []}
 
@@ -2201,6 +3795,18 @@ def test_text_browser_sync_store_background_forwards_wget_incremental_flag(drive
 
 
 def test_sync_store_parser_preserves_separate_dash_prefixed_wget_arg() -> None:
+    """
+    Perform the test sync store parser preserves separate dash prefixed wget arg operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test sync store parser preserves separate dash prefixed wget arg through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     options = sync_command_module._parse_sync_store_options(
         ["4", "--wget-arg", "--timeout=5"],
         usage=sync_command_module.SyncStoreCommand.usage,
@@ -2211,6 +3817,20 @@ def test_sync_store_parser_preserves_separate_dash_prefixed_wget_arg() -> None:
 
 
 def test_text_browser_sync_store_background_rejects_json_mode(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser sync store background rejects json mode operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser sync store background rejects json mode through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_sync_store_background_json.sqlite"
     output = io.StringIO()
     sync_root = tmp_path / "sync_background_json_root"
@@ -2241,6 +3861,20 @@ def test_text_browser_sync_store_background_rejects_json_mode(driver_spec, tmp_p
 
 
 def test_text_browser_sync_store_job_panel_requires_background(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser sync store job panel requires background operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser sync store job panel requires background through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_sync_store_job_panel_requires_background.sqlite"
     output = io.StringIO()
     sync_root = tmp_path / "sync_job_panel_requires_background_root"
@@ -2267,6 +3901,21 @@ def test_text_browser_sync_store_job_panel_requires_background(driver_spec, tmp_
 
 
 def test_text_browser_sync_store_background_core_requires_job_id(driver_spec, tmp_path: Path, monkeypatch) -> None:
+    """
+    Perform the test text browser sync store background core requires job id operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser sync store background core requires job id through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_sync_store_background_core_job_id.sqlite"
     output = io.StringIO()
     sync_root = tmp_path / "sync_background_core_job_id_root"
@@ -2303,11 +3952,40 @@ def test_text_browser_sync_store_background_core_requires_job_id(driver_spec, tm
 
 
 def test_text_browser_sync_store_rclone_uses_rate_limit_option(driver_spec, tmp_path: Path, monkeypatch) -> None:
+    """
+    Perform the test text browser sync store rclone uses rate limit option operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser sync store rclone uses rate limit option through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     db_path = tmp_path / "browser_sync_store_rclone.sqlite"
     output = io.StringIO()
     captured_extra_args: list[tuple[str, ...]] = []
 
     def _fake_run_rclone_json(args, **kwargs):
+        """
+        Perform the fake run rclone json operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise test text browser sync store rclone uses rate limit option. fake run rclone json through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         captured_extra_args.append(tuple(kwargs.get("extra_args", ())))
         if list(args[:3]) == ["lsjson", "-R", "--files-only"]:
             return [{"Path": "books/one.epub", "Name": "one.epub", "Size": 11, "ModTime": "2025-01-02T03:04:05Z"}]
@@ -2358,11 +4036,40 @@ def test_text_browser_sync_store_rclone_uses_rate_limit_option(driver_spec, tmp_
 
 
 def test_text_browser_sync_store_rclone_listing_flags_are_forwarded(driver_spec, tmp_path: Path, monkeypatch) -> None:
+    """
+    Perform the test text browser sync store rclone listing flags are forwarded operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser sync store rclone listing flags are forwarded through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     db_path = tmp_path / "browser_sync_store_rclone_listing_flags.sqlite"
     output = io.StringIO()
     captured_extra_args: list[tuple[str, ...]] = []
 
     def _fake_run_rclone_json(args, **kwargs):
+        """
+        Perform the fake run rclone json operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise test text browser sync store rclone listing flags are forwarded. fake run rclone json through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         captured_extra_args.append(tuple(kwargs.get("extra_args", ())))
         if list(args[:3]) == ["lsjson", "-R", "--files-only"]:
             return [{"Path": "books/two.epub", "Name": "two.epub", "Size": 12, "ModTime": "2025-01-02T03:04:05Z"}]
@@ -2406,11 +4113,40 @@ def test_text_browser_sync_store_rclone_listing_flags_are_forwarded(driver_spec,
 
 
 def test_text_browser_sync_store_rclone_plain_https_root_is_supported(driver_spec, tmp_path: Path, monkeypatch) -> None:
+    """
+    Perform the test text browser sync store rclone plain https root is supported operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser sync store rclone plain https root is supported through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     db_path = tmp_path / "browser_sync_store_rclone_https.sqlite"
     output = io.StringIO()
     captured_roots: list[str] = []
 
     def _fake_run_rclone_json(args, **kwargs):
+        """
+        Perform the fake run rclone json operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise test text browser sync store rclone plain https root is supported. fake run rclone json through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if len(args) >= 4 and list(args[:3]) == ["lsjson", "-R", "--files-only"]:
             captured_roots.append(str(args[-1]))
             return [{"Path": "books/plain.epub", "Name": "plain.epub", "Size": 7, "ModTime": "2025-01-02T03:04:05Z"}]
@@ -2455,12 +4191,41 @@ def test_text_browser_sync_store_rclone_plain_https_root_is_supported(driver_spe
 
 
 def test_text_browser_sync_store_wget_uses_rate_limit_option(driver_spec, tmp_path: Path, monkeypatch) -> None:
+    """
+    Perform the test text browser sync store wget uses rate limit option operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser sync store wget uses rate limit option through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     db_path = tmp_path / "browser_sync_store_wget.sqlite"
     output = io.StringIO()
     captured_wget_args: list[list[str]] = []
     captured_timeout_s: list[object] = []
 
     def _fake_run_wget(args, **kwargs):
+        """
+        Perform the fake run wget operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise test text browser sync store wget uses rate limit option. fake run wget through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         captured_wget_args.append(list(args))
         captured_timeout_s.append(kwargs.get("timeout_s"))
         callback = kwargs.get("line_callback")
@@ -2510,16 +4275,59 @@ def test_text_browser_sync_store_wget_uses_rate_limit_option(driver_spec, tmp_pa
 def test_text_browser_sync_store_wget_kind_takes_precedence_over_https_protocol(
     driver_spec, tmp_path: Path, monkeypatch
 ) -> None:
+    """
+    Perform the test text browser sync store wget kind takes precedence over https protocol operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser sync store wget kind takes precedence over https protocol through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     db_path = tmp_path / "browser_sync_store_wget_kind_precedence.sqlite"
     output = io.StringIO()
     captured_wget_calls = {"count": 0}
 
     def _fake_run_wget(args, **kwargs):
+        """
+        Perform the fake run wget operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise test text browser sync store wget kind takes precedence over https protocol. fake run wget through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         captured_wget_calls["count"] += 1
         listing = "https://example.com/books/one.epub\n"
         return WgetResult(args=list(args), returncode=0, stdout=listing, stderr="")
 
     def _fail_run_rclone_json(args, **kwargs):
+        """
+        Perform the fail run rclone json operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise test text browser sync store wget kind takes precedence over https protocol. fail run rclone json through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raise AssertionError("rclone should not be used for wget_html_readonly store kind")
 
     monkeypatch.setattr(wget_backend_module, "run_wget", _fake_run_wget)
@@ -2550,12 +4358,41 @@ def test_text_browser_sync_store_wget_kind_takes_precedence_over_https_protocol(
 
 
 def test_text_browser_sync_store_wget_listing_flags_are_forwarded(driver_spec, tmp_path: Path, monkeypatch) -> None:
+    """
+    Perform the test text browser sync store wget listing flags are forwarded operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser sync store wget listing flags are forwarded through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     db_path = tmp_path / "browser_sync_store_wget_listing_flags.sqlite"
     output = io.StringIO()
     captured_args: list[list[str]] = []
     captured_extra_args: list[tuple[str, ...]] = []
 
     def _fake_run_wget(args, **kwargs):
+        """
+        Perform the fake run wget operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise test text browser sync store wget listing flags are forwarded. fake run wget through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         captured_args.append(list(args))
         captured_extra_args.append(tuple(kwargs.get("extra_args", ())))
         listing = "https://example.com/books/two.epub\n"
@@ -2605,11 +4442,40 @@ def test_text_browser_sync_store_wget_listing_flags_are_forwarded(driver_spec, t
 
 
 def test_text_browser_sync_store_wget_no_verbose_flag_is_forwarded(driver_spec, tmp_path: Path, monkeypatch) -> None:
+    """
+    Perform the test text browser sync store wget no verbose flag is forwarded operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser sync store wget no verbose flag is forwarded through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     db_path = tmp_path / "browser_sync_store_wget_no_verbose.sqlite"
     output = io.StringIO()
     captured_args: list[list[str]] = []
 
     def _fake_run_wget(args, **kwargs):
+        """
+        Perform the fake run wget operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise test text browser sync store wget no verbose flag is forwarded. fake run wget through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         captured_args.append(list(args))
         listing = "https://example.com/books/noisy.epub\n"
         return WgetResult(args=list(args), returncode=0, stdout=listing, stderr="")
@@ -2645,11 +4511,40 @@ def test_text_browser_sync_store_wget_no_verbose_flag_is_forwarded(driver_spec, 
 
 
 def test_text_browser_sync_store_wget_timeout_option_is_forwarded(driver_spec, tmp_path: Path, monkeypatch) -> None:
+    """
+    Perform the test text browser sync store wget timeout option is forwarded operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser sync store wget timeout option is forwarded through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     db_path = tmp_path / "browser_sync_store_wget_timeout.sqlite"
     output = io.StringIO()
     captured_timeout_s: list[object] = []
 
     def _fake_run_wget(args, **kwargs):
+        """
+        Perform the fake run wget operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise test text browser sync store wget timeout option is forwarded. fake run wget through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         captured_timeout_s.append(kwargs.get("timeout_s"))
         listing = "https://example.com/books/slow.epub\n"
         return WgetResult(args=list(args), returncode=0, stdout=listing, stderr="")
@@ -2685,10 +4580,39 @@ def test_text_browser_sync_store_wget_timeout_option_is_forwarded(driver_spec, t
 
 
 def test_text_browser_sync_store_native_html_routes_via_native_backend(driver_spec, tmp_path: Path, monkeypatch) -> None:
+    """
+    Perform the test text browser sync store native html routes via native backend operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser sync store native html routes via native backend through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     db_path = tmp_path / "browser_sync_store_native_html.sqlite"
     output = io.StringIO()
 
     def _html_result(url: str, body: str) -> object:
+        """
+        Perform the html result operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise test text browser sync store native html routes via native backend. html result through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+        :param url: Value supplied for url under the utility contract.
+        :param body: Value supplied for body under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return native_html_backend_module._FetchResult(
             requested_url=url,
             final_url=url,
@@ -2710,6 +4634,20 @@ def test_text_browser_sync_store_native_html_routes_via_native_backend(driver_sp
     }
 
     def _fake_fetch(self, url: str):
+        """
+        Perform the fake fetch operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise test text browser sync store native html routes via native backend. fake fetch through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+        :param self: Value supplied for self under the utility contract.
+        :param url: Value supplied for url under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return responses[url]
 
     monkeypatch.setattr(native_html_backend_module.NativeHtmlReadOnlyStorageBackend, "_fetch_url", _fake_fetch)
@@ -2747,6 +4685,21 @@ def test_text_browser_sync_store_native_html_routes_via_native_backend(driver_sp
 
 
 def test_text_browser_sync_store_background_native_submits_job(driver_spec, tmp_path: Path, monkeypatch) -> None:
+    """
+    Perform the test text browser sync store background native submits job operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser sync store background native submits job through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     db_path = tmp_path / "browser_sync_store_background_native.sqlite"
     output = io.StringIO()
 
@@ -2754,6 +4707,19 @@ def test_text_browser_sync_store_background_native_submits_job(driver_spec, tmp_
     captured_kwargs: dict[str, object] = {}
 
     def _fake_run_sync_store_job(**kwargs):
+        """
+        Perform the fake run sync store job operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise test text browser sync store background native submits job. fake run sync store job through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         captured_kwargs.update(kwargs)
         return {"store_row_id": 1, "inserted_files": 1, "errors": []}
 
@@ -2794,10 +4760,39 @@ def test_text_browser_sync_store_background_native_submits_job(driver_spec, tmp_
 def test_text_browser_sync_store_wget_surfaces_crawler_observation_summary(
     driver_spec, tmp_path: Path, monkeypatch
 ) -> None:
+    """
+    Perform the test text browser sync store wget surfaces crawler observation summary operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser sync store wget surfaces crawler observation summary through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     db_path = tmp_path / "browser_sync_store_wget_crawler_summary.sqlite"
     output = io.StringIO()
 
     def _fake_run_wget(args, **kwargs):
+        """
+        Perform the fake run wget operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise test text browser sync store wget surfaces crawler observation summary. fake run wget through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         callback = kwargs.get("line_callback")
         if callable(callback):
             callback("https://example.com/books/index")
@@ -2839,6 +4834,20 @@ def test_text_browser_sync_store_wget_surfaces_crawler_observation_summary(
 
 
 def test_text_browser_store_group_lists_subcommands(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser store group lists subcommands operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser store group lists subcommands through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_store_group.sqlite"
     output = io.StringIO()
     with Database(
@@ -2858,6 +4867,20 @@ def test_text_browser_store_group_lists_subcommands(driver_spec, tmp_path: Path)
 
 
 def test_text_browser_store_view_commands(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser store view commands operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser store view commands through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_store_view.sqlite"
     output = io.StringIO()
     store_root = tmp_path / "store_view_root"
@@ -2902,6 +4925,20 @@ def test_text_browser_store_view_commands(driver_spec, tmp_path: Path) -> None:
 
 
 def test_text_browser_store_list_filters_and_sort(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser store list filters and sort operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser store list filters and sort through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_store_list_filters.sqlite"
     output = io.StringIO()
 
@@ -2978,6 +5015,20 @@ def test_text_browser_store_list_filters_and_sort(driver_spec, tmp_path: Path) -
 
 
 def test_text_browser_new_store_legacy_alias_still_works(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser new store legacy alias still works operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser new store legacy alias still works through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_new_store_legacy.sqlite"
     output = io.StringIO()
     store_dir = tmp_path / "legacy_store"
@@ -3010,6 +5061,20 @@ def test_text_browser_new_store_legacy_alias_still_works(driver_spec, tmp_path: 
 
 
 def test_text_browser_top_command_shows_rows(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser top command shows rows operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser top command shows rows through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_top.sqlite"
     output = io.StringIO()
     with Database(
@@ -3036,6 +5101,20 @@ def test_text_browser_top_command_shows_rows(driver_spec, tmp_path: Path) -> Non
 
 
 def test_text_browser_list_alias_shows_rows(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser list alias shows rows operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser list alias shows rows through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_list_alias.sqlite"
     output = io.StringIO()
     with Database(
@@ -3060,6 +5139,20 @@ def test_text_browser_list_alias_shows_rows(driver_spec, tmp_path: Path) -> None
 
 
 def test_text_browser_top_command_respects_terminal_width(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser top command respects terminal width operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser top command respects terminal width through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_top_width.sqlite"
     output = io.StringIO()
     with Database(
@@ -3087,6 +5180,20 @@ def test_text_browser_top_command_respects_terminal_width(driver_spec, tmp_path:
 
 
 def test_text_browser_top_command_invalid_args(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser top command invalid args operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser top command invalid args through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_top_invalid.sqlite"
     output = io.StringIO()
     with Database(
@@ -3104,6 +5211,20 @@ def test_text_browser_top_command_invalid_args(driver_spec, tmp_path: Path) -> N
 
 
 def test_text_browser_show_tags_for_work(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser show tags for work operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser show tags for work through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_show_tags.sqlite"
     output = io.StringIO()
 
@@ -3154,6 +5275,20 @@ def test_text_browser_show_tags_for_work(driver_spec, tmp_path: Path) -> None:
 
 
 def test_text_browser_show_language_and_series_for_work(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser show language and series for work operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser show language and series for work through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_show_language_series.sqlite"
     output = io.StringIO()
 
@@ -3205,6 +5340,20 @@ def test_text_browser_show_language_and_series_for_work(driver_spec, tmp_path: P
 
 
 def test_text_browser_show_all_for_work(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser show all for work operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser show all for work through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_show_all.sqlite"
     output = io.StringIO()
 
@@ -3242,6 +5391,20 @@ def test_text_browser_show_all_for_work(driver_spec, tmp_path: Path) -> None:
 
 
 def test_text_browser_show_defaults_to_all_for_work_target(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser show defaults to all for work target operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser show defaults to all for work target through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_show_default_all.sqlite"
     output = io.StringIO()
 
@@ -3277,6 +5440,20 @@ def test_text_browser_show_defaults_to_all_for_work_target(driver_spec, tmp_path
 
 
 def test_text_browser_show_rejects_selector_targets(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser show rejects selector targets operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser show rejects selector targets through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_show_selector_targets.sqlite"
     output = io.StringIO()
 
@@ -3297,6 +5474,20 @@ def test_text_browser_show_rejects_selector_targets(driver_spec, tmp_path: Path)
 
 
 def test_text_browser_show_rejects_unknown_kind(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser show rejects unknown kind operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser show rejects unknown kind through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_show_unknown_kind.sqlite"
     output = io.StringIO()
 
@@ -3322,6 +5513,20 @@ def test_text_browser_show_rejects_unknown_kind(driver_spec, tmp_path: Path) -> 
 
 
 def test_text_browser_row_command_accepts_compact_table_id(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser row command accepts compact table id operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser row command accepts compact table id through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_row_compact.sqlite"
     output = io.StringIO()
     with Database(
@@ -3353,6 +5558,20 @@ def test_text_browser_row_command_accepts_compact_table_id(driver_spec, tmp_path
 
 
 def test_text_browser_set_command_updates_row_with_display_column_token(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser set command updates row with display column token operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser set command updates row with display column token through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_set_command.sqlite"
     output = io.StringIO()
     with Database(
@@ -3380,16 +5599,75 @@ def test_text_browser_set_command_updates_row_with_display_column_token(driver_s
 
 
 def test_text_browser_mutating_commands_refresh_attached_metadata_read_source(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser mutating commands refresh attached metadata read source operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser mutating commands refresh attached metadata read source through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     class _RefreshableReadSource:
+        """
+        Provide the refreshablereadsource contract for validated ebook processing.
+
+        Example:
+            Exercise test text browser mutating commands refresh attached metadata read source. RefreshableReadSource through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_text_browser.py
+        """
         def __init__(self, database) -> None:
+            """
+            Initialize and validate the refreshablereadsource state.
+
+            Example:
+                Exercise test text browser mutating commands refresh attached metadata read source. RefreshableReadSource.  init   through a consuming regression::
+
+                    python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+            :param database: Value supplied for database under the utility contract.
+            :return: None; validated state is stored on the receiving object.
+            """
             self.database = database
             self.refresh_count = 0
 
         def refresh(self) -> bool:
+            """
+            Perform the refresh operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise test text browser mutating commands refresh attached metadata read source. RefreshableReadSource.refresh through a consuming regression::
+
+                    python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             self.refresh_count += 1
             return True
 
         def __getattr__(self, name: str):
+            """
+            Perform the getattr operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise test text browser mutating commands refresh attached metadata read source. RefreshableReadSource.  getattr   through a consuming regression::
+
+                    python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+            :param name: Field, file, function or resource name addressed by the operation.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return getattr(self.database, name)
 
     db_path = tmp_path / "browser_mutation_refreshes_read_source.sqlite"
@@ -3418,6 +5696,21 @@ def test_text_browser_mutating_commands_refresh_attached_metadata_read_source(dr
 
 
 def test_text_browser_set_command_routes_via_core(driver_spec, tmp_path: Path, monkeypatch) -> None:
+    """
+    Perform the test text browser set command routes via core operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser set command routes via core through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     db_path = tmp_path / "browser_set_command_core.sqlite"
     output = io.StringIO()
     query_calls: list[tuple[str, dict[str, object]]] = []
@@ -3441,6 +5734,20 @@ def test_text_browser_set_command_routes_via_core(driver_spec, tmp_path: Path, m
         monkeypatch.setattr(shell, "supports_core_commands", lambda: True)
 
         def _record_query(name: str, *, payload=None):
+            """
+            Perform the record query operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise test text browser set command routes via core. record query through a consuming regression::
+
+                    python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+            :param name: Field, file, function or resource name addressed by the operation.
+            :param payload: Value supplied for payload under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             payload_dict = dict(payload or {})
             query_calls.append((str(name), payload_dict))
             assert name == "rows.get"
@@ -3457,6 +5764,20 @@ def test_text_browser_set_command_routes_via_core(driver_spec, tmp_path: Path, m
             }
 
         def _record_command(name: str, *, payload=None):
+            """
+            Perform the record command operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise test text browser set command routes via core. record command through a consuming regression::
+
+                    python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+            :param name: Field, file, function or resource name addressed by the operation.
+            :param payload: Value supplied for payload under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             payload_dict = dict(payload or {})
             command_calls.append((str(name), payload_dict))
             assert name == "admin.row.update"
@@ -3501,6 +5822,20 @@ def test_text_browser_set_command_routes_via_core(driver_spec, tmp_path: Path, m
 
 
 def test_text_browser_edit_command_updates_selected_columns(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser edit command updates selected columns operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser edit command updates selected columns through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_edit_command.sqlite"
     output = io.StringIO()
     input_stream = io.StringIO("Edited Store\noffline\n")
@@ -3533,6 +5868,20 @@ def test_text_browser_edit_command_updates_selected_columns(driver_spec, tmp_pat
 
 
 def test_text_browser_delete_command_with_force_removes_row(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser delete command with force removes row operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser delete command with force removes row through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_delete_command.sqlite"
     output = io.StringIO()
     with Database(
@@ -3557,6 +5906,20 @@ def test_text_browser_delete_command_with_force_removes_row(driver_spec, tmp_pat
 
 
 def test_text_browser_delete_command_cancel_keeps_row(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser delete command cancel keeps row operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser delete command cancel keeps row through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_delete_command_cancel.sqlite"
     output = io.StringIO()
     input_stream = io.StringIO("n\n")
@@ -3588,6 +5951,20 @@ def test_text_browser_delete_command_cancel_keeps_row(driver_spec, tmp_path: Pat
 
 
 def test_text_browser_delete_command_preview_shows_linked_row_samples(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser delete command preview shows linked row samples operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser delete command preview shows linked row samples through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_delete_command_linked_samples.sqlite"
     output = io.StringIO()
     input_stream = io.StringIO("n\n")
@@ -3641,6 +6018,21 @@ def test_text_browser_delete_command_preview_shows_linked_row_samples(driver_spe
 
 
 def test_text_browser_delete_command_routes_via_core(driver_spec, tmp_path: Path, monkeypatch) -> None:
+    """
+    Perform the test text browser delete command routes via core operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser delete command routes via core through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     db_path = tmp_path / "browser_delete_command_core.sqlite"
     output = io.StringIO()
     query_calls: list[tuple[str, dict[str, object]]] = []
@@ -3664,6 +6056,20 @@ def test_text_browser_delete_command_routes_via_core(driver_spec, tmp_path: Path
         monkeypatch.setattr(shell, "supports_core_commands", lambda: True)
 
         def _record_query(name: str, *, payload=None):
+            """
+            Perform the record query operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise test text browser delete command routes via core. record query through a consuming regression::
+
+                    python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+            :param name: Field, file, function or resource name addressed by the operation.
+            :param payload: Value supplied for payload under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             payload_dict = dict(payload or {})
             query_calls.append((str(name), payload_dict))
             library = Library(database=db, close_database_on_close=False)
@@ -3681,6 +6087,20 @@ def test_text_browser_delete_command_routes_via_core(driver_spec, tmp_path: Path
             raise AssertionError("unexpected Core query {!r}".format(name))
 
         def _record_command(name: str, *, payload=None):
+            """
+            Perform the record command operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise test text browser delete command routes via core. record command through a consuming regression::
+
+                    python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+            :param name: Field, file, function or resource name addressed by the operation.
+            :param payload: Value supplied for payload under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             payload_dict = dict(payload or {})
             command_calls.append((str(name), payload_dict))
             assert name == "admin.row.delete"
@@ -3723,6 +6143,20 @@ def test_text_browser_delete_command_routes_via_core(driver_spec, tmp_path: Path
 
 
 def test_text_browser_singular_table_tokens_resolve_in_core_commands(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser singular table tokens resolve in core commands operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser singular table tokens resolve in core commands through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_singular_table_tokens.sqlite"
     output = io.StringIO()
     with Database(
@@ -3761,6 +6195,20 @@ def test_text_browser_singular_table_tokens_resolve_in_core_commands(driver_spec
 
 
 def test_text_browser_table_wide_search_with_quoted_term(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser table wide search with quoted term operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser table wide search with quoted term through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_search_table_wide.sqlite"
     output = io.StringIO()
     with Database(
@@ -3786,6 +6234,20 @@ def test_text_browser_table_wide_search_with_quoted_term(driver_spec, tmp_path: 
 
 
 def test_text_browser_new_creator_wizard_creates_human_agent(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser new creator wizard creates human agent operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser new creator wizard creates human agent through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_new_creator.sqlite"
     output = io.StringIO()
 
@@ -3846,6 +6308,20 @@ def test_text_browser_new_creator_wizard_creates_human_agent(driver_spec, tmp_pa
 
 
 def test_text_browser_new_creator_invalid_type_rejected(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser new creator invalid type rejected operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser new creator invalid type rejected through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_new_creator_invalid.sqlite"
     output = io.StringIO()
     input_stream = io.StringIO(
@@ -3871,6 +6347,20 @@ def test_text_browser_new_creator_invalid_type_rejected(driver_spec, tmp_path: P
 
 
 def test_text_browser_new_creator_legacy_alias_still_works(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser new creator legacy alias still works operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser new creator legacy alias still works through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_new_creator_legacy.sqlite"
     output = io.StringIO()
     input_stream = io.StringIO(
@@ -3910,6 +6400,20 @@ def test_text_browser_new_creator_legacy_alias_still_works(driver_spec, tmp_path
 
 
 def test_text_browser_new_work_wizard_creates_work(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser new work wizard creates work operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser new work wizard creates work through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_new_work.sqlite"
     output = io.StringIO()
     # title, canonical(default), sort(default), creator_sort, type, medium, language, original_date, original_year,
@@ -3962,6 +6466,20 @@ def test_text_browser_new_work_wizard_creates_work(driver_spec, tmp_path: Path) 
 
 
 def test_text_browser_new_work_invalid_year_rejected(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser new work invalid year rejected operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser new work invalid year rejected through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_new_work_invalid.sqlite"
     output = io.StringIO()
     input_stream = io.StringIO(
@@ -3993,6 +6511,20 @@ def test_text_browser_new_work_invalid_year_rejected(driver_spec, tmp_path: Path
 
 
 def test_text_browser_new_work_legacy_alias_still_works(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser new work legacy alias still works operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser new work legacy alias still works through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_new_work_legacy.sqlite"
     output = io.StringIO()
     input_stream = io.StringIO(
@@ -4031,6 +6563,20 @@ def test_text_browser_new_work_legacy_alias_still_works(driver_spec, tmp_path: P
 
 
 def test_text_browser_new_expression_wizard_creates_expression(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser new expression wizard creates expression operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser new expression wizard creates expression through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_new_expression.sqlite"
     output = io.StringIO()
     input_stream = io.StringIO(
@@ -4091,6 +6637,20 @@ def test_text_browser_new_expression_wizard_creates_expression(driver_spec, tmp_
 
 
 def test_text_browser_new_expression_invalid_year_rejected(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser new expression invalid year rejected operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser new expression invalid year rejected through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_new_expression_invalid.sqlite"
     output = io.StringIO()
     input_stream = io.StringIO(
@@ -4118,6 +6678,20 @@ def test_text_browser_new_expression_invalid_year_rejected(driver_spec, tmp_path
 
 
 def test_text_browser_new_expression_legacy_alias_still_works(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser new expression legacy alias still works operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser new expression legacy alias still works through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_new_expression_legacy.sqlite"
     output = io.StringIO()
     input_stream = io.StringIO(
@@ -4159,6 +6733,20 @@ def test_text_browser_new_expression_legacy_alias_still_works(driver_spec, tmp_p
 
 
 def test_text_browser_new_manifestation_wizard_creates_manifestation(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser new manifestation wizard creates manifestation operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser new manifestation wizard creates manifestation through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_new_manifestation.sqlite"
     output = io.StringIO()
     input_stream = io.StringIO(
@@ -4209,6 +6797,20 @@ def test_text_browser_new_manifestation_wizard_creates_manifestation(driver_spec
 
 
 def test_text_browser_new_item_wizard_creates_item(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser new item wizard creates item operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser new item wizard creates item through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_new_item.sqlite"
     output = io.StringIO()
 
@@ -4270,6 +6872,20 @@ def test_text_browser_new_item_wizard_creates_item(driver_spec, tmp_path: Path) 
 
 
 def test_text_browser_new_item_invalid_manifestation_id_rejected(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser new item invalid manifestation id rejected operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser new item invalid manifestation id rejected through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_new_item_invalid.sqlite"
     output = io.StringIO()
     input_stream = io.StringIO("not-an-int\n")
@@ -4286,6 +6902,20 @@ def test_text_browser_new_item_invalid_manifestation_id_rejected(driver_spec, tm
 
 
 def test_text_browser_new_item_legacy_alias_still_works(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser new item legacy alias still works operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser new item legacy alias still works through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_new_item_legacy.sqlite"
     output = io.StringIO()
     input_stream = io.StringIO(
@@ -4325,6 +6955,20 @@ def test_text_browser_new_item_legacy_alias_still_works(driver_spec, tmp_path: P
 
 
 def test_text_browser_new_tag_wizard_creates_tag_or_label(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser new tag wizard creates tag or label operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser new tag wizard creates tag or label through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_new_tag.sqlite"
     output = io.StringIO()
     input_stream = io.StringIO(
@@ -4364,6 +7008,20 @@ def test_text_browser_new_tag_wizard_creates_tag_or_label(driver_spec, tmp_path:
 
 
 def test_text_browser_new_tag_blank_rejected(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser new tag blank rejected operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser new tag blank rejected through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_new_tag_blank.sqlite"
     output = io.StringIO()
     input_stream = io.StringIO("\n")
@@ -4380,6 +7038,20 @@ def test_text_browser_new_tag_blank_rejected(driver_spec, tmp_path: Path) -> Non
 
 
 def test_text_browser_new_tag_legacy_alias_still_works(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser new tag legacy alias still works operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser new tag legacy alias still works through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_new_tag_legacy.sqlite"
     output = io.StringIO()
     input_stream = io.StringIO(
@@ -4407,6 +7079,20 @@ def test_text_browser_new_tag_legacy_alias_still_works(driver_spec, tmp_path: Pa
 
 
 def test_text_browser_new_note_wizard_creates_note(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser new note wizard creates note operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser new note wizard creates note through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_new_note.sqlite"
     output = io.StringIO()
     input_stream = io.StringIO(
@@ -4438,6 +7124,20 @@ def test_text_browser_new_note_wizard_creates_note(driver_spec, tmp_path: Path) 
 
 
 def test_text_browser_new_note_blank_rejected(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser new note blank rejected operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser new note blank rejected through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_new_note_blank.sqlite"
     output = io.StringIO()
     input_stream = io.StringIO("\n")
@@ -4454,6 +7154,20 @@ def test_text_browser_new_note_blank_rejected(driver_spec, tmp_path: Path) -> No
 
 
 def test_text_browser_new_note_legacy_alias_still_works(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser new note legacy alias still works operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser new note legacy alias still works through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_new_note_legacy.sqlite"
     output = io.StringIO()
     input_stream = io.StringIO(
@@ -4479,6 +7193,20 @@ def test_text_browser_new_note_legacy_alias_still_works(driver_spec, tmp_path: P
 
 
 def test_text_browser_link_links_unlink_note_and_work(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser link links unlink note and work operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser link links unlink note and work through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_link_note_work.sqlite"
     output = io.StringIO()
 
@@ -4532,6 +7260,20 @@ def test_text_browser_link_links_unlink_note_and_work(driver_spec, tmp_path: Pat
 
 
 def test_text_browser_link_rejects_unknown_table(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser link rejects unknown table operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser link rejects unknown table through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_link_invalid.sqlite"
     output = io.StringIO()
 
@@ -4553,6 +7295,20 @@ def test_text_browser_link_rejects_unknown_table(driver_spec, tmp_path: Path) ->
 
 
 def test_text_browser_link_rejects_invalid_set_field_with_guidance(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser link rejects invalid set field with guidance operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser link rejects invalid set field with guidance through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_link_invalid_set.sqlite"
     output = io.StringIO()
 
@@ -4589,6 +7345,20 @@ def test_text_browser_link_rejects_invalid_set_field_with_guidance(driver_spec, 
 
 
 def test_text_browser_link_supports_to_sugar_syntax(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser link supports to sugar syntax operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser link supports to sugar syntax through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_link_to_sugar.sqlite"
     output = io.StringIO()
 
@@ -4628,6 +7398,20 @@ def test_text_browser_link_supports_to_sugar_syntax(driver_spec, tmp_path: Path)
 
 
 def test_text_browser_link_unlink_links_support_compact_refs(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser link unlink links support compact refs operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser link unlink links support compact refs through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_link_compact_refs.sqlite"
     output = io.StringIO()
 
@@ -4669,6 +7453,20 @@ def test_text_browser_link_unlink_links_support_compact_refs(driver_spec, tmp_pa
 
 
 def test_text_browser_note_on_creates_and_links_note(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser note on creates and links note operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser note on creates and links note through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_note_on.sqlite"
     output = io.StringIO()
 
@@ -4703,6 +7501,20 @@ def test_text_browser_note_on_creates_and_links_note(driver_spec, tmp_path: Path
 
 
 def test_text_browser_note_on_accepts_singular_table_token(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser note on accepts singular table token operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser note on accepts singular table token through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_note_on_singular.sqlite"
     output = io.StringIO()
     with Database(
@@ -4733,6 +7545,20 @@ def test_text_browser_note_on_accepts_singular_table_token(driver_spec, tmp_path
 
 
 def test_text_browser_note_on_accepts_compact_table_id(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser note on accepts compact table id operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser note on accepts compact table id through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_note_on_compact.sqlite"
     output = io.StringIO()
     with Database(
@@ -4765,6 +7591,20 @@ def test_text_browser_note_on_accepts_compact_table_id(driver_spec, tmp_path: Pa
 
 
 def test_text_browser_note_on_rejects_bad_id(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser note on rejects bad id operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser note on rejects bad id through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_note_on_bad_id.sqlite"
     output = io.StringIO()
     with Database(
@@ -4780,6 +7620,20 @@ def test_text_browser_note_on_rejects_bad_id(driver_spec, tmp_path: Path) -> Non
 
 
 def test_text_browser_on_note_creates_and_links_note(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser on note creates and links note operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser on note creates and links note through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_on_note.sqlite"
     output = io.StringIO()
 
@@ -4812,6 +7666,20 @@ def test_text_browser_on_note_creates_and_links_note(driver_spec, tmp_path: Path
 
 
 def test_text_browser_on_note_subcommand_style(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser on note subcommand style operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser on note subcommand style through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_on_note_subcommand.sqlite"
     output = io.StringIO()
 
@@ -4842,6 +7710,20 @@ def test_text_browser_on_note_subcommand_style(driver_spec, tmp_path: Path) -> N
 
 
 def test_text_browser_on_tag_creates_and_links_tag(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser on tag creates and links tag operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser on tag creates and links tag through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_on_tag.sqlite"
     output = io.StringIO()
 
@@ -4875,6 +7757,20 @@ def test_text_browser_on_tag_creates_and_links_tag(driver_spec, tmp_path: Path) 
 
 
 def test_text_browser_on_tag_supports_multiple_values(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser on tag supports multiple values operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser on tag supports multiple values through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_on_tag_multiple_values.sqlite"
     output = io.StringIO()
 
@@ -4907,6 +7803,20 @@ def test_text_browser_on_tag_supports_multiple_values(driver_spec, tmp_path: Pat
 
 
 def test_text_browser_on_tag_supports_csv_values(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser on tag supports csv values operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser on tag supports csv values through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_on_tag_csv_values.sqlite"
     output = io.StringIO()
 
@@ -4939,6 +7849,20 @@ def test_text_browser_on_tag_supports_csv_values(driver_spec, tmp_path: Path) ->
 
 
 def test_text_browser_on_tag_supports_compact_target_and_unquoted_csv(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser on tag supports compact target and unquoted csv operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser on tag supports compact target and unquoted csv through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_on_tag_compact_and_csv.sqlite"
     output = io.StringIO()
 
@@ -4971,6 +7895,20 @@ def test_text_browser_on_tag_supports_compact_target_and_unquoted_csv(driver_spe
 
 
 def test_text_browser_on_legacy_compact_target_kind_then_csv_values(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser on legacy compact target kind then csv values operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser on legacy compact target kind then csv values through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_on_legacy_compact_kind_then_csv.sqlite"
     output = io.StringIO()
 
@@ -5004,6 +7942,20 @@ def test_text_browser_on_legacy_compact_target_kind_then_csv_values(driver_spec,
 
 
 def test_text_browser_on_tag_subcommand_style(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser on tag subcommand style operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser on tag subcommand style through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_on_tag_subcommand.sqlite"
     output = io.StringIO()
 
@@ -5036,6 +7988,20 @@ def test_text_browser_on_tag_subcommand_style(driver_spec, tmp_path: Path) -> No
 
 
 def test_text_browser_on_tag_subcommand_supports_target_ranges(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser on tag subcommand supports target ranges operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser on tag subcommand supports target ranges through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_on_tag_target_ranges.sqlite"
     output = io.StringIO()
 
@@ -5074,6 +8040,21 @@ def test_text_browser_on_tag_subcommand_supports_target_ranges(driver_spec, tmp_
 
 
 def test_text_browser_on_tag_bulk_atomic_rollback_on_error(monkeypatch, driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser on tag bulk atomic rollback on error operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser on tag bulk atomic rollback on error through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     db_path = tmp_path / "browser_on_tag_bulk_atomic_rollback.sqlite"
     output = io.StringIO()
 
@@ -5104,6 +8085,20 @@ def test_text_browser_on_tag_bulk_atomic_rollback_on_error(monkeypatch, driver_s
         call_count = {"n": 0}
 
         def _flaky_link(*args, **kwargs):
+            """
+            Perform the flaky link operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise test text browser on tag bulk atomic rollback on error. flaky link through a consuming regression::
+
+                    python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+            :param args: Positional values forwarded to the compatibility implementation.
+            :param kwargs: Keyword values forwarded to the compatibility implementation.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             call_count["n"] += 1
             if call_count["n"] == 2:
                 raise RuntimeError("synthetic bulk failure")
@@ -5123,6 +8118,21 @@ def test_text_browser_on_tag_bulk_atomic_rollback_on_error(monkeypatch, driver_s
 
 
 def test_text_browser_on_tag_bulk_best_effort_keeps_successes(monkeypatch, driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser on tag bulk best effort keeps successes operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser on tag bulk best effort keeps successes through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     db_path = tmp_path / "browser_on_tag_bulk_best_effort.sqlite"
     output = io.StringIO()
 
@@ -5153,6 +8163,20 @@ def test_text_browser_on_tag_bulk_best_effort_keeps_successes(monkeypatch, drive
         call_count = {"n": 0}
 
         def _flaky_link(*args, **kwargs):
+            """
+            Perform the flaky link operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise test text browser on tag bulk best effort keeps successes. flaky link through a consuming regression::
+
+                    python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+            :param args: Positional values forwarded to the compatibility implementation.
+            :param kwargs: Keyword values forwarded to the compatibility implementation.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             call_count["n"] += 1
             if call_count["n"] == 2:
                 raise RuntimeError("synthetic best-effort failure")
@@ -5170,6 +8194,21 @@ def test_text_browser_on_tag_bulk_best_effort_keeps_successes(monkeypatch, drive
 
 
 def test_text_browser_on_tag_selector_target_limit(monkeypatch, driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser on tag selector target limit operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser on tag selector target limit through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_on_tag_selector_target_limit.sqlite"
     output = io.StringIO()
 
@@ -5202,6 +8241,21 @@ def test_text_browser_on_tag_selector_target_limit(monkeypatch, driver_spec, tmp
 
 
 def test_text_browser_on_tag_selector_range_limit(monkeypatch, driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser on tag selector range limit operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser on tag selector range limit through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_on_tag_selector_range_limit.sqlite"
     output = io.StringIO()
 
@@ -5219,6 +8273,20 @@ def test_text_browser_on_tag_selector_range_limit(monkeypatch, driver_spec, tmp_
 
 
 def test_text_browser_off_tag_subcommand_supports_batch_targets(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser off tag subcommand supports batch targets operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser off tag subcommand supports batch targets through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_off_tag_batch.sqlite"
     output = io.StringIO()
 
@@ -5258,6 +8326,21 @@ def test_text_browser_off_tag_subcommand_supports_batch_targets(driver_spec, tmp
 
 
 def test_text_browser_off_tag_bulk_atomic_rollback_on_error(monkeypatch, driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser off tag bulk atomic rollback on error operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser off tag bulk atomic rollback on error through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     db_path = tmp_path / "browser_off_tag_bulk_atomic_rollback.sqlite"
     output = io.StringIO()
 
@@ -5289,6 +8372,20 @@ def test_text_browser_off_tag_bulk_atomic_rollback_on_error(monkeypatch, driver_
         call_count = {"n": 0}
 
         def _flaky_unlink(*args, **kwargs):
+            """
+            Perform the flaky unlink operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise test text browser off tag bulk atomic rollback on error. flaky unlink through a consuming regression::
+
+                    python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+            :param args: Positional values forwarded to the compatibility implementation.
+            :param kwargs: Keyword values forwarded to the compatibility implementation.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             call_count["n"] += 1
             if call_count["n"] == 2:
                 raise RuntimeError("synthetic unlink failure")
@@ -5307,6 +8404,20 @@ def test_text_browser_off_tag_bulk_atomic_rollback_on_error(monkeypatch, driver_
 
 
 def test_text_browser_off_legacy_compact_target_kind_then_csv_values(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser off legacy compact target kind then csv values operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser off legacy compact target kind then csv values through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_off_legacy_compact_kind_then_csv.sqlite"
     output = io.StringIO()
 
@@ -5339,6 +8450,20 @@ def test_text_browser_off_legacy_compact_target_kind_then_csv_values(driver_spec
 
 
 def test_text_browser_on_language_subcommand_style(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser on language subcommand style operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser on language subcommand style through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_on_language_subcommand.sqlite"
     output = io.StringIO()
 
@@ -5373,6 +8498,20 @@ def test_text_browser_on_language_subcommand_style(driver_spec, tmp_path: Path) 
 
 
 def test_text_browser_on_series_subcommand_style(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser on series subcommand style operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser on series subcommand style through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_on_series_subcommand.sqlite"
     output = io.StringIO()
 
@@ -5403,6 +8542,20 @@ def test_text_browser_on_series_subcommand_style(driver_spec, tmp_path: Path) ->
 
 
 def test_text_browser_on_genre_creates_and_links_genre(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser on genre creates and links genre operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser on genre creates and links genre through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_on_genre.sqlite"
     output = io.StringIO()
 
@@ -5436,6 +8589,20 @@ def test_text_browser_on_genre_creates_and_links_genre(driver_spec, tmp_path: Pa
 
 
 def test_text_browser_on_subject_creates_and_links_subject(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser on subject creates and links subject operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser on subject creates and links subject through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_on_subject.sqlite"
     output = io.StringIO()
 
@@ -5469,6 +8636,20 @@ def test_text_browser_on_subject_creates_and_links_subject(driver_spec, tmp_path
 
 
 def test_text_browser_on_rejects_unknown_kind(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser on rejects unknown kind operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser on rejects unknown kind through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_on_unknown_kind.sqlite"
     output = io.StringIO()
 
@@ -5494,6 +8675,20 @@ def test_text_browser_on_rejects_unknown_kind(driver_spec, tmp_path: Path) -> No
 
 
 def test_text_browser_new_genre_wizard_creates_genre(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser new genre wizard creates genre operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser new genre wizard creates genre through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_new_genre.sqlite"
     output = io.StringIO()
 
@@ -5547,6 +8742,20 @@ def test_text_browser_new_genre_wizard_creates_genre(driver_spec, tmp_path: Path
 
 
 def test_text_browser_new_genre_invalid_parent_id_rejected(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser new genre invalid parent id rejected operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser new genre invalid parent id rejected through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_new_genre_invalid.sqlite"
     output = io.StringIO()
     input_stream = io.StringIO(
@@ -5573,6 +8782,20 @@ def test_text_browser_new_genre_invalid_parent_id_rejected(driver_spec, tmp_path
 
 
 def test_text_browser_new_genre_legacy_alias_still_works(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser new genre legacy alias still works operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser new genre legacy alias still works through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_new_genre_legacy.sqlite"
     output = io.StringIO()
     input_stream = io.StringIO(
@@ -5603,6 +8826,20 @@ def test_text_browser_new_genre_legacy_alias_still_works(driver_spec, tmp_path: 
 
 
 def test_text_browser_new_subject_wizard_creates_subject(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser new subject wizard creates subject operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser new subject wizard creates subject through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_new_subject.sqlite"
     output = io.StringIO()
 
@@ -5649,6 +8886,20 @@ def test_text_browser_new_subject_wizard_creates_subject(driver_spec, tmp_path: 
 
 
 def test_text_browser_new_subject_invalid_parent_id_rejected(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser new subject invalid parent id rejected operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser new subject invalid parent id rejected through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_new_subject_invalid.sqlite"
     output = io.StringIO()
     input_stream = io.StringIO(
@@ -5674,6 +8925,20 @@ def test_text_browser_new_subject_invalid_parent_id_rejected(driver_spec, tmp_pa
 
 
 def test_text_browser_new_subject_legacy_alias_still_works(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser new subject legacy alias still works operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser new subject legacy alias still works through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_new_subject_legacy.sqlite"
     output = io.StringIO()
     input_stream = io.StringIO(
@@ -5701,6 +8966,20 @@ def test_text_browser_new_subject_legacy_alias_still_works(driver_spec, tmp_path
 
 
 def test_text_browser_new_series_wizard_creates_series(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser new series wizard creates series operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser new series wizard creates series through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_new_series.sqlite"
     output = io.StringIO()
 
@@ -5763,6 +9042,20 @@ def test_text_browser_new_series_wizard_creates_series(driver_spec, tmp_path: Pa
 
 
 def test_text_browser_new_series_invalid_parent_id_rejected(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser new series invalid parent id rejected operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser new series invalid parent id rejected through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_new_series_invalid.sqlite"
     output = io.StringIO()
     input_stream = io.StringIO(
@@ -5789,6 +9082,20 @@ def test_text_browser_new_series_invalid_parent_id_rejected(driver_spec, tmp_pat
 
 
 def test_text_browser_new_series_legacy_alias_still_works(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser new series legacy alias still works operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser new series legacy alias still works through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_new_series_legacy.sqlite"
     output = io.StringIO()
     input_stream = io.StringIO(
@@ -5821,6 +9128,20 @@ def test_text_browser_new_series_legacy_alias_still_works(driver_spec, tmp_path:
 
 
 def test_text_browser_new_series_group_alias_works(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser new series group alias works operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser new series group alias works through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_new_series_group_alias.sqlite"
     output = io.StringIO()
     input_stream = io.StringIO(
@@ -5853,6 +9174,20 @@ def test_text_browser_new_series_group_alias_works(driver_spec, tmp_path: Path) 
 
 
 def test_text_browser_new_organisation_wizard_creates_org_agent(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser new organisation wizard creates org agent operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser new organisation wizard creates org agent through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_new_organisation.sqlite"
     output = io.StringIO()
 
@@ -5932,6 +9267,20 @@ def test_text_browser_new_organisation_wizard_creates_org_agent(driver_spec, tmp
 
 
 def test_text_browser_new_organisation_invalid_parent_id_rejected(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser new organisation invalid parent id rejected operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser new organisation invalid parent id rejected through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_new_organisation_invalid.sqlite"
     output = io.StringIO()
     input_stream = io.StringIO(
@@ -5968,6 +9317,20 @@ def test_text_browser_new_organisation_invalid_parent_id_rejected(driver_spec, t
 
 
 def test_text_browser_new_organisation_legacy_alias_still_works(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser new organisation legacy alias still works operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser new organisation legacy alias still works through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_new_organisation_legacy.sqlite"
     output = io.StringIO()
     input_stream = io.StringIO(
@@ -6010,6 +9373,20 @@ def test_text_browser_new_organisation_legacy_alias_still_works(driver_spec, tmp
 
 
 def test_text_browser_new_publisher_wizard_creates_publisher(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser new publisher wizard creates publisher operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser new publisher wizard creates publisher through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_new_publisher.sqlite"
     output = io.StringIO()
 
@@ -6078,6 +9455,20 @@ def test_text_browser_new_publisher_wizard_creates_publisher(driver_spec, tmp_pa
 
 
 def test_text_browser_new_publisher_invalid_parent_id_rejected(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser new publisher invalid parent id rejected operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser new publisher invalid parent id rejected through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_new_publisher_invalid.sqlite"
     output = io.StringIO()
     input_stream = io.StringIO(
@@ -6107,6 +9498,20 @@ def test_text_browser_new_publisher_invalid_parent_id_rejected(driver_spec, tmp_
 
 
 def test_text_browser_new_publisher_legacy_alias_still_works(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser new publisher legacy alias still works operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser new publisher legacy alias still works through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_new_publisher_legacy.sqlite"
     output = io.StringIO()
     input_stream = io.StringIO(
@@ -6140,6 +9545,20 @@ def test_text_browser_new_publisher_legacy_alias_still_works(driver_spec, tmp_pa
 
 
 def test_text_browser_new_title_wizard_creates_wemi_stack(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser new title wizard creates wemi stack operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser new title wizard creates wemi stack through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_new_title.sqlite"
     output = io.StringIO()
     input_stream = io.StringIO(
@@ -6206,6 +9625,20 @@ def test_text_browser_new_title_wizard_creates_wemi_stack(driver_spec, tmp_path:
 
 
 def test_text_browser_new_title_invalid_wordcount_rejected(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser new title invalid wordcount rejected operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser new title invalid wordcount rejected through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_new_title_invalid.sqlite"
     output = io.StringIO()
     input_stream = io.StringIO(
@@ -6237,6 +9670,20 @@ def test_text_browser_new_title_invalid_wordcount_rejected(driver_spec, tmp_path
 
 
 def test_text_browser_new_title_legacy_alias_still_works(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser new title legacy alias still works operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser new title legacy alias still works through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_new_title_legacy.sqlite"
     output = io.StringIO()
     input_stream = io.StringIO(
@@ -6273,6 +9720,20 @@ def test_text_browser_new_title_legacy_alias_still_works(driver_spec, tmp_path: 
 
 
 def test_text_browser_new_manifestation_invalid_year_rejected(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser new manifestation invalid year rejected operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser new manifestation invalid year rejected through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_new_manifestation_invalid.sqlite"
     output = io.StringIO()
     input_stream = io.StringIO(
@@ -6300,6 +9761,20 @@ def test_text_browser_new_manifestation_invalid_year_rejected(driver_spec, tmp_p
 
 
 def test_text_browser_new_manifestation_legacy_alias_still_works(driver_spec, tmp_path: Path) -> None:
+    """
+    Perform the test text browser new manifestation legacy alias still works operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser new manifestation legacy alias still works through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "browser_new_manifestation_legacy.sqlite"
     output = io.StringIO()
     input_stream = io.StringIO(
@@ -6336,6 +9811,21 @@ def test_text_browser_new_manifestation_legacy_alias_still_works(driver_spec, tm
 
 
 def test_text_browser_main_creates_database_if_missing(driver_spec, tmp_path: Path, capsys) -> None:
+    """
+    Perform the test text browser main creates database if missing operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser main creates database if missing through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param capsys: Value supplied for capsys under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "new_library" / "created.sqlite"
     assert not db_path.exists()
 
@@ -6357,6 +9847,21 @@ def test_text_browser_main_creates_database_if_missing(driver_spec, tmp_path: Pa
 
 
 def test_text_browser_main_no_create_if_missing_fails(driver_spec, tmp_path: Path, capsys) -> None:
+    """
+    Perform the test text browser main no create if missing fails operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser main no create if missing fails through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param capsys: Value supplied for capsys under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "missing_library" / "missing.sqlite"
     assert not db_path.exists()
 
@@ -6377,6 +9882,22 @@ def test_text_browser_main_no_create_if_missing_fails(driver_spec, tmp_path: Pat
 
 
 def test_text_browser_main_create_new_db_wizard(driver_spec, tmp_path: Path, capsys, monkeypatch) -> None:
+    """
+    Perform the test text browser main create new db wizard operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser main create new db wizard through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param capsys: Value supplied for capsys under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "wizard" / "library.sqlite"
     assert not db_path.exists()
 
@@ -6415,6 +9936,21 @@ def test_text_browser_main_create_new_db_wizard(driver_spec, tmp_path: Path, cap
 
 
 def test_text_browser_main_create_new_db_wizard_cancel(driver_spec, tmp_path: Path, monkeypatch) -> None:
+    """
+    Perform the test text browser main create new db wizard cancel operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test text browser main create new db wizard cancel through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_text_browser.py
+
+
+    :param driver_spec: Value supplied for driver spec under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     db_path = tmp_path / "wizard_cancel" / "library.sqlite"
     assert not db_path.exists()
 

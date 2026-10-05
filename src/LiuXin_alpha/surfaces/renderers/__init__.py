@@ -1,30 +1,11 @@
-"""Renderer helpers used by surface modules.
-
-Keep this package lazy so importing ``LiuXin_alpha.surfaces`` does not pull in
-metadata, database, or front-end dependencies.
 """
+Expose the supported renderers compatibility surface.
 
-from __future__ import annotations
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
 
-from importlib import import_module
+Example:
+    Exercise   init   through a consuming regression::
 
-
-_LAZY_SUBMODULES = {
-    "calibre_metadata",
-    "metadata",
-}
-
-__all__ = sorted(_LAZY_SUBMODULES)
-
-
-def __getattr__(name: str):
-    if name not in _LAZY_SUBMODULES:
-        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-
-    module = import_module(f"{__name__}.{name}")
-    globals()[name] = module
-    return module
-
-
-def __dir__() -> list[str]:
-    return sorted(set(globals()) | _LAZY_SUBMODULES)
+        python -m pytest -q tests/surfaces/test_renderers_calibre_metadata.py
+"""

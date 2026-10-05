@@ -1,20 +1,14 @@
 #!/usr/bin/env python3
 """
-Manage the OPF golden-corpus manifest.
+Provide manage opf golden manifest utility behavior.
 
-Default locations:
-  - fixtures dir: tests/fixtures/opf_golden
-  - manifest:     tests/fixtures/opf_golden/manifest.json
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
 
-Actions:
-  - --verify: validate manifest entries against fixture files
-  - --rebuild: recompute expected metadata + sha256 for all tracked entries
-  - --add FILE: add/update one fixture entry (repeatable)
+Example:
+    Exercise manage opf golden manifest through a consuming regression::
 
-Examples:
-  python scripts/manage_opf_golden_manifest.py --verify
-  python scripts/manage_opf_golden_manifest.py --add fake_realworld_001.opf
-  python scripts/manage_opf_golden_manifest.py --rebuild --verify
+        python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
 """
 
 from __future__ import annotations
@@ -33,6 +27,19 @@ DEFAULT_MANIFEST_REL = DEFAULT_FIXTURE_DIR_REL / "manifest.json"
 
 
 def find_repo_root(start: Path) -> Path:
+    """
+    Find repo root under the format's safety and compatibility rules.
+
+    Example:
+        Exercise find repo root through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param start: Value supplied for start under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     start = start.resolve()
     for candidate in [start, *start.parents]:
         if (candidate / "src" / "LiuXin_alpha").is_dir() and (candidate / "tests").is_dir():
@@ -41,12 +48,40 @@ def find_repo_root(start: Path) -> Path:
 
 
 def _is_within(base: Path, target: Path) -> bool:
+    """
+    Perform the is within operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  is within through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param base: Value supplied for base under the utility contract.
+    :param target: Value supplied for target under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     base = base.resolve()
     target = target.resolve()
     return target == base or base in target.parents
 
 
 def sha256_file(path: Path) -> str:
+    """
+    Perform the sha256 file operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise sha256 file through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     h = hashlib.sha256()
     with path.open("rb") as stream:
         while True:
@@ -58,6 +93,20 @@ def sha256_file(path: Path) -> str:
 
 
 def load_manifest(path: Path) -> list[dict[str, Any]]:
+    """
+    Perform the load manifest operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise load manifest through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if not path.exists():
         return []
     data = json.loads(path.read_text(encoding="utf-8"))
@@ -73,16 +122,57 @@ def load_manifest(path: Path) -> list[dict[str, Any]]:
 
 
 def _sorted_cases(cases: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """
+    Perform the sorted cases operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  sorted cases through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param cases: Value supplied for cases under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return sorted(cases, key=lambda c: str(c.get("name", "")).lower())
 
 
 def write_manifest(path: Path, cases: list[dict[str, Any]]) -> None:
+    """
+    Write manifest under the format's safety and compatibility rules.
+
+    Example:
+        Exercise write manifest through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :param cases: Value supplied for cases under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = {"cases": _sorted_cases(cases)}
     path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
 def _ensure_src_on_path(repo_root: Path) -> None:
+    """
+    Perform the ensure src on path operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  ensure src on path through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param repo_root: Value supplied for repo root under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     src = (repo_root / "src").resolve()
     src_text = str(src)
     if src_text not in sys.path:
@@ -90,11 +180,37 @@ def _ensure_src_on_path(repo_root: Path) -> None:
 
 
 def load_opf_module(repo_root: Path):
+    """
+    Perform the load opf module operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise load opf module through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param repo_root: Value supplied for repo root under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     _ensure_src_on_path(repo_root)
     return importlib.import_module("LiuXin_alpha.file_formats.opf.opf")
 
 
 def _authors_list(authors: Any) -> list[str]:
+    """
+    Perform the authors list operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  authors list through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param authors: Value supplied for authors under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if authors is None:
         return []
     if isinstance(authors, dict):
@@ -108,6 +224,19 @@ def _authors_list(authors: Any) -> list[str]:
 
 
 def _series_index_value(raw: Any) -> Any:
+    """
+    Perform the series index value operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  series index value through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if raw in (None, ""):
         return None
     try:
@@ -117,6 +246,20 @@ def _series_index_value(raw: Any) -> Any:
 
 
 def extract_expected(opf_mod, opf_path: Path) -> dict[str, Any]:
+    """
+    Extract expected under the format's safety and compatibility rules.
+
+    Example:
+        Exercise extract expected through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param opf_mod: Value supplied for opf mod under the utility contract.
+    :param opf_path: Value supplied for opf path under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     mi, ver, *_ = opf_mod.get_metadata(opf_path)
     return {
         "version_major": int(getattr(ver, "major", 0) or 0),
@@ -128,6 +271,19 @@ def extract_expected(opf_mod, opf_path: Path) -> dict[str, Any]:
 
 
 def normalize_case(case: dict[str, Any]) -> dict[str, Any]:
+    """
+    Normalize case under the format's safety and compatibility rules.
+
+    Example:
+        Exercise normalize case through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param case: Value supplied for case under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return {
         "name": str(case["name"]),
         "path": str(case["path"]),
@@ -143,6 +299,20 @@ def normalize_case(case: dict[str, Any]) -> dict[str, Any]:
 
 
 def _expected_equal(left: dict[str, Any], right: dict[str, Any]) -> bool:
+    """
+    Perform the expected equal operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  expected equal through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param left: Value supplied for left under the utility contract.
+    :param right: Value supplied for right under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if int(left.get("version_major", 0)) != int(right.get("version_major", 0)):
         return False
     if str(left.get("title", "")) != str(right.get("title", "")):
@@ -162,6 +332,21 @@ def _expected_equal(left: dict[str, Any], right: dict[str, Any]) -> bool:
 
 
 def _resolve_target_path(raw: str, *, fixture_dir: Path, repo_root: Path) -> Path:
+    """
+    Perform the resolve target path operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  resolve target path through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :param fixture_dir: Value supplied for fixture dir under the utility contract.
+    :param repo_root: Value supplied for repo root under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     p = Path(raw).expanduser()
     candidates: list[Path] = []
     if p.is_absolute():
@@ -182,6 +367,20 @@ def _resolve_target_path(raw: str, *, fixture_dir: Path, repo_root: Path) -> Pat
 
 
 def _next_name(base_name: str, used_names: set[str]) -> str:
+    """
+    Perform the next name operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  next name through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param base_name: Value supplied for base name under the utility contract.
+    :param used_names: Value supplied for used names under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if base_name not in used_names:
         return base_name
     i = 2
@@ -200,6 +399,23 @@ def add_or_update_cases(
     repo_root: Path,
     opf_mod,
 ) -> bool:
+    """
+    Perform the add or update cases operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise add or update cases through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param cases: Value supplied for cases under the utility contract.
+    :param add_targets: Value supplied for add targets under the utility contract.
+    :param fixture_dir: Value supplied for fixture dir under the utility contract.
+    :param repo_root: Value supplied for repo root under the utility contract.
+    :param opf_mod: Value supplied for opf mod under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     changed = False
     by_path = {str(case.get("path", "")): case for case in cases}
     used_names = {str(case.get("name", "")) for case in cases}
@@ -237,6 +453,21 @@ def add_or_update_cases(
 
 
 def rebuild_cases(cases: list[dict[str, Any]], *, fixture_dir: Path, opf_mod) -> bool:
+    """
+    Perform the rebuild cases operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise rebuild cases through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param cases: Value supplied for cases under the utility contract.
+    :param fixture_dir: Value supplied for fixture dir under the utility contract.
+    :param opf_mod: Value supplied for opf mod under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     changed = False
     for case in cases:
         rel_path = str(case.get("path", ""))
@@ -261,6 +492,22 @@ def verify_cases(
     opf_mod,
     strict_set: bool = False,
 ) -> bool:
+    """
+    Perform the verify cases operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise verify cases through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param cases: Value supplied for cases under the utility contract.
+    :param fixture_dir: Value supplied for fixture dir under the utility contract.
+    :param opf_mod: Value supplied for opf mod under the utility contract.
+    :param strict_set: Value supplied for strict set under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     ok = True
 
     seen_paths: set[str] = set()
@@ -332,6 +579,19 @@ def verify_cases(
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
+    """
+    Parse args under the format's safety and compatibility rules.
+
+    Example:
+        Exercise parse args through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param argv: Value supplied for argv under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     parser = argparse.ArgumentParser(description="Manage OPF golden fixture manifest")
     parser.add_argument("--verify", action="store_true", help="Validate manifest against fixture files.")
     parser.add_argument("--rebuild", action="store_true", help="Recompute expected metadata + sha256 for tracked cases.")
@@ -357,6 +617,19 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """
+    Perform the main operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise main through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param argv: Value supplied for argv under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     args = parse_args(argv or sys.argv[1:])
 
     repo_root = Path(args.repo_root).expanduser().resolve() if args.repo_root else find_repo_root(Path.cwd())

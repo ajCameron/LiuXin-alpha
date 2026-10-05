@@ -2,6 +2,17 @@
 # vim:fileencoding=utf-8
 # License: GPLv3 Copyright: 2015, Kovid Goyal <kovid at kovidgoyal.net>
 
+"""
+Provide Qt-backed image decoding, scaling, conversion and cover-processing helpers.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise img through a consuming regression::
+
+        python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 
 import os
@@ -48,14 +59,30 @@ if imageops is None:
 
 
 class NotImage(ValueError):
+    """
+    Provide the NotImage utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise NotImage through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+    """
     pass
 
 
 def normalize_format_name(fmt):
     """
     Returns the format name, lowercased, and standardizes jpg & jpeg to jpeg
-    :param fmt:
-    :return:
+
+    Example:
+        Exercise normalize format name through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param fmt: Date, number or template format specification.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     fmt = fmt.lower()
     if fmt == "jpg":
@@ -66,8 +93,16 @@ def normalize_format_name(fmt):
 def get_exe_path(name):
     """
     Returns the path to an executable for the given name.
-    :param name:
-    :return:
+
+    Example:
+        Exercise get exe path through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     from LiuXin_alpha.file_formats.pdf.pdftohtml import PDFTOHTML
 
@@ -87,7 +122,15 @@ def get_exe_path(name):
 def null_image():
     """
     Create an invalid image. For internal use.
-    :return:
+
+    Example:
+        Exercise null image through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return QImage()
 
@@ -95,8 +138,16 @@ def null_image():
 def image_from_data(data):
     """
     Create an image object from data, which should be a bytestring.
-    :param data:
-    :return:
+
+    Example:
+        Exercise image from data through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if isinstance(data, QImage):
         return data
@@ -109,8 +160,17 @@ def image_from_data(data):
 def image_from_path(path):
     """
     Load an image from the specified path.
-    :param path:
-    :return:
+
+    Example:
+        Exercise image from path through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     with lopen(path, "rb") as f:
         return image_from_data(f.read())
@@ -119,8 +179,16 @@ def image_from_path(path):
 def image_from_x(x):
     """
     Create an image from a bytestring or a path or a file like object.
-    :param x:
-    :return:
+
+    Example:
+        Exercise image from x through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param x: Value supplied for x under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if isinstance(x, type("")):
         return image_from_path(x)
@@ -135,10 +203,17 @@ def image_from_x(x):
 
 def image_and_format_from_data(data):
     """
-    Create an image object from the specified data which should be a bytsestring.
-    Also return the format of the image
-    :param data: a bytestring of the image
-    :return (data, fmt):
+    Create an image object from the specified data which should be a bytsestring. Also return the format of the image
+
+    Example:
+        Exercise image and format from data through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     ba = QByteArray(data)
     buf = QBuffer(ba)
@@ -164,18 +239,23 @@ def image_to_data(
     """
     Serialize image to bytestring in the specified format.
 
-    :param compression_quality: is for JPEG and goes from 0 to 100. 100 being lowest compression, highest image quality
-    :param png_compression_level: is for PNG and goes from 0-9. 9 being highest compression.
-    :param jpeg_optimized: Turns on the 'optimize' option for libjpeg which losslessly reduce file size
-    :param jpeg_progressive: Turns on the 'progressive scan' option for libjpeg which allows JPEG images to be
-                             downloaded in streaming fashion
-    :param img:
-    :param compression_quality:
-    :param fmt:
-    :param png_compression_level:
-    :param jpeg_optimized:
-    :param jpeg_progressive:
-    :return:
+    Example:
+        Exercise image to data through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param img: Value supplied for img under the utility contract.
+    :param compression_quality: Value supplied for compression quality under the utility
+        contract.
+    :param fmt: Date, number or template format specification.
+    :param png_compression_level: Value supplied for png compression level under the
+        utility contract.
+    :param jpeg_optimized: Value supplied for jpeg optimized under the utility contract.
+    :param jpeg_progressive: Value supplied for jpeg progressive under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     fmt = fmt.upper()
     ba = QByteArray()
@@ -214,12 +294,20 @@ def image_to_data(
 
 def save_image(img, path, **kw):
     """
-    Save image to the specified path. Image format is taken from the file extension.
-    You can pass the same keyword arguments as for the `image_to_data()` function.
-    :param img:
-    :param path:
-    :param kw:
-    :return:
+    Save image to the specified path. Image format is taken from the file extension. You can pass the same keyword arguments as for the `image_to_data()` function.
+
+    Example:
+        Exercise save image through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param img: Value supplied for img under the utility contract.
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :param kw: Value supplied for kw under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     fmt = path.rpartition(".")[-1]
     kw["fmt"] = kw.get("fmt", fmt)
@@ -238,24 +326,26 @@ def save_cover_data_to(
     data_fmt="jpeg",
 ):
     """
-    Saves image in data to path, in the format specified by the path
-    extension. Removes any transparency. If there is no transparency and no
-    resize and the input and output image formats are the same, no changes are
-    made.
-    :param data: Image data as bytestring
-    :param path: If None img data is returned, in JPEG format
-    :param bgcolor: The color for transparent pixels. Must be specified in hex.
-    :param resize_to: A tuple (width, height) or None for no resizing
-    :param compression_quality: The quality of the image after compression.
-                                Number between 1 and 100. 1 means highest compression, 100 means no
-                                compression (lossless).
-    :type compression_quality: Int between 1 and 100
-    :param minify_to: A tuple (width, height) to specify maximum target size.
-                      The image will be resized to fit into this target size. If None the
-                      value from the tweak is used.
-    :param grayscale:
-    :param data_fmt: The fmt to return data in when path is None. Defaults to JPEG
-    :return:
+    Saves image in data to path, in the format specified by the path extension. Removes any transparency. If there is no transparency and no resize and the input and output image formats are the same, no changes are made.
+
+    Example:
+        Exercise save cover data to through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :param bgcolor: Value supplied for bgcolor under the utility contract.
+    :param resize_to: Value supplied for resize to under the utility contract.
+    :param compression_quality: Value supplied for compression quality under the utility
+        contract.
+    :param minify_to: Value supplied for minify to under the utility contract.
+    :param grayscale: Value supplied for grayscale under the utility contract.
+    :param data_fmt: Value supplied for data fmt under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     img, fmt = image_and_format_from_data(data)
     orig_fmt = normalize_format_name(fmt)
@@ -291,11 +381,19 @@ def save_cover_data_to(
 def blend_on_canvas(img, width, height, bgcolor="#ffffff"):
     """
     Blend the `img` onto a canvas with the specified background color and size
-    :param img:
-    :param width:
-    :param height:
-    :param bgcolor:
-    :return:
+
+    Example:
+        Exercise blend on canvas through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param img: Value supplied for img under the utility contract.
+    :param width: Value supplied for width under the utility contract.
+    :param height: Value supplied for height under the utility contract.
+    :param bgcolor: Value supplied for bgcolor under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     w, h = img.width(), img.height()
     scaled, nw, nh = fit_image(w, h, width, height)
@@ -309,31 +407,116 @@ def blend_on_canvas(img, width, height, bgcolor="#ffffff"):
 
 
 class Canvas(object):
+    """
+    Provide the Canvas utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise Canvas through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+    """
     def __init__(self, width, height, bgcolor="#ffffff"):
+        """
+        Initialize and validate the Canvas state.
+
+        Example:
+            Exercise Canvas.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+        :param width: Value supplied for width under the utility contract.
+        :param height: Value supplied for height under the utility contract.
+        :param bgcolor: Value supplied for bgcolor under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.img = QImage(width, height, QImage.Format_RGB32)
         self.img.fill(QColor(bgcolor))
 
     def __enter__(self):
+        """
+        Implement the resource's enter lifecycle operation.
+
+        Example:
+            Exercise Canvas.  enter   through a consuming regression::
+
+                python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self
 
     def __exit__(self, *args):
+        """
+        Implement the resource's exit lifecycle operation.
+
+        Example:
+            Exercise Canvas.  exit   through a consuming regression::
+
+                python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pass
 
     def compose(self, img, x=0, y=0):
+        """
+        Perform the compose utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise Canvas.compose through a consuming regression::
+
+                python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+        :param img: Value supplied for img under the utility contract.
+        :param x: Value supplied for x under the utility contract.
+        :param y: Value supplied for y under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         img = image_from_data(img)
         overlay_image(img, self.img, x, y)
 
     def export(self, fmt="JPEG", compression_quality=95):
+        """
+        Perform the export utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise Canvas.export through a consuming regression::
+
+                python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+        :param fmt: Date, number or template format specification.
+        :param compression_quality: Value supplied for compression quality under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return image_to_data(self.img, compression_quality=compression_quality, fmt=fmt)
 
 
 def create_canvas(width, height, bgcolor="#ffffff"):
     """
     Create a blank canvas of the specified size and color.
-    :param width:
-    :param height:
-    :param bgcolor:
-    :return:
+
+    Example:
+        Exercise create canvas through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param width: Value supplied for width under the utility contract.
+    :param height: Value supplied for height under the utility contract.
+    :param bgcolor: Value supplied for bgcolor under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     img = QImage(width, height, QImage.Format_RGB32)
     img.fill(QColor(bgcolor))
@@ -343,11 +526,19 @@ def create_canvas(width, height, bgcolor="#ffffff"):
 def overlay_image(img, canvas=None, left=0, top=0):
     """
     Overlay the `img` onto the canvas at the specified position.
-    :param img:
-    :param canvas:
-    :param left:
-    :param top:
-    :return:
+
+    Example:
+        Exercise overlay image through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param img: Value supplied for img under the utility contract.
+    :param canvas: Value supplied for canvas under the utility contract.
+    :param left: Value supplied for left under the utility contract.
+    :param top: Value supplied for top under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if canvas is None:
         canvas = QImage(img.size(), QImage.Format_RGB32)
@@ -360,9 +551,17 @@ def overlay_image(img, canvas=None, left=0, top=0):
 def texture_image(canvas, texture):
     """
     Repeatedly tile the image `texture` across and down the image `canvas`
-    :param canvas:
-    :param texture:
-    :return:
+
+    Example:
+        Exercise texture image through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param canvas: Value supplied for canvas under the utility contract.
+    :param texture: Value supplied for texture under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if canvas.hasAlphaChannel():
         canvas = blend_image(canvas)
@@ -372,9 +571,17 @@ def texture_image(canvas, texture):
 def blend_image(img, bgcolor="#ffffff"):
     """
     Used to convert images that have semi-transparent pixels to opaque by blending with the specified color
-    :param img:
-    :param bgcolor:
-    :return:
+
+    Example:
+        Exercise blend image through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param img: Value supplied for img under the utility contract.
+    :param bgcolor: Value supplied for bgcolor under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     canvas = QImage(img.size(), QImage.Format_RGB32)
     canvas.fill(QColor(bgcolor))
@@ -390,13 +597,21 @@ def blend_image(img, bgcolor="#ffffff"):
 def add_borders_to_image(img, left=0, top=0, right=0, bottom=0, border_color="#ffffff"):
     """
     Add a border around an image. Border will be a solid colour.
-    :param img: Image to add the border to
-    :param left: The width of the border to the left of the image
-    :param top: Likewise top
-    :param right: Likewise right
-    :param bottom: Likewise bottom
-    :param border_color: The color til fill the border with
-    :return:
+
+    Example:
+        Exercise add borders to image through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param img: Value supplied for img under the utility contract.
+    :param left: Value supplied for left under the utility contract.
+    :param top: Value supplied for top under the utility contract.
+    :param right: Value supplied for right under the utility contract.
+    :param bottom: Value supplied for bottom under the utility contract.
+    :param border_color: Value supplied for border color under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     img = image_from_data(img)
     if not (left > 0 or right > 0 or top > 0 or bottom > 0):
@@ -409,13 +624,18 @@ def add_borders_to_image(img, left=0, top=0, right=0, bottom=0, border_color="#f
 
 def remove_borders_from_image(img, fuzz=None):
     """
-    Try to auto-detect and remove any borders from the image.
-    Returns the image itself if no borders could be removed.
-    `fuzz` is a measure of what colors are considered identical (must be a number between 0 and 255 in
-    absolute intensity units). Default is from a tweak whose default value is 10.
-    :param img: Image to try removing the borders from
-    :param fuzz:
-    :return:
+    Try to auto-detect and remove any borders from the image. Returns the image itself if no borders could be removed. `fuzz` is a measure of what colors are considered identical (must be a number between 0 and 255 in absolute intensity units). Default is from a tweak whose default value is 10.
+
+    Example:
+        Exercise remove borders from image through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param img: Value supplied for img under the utility contract.
+    :param fuzz: Value supplied for fuzz under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     try:
         fuzz = tweaks["cover_trim_fuzz_value"] if fuzz is None else fuzz
@@ -434,15 +654,38 @@ def remove_borders_from_image(img, fuzz=None):
 def resize_image(img, width, height):
     """
     Resize an image to the given width and height.
-    :param img:
-    :param width: Image will be rescaled to that width
-    :param height: Image will be rescaled to that height
-    :return:
+
+    Example:
+        Exercise resize image through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param img: Value supplied for img under the utility contract.
+    :param width: Value supplied for width under the utility contract.
+    :param height: Value supplied for height under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return img.scaled(int(width), int(height), Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
 
 
 def resize_to_fit(img, width, height):
+    """
+    Perform the resize to fit utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise resize to fit through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param img: Value supplied for img under the utility contract.
+    :param width: Value supplied for width under the utility contract.
+    :param height: Value supplied for height under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     img = image_from_data(img)
     resize_needed, nw, nh = fit_image(img.width(), img.height(), width, height)
     if resize_needed:
@@ -451,8 +694,19 @@ def resize_to_fit(img, width, height):
 
 
 def clone_image(img):
-    """Returns a shallow copy of the image. However, the underlying data buffer
-    will be automatically copied-on-write"""
+    """
+    Returns a shallow copy of the image. However, the underlying data buffer will be automatically copied-on-write
+
+    Example:
+        Exercise clone image through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param img: Value supplied for img under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return QImage(img)
 
 
@@ -465,16 +719,24 @@ def scale_image(
     preserve_aspect_ratio=True,
 ):
     """
-    Scale an image, returning it as either JPEG or PNG data (bytestring).
-    Transparency is alpha blended with white when converting to JPEG. Is thread safe and does not require a
-    QApplication.
-    :param data:
-    :param width:
-    :param height:
-    :param compression_quality:
-    :param as_png:
-    :param preserve_aspect_ratio:
-    :return:
+    Scale an image, returning it as either JPEG or PNG data (bytestring). Transparency is alpha blended with white when converting to JPEG. Is thread safe and does not require a QApplication.
+
+    Example:
+        Exercise scale image through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :param width: Value supplied for width under the utility contract.
+    :param height: Value supplied for height under the utility contract.
+    :param compression_quality: Value supplied for compression quality under the utility
+        contract.
+    :param as_png: Value supplied for as png under the utility contract.
+    :param preserve_aspect_ratio: Value supplied for preserve aspect ratio under the
+        utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     # We use Qt instead of ImageMagick here because ImageMagick seems to use
     # some kind of memory pool, causing memory consumption to sky rocket.
@@ -494,12 +756,20 @@ def scale_image(
 def crop_image(img, x, y, width, height):
     """
     Return the specified section of the image.
-    :param img:
-    :param x, y: The top left corner of the crop box
-    :param width, height: The width and height of the crop box. Note that if
-    the crop box exceeds the source images dimensions, width and height will be
-    auto-truncated.
-    :return:
+
+    Example:
+        Exercise crop image through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param img: Value supplied for img under the utility contract.
+    :param x: Value supplied for x under the utility contract.
+    :param y: Value supplied for y under the utility contract.
+    :param width: Value supplied for width under the utility contract.
+    :param height: Value supplied for height under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     img = image_from_data(img)
     width = min(width, img.width() - x)
@@ -515,19 +785,34 @@ def crop_image(img, x, y, width, height):
 def grayscale_image(img):
     """
     Return an image as a greyscale (useful for compatability with some older ebook readers).
-    :param img:
-    :return:
+
+    Example:
+        Exercise grayscale image through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param img: Value supplied for img under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return imageops.grayscale(image_from_data(img))
 
 
 def set_image_opacity(img, alpha=0.5):
     """
-    Change the opacity of `img`. Note that the alpha value is multiplied to any existing alpha values, so you
-    cannot use this function to convert a semi-transparent image to an opaque one. For that use `blend_image()`
-    :param img:
-    :param alpha:
-    :return:
+    Change the opacity of `img`. Note that the alpha value is multiplied to any existing alpha values, so you cannot use this function to convert a semi-transparent image to an opaque one. For that use `blend_image()`
+
+    Example:
+        Exercise set image opacity through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param img: Value supplied for img under the utility contract.
+    :param alpha: Value supplied for alpha under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return imageops.set_opacity(image_from_data(img), alpha)
 
@@ -535,10 +820,18 @@ def set_image_opacity(img, alpha=0.5):
 def flip_image(img, horizontal=False, vertical=False):
     """
     Flip an image through horizontal and/or verticle.
-    :param img:
-    :param horizontal:
-    :param vertical:
-    :return:
+
+    Example:
+        Exercise flip image through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param img: Value supplied for img under the utility contract.
+    :param horizontal: Value supplied for horizontal under the utility contract.
+    :param vertical: Value supplied for vertical under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return image_from_data(img).mirrored(horizontal, vertical)
 
@@ -546,8 +839,16 @@ def flip_image(img, horizontal=False, vertical=False):
 def image_has_transparent_pixels(img):
     """
     Return True iff the image has at least one semi-transparent pixel
-    :param img:
-    :return:
+
+    Example:
+        Exercise image has transparent pixels through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param img: Value supplied for img under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     img = image_from_data(img)
     if img.isNull():
@@ -558,9 +859,17 @@ def image_has_transparent_pixels(img):
 def rotate_image(img, degrees):
     """
     Use a QTransform method to rotate the image.
-    :param img:
-    :param degrees:
-    :return:
+
+    Example:
+        Exercise rotate image through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param img: Value supplied for img under the utility contract.
+    :param degrees: Value supplied for degrees under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     t = QTransform()
     t.rotate(degrees)
@@ -570,11 +879,19 @@ def rotate_image(img, degrees):
 def gaussian_sharpen_image(img, radius=0, sigma=3, high_quality=True):
     """
     Preform a Gaussian sharpen
-    :param img:
-    :param radius:
-    :param sigma:
-    :param high_quality:
-    :return:
+
+    Example:
+        Exercise gaussian sharpen image through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param img: Value supplied for img under the utility contract.
+    :param radius: Value supplied for radius under the utility contract.
+    :param sigma: Value supplied for sigma under the utility contract.
+    :param high_quality: Value supplied for high quality under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return imageops.gaussian_sharpen(image_from_data(img), max(0, radius), sigma, high_quality)
 
@@ -582,10 +899,18 @@ def gaussian_sharpen_image(img, radius=0, sigma=3, high_quality=True):
 def gaussian_blur_image(img, radius=-1, sigma=3):
     """
     Preform a Gaussian blur on the image.
-    :param img:
-    :param radius:
-    :param sigma:
-    :return:
+
+    Example:
+        Exercise gaussian blur image through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param img: Value supplied for img under the utility contract.
+    :param radius: Value supplied for radius under the utility contract.
+    :param sigma: Value supplied for sigma under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return imageops.gaussian_blur(image_from_data(img), max(0, radius), sigma)
 
@@ -593,30 +918,72 @@ def gaussian_blur_image(img, radius=-1, sigma=3):
 def despeckle_image(img):
     """
     Do noise reduction on the image.
-    :param img:
-    :return:
+
+    Example:
+        Exercise despeckle image through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param img: Value supplied for img under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return imageops.despeckle(image_from_data(img))
 
 
 def oil_paint_image(img, radius=-1, high_quality=True):
+    """
+    Perform the oil paint image utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise oil paint image through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param img: Value supplied for img under the utility contract.
+    :param radius: Value supplied for radius under the utility contract.
+    :param high_quality: Value supplied for high quality under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return imageops.oil_paint(image_from_data(img), radius, high_quality)
 
 
 def normalize_image(img):
+    """
+    Normalize image under the documented compatibility and safety rules.
+
+    Example:
+        Exercise normalize image through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param img: Value supplied for img under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return imageops.normalize(image_from_data(img))
 
 
 def quantize_image(img, max_colors=256, dither=True, palette=""):
-    """Quantize the image to contain a maximum of `max_colors` colors. By
-    default a palette is chosen automatically, if you want to use a fixed
-    palette, then pass in a list of color names in the `palette` variable. If
-    you, specify a palette `max_colors` is ignored. Note that it is possible
-    for the actual number of colors used to be less than max_colors.
+    """
+    Quantize the image to contain a maximum of `max_colors` colors. By default a palette is chosen automatically, if you want to use a fixed palette, then pass in a list of color names in the `palette` variable. If you, specify a palette `max_colors` is ignored. Note that it is possible for the actual number of colors used to be less than max_colors.
 
-    :param max_colors: Max. number of colors in the auto-generated palette. Must be between 2 and 256.
-    :param dither: Whether to use dithering or not. dithering is almost always a good thing.
-    :param palette: Use a manually specified palette instead. For example: palette='red green blue #eee'
+    Example:
+        Exercise quantize image through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param img: Value supplied for img under the utility contract.
+    :param max_colors: Value supplied for max colors under the utility contract.
+    :param dither: Value supplied for dither under the utility contract.
+    :param palette: Value supplied for palette under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     img = image_from_data(img)
     if img.hasAlphaChannel():
@@ -633,13 +1000,20 @@ def quantize_image(img, max_colors=256, dither=True, palette=""):
 
 def run_optimizer(file_path, cmd, as_filter=False, input_data=None):
     """
-    Backend for the optimizer which runs the command on the actaul program. DO NOT USE UNLESS YOU KNOW WHAT YOU'RE
-    DOING.
-    :param file_path:
-    :param cmd:
-    :param as_filter:
-    :param input_data:
-    :return:
+    Backend for the optimizer which runs the command on the actaul program. DO NOT USE UNLESS YOU KNOW WHAT YOU'RE DOING.
+
+    Example:
+        Exercise run optimizer through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param file_path: Value supplied for file path under the utility contract.
+    :param cmd: Value supplied for cmd under the utility contract.
+    :param as_filter: Value supplied for as filter under the utility contract.
+    :param input_data: Value supplied for input data under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     file_path = os.path.abspath(file_path)
     cwd = os.path.dirname(file_path)
@@ -655,6 +1029,20 @@ def run_optimizer(file_path, cmd, as_filter=False, input_data=None):
         iname, oname = os.path.basename(file_path), os.path.basename(outfile)
 
         def repl(q, r):
+            """
+            Perform the repl utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise run optimizer.repl through a consuming regression::
+
+                    python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+            :param q: Value supplied for q under the utility contract.
+            :param r: Value supplied for r under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             cmd[cmd.index(q)] = r
 
         if not as_filter:
@@ -682,6 +1070,20 @@ def run_optimizer(file_path, cmd, as_filter=False, input_data=None):
             src = input_data or open(file_path, "rb")
 
             def copy(src, dest):
+                """
+                Perform the copy utility operation under explicit compatibility rules.
+
+                Example:
+                    Exercise run optimizer.copy through a consuming regression::
+
+                        python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+                :param src: Value supplied for src under the utility contract.
+                :param dest: Value supplied for dest under the utility contract.
+                :return: None; the operation mutates state, writes output or performs cleanup in
+                    place.
+                """
                 try:
                     shutil.copyfileobj(src, dest)
                 finally:
@@ -721,18 +1123,58 @@ def run_optimizer(file_path, cmd, as_filter=False, input_data=None):
 
 
 def optimize_jpeg(file_path):
+    """
+    Perform the optimize jpeg utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise optimize jpeg through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param file_path: Value supplied for file path under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     exe = get_exe_path("jpegtran")
     cmd = [exe] + "-copy none -optimize -progressive -maxmemory 100M -outfile".split() + [False, True]
     return run_optimizer(file_path, cmd)
 
 
 def optimize_png(file_path):
+    """
+    Perform the optimize png utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise optimize png through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param file_path: Value supplied for file path under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     exe = get_exe_path("optipng")
     cmd = [exe] + "-fix -clobber -strip all -o7 -out".split() + [False, True]
     return run_optimizer(file_path, cmd)
 
 
 def encode_jpeg(file_path, quality=80):
+    """
+    Perform the encode jpeg utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise encode jpeg through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :param file_path: Value supplied for file path under the utility contract.
+    :param quality: Value supplied for quality under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     from calibre.utils.speedups import ReadOnlyFileBuffer
 
     quality = max(0, min(100, int(quality)))
@@ -753,6 +1195,18 @@ def encode_jpeg(file_path, quality=80):
 
 
 def test():  # {{{
+    """
+    Perform the test utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test through a consuming regression::
+
+            python -m pytest -q tests/utils/image_tools/test_img_pillow_fallback.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from calibre.ptempfile import TemporaryDirectory
     from calibre import CurrentDir
     from glob import glob

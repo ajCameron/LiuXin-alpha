@@ -1,3 +1,12 @@
+"""
+Exercise shared image discovery and local payload resolution against real catalogue databases.
+
+Fixtures build a work/expression/manifestation/item graph and attach a cover to
+the item. The PNG signature is only a byte-transfer fixture: these tests do not
+decode raster data or prove that the payload is a complete, renderable image.
+Database-driver parametrization comes from the project's driver_spec fixture.
+"""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -10,10 +19,31 @@ from tests.support._surface_storage_tables import ensure_surface_asset_tables
 
 
 def _build_app(db: Database) -> ReadOnlyWebApplication:
+    """
+    Wrap the supplied catalogue in a read-only application with shared surface backends.
+
+    Example:
+        >>> app = _build_app(database)  # doctest: +SKIP
+
+
+    :param db: Open fixture database borrowed by the application session.
+    :return: Application configured with the title ``Images Test``.
+    """
     return ReadOnlyWebApplication(db, config=ReadOnlyWebConfig(title="Images Test"))
 
 
 def _insert_work_row(db: Database, *, title: str) -> int:
+    """
+    Persist a work using the same title for display, canonical, and sorting fields.
+
+    Example:
+        >>> work_id = _insert_work_row(database, title="Image Book")  # doctest: +SKIP
+
+
+    :param db: Open fixture database receiving the work row.
+    :param title: Text assigned unchanged to all three work-title fields.
+    :return: Integer identifier of the inserted work.
+    """
     row = Row.from_idless_row_dict(
         db,
         row_dict={
@@ -27,6 +57,18 @@ def _insert_work_row(db: Database, *, title: str) -> int:
 
 
 def _insert_store_row(db: Database, *, name: str, root_uri: str) -> int:
+    """
+    Declare a filesystem store using the file access protocol without creating its directory.
+
+    Example:
+        >>> store_id = _insert_store_row(database, name="Shelf", root_uri=str(tmp_path))  # doctest: +SKIP
+
+
+    :param db: Open fixture database receiving the store declaration.
+    :param name: Display name recorded for the local store.
+    :param root_uri: Existing fixture directory recorded as the store root.
+    :return: Integer identifier of the inserted store.
+    """
     row = Row.from_idless_row_dict(
         db,
         row_dict={
@@ -41,6 +83,17 @@ def _insert_store_row(db: Database, *, name: str, root_uri: str) -> int:
 
 
 def _insert_expression_row(db: Database, *, title_override: str) -> int:
+    """
+    Persist an expression title override without linking the expression to a work.
+
+    Example:
+        >>> expression_id = _insert_expression_row(database, title_override="Image Book")  # doctest: +SKIP
+
+
+    :param db: Open fixture database receiving the expression row.
+    :param title_override: Expression-specific title stored unchanged.
+    :return: Integer identifier for subsequent graph linking.
+    """
     row = Row.from_idless_row_dict(
         db,
         row_dict={"expression_title_override": title_override},
@@ -50,6 +103,17 @@ def _insert_expression_row(db: Database, *, title_override: str) -> int:
 
 
 def _insert_manifestation_row(db: Database, *, format_detail: str) -> int:
+    """
+    Persist an ebook manifestation with a caller-selected format label.
+
+    Example:
+        >>> manifestation_id = _insert_manifestation_row(database, format_detail="EPUB")  # doctest: +SKIP
+
+
+    :param db: Open fixture database receiving the manifestation row.
+    :param format_detail: Format text recorded without checking a physical ebook.
+    :return: Integer identifier of the still-unlinked manifestation.
+    """
     row = Row.from_idless_row_dict(
         db,
         row_dict={
@@ -62,6 +126,21 @@ def _insert_manifestation_row(db: Database, *, format_detail: str) -> int:
 
 
 def _insert_item_row(db: Database, *, manifestation_id: int, source_path: str, source_name: str) -> int:
+    """
+    Attach an ebook item to a manifestation and record fixture source-location metadata.
+
+    This helper inserts metadata only; it does not open or ingest the source file.
+
+    Example:
+        >>> item_id = _insert_item_row(database, manifestation_id=manifestation_id, source_path=str(book_path), source_name=book_path.name)  # doctest: +SKIP
+
+
+    :param db: Open fixture database receiving the item row.
+    :param manifestation_id: Parent identifier converted to int for the foreign-key field.
+    :param source_path: Source-file path recorded as item provenance.
+    :param source_name: Source basename recorded separately from its path.
+    :return: Integer identifier of the inserted item.
+    """
     row = Row.from_idless_row_dict(
         db,
         row_dict={
@@ -77,6 +156,24 @@ def _insert_item_row(db: Database, *, manifestation_id: int, source_path: str, s
 
 
 def _insert_image_row_for_item(db: Database, *, store_id: int, item_id: int, file_path: Path) -> int:
+    """
+    Ensure image support tables and register an existing fixture file as an item cover.
+
+    The basename is the storage key, the file's stat supplies its size, and the
+    suffix supplies its lowercase extension. MIME type remains ``image/png``
+    regardless of the suffix or bytes; no image decoding takes place.
+
+    Example:
+        >>> image_id = _insert_image_row_for_item(database, store_id=store_id, item_id=item_id, file_path=image_path)  # doctest: +SKIP
+
+
+    :param db: Open fixture database receiving any needed tables and the image row.
+    :param store_id: Local store identifier converted to int for the image reference.
+    :param item_id: Owning item identifier converted to int for the image reference.
+    :param file_path: Existing cover fixture whose name, path, extension, and size are recorded.
+    :return: Integer identifier of the inserted cover-image row.
+    :raises OSError: If reading the fixture file's stat fails.
+    """
     ensure_surface_asset_tables(db, include_images=True)
     row = Row.from_idless_row_dict(
         db,
@@ -101,6 +198,21 @@ def _insert_image_row_for_item(db: Database, *, store_id: int, item_id: int, fil
 
 
 def test_image_backend_discovers_and_resolves_cover_images(driver_spec, tmp_path: Path) -> None:
+    """
+    Discover an item cover through the full work graph and read its bytes through Core-backed storage.
+
+    Also verify that a local file has no redirect target, its declared MIME type
+    survives projection, and the generated placeholder includes the work title.
+    All files and database state live under the temporary fixture directory.
+
+    Example:
+        >>> test_image_backend_discovers_and_resolves_cover_images(driver_spec, tmp_path)  # doctest: +SKIP
+
+
+    :param driver_spec: Parametrized database backend selected by the test configuration.
+    :param tmp_path: Isolated directory for the catalogue, ebook bytes, and PNG-signature fixture.
+    :return: None after graph discovery, storage-byte, MIME, and placeholder assertions.
+    """
     db_path = tmp_path / "images_backend.sqlite"
     book_path = tmp_path / "image-book.epub"
     image_path = tmp_path / "cover.png"
@@ -147,6 +259,17 @@ def test_image_backend_discovers_and_resolves_cover_images(driver_spec, tmp_path
 
 
 def test_readonly_app_shares_image_backend_across_layers(driver_spec, tmp_path: Path) -> None:
+    """
+    Require the read model and catalogue adapter to reuse the application's image backend by identity.
+
+    Example:
+        >>> test_readonly_app_shares_image_backend_across_layers(driver_spec, tmp_path)  # doctest: +SKIP
+
+
+    :param driver_spec: Parametrized database backend used for the temporary catalogue.
+    :param tmp_path: Isolated directory containing the database created for application wiring.
+    :return: None after both consumer layers are shown to share the same backend object.
+    """
     db_path = tmp_path / "images_shared.sqlite"
     with Database(
         metadata={"database_path": str(db_path)},

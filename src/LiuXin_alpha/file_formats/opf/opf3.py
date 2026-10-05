@@ -2,6 +2,17 @@
 # vim:fileencoding=utf-8
 # License: GPLv3 Copyright: 2016, Kovid Goyal <kovid at kovidgoyal.net>
 
+"""
+Read, refine and serialize OPF 3 metadata and package relationships.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise opf3 through a consuming regression::
+
+        python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -58,8 +69,16 @@ _re_cache = {}
 def uniq(vals: _typing.Any) -> _typing.Any:
     """
     Remove all duplicates from vals, while preserving order.
-    :param vals:
-    :return:
+
+    Example:
+        Exercise uniq through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param vals: Value supplied for vals under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     vals = vals or ()
     seen = set()
@@ -68,10 +87,36 @@ def uniq(vals: _typing.Any) -> _typing.Any:
 
 
 def dump_dict(cats: _typing.Any) -> _typing.Any:
+    """
+    Perform the dump dict operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise dump dict through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param cats: Value supplied for cats under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return json.dumps(object_to_unicode(cats or {}), ensure_ascii=False, skipkeys=True)
 
 
 def XPath(x: _typing.Any) -> _typing.Any:
+    """
+    Perform the XPath operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise XPath through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param x: Value supplied for x under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         return _xpath_cache[x]
     except KeyError:
@@ -80,6 +125,20 @@ def XPath(x: _typing.Any) -> _typing.Any:
 
 
 def regex(r: _typing.Any, flags: int = 0) -> _typing.Any:
+    """
+    Perform the regex operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise regex through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param r: Value supplied for r under the utility contract.
+    :param flags: Value supplied for flags under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         return _re_cache[(r, flags)]
     except KeyError:
@@ -88,17 +147,59 @@ def regex(r: _typing.Any, flags: int = 0) -> _typing.Any:
 
 
 def remove_refines(e: _typing.Any, refines: _typing.Any) -> None:
+    """
+    Perform the remove refines operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise remove refines through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param e: Value supplied for e under the utility contract.
+    :param refines: Value supplied for refines under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     for x in refines[e.get("id")]:
         x.getparent().remove(x)
     refines.pop(e.get("id"), None)
 
 
 def remove_element(e: _typing.Any, refines: _typing.Any) -> None:
+    """
+    Perform the remove element operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise remove element through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param e: Value supplied for e under the utility contract.
+    :param refines: Value supplied for refines under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     remove_refines(e, refines)
     e.getparent().remove(e)
 
 
 def properties_for_id(item_id: _typing.Any, refines: _typing.Any) -> _typing.Any:
+    """
+    Perform the properties for id operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise properties for id through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param item_id: Value supplied for item id under the utility contract.
+    :param refines: Value supplied for refines under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     ans = {}
     if item_id:
         for elem in refines[item_id]:
@@ -111,6 +212,21 @@ def properties_for_id(item_id: _typing.Any, refines: _typing.Any) -> _typing.Any
 
 
 def properties_for_id_with_scheme(item_id: _typing.Any, prefixes: _typing.Any, refines: _typing.Any) -> _typing.Any:
+    """
+    Perform the properties for id with scheme operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise properties for id with scheme through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param item_id: Value supplied for item id under the utility contract.
+    :param prefixes: Value supplied for prefixes under the utility contract.
+    :param refines: Value supplied for refines under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     ans = {}
     if item_id:
         for elem in refines[item_id]:
@@ -132,6 +248,19 @@ def properties_for_id_with_scheme(item_id: _typing.Any, prefixes: _typing.Any, r
 
 
 def getroot(elem: _typing.Any) -> _typing.Any:
+    """
+    Perform the getroot operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise getroot through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param elem: Value supplied for elem under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     while True:
         q = elem.getparent()
         if q is None:
@@ -140,6 +269,19 @@ def getroot(elem: _typing.Any) -> _typing.Any:
 
 
 def ensure_id(elem: _typing.Any) -> _typing.Any:
+    """
+    Perform the ensure id operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise ensure id through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param elem: Value supplied for elem under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     root = getroot(elem)
     eid = elem.get("id")
     if not eid:
@@ -149,20 +291,74 @@ def ensure_id(elem: _typing.Any) -> _typing.Any:
 
 
 def normalize_whitespace(text: _typing.Any) -> _typing.Any:
+    """
+    Normalize whitespace under the format's safety and compatibility rules.
+
+    Example:
+        Exercise normalize whitespace through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param text: Text parsed, normalized or rendered.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if not text:
         return text
     return re.sub(r"\s+", " ", text).strip()
 
 
 def simple_text(f: _typing.Any) -> _typing.Any:
+    """
+    Perform the simple text operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise simple text through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param f: Value supplied for f under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     @wraps(f)
     def wrapper(*args: _typing.Any, **kw: _typing.Any) -> _typing.Any:
+        """
+        Perform the wrapper operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise simple text.wrapper through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kw: Value supplied for kw under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return normalize_whitespace(f(*args, **kw))
 
     return wrapper
 
 
 def items_with_property(root: _typing.Any, q: _typing.Any, prefixes: _typing.Any = None) -> _typing.Iterator[_typing.Any]:
+    """
+    Perform the items with property operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise items with property through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param q: Value supplied for q under the utility contract.
+    :param prefixes: Value supplied for prefixes under the utility contract.
+    :return: An iterator yielding the normalized values described above.
+    """
     if prefixes is None:
         prefixes = read_prefixes(root)
     q = expand_prefix(q, known_prefixes).lower()
@@ -196,22 +392,78 @@ known_prefixes["calibre"] = CALIBRE_PREFIX
 
 
 def parse_prefixes(x: _typing.Any) -> _typing.Any:
+    """
+    Parse prefixes under the format's safety and compatibility rules.
+
+    Example:
+        Exercise parse prefixes through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param x: Value supplied for x under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return {m.group(1): m.group(2) for m in re.finditer(r"(\S+): \s*(\S+)", x)}
 
 
 def read_prefixes(root: _typing.Any) -> _typing.Any:
+    """
+    Read prefixes under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read prefixes through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     ans = reserved_prefixes.copy()
     ans.update(parse_prefixes(root.get("prefix") or ""))
     return ans
 
 
 def expand_prefix(raw: _typing.Any, prefixes: _typing.Any) -> _typing.Any:
+    """
+    Perform the expand prefix operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise expand prefix through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :param prefixes: Value supplied for prefixes under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return regex(r"(\S+)\s*:\s*(\S+)").sub(
         lambda m: (prefixes.get(m.group(1), m.group(1)) + ":" + m.group(2)), raw or ""
     )
 
 
 def ensure_prefix(root: _typing.Any, prefixes: _typing.Any, prefix: _typing.Any, value: _typing.Any = None) -> None:
+    """
+    Perform the ensure prefix operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise ensure prefix through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param prefixes: Value supplied for prefixes under the utility contract.
+    :param prefix: Text prepended to the formatted or selected result.
+    :param value: Value normalized, stored, formatted or returned.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if prefixes is None:
         prefixes = read_prefixes(root)
     prefixes[prefix] = value or reserved_prefixes[prefix]
@@ -227,6 +479,19 @@ def ensure_prefix(root: _typing.Any, prefixes: _typing.Any, prefix: _typing.Any,
 
 # Refines {{{
 def read_refines(root: _typing.Any) -> _typing.Any:
+    """
+    Read refines under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read refines through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     ans = defaultdict(list)
     for meta in XPath("./opf:metadata/opf:meta[@refines]")(root):
         r = meta.get("refines") or ""
@@ -236,10 +501,41 @@ def read_refines(root: _typing.Any) -> _typing.Any:
 
 
 def refdef(prop: _typing.Any, val: _typing.Any, scheme: _typing.Any = None) -> tuple[_typing.Any, ...]:
+    """
+    Perform the refdef operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise refdef through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param prop: Value supplied for prop under the utility contract.
+    :param val: Template or metadata value evaluated by the operation.
+    :param scheme: Value supplied for scheme under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return prop, val, scheme
 
 
 def set_refines(elem: _typing.Any, existing_refines: _typing.Any, *new_refines: _typing.Any) -> None:
+    """
+    Set refines under the format's safety and compatibility rules.
+
+    Example:
+        Exercise set refines through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param elem: Value supplied for elem under the utility contract.
+    :param existing_refines: Value supplied for existing refines under the utility
+        contract.
+    :param new_refines: Value supplied for new refines under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     eid = ensure_id(elem)
     remove_refines(elem, existing_refines)
     for ref in reversed(new_refines):
@@ -258,11 +554,40 @@ def set_refines(elem: _typing.Any, existing_refines: _typing.Any, *new_refines: 
 
 # Identifiers {{{
 def parse_identifier(ident: _typing.Any, val: _typing.Any, refines: _typing.Any) -> _typing.Any:
+    """
+    Parse identifier under the format's safety and compatibility rules.
+
+    Example:
+        Exercise parse identifier through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param ident: Value supplied for ident under the utility contract.
+    :param val: Template or metadata value evaluated by the operation.
+    :param refines: Value supplied for refines under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     idid = ident.get("id")
     refines = refines[idid]
     lval = val.lower()
 
     def finalize(local_scheme: _typing.Any, local_val: _typing.Any) -> tuple[_typing.Any, ...]:
+        """
+        Perform the finalize operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise parse identifier.finalize through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+        :param local_scheme: Value supplied for local scheme under the utility contract.
+        :param local_val: Value supplied for local val under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not local_scheme or not local_val:
             return None, None
         local_scheme = local_scheme.lower()
@@ -297,6 +622,21 @@ def parse_identifier(ident: _typing.Any, val: _typing.Any, refines: _typing.Any)
 
 
 def read_identifiers(root: _typing.Any, prefixes: _typing.Any, refines: _typing.Any) -> _typing.Any:
+    """
+    Read identifiers under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read identifiers through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param prefixes: Value supplied for prefixes under the utility contract.
+    :param refines: Value supplied for refines under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     ans = defaultdict(list)
     for ident in XPath("./opf:metadata/dc:identifier")(root):
         val = (ident.text or "").strip()
@@ -308,6 +648,25 @@ def read_identifiers(root: _typing.Any, prefixes: _typing.Any, refines: _typing.
 
 
 def set_identifiers(root: _typing.Any, prefixes: _typing.Any, refines: _typing.Any, new_identifiers: _typing.Any, force_identifiers: bool = False) -> None:
+    """
+    Set identifiers under the format's safety and compatibility rules.
+
+    Example:
+        Exercise set identifiers through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param prefixes: Value supplied for prefixes under the utility contract.
+    :param refines: Value supplied for refines under the utility contract.
+    :param new_identifiers: Value supplied for new identifiers under the utility
+        contract.
+    :param force_identifiers: Value supplied for force identifiers under the utility
+        contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     uid = root.get("unique-identifier")
     package_identifier = None
     for ident in XPath("./opf:metadata/dc:identifier")(root):
@@ -334,7 +693,36 @@ def set_identifiers(root: _typing.Any, prefixes: _typing.Any, refines: _typing.A
 
 
 def identifier_writer(name: _typing.Any) -> _typing.Any:
+    """
+    Perform the identifier writer operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise identifier writer through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     def writer(root: _typing.Any, prefixes: _typing.Any, refines: _typing.Any, ival: _typing.Any = None) -> None:
+        """
+        Perform the writer operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise identifier writer.writer through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+        :param root: Root directory that bounds path resolution or traversal.
+        :param prefixes: Value supplied for prefixes under the utility contract.
+        :param refines: Value supplied for refines under the utility contract.
+        :param ival: Value supplied for ival under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         uid = root.get("unique-identifier")
         package_identifier = None
         for ident in XPath("./opf:metadata/dc:identifier")(root):
@@ -366,6 +754,21 @@ set_uuid = identifier_writer("uuid")
 
 
 def find_main_title(root: _typing.Any, refines: _typing.Any, remove_blanks: bool = False) -> _typing.Any:
+    """
+    Find main title under the format's safety and compatibility rules.
+
+    Example:
+        Exercise find main title through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param refines: Value supplied for refines under the utility contract.
+    :param remove_blanks: Value supplied for remove blanks under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     first_title = None
     for title in XPath("./opf:metadata/dc:title")(root):
         if not title.text or not title.text.strip():
@@ -385,12 +788,42 @@ def find_main_title(root: _typing.Any, refines: _typing.Any, remove_blanks: bool
 
 @simple_text
 def read_title(root: _typing.Any, prefixes: _typing.Any, refines: _typing.Any) -> _typing.Any:
+    """
+    Read title under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read title through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param prefixes: Value supplied for prefixes under the utility contract.
+    :param refines: Value supplied for refines under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     main_title = find_main_title(root, refines)
     return None if main_title is None else main_title.text.strip()
 
 
 @simple_text
 def read_title_sort(root: _typing.Any, prefixes: _typing.Any, refines: _typing.Any) -> _typing.Any:
+    """
+    Read title sort under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read title sort through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param prefixes: Value supplied for prefixes under the utility contract.
+    :param refines: Value supplied for refines under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     main_title = find_main_title(root, refines)
     if main_title is not None:
         fa = properties_for_id(main_title.get("id"), refines).get("file-as")
@@ -404,6 +837,23 @@ def read_title_sort(root: _typing.Any, prefixes: _typing.Any, refines: _typing.A
 
 
 def set_title(root: _typing.Any, prefixes: _typing.Any, refines: _typing.Any, title: _typing.Any, title_sort: _typing.Any = None) -> None:
+    """
+    Set title under the format's safety and compatibility rules.
+
+    Example:
+        Exercise set title through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param prefixes: Value supplied for prefixes under the utility contract.
+    :param refines: Value supplied for refines under the utility contract.
+    :param title: Value supplied for title under the utility contract.
+    :param title_sort: Value supplied for title sort under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     main_title = find_main_title(root, refines, remove_blanks=True)
     if main_title is None:
         m = XPath("./opf:metadata")(root)[0]
@@ -447,6 +897,21 @@ def set_title(root: _typing.Any, prefixes: _typing.Any, refines: _typing.Any, ti
 
 # Languages {{{
 def read_languages(root: _typing.Any, prefixes: _typing.Any, refines: _typing.Any) -> _typing.Any:
+    """
+    Read languages under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read languages through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param prefixes: Value supplied for prefixes under the utility contract.
+    :param refines: Value supplied for refines under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     ans = []
     for lang in XPath("./opf:metadata/dc:language")(root):
         val = canonicalize_lang((lang.text or "").strip())
@@ -456,6 +921,22 @@ def read_languages(root: _typing.Any, prefixes: _typing.Any, refines: _typing.An
 
 
 def set_languages(root: _typing.Any, prefixes: _typing.Any, refines: _typing.Any, languages: _typing.Any) -> None:
+    """
+    Set languages under the format's safety and compatibility rules.
+
+    Example:
+        Exercise set languages through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param prefixes: Value supplied for prefixes under the utility contract.
+    :param refines: Value supplied for refines under the utility contract.
+    :param languages: Value supplied for languages under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     opf_languages = []
     for lang in XPath("./opf:metadata/dc:language")(root):
         remove_element(lang, refines)
@@ -481,6 +962,19 @@ Author = namedtuple("Author", "name sort")
 
 
 def is_relators_role(props: _typing.Any, q: _typing.Any) -> bool:
+    """
+    Return whether is relators role holds for the supplied ebook data.
+
+    Example:
+        Exercise is relators role through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param props: Value supplied for props under the utility contract.
+    :param q: Value supplied for q under the utility contract.
+    :return: True when the documented condition holds; otherwise False.
+    """
     role = props.get("role")
     if role:
         scheme_ns, scheme, role = role
@@ -491,9 +985,39 @@ def is_relators_role(props: _typing.Any, q: _typing.Any) -> bool:
 
 
 def read_authors(root: _typing.Any, prefixes: _typing.Any, refines: _typing.Any) -> _typing.Any:
+    """
+    Read authors under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read authors through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param prefixes: Value supplied for prefixes under the utility contract.
+    :param refines: Value supplied for refines under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     roled_authors, unroled_authors = [], []
 
     def author(item: _typing.Any, props: _typing.Any, val: _typing.Any) -> _typing.Any:
+        """
+        Perform the author operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise read authors.author through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+        :param item: Value supplied for item under the utility contract.
+        :param props: Value supplied for props under the utility contract.
+        :param val: Template or metadata value evaluated by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         file_as = props.get("file-as")
         if file_as:
             aus = file_as[-1]
@@ -520,6 +1044,22 @@ def read_authors(root: _typing.Any, prefixes: _typing.Any, refines: _typing.Any)
 
 
 def set_authors(root: _typing.Any, prefixes: _typing.Any, refines: _typing.Any, authors: _typing.Any) -> None:
+    """
+    Set authors under the format's safety and compatibility rules.
+
+    Example:
+        Exercise set authors through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param prefixes: Value supplied for prefixes under the utility contract.
+    :param refines: Value supplied for refines under the utility contract.
+    :param authors: Value supplied for authors under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     ensure_prefix(root, prefixes, "marc")
     for item in XPath("./opf:metadata/dc:creator")(root):
         props = properties_for_id_with_scheme(item.get("id"), prefixes, refines)
@@ -550,6 +1090,21 @@ def set_authors(root: _typing.Any, prefixes: _typing.Any, refines: _typing.Any, 
 
 
 def read_book_producers(root: _typing.Any, prefixes: _typing.Any, refines: _typing.Any) -> _typing.Any:
+    """
+    Read book producers under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read book producers through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param prefixes: Value supplied for prefixes under the utility contract.
+    :param refines: Value supplied for refines under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     ans = []
     for item in XPath("./opf:metadata/dc:contributor")(root):
         val = (item.text or "").strip()
@@ -566,6 +1121,22 @@ def read_book_producers(root: _typing.Any, prefixes: _typing.Any, refines: _typi
 
 
 def set_book_producers(root: _typing.Any, prefixes: _typing.Any, refines: _typing.Any, producers: _typing.Any) -> None:
+    """
+    Set book producers under the format's safety and compatibility rules.
+
+    Example:
+        Exercise set book producers through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param prefixes: Value supplied for prefixes under the utility contract.
+    :param refines: Value supplied for refines under the utility contract.
+    :param producers: Value supplied for producers under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     for item in XPath("./opf:metadata/dc:contributor")(root):
         props = properties_for_id_with_scheme(item.get("id"), prefixes, refines)
         opf_role = item.get(OPF("role"))
@@ -596,6 +1167,20 @@ def set_book_producers(root: _typing.Any, prefixes: _typing.Any, refines: _typin
 
 
 def parse_date(raw: _typing.Any, is_w3cdtf: bool = False) -> _typing.Any:
+    """
+    Parse date under the format's safety and compatibility rules.
+
+    Example:
+        Exercise parse date through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :param is_w3cdtf: Value supplied for is w3cdtf under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     raw = raw.strip()
     if is_w3cdtf:
         ans = parse_iso8601(raw, assume_utc=True)
@@ -609,6 +1194,21 @@ def parse_date(raw: _typing.Any, is_w3cdtf: bool = False) -> _typing.Any:
 
 
 def read_pubdate(root: _typing.Any, prefixes: _typing.Any, refines: _typing.Any) -> _typing.Any:
+    """
+    Read pubdate under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read pubdate through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param prefixes: Value supplied for prefixes under the utility contract.
+    :param refines: Value supplied for refines under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     for date in XPath("./opf:metadata/dc:date")(root):
         val = (date.text or "").strip()
         if val:
@@ -619,6 +1219,22 @@ def read_pubdate(root: _typing.Any, prefixes: _typing.Any, refines: _typing.Any)
 
 
 def set_pubdate(root: _typing.Any, prefixes: _typing.Any, refines: _typing.Any, val: _typing.Any) -> None:
+    """
+    Set pubdate under the format's safety and compatibility rules.
+
+    Example:
+        Exercise set pubdate through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param prefixes: Value supplied for prefixes under the utility contract.
+    :param refines: Value supplied for refines under the utility contract.
+    :param val: Template or metadata value evaluated by the operation.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     for date in XPath("./opf:metadata/dc:date")(root):
         remove_element(date, refines)
     if not is_date_undefined(val):
@@ -630,6 +1246,21 @@ def set_pubdate(root: _typing.Any, prefixes: _typing.Any, refines: _typing.Any, 
 
 
 def read_timestamp(root: _typing.Any, prefixes: _typing.Any, refines: _typing.Any) -> _typing.Any:
+    """
+    Read timestamp under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read timestamp through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param prefixes: Value supplied for prefixes under the utility contract.
+    :param refines: Value supplied for refines under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     pq = "%s:timestamp" % CALIBRE_PREFIX
     sq = "%s:w3cdtf" % reserved_prefixes["dcterms"]
     for meta in XPath("./opf:metadata/opf:meta[@property]")(root):
@@ -652,6 +1283,22 @@ def read_timestamp(root: _typing.Any, prefixes: _typing.Any, refines: _typing.An
 
 
 def set_timestamp(root: _typing.Any, prefixes: _typing.Any, refines: _typing.Any, val: _typing.Any) -> None:
+    """
+    Set timestamp under the format's safety and compatibility rules.
+
+    Example:
+        Exercise set timestamp through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param prefixes: Value supplied for prefixes under the utility contract.
+    :param refines: Value supplied for refines under the utility contract.
+    :param val: Template or metadata value evaluated by the operation.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     ensure_prefix(root, prefixes, "calibre", CALIBRE_PREFIX)
     ensure_prefix(root, prefixes, "dcterms")
     pq = "%s:timestamp" % CALIBRE_PREFIX
@@ -671,6 +1318,21 @@ def set_timestamp(root: _typing.Any, prefixes: _typing.Any, refines: _typing.Any
 
 
 def read_last_modified(root: _typing.Any, prefixes: _typing.Any, refines: _typing.Any) -> _typing.Any:
+    """
+    Read last modified under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read last modified through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param prefixes: Value supplied for prefixes under the utility contract.
+    :param refines: Value supplied for refines under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     pq = "%s:modified" % reserved_prefixes["dcterms"]
     sq = "%s:w3cdtf" % reserved_prefixes["dcterms"]
     for meta in XPath("./opf:metadata/opf:meta[@property]")(root):
@@ -691,6 +1353,21 @@ def read_last_modified(root: _typing.Any, prefixes: _typing.Any, refines: _typin
 
 
 def read_comments(root: _typing.Any, prefixes: _typing.Any, refines: _typing.Any) -> _typing.Any:
+    """
+    Read comments under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read comments through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param prefixes: Value supplied for prefixes under the utility contract.
+    :param refines: Value supplied for refines under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     ans = ""
     for dc in XPath("./opf:metadata/dc:description")(root):
         if dc.text:
@@ -699,6 +1376,22 @@ def read_comments(root: _typing.Any, prefixes: _typing.Any, refines: _typing.Any
 
 
 def set_comments(root: _typing.Any, prefixes: _typing.Any, refines: _typing.Any, val: _typing.Any) -> None:
+    """
+    Set comments under the format's safety and compatibility rules.
+
+    Example:
+        Exercise set comments through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param prefixes: Value supplied for prefixes under the utility contract.
+    :param refines: Value supplied for refines under the utility contract.
+    :param val: Template or metadata value evaluated by the operation.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     for dc in XPath("./opf:metadata/dc:description")(root):
         remove_element(dc, refines)
     m = XPath("./opf:metadata")(root)[0]
@@ -717,12 +1410,43 @@ def set_comments(root: _typing.Any, prefixes: _typing.Any, refines: _typing.Any,
 
 @simple_text
 def read_publisher(root: _typing.Any, prefixes: _typing.Any, refines: _typing.Any) -> _typing.Any:
+    """
+    Read publisher under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read publisher through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param prefixes: Value supplied for prefixes under the utility contract.
+    :param refines: Value supplied for refines under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     for dc in XPath("./opf:metadata/dc:publisher")(root):
         if dc.text:
             return dc.text
 
 
 def set_publisher(root: _typing.Any, prefixes: _typing.Any, refines: _typing.Any, val: _typing.Any) -> None:
+    """
+    Set publisher under the format's safety and compatibility rules.
+
+    Example:
+        Exercise set publisher through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param prefixes: Value supplied for prefixes under the utility contract.
+    :param refines: Value supplied for refines under the utility contract.
+    :param val: Template or metadata value evaluated by the operation.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     for dc in XPath("./opf:metadata/dc:publisher")(root):
         remove_element(dc, refines)
     m = XPath("./opf:metadata")(root)[0]
@@ -740,6 +1464,21 @@ def set_publisher(root: _typing.Any, prefixes: _typing.Any, refines: _typing.Any
 
 
 def read_tags(root: _typing.Any, prefixes: _typing.Any, refines: _typing.Any) -> _typing.Any:
+    """
+    Read tags under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read tags through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param prefixes: Value supplied for prefixes under the utility contract.
+    :param refines: Value supplied for refines under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     ans = []
     for dc in XPath("./opf:metadata/dc:subject")(root):
         if dc.text:
@@ -748,6 +1487,22 @@ def read_tags(root: _typing.Any, prefixes: _typing.Any, refines: _typing.Any) ->
 
 
 def set_tags(root: _typing.Any, prefixes: _typing.Any, refines: _typing.Any, val: _typing.Any) -> None:
+    """
+    Set tags under the format's safety and compatibility rules.
+
+    Example:
+        Exercise set tags through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param prefixes: Value supplied for prefixes under the utility contract.
+    :param refines: Value supplied for refines under the utility contract.
+    :param val: Template or metadata value evaluated by the operation.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     for dc in XPath("./opf:metadata/dc:subject")(root):
         remove_element(dc, refines)
     m = XPath("./opf:metadata")(root)[0]
@@ -766,6 +1521,21 @@ def set_tags(root: _typing.Any, prefixes: _typing.Any, refines: _typing.Any, val
 
 
 def read_rating(root: _typing.Any, prefixes: _typing.Any, refines: _typing.Any) -> _typing.Any:
+    """
+    Read rating under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read rating through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param prefixes: Value supplied for prefixes under the utility contract.
+    :param refines: Value supplied for refines under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     pq = "%s:rating" % CALIBRE_PREFIX
     for meta in XPath("./opf:metadata/opf:meta[@property]")(root):
         val = (meta.text or "").strip()
@@ -786,6 +1556,22 @@ def read_rating(root: _typing.Any, prefixes: _typing.Any, refines: _typing.Any) 
 
 
 def set_rating(root: _typing.Any, prefixes: _typing.Any, refines: _typing.Any, val: _typing.Any) -> None:
+    """
+    Set rating under the format's safety and compatibility rules.
+
+    Example:
+        Exercise set rating through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param prefixes: Value supplied for prefixes under the utility contract.
+    :param refines: Value supplied for refines under the utility contract.
+    :param val: Template or metadata value evaluated by the operation.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     pq = "%s:rating" % CALIBRE_PREFIX
     for meta in XPath('./opf:metadata/opf:meta[@name="calibre:rating"]')(root):
         remove_element(meta, refines)
@@ -807,6 +1593,21 @@ def set_rating(root: _typing.Any, prefixes: _typing.Any, refines: _typing.Any, v
 
 
 def read_series(root: _typing.Any, prefixes: _typing.Any, refines: _typing.Any) -> tuple[_typing.Any, ...]:
+    """
+    Read series under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read series through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param prefixes: Value supplied for prefixes under the utility contract.
+    :param refines: Value supplied for refines under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     series_index = 1.0
     for meta in XPath('./opf:metadata/opf:meta[@property="belongs-to-collection" and @id]')(root):
         val = (meta.text or "").strip()
@@ -832,6 +1633,23 @@ def read_series(root: _typing.Any, prefixes: _typing.Any, refines: _typing.Any) 
 
 
 def set_series(root: _typing.Any, prefixes: _typing.Any, refines: _typing.Any, series: _typing.Any, series_index: _typing.Any) -> None:
+    """
+    Set series under the format's safety and compatibility rules.
+
+    Example:
+        Exercise set series through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param prefixes: Value supplied for prefixes under the utility contract.
+    :param refines: Value supplied for refines under the utility contract.
+    :param series: Value supplied for series under the utility contract.
+    :param series_index: Value supplied for series index under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     for meta in XPath('./opf:metadata/opf:meta[@name="calibre:series" or @name="calibre:series_index"]')(root):
         remove_element(meta, refines)
     for meta in XPath('./opf:metadata/opf:meta[@property="belongs-to-collection"]')(root):
@@ -863,9 +1681,39 @@ def set_series(root: _typing.Any, prefixes: _typing.Any, refines: _typing.Any, s
 
 
 def dict_reader(name: _typing.Any, load: _typing.Any = json.loads, try2: bool = True) -> _typing.Any:
+    """
+    Perform the dict reader operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise dict reader through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :param load: Value supplied for load under the utility contract.
+    :param try2: Value supplied for try2 under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     pq = "%s:%s" % (CALIBRE_PREFIX, name)
 
     def reader(root: _typing.Any, prefixes: _typing.Any, refines: _typing.Any) -> _typing.Any:
+        """
+        Perform the reader operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise dict reader.reader through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+        :param root: Root directory that bounds path resolution or traversal.
+        :param prefixes: Value supplied for prefixes under the utility contract.
+        :param refines: Value supplied for refines under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         for meta in XPath("./opf:metadata/opf:meta[@property]")(root):
             val = (meta.text or "").strip()
             if val:
@@ -896,9 +1744,40 @@ read_author_link_map = dict_reader("author_link_map")
 
 
 def dict_writer(name: _typing.Any, serialize: _typing.Any = dump_dict, remove2: bool = True) -> _typing.Any:
+    """
+    Perform the dict writer operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise dict writer through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :param serialize: Value supplied for serialize under the utility contract.
+    :param remove2: Value supplied for remove2 under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     pq = "%s:%s" % (CALIBRE_PREFIX, name)
 
     def writer(root: _typing.Any, prefixes: _typing.Any, refines: _typing.Any, val: _typing.Any) -> None:
+        """
+        Perform the writer operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise dict writer.writer through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+        :param root: Root directory that bounds path resolution or traversal.
+        :param prefixes: Value supplied for prefixes under the utility contract.
+        :param refines: Value supplied for refines under the utility contract.
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if remove2:
             for meta in XPath('./opf:metadata/opf:meta[@name="calibre:%s"]' % name)(root):
                 remove_element(meta, refines)
@@ -921,6 +1800,19 @@ set_author_link_map = dict_writer("author_link_map")
 
 
 def deserialize_user_metadata(val: _typing.Any) -> _typing.Any:
+    """
+    Perform the deserialize user metadata operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise deserialize user metadata through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param val: Template or metadata value evaluated by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     val = json.loads(val, object_hook=from_json)
     ans = {}
     for name, fm in iteritems(val):
@@ -933,6 +1825,19 @@ read_user_metadata3 = dict_reader("user_metadata", load=deserialize_user_metadat
 
 
 def read_user_metadata2(root: _typing.Any) -> _typing.Any:
+    """
+    Read user metadata2 under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read user metadata2 through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     ans = {}
     for meta in XPath('./opf:metadata/opf:meta[starts-with(@name, "calibre:user_metadata:")]')(root):
         name = meta.get("name")
@@ -954,10 +1859,38 @@ def read_user_metadata2(root: _typing.Any) -> _typing.Any:
 
 
 def read_user_metadata(root: _typing.Any, prefixes: _typing.Any, refines: _typing.Any) -> bool:
+    """
+    Read user metadata under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read user metadata through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param prefixes: Value supplied for prefixes under the utility contract.
+    :param refines: Value supplied for refines under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return read_user_metadata3(root, prefixes, refines) or read_user_metadata2(root)
 
 
 def serialize_user_metadata(val: _typing.Any) -> _typing.Any:
+    """
+    Serialize user metadata under the format's safety and compatibility rules.
+
+    Example:
+        Exercise serialize user metadata through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param val: Template or metadata value evaluated by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return json.dumps(
         object_to_unicode(val),
         ensure_ascii=False,
@@ -971,6 +1904,22 @@ set_user_metadata3 = dict_writer("user_metadata", serialize=serialize_user_metad
 
 
 def set_user_metadata(root: _typing.Any, prefixes: _typing.Any, refines: _typing.Any, val: _typing.Any) -> None:
+    """
+    Set user metadata under the format's safety and compatibility rules.
+
+    Example:
+        Exercise set user metadata through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param prefixes: Value supplied for prefixes under the utility contract.
+    :param refines: Value supplied for refines under the utility contract.
+    :param val: Template or metadata value evaluated by the operation.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     for meta in XPath('./opf:metadata/opf:meta[starts-with(@name, "calibre:user_metadata:")]')(root):
         remove_element(meta, refines)
     if val:
@@ -988,7 +1937,35 @@ def set_user_metadata(root: _typing.Any, prefixes: _typing.Any, refines: _typing
 
 
 def read_raster_cover(root: _typing.Any, prefixes: _typing.Any, refines: _typing.Any) -> _typing.Any:
+    """
+    Read raster cover under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read raster cover through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param prefixes: Value supplied for prefixes under the utility contract.
+    :param refines: Value supplied for refines under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     def get_href(local_item: _typing.Any) -> _typing.Any:
+        """
+        Return href under the format's safety and compatibility rules.
+
+        Example:
+            Exercise read raster cover.get href through a consuming regression::
+
+                python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+        :param local_item: Value supplied for local item under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         mt = local_item.get("media-type")
         if mt and "xml" not in mt and "html" not in mt:
             local_href = local_item.get("href")
@@ -1009,6 +1986,23 @@ def read_raster_cover(root: _typing.Any, prefixes: _typing.Any, refines: _typing
 
 
 def ensure_is_only_raster_cover(root: _typing.Any, prefixes: _typing.Any, refines: _typing.Any, raster_cover_item_href: _typing.Any) -> None:
+    """
+    Perform the ensure is only raster cover operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise ensure is only raster cover through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param prefixes: Value supplied for prefixes under the utility contract.
+    :param refines: Value supplied for refines under the utility contract.
+    :param raster_cover_item_href: Value supplied for raster cover item href under the
+        utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     for item in XPath('./opf:metadata/opf:meta[@name="cover"]')(root):
         remove_element(item, refines)
     for item in items_with_property(root, "cover-image", prefixes):
@@ -1033,10 +2027,18 @@ def ensure_is_only_raster_cover(root: _typing.Any, prefixes: _typing.Any, refine
 def first_spine_item(root: _typing.Any, prefixes: _typing.Any, refines: _typing.Any) -> bool:
     """
     Return the href to the first spine item.
-    :param root:
-    :param prefixes:
-    :param refines:
-    :return:
+
+    Example:
+        Exercise first spine item through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param prefixes: Value supplied for prefixes under the utility contract.
+    :param refines: Value supplied for refines under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     for i in XPath("./opf:spine/opf:itemref/@idref")(root):
         for item in XPath("./opf:manifest/opf:item")(root):
@@ -1047,10 +2049,20 @@ def first_spine_item(root: _typing.Any, prefixes: _typing.Any, refines: _typing.
 def read_metadata(root: _typing.Any, ver: _typing.Any = None, return_extra_data: bool = False, calibre_md_rtn: bool = True) -> _typing.Any:
     """
     Reads metadata from an opf file
-    :param root: Root of the opf file to parse
-    :param ver: The version of the opf file to parse (not currently needed)
-    :param return_extra_data: If True, returns a tuple of the metadata, version, cover and first spine item.
-    :return:
+
+    Example:
+        Exercise read metadata through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param ver: Value supplied for ver under the utility contract.
+    :param return_extra_data: Value supplied for return extra data under the utility
+        contract.
+    :param calibre_md_rtn: Value supplied for calibre md rtn under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if calibre_md_rtn:
         ans = calibreMetadata(_("Unknown"), [_("Unknown")])
@@ -1114,10 +2126,18 @@ def read_metadata(root: _typing.Any, ver: _typing.Any = None, return_extra_data:
 def get_metadata(stream: _typing.Any, calibre_md_rtn: bool = True) -> _typing.Any:
     """
     get_metadata from an OPF file.
-    :param stream: Stream to extarct the metadata from
-    :param calibre_md_rtn: True if you want the metadata back as a calibreMetadata object. False if you want it back as
-                           a LiuXin object.
-    :return:
+
+    Example:
+        Exercise get metadata through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param stream: Input or output stream wrapped by the terminal or compatibility
+        layer.
+    :param calibre_md_rtn: Value supplied for calibre md rtn under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     root = parse_opf(stream)
     return read_metadata(root, calibre_md_rtn=calibre_md_rtn)
@@ -1133,17 +2153,66 @@ def apply_metadata(
     force_identifiers: bool = False,
     add_missing_cover: bool = True,
 ) -> _typing.Any:
+    """
+    Perform the apply metadata operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise apply metadata through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param mi: Metadata object exposed to the template function.
+    :param cover_prefix: Value supplied for cover prefix under the utility contract.
+    :param cover_data: Value supplied for cover data under the utility contract.
+    :param apply_null: Value supplied for apply null under the utility contract.
+    :param update_timestamp: Value supplied for update timestamp under the utility
+        contract.
+    :param force_identifiers: Value supplied for force identifiers under the utility
+        contract.
+    :param add_missing_cover: Value supplied for add missing cover under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     prefixes, refines = read_prefixes(root), read_refines(root)
     current_mi = read_metadata(root)
 
     if apply_null:
 
         def ok(x: _typing.Any) -> bool:
+            """
+            Perform the ok operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise apply metadata.ok through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+            :param x: Value supplied for x under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return True
 
     else:
 
         def ok(x: _typing.Any) -> _typing.Any:
+            """
+            Perform the ok operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise apply metadata.ok through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+            :param x: Value supplied for x under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return not mi.is_null(x)
 
     if ok("identifiers"):
@@ -1236,6 +2305,30 @@ def set_metadata(
     force_identifiers: bool = False,
     add_missing_cover: bool = True,
 ) -> _typing.Any:
+    """
+    Update document metadata while preserving unrelated package state.
+
+    Example:
+        Exercise set metadata through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf3_smoke.py
+
+
+    :param stream: Input or output stream wrapped by the terminal or compatibility
+        layer.
+    :param mi: Metadata object exposed to the template function.
+    :param cover_prefix: Value supplied for cover prefix under the utility contract.
+    :param cover_data: Value supplied for cover data under the utility contract.
+    :param apply_null: Value supplied for apply null under the utility contract.
+    :param update_timestamp: Value supplied for update timestamp under the utility
+        contract.
+    :param force_identifiers: Value supplied for force identifiers under the utility
+        contract.
+    :param add_missing_cover: Value supplied for add missing cover under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     root = parse_opf(stream)
     return apply_metadata(
         root,

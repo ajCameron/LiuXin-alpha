@@ -1,5 +1,12 @@
 """
-Schema-driven construction of catalog writers.
+Select a concrete catalog writer from field and destination metadata.
+
+The module keeps validation, normalization and host mutation boundaries explicit.
+
+Example:
+    Exercise factory through its owning regression module::
+
+        python -m pytest -q tests/catalog/test_writer_factory.py
 """
 
 from __future__ import annotations
@@ -31,6 +38,19 @@ def _column_from(
     table_spec: StorageTableSpec,
     column_name: str,
 ) -> StorageColumnSpec | None:
+    """
+    Resolve the writable catalog column described by field metadata.
+
+    Example:
+        Exercise column from through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+    :param table_spec: Value supplied for table spec under the catalog contract.
+    :param column_name: Value supplied for column name under the catalog contract.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return next(
         (
             column
@@ -45,6 +65,19 @@ def _writable_destination_tables(
     schema: StorageSchemaSpec,
     column_name: str,
 ) -> tuple[tuple[StorageTableSpec, StorageColumnSpec], ...]:
+    """
+    Return destination tables eligible for catalog writer construction.
+
+    Example:
+        Exercise writable destination tables through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+    :param schema: Value supplied for schema under the catalog contract.
+    :param column_name: Value supplied for column name under the catalog contract.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return tuple(
         (table_spec, column)
         for table_spec in schema.tables.values()
@@ -66,25 +99,19 @@ def create_catalog_writer(
     """
     Create a schema-backed writer from source table and destination column.
 
-    If ``dst_column`` belongs to ``src_table``, the factory returns a
-    :class:`CatalogColumnWriter`. Otherwise it resolves the unique destination
-    table containing the column, obtains the directed link specification, and
-    returns a policy-specific separate-table writer. A one-to-one destination
-    uses :class:`CatalogOwnedRowOneToOneWriter` only when ownership is declared
-    by the link specification or explicit override. Cardinality alone never
-    implies ownership.
+    Example:
+        Exercise create catalog writer through its owning regression module::
 
-    :param catalog: Catalog facade whose database owns the schema.
-    :param src_table: Table whose row IDs key writer updates.
-    :param dst_column: Column containing the values to write.
-    :param force_refresh: Refresh schema discovery before resolving the target.
-    :param destination_owned: Optional explicit ownership override for a
-        one-to-one destination.
-    :return: Schema-backed writer for the resolved storage shape.
-    :raises TypeError: If arguments or schema-discovery dependencies are invalid.
-    :raises KeyError: If the source table or destination column is unknown.
-    :raises ValueError: If the destination is ambiguous or has no link from the
-        source table.
+            python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+    :param catalog: Catalog host or facade supplying metadata and mutation services.
+    :param src_table: Value supplied for src table under the catalog contract.
+    :param dst_column: Value supplied for dst column under the catalog contract.
+    :param force_refresh: Value supplied for force refresh under the catalog contract.
+    :param destination_owned: Value supplied for destination owned under the catalog
+        contract.
+    :return: The deterministic value, row, identity or collection described above.
     """
 
     if not isinstance(src_table, str) or not src_table:

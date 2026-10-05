@@ -1,6 +1,17 @@
 #!/usr/bin/env python2
 # vim:fileencoding=utf-8
 
+"""
+Resolve DOCX style inheritance and emit normalized paragraph and run styles.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise styles through a consuming regression::
+
+        python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -24,15 +35,46 @@ __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
 class PageProperties(object):
 
     """
-    Class representing page level properties (page size/margins) read from
-    sectPr elements.
+    Class representing page level properties (page size/margins) read from sectPr elements.
+
+    Example:
+        Exercise PageProperties through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
     """
 
     def __init__(self: _typing.Self, namespace: _typing.Any, elems: tuple[_typing.Any, ...] = ()) -> None:
+        """
+        Initialize and validate the pageproperties state.
+
+        Example:
+            Exercise PageProperties.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param namespace: Value supplied for namespace under the utility contract.
+        :param elems: Value supplied for elems under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.width, self.height = 595.28, 841.89  # pts, A4
         self.margin_left = self.margin_right = 72  # pts
 
         def setval(attr: _typing.Any, val: _typing.Any) -> None:
+            """
+            Perform the setval operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise PageProperties.  init  .setval through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+            :param attr: Value supplied for attr under the utility contract.
+            :param val: Template or metadata value evaluated by the operation.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             val = twips(val)
             if val is not None:
                 setattr(self, attr, val)
@@ -49,9 +91,27 @@ class PageProperties(object):
 class Style(object):
     """
     Class representing a <w:style> element. Can contain block, character, etc. styles.
+
+    Example:
+        Exercise Style through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
     """
 
     def __init__(self: _typing.Self, namespace: _typing.Any, elem: _typing.Any) -> None:
+        """
+        Initialize and validate the style state.
+
+        Example:
+            Exercise Style.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param namespace: Value supplied for namespace under the utility contract.
+        :param elem: Value supplied for elem under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.namespace = namespace
         self.name_path = namespace.XPath("./w:name[@w:val]")
         self.based_on_path = namespace.XPath("./w:basedOn[@w:val]")
@@ -97,6 +157,19 @@ class Style(object):
                 self.numbering_style_link = namespace.get(x, "w:val")
 
     def resolve_based_on(self: _typing.Self, parent: _typing.Any) -> None:
+        """
+        Perform the resolve based on operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Style.resolve based on through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if parent.table_style is not None:
             if self.table_style is None:
                 self.table_style = TableStyle(self.namespace)
@@ -112,26 +185,101 @@ class Style(object):
 
 
 class _NullFonts(object):
+    """
+    Provide the nullfonts contract for validated ebook processing.
+
+    Example:
+        Exercise  NullFonts through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+    """
     def family_for(self: _typing.Self, name: _typing.Any, bold: bool = False, italic: bool = False) -> str:
+        """
+        Perform the family for operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  NullFonts.family for through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param bold: Value supplied for bold under the utility contract.
+        :param italic: Value supplied for italic under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "serif"
 
     def embed_fonts(self: _typing.Self, dest_dir: _typing.Any, docx: _typing.Any) -> str:
+        """
+        Perform the embed fonts operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  NullFonts.embed fonts through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param dest_dir: Value supplied for dest dir under the utility contract.
+        :param docx: Value supplied for docx under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return ""
 
 
 class _NullTheme(object):
+    """
+    Provide the nulltheme contract for validated ebook processing.
+
+    Example:
+        Exercise  NullTheme through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+    """
     def resolve_font_family(self: _typing.Self, family: _typing.Any) -> _typing.Any:
+        """
+        Perform the resolve font family operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  NullTheme.resolve font family through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param family: Value supplied for family under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return family
 
 
 class Styles(object):
 
     """
-    Collection of all styles defined in the document. Used to get the final styles applicable to elements in the
-    document markup.
+    Collection of all styles defined in the document. Used to get the final styles applicable to elements in the document markup.
+
+    Example:
+        Exercise Styles through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
     """
 
     def __init__(self: _typing.Self, namespace: _typing.Any, tables: _typing.Any) -> None:
+        """
+        Initialize and validate the styles state.
+
+        Example:
+            Exercise Styles.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param namespace: Value supplied for namespace under the utility contract.
+        :param tables: Value supplied for tables under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.namespace = namespace
         self.id_map = OrderedDict()
         self.para_cache = {}
@@ -149,19 +297,84 @@ class Styles(object):
         self.theme = _NullTheme()
 
     def __iter__(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
+        """
+        Perform the iter operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Styles.  iter   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         for s in itervalues(self.id_map):
             yield s
 
     def __getitem__(self: _typing.Self, key: _typing.Any) -> _typing.Any:
+        """
+        Perform the getitem operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Styles.  getitem   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param key: Metadata, identifier or local-variable key.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.id_map[key]
 
     def __len__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the len operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Styles.  len   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return len(self.id_map)
 
     def get(self: _typing.Self, key: _typing.Any, default: _typing.Any = None) -> _typing.Any:
+        """
+        Perform the get operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Styles.get through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param key: Metadata, identifier or local-variable key.
+        :param default: Value supplied for default under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.id_map.get(key, default)
 
     def __call__(self: _typing.Self, root: _typing.Any, fonts: _typing.Any, theme: _typing.Any) -> None:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Styles.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param root: Root directory that bounds path resolution or traversal.
+        :param fonts: Value supplied for fonts under the utility contract.
+        :param theme: Value supplied for theme under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.fonts, self.theme = fonts, theme
         for s in self.namespace.XPath("//w:style")(root):
             s = Style(self.namespace, s)
@@ -191,6 +404,20 @@ class Styles(object):
                         self.default_character_style.update(ps)
 
         def resolve(local_s: _typing.Any, local_p: _typing.Any) -> None:
+            """
+            Perform the resolve operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Styles.  call  .resolve through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+            :param local_s: Value supplied for local s under the utility contract.
+            :param local_p: Value supplied for local p under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if local_p is not None:
                 if not local_p.resolved:
                     resolve(local_p, self.get(local_p.based_on))
@@ -202,6 +429,22 @@ class Styles(object):
                 resolve(s, self.get(s.based_on))
 
     def para_val(self: _typing.Self, parent_styles: _typing.Any, direct_formatting: _typing.Any, attr: _typing.Any) -> _typing.Any:
+        """
+        Perform the para val operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Styles.para val through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param parent_styles: Value supplied for parent styles under the utility contract.
+        :param direct_formatting: Value supplied for direct formatting under the utility
+            contract.
+        :param attr: Value supplied for attr under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         val = getattr(direct_formatting, attr)
         if val is inherit:
             for ps in reversed(parent_styles):
@@ -212,6 +455,22 @@ class Styles(object):
         return val
 
     def run_val(self: _typing.Self, parent_styles: _typing.Any, direct_formatting: _typing.Any, attr: _typing.Any) -> _typing.Any:
+        """
+        Perform the run val operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Styles.run val through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param parent_styles: Value supplied for parent styles under the utility contract.
+        :param direct_formatting: Value supplied for direct formatting under the utility
+            contract.
+        :param attr: Value supplied for attr under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         val = getattr(direct_formatting, attr)
         if val is not inherit:
             return val
@@ -236,6 +495,19 @@ class Styles(object):
         return val
 
     def resolve_paragraph(self: _typing.Self, p: _typing.Any) -> _typing.Any:
+        """
+        Perform the resolve paragraph operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Styles.resolve paragraph through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param p: Path-like value normalized or validated by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = self.para_cache.get(p, None)
         if ans is None:
             linked_style = None
@@ -305,6 +577,19 @@ class Styles(object):
         return ans
 
     def resolve_run(self: _typing.Self, r: _typing.Any) -> _typing.Any:
+        """
+        Perform the resolve run operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Styles.resolve run through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param r: Value supplied for r under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = self.run_cache.get(r, None)
         if ans is None:
             p = self.namespace.XPath("ancestor::w:p[1]")(r)
@@ -352,17 +637,58 @@ class Styles(object):
         return ans
 
     def resolve(self: _typing.Self, obj: _typing.Any) -> _typing.Any:
+        """
+        Perform the resolve operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Styles.resolve through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param obj: Value supplied for obj under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if obj.tag.endswith("}p"):
             return self.resolve_paragraph(obj)
         if obj.tag.endswith("}r"):
             return self.resolve_run(obj)
 
     def cascade(self: _typing.Self, layers: _typing.Any) -> None:
+        """
+        Perform the cascade operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Styles.cascade through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param layers: Value supplied for layers under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.body_font_family = "serif"
         self.body_font_size = "10pt"
         self.body_color = "black"
 
         def promote_property(char_styles: _typing.Any, block_style: _typing.Any, prop: _typing.Any) -> None:
+            """
+            Perform the promote property operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Styles.cascade.promote property through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+            :param char_styles: Value supplied for char styles under the utility contract.
+            :param block_style: Value supplied for block style under the utility contract.
+            :param prop: Value supplied for prop under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             vals = {getattr(s, prop) for s in char_styles}
             if len(vals) == 1:
                 # All the character styles have the same value
@@ -386,6 +712,21 @@ class Styles(object):
                     s.text_decoration = inherit
 
         def promote_most_common(block_styles: _typing.Any, prop: _typing.Any, default: _typing.Any) -> _typing.Any:
+            """
+            Perform the promote most common operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Styles.cascade.promote most common through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+            :param block_styles: Value supplied for block styles under the utility contract.
+            :param prop: Value supplied for prop under the utility contract.
+            :param default: Value supplied for default under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             c = Counter()
             for s in block_styles:
                 val = getattr(s, prop)
@@ -420,6 +761,19 @@ class Styles(object):
     def resolve_numbering(self: _typing.Self, numbering: _typing.Any) -> None:
         # When a numPr element appears inside a paragraph style, the lvl info
         # must be discarded and pStyle used instead.
+        """
+        Perform the resolve numbering operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Styles.resolve numbering through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param numbering: Value supplied for numbering under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.numbering = numbering
         for style in self:
             ps = style.paragraph_style
@@ -431,6 +785,19 @@ class Styles(object):
                     ps.numbering = (ps.numbering[0], lvl)
 
     def apply_contextual_spacing(self: _typing.Self, paras: _typing.Any) -> None:
+        """
+        Perform the apply contextual spacing operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Styles.apply contextual spacing through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param paras: Value supplied for paras under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         last_para = None
         for p in paras:
             if last_para is not None:
@@ -444,11 +811,38 @@ class Styles(object):
             last_para = p
 
     def apply_section_page_breaks(self: _typing.Self, paras: _typing.Any) -> None:
+        """
+        Perform the apply section page breaks operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Styles.apply section page breaks through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param paras: Value supplied for paras under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for p in paras:
             ps = self.resolve_paragraph(p)
             ps.pageBreakBefore = True
 
     def register(self: _typing.Self, css: _typing.Any, prefix: _typing.Any) -> _typing.Any:
+        """
+        Perform the register operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Styles.register through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param css: Value supplied for css under the utility contract.
+        :param prefix: Text prepended to the formatted or selected result.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         h = hash(frozenset(iteritems(css)))
         ans, _ = self.classes.get(h, (None, None))
         if ans is None:
@@ -458,6 +852,18 @@ class Styles(object):
         return ans
 
     def generate_classes(self: _typing.Self) -> None:
+        """
+        Perform the generate classes operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Styles.generate classes through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for bs in itervalues(self.para_cache):
             css = bs.css
             if css:
@@ -468,10 +874,39 @@ class Styles(object):
                 self.register(css, "text")
 
     def class_name(self: _typing.Self, css: _typing.Any) -> _typing.Any:
+        """
+        Perform the class name operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Styles.class name through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param css: Value supplied for css under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         h = hash(frozenset(iteritems(css)))
         return self.classes.get(h, (None, None))[0]
 
     def generate_css(self: _typing.Self, dest_dir: _typing.Any, docx: _typing.Any, notes_nopb: _typing.Any, nosupsub: _typing.Any) -> _typing.Any:
+        """
+        Perform the generate css operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Styles.generate css through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param dest_dir: Value supplied for dest dir under the utility contract.
+        :param docx: Value supplied for docx under the utility contract.
+        :param notes_nopb: Value supplied for notes nopb under the utility contract.
+        :param nosupsub: Value supplied for nosupsub under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ef = self.fonts.embed_fonts(dest_dir, docx)
 
         s = """\

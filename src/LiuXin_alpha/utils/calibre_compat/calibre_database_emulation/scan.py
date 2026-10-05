@@ -1,14 +1,13 @@
 """
-Bulk ingestion helpers.
+Scan Calibre library filesystems, reconcile database drift and produce import jobs.
 
-These helpers sit *above* the DB/sidecar readers and are designed to:
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
 
-* summarise a library quickly (schema + counts)
-* classify filesystem drift at scale
-* remain best-effort: extract something even from mangled libraries
+Example:
+    Exercise scan through a consuming regression::
 
-The output is intentionally JSON-friendly (via :meth:`to_dict`) so callers can
-store scan reports alongside ingestion logs.
+        python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_f1_scan_report.py
 """
 
 # Todo: This should probably all be over in utils
@@ -45,10 +44,18 @@ def _trim_payload_for_metadata_only(
     """
     Return a copy of a CalibreBookNormalized with heavy/IO-ish fields stripped.
 
-    :param payload:
-    :param keep_cover_path:
-    :param keep_formats:
-    :return:
+    Example:
+        Exercise  trim payload for metadata only through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_f1_scan_report.py
+
+
+    :param payload: Value supplied for payload under the utility contract.
+    :param keep_cover_path: Value supplied for keep cover path under the utility
+        contract.
+    :param keep_formats: Value supplied for keep formats under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
 
     from LiuXin_alpha.utils.calibre_compat.calibre_database_emulation.types import CalibreBookNormalized
@@ -87,17 +94,25 @@ def scan_calibre_library(
     """
     Scan a Calibre library root and return an aggregate report.
 
-    If ``metadata.db`` is missing, this falls back to OPF sidecar scanning.
+    Example:
+        Exercise scan calibre library through a consuming regression::
 
-    :param library_root:
-    :param best_effort:
-    :param filesystem_reconcile:
-    :param include_orphan_formats:
-    :param strict_paths:
-    :param sample_drift_events:
-    :param sample_books:
-    :param max_books:
-    :return:
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_f1_scan_report.py
+
+
+    :param library_root: Root directory of the Calibre library being inspected.
+    :param best_effort: Value supplied for best effort under the utility contract.
+    :param filesystem_reconcile: Value supplied for filesystem reconcile under the
+        utility contract.
+    :param include_orphan_formats: Value supplied for include orphan formats under the
+        utility contract.
+    :param strict_paths: Value supplied for strict paths under the utility contract.
+    :param sample_drift_events: Value supplied for sample drift events under the utility
+        contract.
+    :param sample_books: Value supplied for sample books under the utility contract.
+    :param max_books: Value supplied for max books under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
 
     root = Path(library_root)
@@ -228,24 +243,23 @@ def iter_import_jobs(
     """
     Yield streaming import jobs for a Calibre library.
 
-    This is designed for bulk ingestion pipelines:
+    Example:
+        Exercise iter import jobs through a consuming regression::
 
-    * keeps memory usage flat (streaming)
-    * classifies each book as "full" (metadata + formats), "metadata_only",
-      or "skip" using a simple, stable policy
-    * never loads file bytes; it only yields paths
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_f1_scan_report.py
 
-    If ``metadata.db`` is missing, falls back to OPF sidecar mode.
 
-    :param library_root:
-    :param policy:
-    :param best_effort:
-    :param filesystem_reconcile:
-    :param include_orphan_formats:
-    :param strict_paths:
-    :param batch_size:
-    :param max_books:
-    :return:
+    :param library_root: Root directory of the Calibre library being inspected.
+    :param policy: Value supplied for policy under the utility contract.
+    :param best_effort: Value supplied for best effort under the utility contract.
+    :param filesystem_reconcile: Value supplied for filesystem reconcile under the
+        utility contract.
+    :param include_orphan_formats: Value supplied for include orphan formats under the
+        utility contract.
+    :param strict_paths: Value supplied for strict paths under the utility contract.
+    :param batch_size: Value supplied for batch size under the utility contract.
+    :param max_books: Value supplied for max books under the utility contract.
+    :return: An iterator yielding the normalized values described above.
     """
 
     root = Path(library_root)

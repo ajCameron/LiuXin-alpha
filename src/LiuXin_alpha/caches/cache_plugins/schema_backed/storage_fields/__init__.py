@@ -1,4 +1,10 @@
-"""Schema-backed field implementations exported to cache plugins."""
+"""
+Export the concrete schema-backed scalar and relation field classes.
+
+Expose one canonical class for same-table scalar values and each directed
+relation cardinality. Importing the package does not construct fields or
+read a database; the owning storage cache performs that initialization.
+"""
 
 from LiuXin_alpha.caches.cache_plugins.schema_backed.storage_fields.many_many_field import (
     SchemaBackedManyManyField,

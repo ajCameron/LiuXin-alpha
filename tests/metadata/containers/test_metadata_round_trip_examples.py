@@ -1,3 +1,14 @@
+"""
+Verify representative metadata objects survive supported round trips.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test metadata round trip examples through its owning regression module::
+
+        python -m pytest -q tests/metadata/containers/test_metadata_round_trip_examples.py
+"""
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -14,6 +25,18 @@ from tests.metadata.containers.test_item_metadata_hydrator import _build_fake_da
 
 
 def _metadata_values(raw: Any) -> list[Any]:
+    """
+    Return a normalized snapshot of metadata values used in projection assertions.
+
+    Example:
+        Exercise metadata values through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_round_trip_examples.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     if raw is None:
         return []
     if isinstance(raw, Mapping):
@@ -27,12 +50,35 @@ def _metadata_values(raw: Any) -> list[Any]:
 
 
 def _identifier_values(metadata: Any, scheme: str) -> list[Any]:
+    """
+    Return normalized identifier values used to compare hydrated projections.
+
+    Example:
+        Exercise identifier values through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_round_trip_examples.py
+
+
+    :param metadata: Metadata container or mapping supplied to the assertion helper.
+    :param scheme: Value supplied for scheme in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     raw = metadata.get_identifiers().get(scheme)
     return _metadata_values(raw)
 
 
 def test_example_full_wemi_metadata_relation_round_trip() -> None:
-    """Hydrate a full metadata slice, edit a WEMI relation, write, rehydrate."""
+    """
+    Hydrate a full metadata slice, edit a WEMI relation, write, rehydrate.
+
+    Example:
+        Exercise test example full wemi metadata relation round trip through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_round_trip_examples.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     db = _build_fake_database()
     metadata = LiuXinWEMIMetadata.from_database(db, item_id=1)
 
@@ -55,7 +101,17 @@ def test_example_full_wemi_metadata_relation_round_trip() -> None:
 
 
 def test_example_sidecar_metadata_round_trip_without_legacy_payload() -> None:
-    """Serialize to a WEMI-only sidecar shape, edit, write, rehydrate."""
+    """
+    Serialize to a WEMI-only sidecar shape, edit, write, rehydrate.
+
+    Example:
+        Exercise test example sidecar metadata round trip without legacy payload through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_round_trip_examples.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     db = _build_fake_database()
     metadata = LiuXinWEMIMetadata.from_database(db, item_id=1)
     sidecar = metadata.to_mapping(include_legacy=False)
@@ -79,7 +135,17 @@ def test_example_sidecar_metadata_round_trip_without_legacy_payload() -> None:
 
 
 def test_example_calibre_metadata_view_round_trip() -> None:
-    """Convert to Calibre-shaped metadata, edit tags, write, rehydrate."""
+    """
+    Convert to Calibre-shaped metadata, edit tags, write, rehydrate.
+
+    Example:
+        Exercise test example calibre metadata view round trip through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_round_trip_examples.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     db = _build_fake_database()
     metadata = LiuXinWEMIMetadata.from_database(db, item_id=1)
     calibre_metadata = metadata.as_calibre_metadata()
@@ -96,7 +162,17 @@ def test_example_calibre_metadata_view_round_trip() -> None:
 
 
 def test_example_standalone_wemi_bundle_round_trip() -> None:
-    """Edit a standalone WorkMetadata bundle and write it back."""
+    """
+    Edit a standalone WorkMetadata bundle and write it back.
+
+    Example:
+        Exercise test example standalone wemi bundle round trip through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_round_trip_examples.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     db = _build_fake_database()
     metadata = LiuXinWEMIMetadataHydrator(db).get_liuxin_wemi_metadata(item_id=1)
     work_metadata = metadata.work_metadata
@@ -112,7 +188,17 @@ def test_example_standalone_wemi_bundle_round_trip() -> None:
 
 
 def test_example_opf_metadata_round_trip_writes_supported_fields_back_to_database() -> None:
-    """Exercise DB -> metadata -> OPF -> metadata -> DB for supported fields."""
+    """
+    Exercise DB -> metadata -> OPF -> metadata -> DB for supported fields.
+
+    Example:
+        Exercise test example opf metadata round trip writes supported fields back to database through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_round_trip_examples.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     db = _build_fake_database()
     hydrated = LiuXinWEMIMetadata.from_database(db, item_id=1)
 
@@ -142,6 +228,17 @@ def test_example_opf_metadata_round_trip_writes_supported_fields_back_to_databas
 
 
 def test_contract_wemi_metadata_round_trips_editable_metadata_fields() -> None:
+    """
+    Verify contract wemi metadata round trips editable metadata fields.
+
+    Example:
+        Exercise test contract wemi metadata round trips editable metadata fields through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_round_trip_examples.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     db = _build_fake_database()
     metadata = LiuXinWEMIMetadata.from_database(db, item_id=1)
 
@@ -211,6 +308,17 @@ def test_contract_wemi_metadata_round_trips_editable_metadata_fields() -> None:
 
 
 def test_contract_liuxin_metadata_round_trips_editable_metadata_fields() -> None:
+    """
+    Verify contract liuxin metadata round trips editable metadata fields.
+
+    Example:
+        Exercise test contract liuxin metadata round trips editable metadata fields through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_round_trip_examples.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     db = _build_fake_database()
     metadata = LiuXinWEMIMetadataHydrator(db).hydrate_metadata("liuxin", item_id=1)
 
@@ -236,6 +344,17 @@ def test_contract_liuxin_metadata_round_trips_editable_metadata_fields() -> None
 
 
 def test_contract_calibre_metadata_round_trips_supported_metadata_fields() -> None:
+    """
+    Verify contract calibre metadata round trips supported metadata fields.
+
+    Example:
+        Exercise test contract calibre metadata round trips supported metadata fields through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_round_trip_examples.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     db = _build_fake_database()
     metadata = LiuXinWEMIMetadataHydrator(db).hydrate_metadata("calibre", item_id=1)
 

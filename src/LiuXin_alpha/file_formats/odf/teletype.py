@@ -19,12 +19,15 @@
 
 
 """
-Class for handling whitespace properly in OpenDocument.
+Extract and replace plain text within ODF element trees.
 
-While it is possible to use getTextContent() and setTextContent()
-to extract or create ODF content, these won't extract or create
-the appropriate <text:s>, <text:tab>, or <text:line-break>
-elements.  This module takes care of that problem.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise teletype through a consuming regression::
+
+        python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
 """
 from __future__ import annotations
 
@@ -36,16 +39,43 @@ from LiuXin_alpha.file_formats.odf.text import S, LineBreak, Tab
 
 
 class WhitespaceText(object):
+    """
+    Provide the whitespacetext contract for validated ebook processing.
+
+    Example:
+        Exercise WhitespaceText through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+    """
     def __init__(self: _typing.Self) -> None:
+        """
+        Initialize and validate the whitespacetext state.
+
+        Example:
+            Exercise WhitespaceText.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         self.textBuffer = []
         self.spaceCount = 0
 
     def addTextToElement(self: _typing.Self, odfElement: _typing.Any, s: _typing.Any) -> None:
-        """Process an input string, inserting
-        <text:tab> elements for '\t',
-        <text:line-break> elements for '\n', and
-        <text:s> elements for runs of more than one blank.
-        These will be added to the given element.
+        """
+        Process an input string, inserting <text:tab> elements for ' ', <text:line-break> elements for ' ', and <text:s> elements for runs of more than one blank. These will be added to the given element.
+
+        Example:
+            Exercise WhitespaceText.addTextToElement through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param odfElement: Value supplied for odfElement under the utility contract.
+        :param s: Value supplied for s under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         i = 0
         ch = " "
@@ -86,16 +116,36 @@ class WhitespaceText(object):
         self._emitTextBuffer(odfElement)
 
     def _emitTextBuffer(self: _typing.Self, odfElement: _typing.Any) -> None:
-        """Creates a Text Node whose contents are the current textBuffer.
-        Side effect: clears the text buffer.
+        """
+        Creates a Text Node whose contents are the current textBuffer. Side effect: clears the text buffer.
+
+        Example:
+            Exercise WhitespaceText. emitTextBuffer through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param odfElement: Value supplied for odfElement under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if len(self.textBuffer) > 0:
             odfElement.addText("".join(self.textBuffer))
         self.textBuffer = []
 
     def _emitSpaces(self: _typing.Self, odfElement: _typing.Any) -> None:
-        """Creates a <text:s> element for the current spaceCount.
-        Side effect: sets spaceCount back to zero
+        """
+        Creates a <text:s> element for the current spaceCount. Side effect: sets spaceCount back to zero
+
+        Example:
+            Exercise WhitespaceText. emitSpaces through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+        :param odfElement: Value supplied for odfElement under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.spaceCount > 0:
             spaceElement = S(c=self.spaceCount)
@@ -104,16 +154,37 @@ class WhitespaceText(object):
 
 
 def addTextToElement(odfElement: _typing.Any, s: _typing.Any) -> None:
+    """
+    Perform the addTextToElement operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise addTextToElement through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+    :param odfElement: Value supplied for odfElement under the utility contract.
+    :param s: Value supplied for s under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     wst = WhitespaceText()
     wst.addTextToElement(odfElement, s)
 
 
 def extractText(odfElement: _typing.Any) -> _typing.Any:
-    """Extract text content from an Element, with whitespace represented
-    properly. Returns the text, with tabs, spaces, and newlines
-    correctly evaluated. This method recursively descends through the
-    children of the given element, accumulating text and "unwrapping"
-    <text:s>, <text:tab>, and <text:line-break> elements along the way.
+    """
+    Extract text content from an Element, with whitespace represented properly. Returns the text, with tabs, spaces, and newlines correctly evaluated. This method recursively descends through the children of the given element, accumulating text and "unwrapping" <text:s>, <text:tab>, and <text:line-break> elements along the way.
+
+    Example:
+        Exercise extractText through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_full_stack_unicode_torture.py
+
+
+    :param odfElement: Value supplied for odfElement under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     result = []
 

@@ -10,6 +10,17 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+"""
+Coordinate token-by-token transformations in the RTF pipeline.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise process tokens through a consuming regression::
+
+        python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -23,9 +34,12 @@ from LiuXin_alpha.file_formats.rtf2xml import open_for_read, open_for_write
 
 class ProcessTokens:
     """
-    Process each token on a line and add information that will be useful for
-    later processing. Information will be put on one line, delimited by "<"
-    for main fields, and ">" for sub fields
+    Process each token on a line and add information that will be useful for later processing. Information will be put on one line, delimited by "<" for main fields, and ">" for sub fields
+
+    Example:
+        Exercise ProcessTokens through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
     """
 
     def __init__(
@@ -36,6 +50,23 @@ class ProcessTokens:
         copy: _typing.Any = None,
         run_level: int = 1,
     ) -> None:
+        """
+        Initialize and validate the processtokens state.
+
+        Example:
+            Exercise ProcessTokens.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param in_file: Value supplied for in file under the utility contract.
+        :param exception_handler: Value supplied for exception handler under the utility
+            contract.
+        :param bug_handler: Value supplied for bug handler under the utility contract.
+        :param copy: Value supplied for copy under the utility contract.
+        :param run_level: Value supplied for run level under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.__file = in_file
         self.__bug_handler = bug_handler
         self.__copy = copy
@@ -49,10 +80,34 @@ class ProcessTokens:
         self.__bug_handler = bug_handler
 
     def compile_expressions(self: _typing.Self) -> None:
+        """
+        Perform the compile expressions operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ProcessTokens.compile expressions through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.__num_exp = re.compile(r"([a-zA-Z]+)(.*)")
         self.__utf_exp = re.compile(r"(&.*?;)")
 
     def initiate_token_dict(self: _typing.Self) -> None:
+        """
+        Perform the initiate token dict operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ProcessTokens.initiate token dict through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.__return_code = 0
         self.dict_token = {
             # unicode
@@ -616,27 +671,117 @@ class ProcessTokens:
     """
 
     def __ms_hex_func(self: _typing.Self, pre: _typing.Any, token: _typing.Any, num: _typing.Any) -> _typing.Any:
+        """
+        Perform the ms hex func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ProcessTokens.  ms hex func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param pre: Value supplied for pre under the utility contract.
+        :param token: Value supplied for token under the utility contract.
+        :param num: Value supplied for num under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         num = num[1:]  # chop off leading 0, which I added
         num = num.upper()  # the mappings store hex in caps
         return "tx<hx<__________<'%s\n" % num  # add an ' for the mappings
 
     def ms_sub_func(self: _typing.Self, pre: _typing.Any, token: _typing.Any, num: _typing.Any) -> _typing.Any:
+        """
+        Perform the ms sub func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ProcessTokens.ms sub func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param pre: Value supplied for pre under the utility contract.
+        :param token: Value supplied for token under the utility contract.
+        :param num: Value supplied for num under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "tx<mc<__________<%s\n" % token
 
     def direct_conv_func(self: _typing.Self, pre: _typing.Any, token: _typing.Any, num: _typing.Any) -> _typing.Any:
+        """
+        Perform the direct conv func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ProcessTokens.direct conv func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param pre: Value supplied for pre under the utility contract.
+        :param token: Value supplied for token under the utility contract.
+        :param num: Value supplied for num under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "mi<tg<empty_____<%s\n" % token
 
     def default_func(self: _typing.Self, pre: _typing.Any, token: _typing.Any, num: _typing.Any) -> str:
+        """
+        Perform the default func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ProcessTokens.default func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param pre: Value supplied for pre under the utility contract.
+        :param token: Value supplied for token under the utility contract.
+        :param num: Value supplied for num under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if num is None:
             num = "true"
         return f"cw<{pre}<{token}<nu<{num}\n"
 
     def colorz_func(self: _typing.Self, pre: _typing.Any, token: _typing.Any, num: _typing.Any) -> str:
+        """
+        Perform the colorz func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ProcessTokens.colorz func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param pre: Value supplied for pre under the utility contract.
+        :param token: Value supplied for token under the utility contract.
+        :param num: Value supplied for num under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if num is None:
             num = "0"
         return f"cw<{pre}<{token}<nu<{num}\n"
 
     def __list_type_func(self: _typing.Self, pre: _typing.Any, token: _typing.Any, num: _typing.Any) -> str:
+        """
+        Perform the list type func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ProcessTokens.  list type func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param pre: Value supplied for pre under the utility contract.
+        :param token: Value supplied for token under the utility contract.
+        :param num: Value supplied for num under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         type = "arabic"
         if num is None:
             type = "Arabic"
@@ -656,6 +801,21 @@ class ProcessTokens:
         return f"cw<{pre}<{token}<nu<{type}\n"
 
     def __language_func(self: _typing.Self, pre: _typing.Any, token: _typing.Any, num: _typing.Any) -> str:
+        """
+        Perform the language func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ProcessTokens.  language func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param pre: Value supplied for pre under the utility contract.
+        :param token: Value supplied for token under the utility contract.
+        :param num: Value supplied for num under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         lang_name = self.__language_dict.get(int(re.search("[0-9]+", num).group()))
         if not lang_name:
             lang_name = "not defined"
@@ -665,6 +825,21 @@ class ProcessTokens:
         return f"cw<{pre}<{token}<nu<{lang_name}\n"
 
     def two_part_func(self: _typing.Self, pre: _typing.Any, token: _typing.Any, num: _typing.Any) -> str:
+        """
+        Perform the two part func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ProcessTokens.two part func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param pre: Value supplied for pre under the utility contract.
+        :param token: Value supplied for token under the utility contract.
+        :param num: Value supplied for num under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         list = token.split("<")
         token = list[0]
         num = list[1]
@@ -672,28 +847,118 @@ class ProcessTokens:
         # return 'cw<nu<nu<nu<%s>num<%s\n' % (token, num)
 
     def divide_by_2(self: _typing.Self, pre: _typing.Any, token: _typing.Any, num: _typing.Any) -> str:
+        """
+        Perform the divide by 2 operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ProcessTokens.divide by 2 through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param pre: Value supplied for pre under the utility contract.
+        :param token: Value supplied for token under the utility contract.
+        :param num: Value supplied for num under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         num = self.divide_num(num, 2)
         return f"cw<{pre}<{token}<nu<{num}\n"
         # return 'cw<nu<nu<nu<%s>%s<%s\n' % (token, num, token)
 
     def divide_by_20(self: _typing.Self, pre: _typing.Any, token: _typing.Any, num: _typing.Any) -> str:
+        """
+        Perform the divide by 20 operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ProcessTokens.divide by 20 through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param pre: Value supplied for pre under the utility contract.
+        :param token: Value supplied for token under the utility contract.
+        :param num: Value supplied for num under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         num = self.divide_num(num, 20)
         return f"cw<{pre}<{token}<nu<{num}\n"
         # return 'cw<nu<nu<nu<%s>%s<%s\n' % (token, num, token)
 
     def text_func(self: _typing.Self, pre: _typing.Any, token: _typing.Any, num: _typing.Any = None) -> _typing.Any:
+        """
+        Perform the text func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ProcessTokens.text func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param pre: Value supplied for pre under the utility contract.
+        :param token: Value supplied for token under the utility contract.
+        :param num: Value supplied for num under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "tx<nu<__________<%s\n" % token
 
     def ob_func(self: _typing.Self, pre: _typing.Any, token: _typing.Any, num: _typing.Any = None) -> _typing.Any:
+        """
+        Perform the ob func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ProcessTokens.ob func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param pre: Value supplied for pre under the utility contract.
+        :param token: Value supplied for token under the utility contract.
+        :param num: Value supplied for num under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.__bracket_count += 1
         return "ob<nu<open-brack<%04d\n" % self.__bracket_count
 
     def cb_func(self: _typing.Self, pre: _typing.Any, token: _typing.Any, num: _typing.Any = None) -> _typing.Any:
+        """
+        Perform the cb func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ProcessTokens.cb func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param pre: Value supplied for pre under the utility contract.
+        :param token: Value supplied for token under the utility contract.
+        :param num: Value supplied for num under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         line = "cb<nu<clos-brack<%04d\n" % self.__bracket_count
         self.__bracket_count -= 1
         return line
 
     def color_func(self: _typing.Self, pre: _typing.Any, token: _typing.Any, num: _typing.Any) -> str:
+        """
+        Perform the color func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ProcessTokens.color func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param pre: Value supplied for pre under the utility contract.
+        :param token: Value supplied for token under the utility contract.
+        :param num: Value supplied for num under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         third_field = "nu"
         if num[-1] == ";":
             num = num[:-1]
@@ -705,6 +970,21 @@ class ProcessTokens:
         # return 'cw<cl<%s<nu<nu<%s>%s<%s\n' % (third_field, token, num, token)
 
     def bool_st_func(self: _typing.Self, pre: _typing.Any, token: _typing.Any, num: _typing.Any) -> str:
+        """
+        Perform the bool st func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ProcessTokens.bool st func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param pre: Value supplied for pre under the utility contract.
+        :param token: Value supplied for token under the utility contract.
+        :param num: Value supplied for num under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if num is None or num == "" or num == "1":
             return f"cw<{pre}<{token}<nu<true\n"
             # return 'cw<nu<nu<nu<%s>true<%s\n' % (token, token)
@@ -716,11 +996,40 @@ class ProcessTokens:
             raise self.__bug_handler(msg)
 
     def __no_sup_sub_func(self: _typing.Self, pre: _typing.Any, token: _typing.Any, num: _typing.Any) -> _typing.Any:
+        """
+        Perform the no sup sub func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ProcessTokens.  no sup sub func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param pre: Value supplied for pre under the utility contract.
+        :param token: Value supplied for token under the utility contract.
+        :param num: Value supplied for num under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         the_string = "cw<ci<subscript_<nu<false\n"
         the_string += "cw<ci<superscrip<nu<false\n"
         return the_string
 
     def divide_num(self: _typing.Self, numerator: _typing.Any, denominator: _typing.Any) -> _typing.Any:
+        """
+        Perform the divide num operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ProcessTokens.divide num through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param numerator: Value supplied for numerator under the utility contract.
+        :param denominator: Value supplied for denominator under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             # calibre why ignore negative number? Wrong in case of \fi
             numerator = float(re.search("[0-9.\\-]+", numerator).group())
@@ -746,6 +1055,19 @@ class ProcessTokens:
         return string_num
 
     def split_let_num(self: _typing.Self, token: _typing.Any) -> tuple[_typing.Any, ...]:
+        """
+        Perform the split let num operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ProcessTokens.split let num through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param token: Value supplied for token under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         match_obj = re.search(self.__num_exp, token)
         if match_obj is not None:
             first = match_obj.group(1)
@@ -763,7 +1085,19 @@ class ProcessTokens:
         return first, second
 
     def convert_to_hex(self: _typing.Self, number: _typing.Any) -> _typing.Any:
-        """Convert a string to uppercase hexadecimal"""
+        """
+        Convert a string to uppercase hexadecimal
+
+        Example:
+            Exercise ProcessTokens.convert to hex through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param number: Value supplied for number under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         num = int(number)
         try:
             hex_num = "%X" % num
@@ -772,8 +1106,19 @@ class ProcessTokens:
             raise self.__bug_handler
 
     def process_cw(self: _typing.Self, token: _typing.Any) -> _typing.Any:
-        """Change the value of the control word by determining what dictionary
-        it belongs to"""
+        """
+        Change the value of the control word by determining what dictionary it belongs to
+
+        Example:
+            Exercise ProcessTokens.process cw through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param token: Value supplied for token under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         special = ["*", ":", "}", "{", "~", "_", "-", ";"]
         # if token != "{" or token != "}":
         token = token[1:]  # strip off leading \
@@ -788,13 +1133,37 @@ class ProcessTokens:
             return action(pre, token, num)
 
     def __check_brackets(self: _typing.Self, in_file: _typing.Any) -> int:
+        """
+        Perform the check brackets operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ProcessTokens.  check brackets through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param in_file: Value supplied for in file under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.__check_brack_obj = check_brackets.CheckBrackets(file=in_file)
         good_br = self.__check_brack_obj.check_brackets()[0]
         if not good_br:
             return 1
 
     def process_tokens(self: _typing.Self) -> _typing.Any:
-        """Main method for handling other methods."""
+        """
+        Main method for handling other methods.
+
+        Example:
+            Exercise ProcessTokens.process tokens through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         line_count = 0
         with open_for_read(self.__file) as read_obj:
             with open_for_write(self.__write_to) as write_obj:

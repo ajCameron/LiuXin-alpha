@@ -1,7 +1,13 @@
 """
-Douban Books metadata source.
+Identify Chinese-language book metadata and covers from Douban JSON or legacy XML responses.
 
-Useful primarily for Chinese language books.
+The module keeps network, parsing, caching, cancellation and result-order behavior
+explicit for callers.
+
+Example:
+    Exercise douban with the owning regression module::
+
+        python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
 """
 
 from __future__ import annotations
@@ -30,6 +36,19 @@ __docformat__ = "restructuredtext en"
 
 
 def _as_text(raw) -> str:
+    """
+    Convert optional or hostile input to text without propagating conversion failures.
+
+    Example:
+        Exercise  as text with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     if isinstance(raw, bytes):
         return raw.decode("utf-8", "replace")
     try:
@@ -39,6 +58,19 @@ def _as_text(raw) -> str:
 
 
 def _first(raw):
+    """
+    Perform the douban first operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  first with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     if raw is None:
         return None
     if isinstance(raw, (str, bytes)):
@@ -54,12 +86,41 @@ def _first(raw):
 
 
 def _first_identifier_value(identifiers, key):
+    """
+    Perform the douban first identifier value operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  first identifier value with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+    :param identifiers: Metadata identifier mapping used for direct lookup and cache
+        resolution.
+    :param key: Value supplied for key.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     if not isinstance(identifiers, Mapping):
         return None
     return _first(identifiers.get(key))
 
 
 def _safe_isbn(identifiers) -> str | None:
+    """
+    Return a validated isbn or the documented empty fallback.
+
+    Example:
+        Exercise  safe isbn with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+    :param identifiers: Metadata identifier mapping used for direct lookup and cache
+        resolution.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     for key in ("isbn", "isbn13", "isbn10"):
         raw = _first_identifier_value(identifiers, key)
         if raw is None:
@@ -74,6 +135,19 @@ def _safe_isbn(identifiers) -> str | None:
 
 
 def _parse_pubdate(raw: str | None) -> datetime | None:
+    """
+    Parse pubdate without inventing absent provider data.
+
+    Example:
+        Exercise  parse pubdate with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     text = _as_text(raw).strip()
     if not text:
         return None
@@ -108,6 +182,19 @@ def _parse_pubdate(raw: str | None) -> datetime | None:
 
 
 def _safe_float(raw) -> float | None:
+    """
+    Return a validated float or the documented empty fallback.
+
+    Example:
+        Exercise  safe float with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     try:
         return float(_as_text(raw).strip().replace(",", "."))
     except Exception:
@@ -115,6 +202,19 @@ def _safe_float(raw) -> float | None:
 
 
 def _extract_douban_id(raw) -> str | None:
+    """
+    Extract douban id with stable ordering and malformed-input tolerance.
+
+    Example:
+        Exercise  extract douban id with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     text = _as_text(raw).strip()
     if not text:
         return None
@@ -132,6 +232,19 @@ def _extract_douban_id(raw) -> str | None:
 
 
 def _html_title(raw_html: str) -> str | None:
+    """
+    Perform the douban html title operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  html title with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+    :param raw_html: Provider HTML response to parse without executing content.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     match = re.search(r"<title[^>]*>(.*?)</title>", raw_html, re.IGNORECASE | re.DOTALL)
     if not match:
         return None
@@ -140,6 +253,19 @@ def _html_title(raw_html: str) -> str | None:
 
 
 def _payload_markers(payload: str) -> dict:
+    """
+    Perform the douban payload markers operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  payload markers with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+    :param payload: Provider response payload or bytes processed by the operation.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     text = _as_text(payload)
     lowered = text.lower()
     markers = {
@@ -173,6 +299,14 @@ NAMESPACES = {
 
 
 class Douban(Source):
+    """
+    Implement the douban metadata-source integration and its explicit recovery policy.
+
+    Example:
+        Exercise Douban with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+    """
     name = "Douban Books"
     author = "Li Fanxi"
     version = (2, 0, 1)
@@ -203,11 +337,36 @@ class Douban(Source):
     DOUBAN_BOOK_URL = "https://book.douban.com/subject/%s/"
 
     def __init__(self, *args, **kwargs):
+        """
+        Initialize douban state while preserving shared source configuration and caches.
+
+        Example:
+            Exercise Douban.  init   with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+        :param args: Positional command-line or initializer arguments.
+        :param kwargs: Keyword arguments forwarded to the shared implementation.
+        :return: None.
+        """
         super().__init__(*args, **kwargs)
         # Keep legacy default key, but allow override.
         self.douban_api_key = _as_text(os.environ.get("DOUBAN_API_KEY", self.DOUBAN_API_KEY)).strip()
 
     def _retry_policy(self) -> RetryPolicy:
+        """
+        Build the bounded retry policy used by this provider's HTTP requests.
+
+        Example:
+            Exercise Douban. retry policy with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         return RetryPolicy(
             attempts=int(self.HTTP_RETRY_ATTEMPTS),
             base_delay=float(self.HTTP_RETRY_BASE_SECONDS),
@@ -215,6 +374,19 @@ class Douban(Source):
         )
 
     def _retry_backoff(self, attempt: int) -> float:
+        """
+        Compute the capped delay for one provider retry attempt.
+
+        Example:
+            Exercise Douban. retry backoff with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+        :param attempt: Zero-based retry attempt used to calculate backoff.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         return compute_backoff_delay(
             attempt=attempt,
             base_delay=float(self.HTTP_RETRY_BASE_SECONDS),
@@ -222,9 +394,35 @@ class Douban(Source):
         )
 
     def _wait_for_backoff(self, abort, delay: float) -> bool:
+        """
+        Wait interruptibly for a retry delay and report whether it completed.
+
+        Example:
+            Exercise Douban. wait for backoff with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param delay: Backoff duration in seconds.
+        :return: True when the described condition is satisfied; otherwise False.
+        """
         return wait_for_backoff(abort, delay)
 
     def _append_api_key(self, url: str) -> str:
+        """
+        Perform the douban append api key operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise Douban. append api key with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+        :param url: Provider URL to normalize, request or associate with cached data.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         key = _as_text(self.douban_api_key).strip()
         if not key:
             return url
@@ -232,6 +430,23 @@ class Douban(Source):
         return f"{url}{sep}apikey={key}"
 
     def _open_bytes_with_backoff(self, log, abort, url: str, timeout: int, context: str):
+        """
+        Run the open bytes operation with bounded retry, diagnostics and cancellation.
+
+        Example:
+            Exercise Douban. open bytes with backoff with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+        :param log: Logger receiving structured provider diagnostics.
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param url: Provider URL to normalize, request or associate with cached data.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :param context: Short operation label included in retry diagnostics.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         return call_with_backoff(
             lambda: self.browser().open_novisit(url, timeout=timeout).read(),
             log=log,
@@ -248,12 +463,46 @@ class Douban(Source):
         )
 
     def _open_text_with_backoff(self, log, abort, url: str, timeout: int, context: str):
+        """
+        Run the open text operation with bounded retry, diagnostics and cancellation.
+
+        Example:
+            Exercise Douban. open text with backoff with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+        :param log: Logger receiving structured provider diagnostics.
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param url: Provider URL to normalize, request or associate with cached data.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :param context: Short operation label included in retry diagnostics.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         raw = self._open_bytes_with_backoff(log=log, abort=abort, url=url, timeout=timeout, context=context)
         if not raw:
             return ""
         return decode_http_body(raw)
 
     def _open_text_or_none(self, log, abort, url: str, timeout: int, context: str):
+        """
+        Perform the provider open text or none operation with explicit timeout and response policy.
+
+        Example:
+            Exercise Douban. open text or none with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+        :param log: Logger receiving structured provider diagnostics.
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param url: Provider URL to normalize, request or associate with cached data.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :param context: Short operation label included in retry diagnostics.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         try:
             return self._open_text_with_backoff(log=log, abort=abort, url=url, timeout=timeout, context=context)
         except Exception as err:
@@ -271,6 +520,20 @@ class Douban(Source):
             return ""
 
     def get_book_url(self, identifiers):
+        """
+        Return canonical provider link tuples for recognized metadata identifiers.
+
+        Example:
+            Exercise Douban.get book url with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+        :param identifiers: Metadata identifier mapping used for direct lookup and cache
+            resolution.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         db = _first_identifier_value(identifiers or {}, "douban")
         douban_id = _extract_douban_id(db)
         if douban_id:
@@ -278,6 +541,20 @@ class Douban(Source):
         return None
 
     def get_cached_cover_url(self, identifiers):
+        """
+        Return cached cover url when present without network access.
+
+        Example:
+            Exercise Douban.get cached cover url with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+        :param identifiers: Metadata identifier mapping used for direct lookup and cache
+            resolution.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         db = _first_identifier_value(identifiers or {}, "douban")
         douban_id = _extract_douban_id(db)
         if douban_id is None:
@@ -289,6 +566,22 @@ class Douban(Source):
         return self.cached_identifier_to_cover_url(_as_text(douban_id))
 
     def create_query(self, title=None, authors=None, identifiers=None):
+        """
+        Build create query from normalized identifiers and search inputs.
+
+        Example:
+            Exercise Douban.create query with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+        :param title: Book title used to construct or rank the provider query.
+        :param authors: Author names used to construct or rank the provider query.
+        :param identifiers: Metadata identifier mapping used for direct lookup and cache
+            resolution.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         identifiers = identifiers or {}
 
         isbn = _safe_isbn(identifiers)
@@ -322,6 +615,19 @@ class Douban(Source):
         return urls, "search"
 
     def _json_records_from_payload(self, payload: str):
+        """
+        Perform the douban json records from payload operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise Douban. json records from payload with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+        :param payload: Provider response payload or bytes processed by the operation.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         try:
             data = json.loads(payload)
         except Exception:
@@ -335,6 +641,19 @@ class Douban(Source):
         return [data]
 
     def _xml_entries_from_payload(self, payload: str):
+        """
+        Perform the douban xml entries from payload operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise Douban. xml entries from payload with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+        :param payload: Provider response payload or bytes processed by the operation.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         try:
             root = ET.fromstring(payload)
         except Exception:
@@ -348,6 +667,19 @@ class Douban(Source):
         return entries
 
     def _cover_url_from_json_record(self, record) -> str | None:
+        """
+        Perform the douban cover url from json record operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise Douban. cover url from json record with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+        :param record: Provider JSON/XML record projected into metadata.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         if not isinstance(record, Mapping):
             return None
         image = record.get("images") or {}
@@ -363,6 +695,20 @@ class Douban(Source):
         return None
 
     def _metadata_from_json_record(self, record, relevance=0):
+        """
+        Project one provider record into normalized metadata and retain source relevance.
+
+        Example:
+            Exercise Douban. metadata from json record with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+        :param record: Provider JSON/XML record projected into metadata.
+        :param relevance: Zero-based provider result relevance.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         if not isinstance(record, Mapping):
             return None
 
@@ -453,6 +799,20 @@ class Douban(Source):
         return mi
 
     def _xml_text(self, node, xpath: str) -> str | None:
+        """
+        Perform the douban xml text operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise Douban. xml text with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+        :param node: Parsed XML/HTML node used as lookup context.
+        :param xpath: Relative XML query used to select provider values.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         elem = node.find(xpath, NAMESPACES)
         if elem is not None and elem.text:
             val = _as_text(elem.text).strip()
@@ -461,6 +821,20 @@ class Douban(Source):
         return None
 
     def _metadata_from_xml_entry(self, entry, relevance=0):
+        """
+        Project one provider record into normalized metadata and retain source relevance.
+
+        Example:
+            Exercise Douban. metadata from xml entry with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+        :param entry: Provider feed or XML entry to inspect.
+        :param relevance: Zero-based provider result relevance.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         title = self._xml_text(entry, "atom:title") or _("Unknown")
         authors = []
         for e in entry.findall("db:attribute[@name='author']", NAMESPACES):
@@ -547,6 +921,19 @@ class Douban(Source):
         return mi
 
     def _parse_metadata_payload(self, payload: str):
+        """
+        Parse metadata payload without inventing absent provider data.
+
+        Example:
+            Exercise Douban. parse metadata payload with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+        :param payload: Provider response payload or bytes processed by the operation.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         records = self._json_records_from_payload(payload)
         if records is not None:
             return [("json", record) for record in records]
@@ -556,6 +943,19 @@ class Douban(Source):
         return []
 
     def _cache_metadata(self, mi):
+        """
+        Update cache metadata while keeping related identifier and cover mappings coherent.
+
+        Example:
+            Exercise Douban. cache metadata with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+        :param mi: Metadata object supplying identifiers or receiving normalized fields.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         douban_id = _extract_douban_id(_first((mi.get_identifiers() or {}).get("douban")))
         if douban_id:
             for isbn in getattr(mi, "all_isbns", []) or []:
@@ -573,6 +973,25 @@ class Douban(Source):
         identifiers=None,
         timeout=30,
     ):
+        """
+        Run provider lookup, honor cancellation, isolate per-result failures and enqueue normalized metadata.
+
+        Example:
+            Exercise Douban.identify with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+        :param log: Logger receiving structured provider diagnostics.
+        :param result_queue: Queue receiving normalized metadata or cover results.
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param title: Book title used to construct or rank the provider query.
+        :param authors: Author names used to construct or rank the provider query.
+        :param identifiers: Metadata identifier mapping used for direct lookup and cache
+            resolution.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :return: None.
+        """
         identifiers = identifiers or {}
         query_urls, query_type = self.create_query(title=title, authors=authors, identifiers=identifiers)
         if not query_urls:
@@ -652,6 +1071,26 @@ class Douban(Source):
         timeout=30,
         get_best_cover=False,
     ):
+        """
+        Resolve and download cover candidates, honor cancellation and enqueue valid image bytes.
+
+        Example:
+            Exercise Douban.download cover with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_douban.py
+
+
+        :param log: Logger receiving structured provider diagnostics.
+        :param result_queue: Queue receiving normalized metadata or cover results.
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param title: Book title used to construct or rank the provider query.
+        :param authors: Author names used to construct or rank the provider query.
+        :param identifiers: Metadata identifier mapping used for direct lookup and cache
+            resolution.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :param get_best_cover: Stop after the best usable cover when true.
+        :return: None.
+        """
         del get_best_cover
         identifiers = identifiers or {}
         cached_url = self.get_cached_cover_url(identifiers)

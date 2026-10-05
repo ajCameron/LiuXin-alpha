@@ -1,3 +1,14 @@
+"""
+Exercise portable macros on a configured live PostgreSQL server in a uniquely named schema.
+
+Skip when LIUXIN_TEST_POSTGRES_URL is blank. The test creates and drops its schema;
+use a test server whose credentials permit those operations.
+
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/api/test_portable_macros_postgres_live.py
+"""
 from __future__ import annotations
 
 import os
@@ -20,6 +31,17 @@ from LiuXin_alpha.databases.schema_specs import StorageColumnSpec, StorageLinkSp
 
 
 def _live_postgres_url() -> str:
+    """
+    Read and strip LIUXIN_TEST_POSTGRES_URL, skipping the test when it is empty.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/api/test_portable_macros_postgres_live.py
+
+
+    :return: Nonempty configured PostgreSQL URL; otherwise raises pytest skip.
+    """
     url = os.environ.get("LIUXIN_TEST_POSTGRES_URL", "").strip()
     if not url:
         pytest.skip("LIUXIN_TEST_POSTGRES_URL is not configured.")
@@ -27,13 +49,40 @@ def _live_postgres_url() -> str:
 
 
 def _admin_connection(metadata: dict[str, object]) -> PostgresConnectionAdapter:
+    """
+    Connect to PostgreSQL without prompting for a password and wrap the connection.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/api/test_portable_macros_postgres_live.py
+
+
+    :param metadata: Database metadata containing connection settings passed to
+        connect_postgres.
+    :return: A PostgreSQL adapter owned by the caller, which must close it.
+    """
     return PostgresConnectionAdapter(
         connect_postgres(metadata, prompt_for_password=False)
     )
 
 
 def test_portable_macros_against_live_postgres() -> None:
-    """Exercise the shared contract against a disposable PostgreSQL schema."""
+    """
+    Check live link replacement, unique groups, BYTEA temporary tables, identity reuse, and stable fingerprints.
+
+    Create a UUID-named schema and wire the driver, wrapper, lock, and macros to it.
+    Cleanup closes the wrapper and driver in sequence, then drops the schema through an
+    administrative connection. Connection or cleanup failures propagate.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/api/test_portable_macros_postgres_live.py::test_portable_macros_against_live_postgres
+
+
+    :return: None; failed expectations raise AssertionError.
+    """
 
     schema = f"liuxin_macro_test_{uuid.uuid4().hex}"
     metadata: dict[str, object] = {

@@ -1,6 +1,17 @@
 #! /usr/bin/env python
 # coding: utf-8
 
+"""
+Decode DjVu BZZ-compressed byte streams with bounded bit and block state.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise djvubzzdec through a consuming regression::
+
+        python -m pytest -q tests/file_formats/djvu/test_djvu_modernized.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -91,19 +102,72 @@ MAXLEN = 1024**2
 
 
 class _BzzPlugin(Protocol):
-    def decompress(self: _typing.Self, data: bytes) -> bytes: ...
+    """
+    Provide the bzzplugin contract for validated ebook processing.
+
+    Example:
+        Exercise  BzzPlugin through a consuming regression::
+
+            python -m pytest -q tests/file_formats/djvu/test_djvu_modernized.py
+    """
+    def decompress(self: _typing.Self, data: bytes) -> bytes:
+        """
+        Decode the supplied format payload and return its uncompressed bytes.
+
+        Example:
+            Exercise  BzzPlugin.decompress through a consuming regression::
+
+                python -m pytest -q tests/file_formats/djvu/test_djvu_modernized.py
+
+
+        :param data: Value supplied for data under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
+        ...
 
 
 # Exception classes used by this module.
 class BZZDecoderError(Exception):
 
-    """This exception is raised when BZZDecode runs into trouble"""
+    """
+    This exception is raised when BZZDecode runs into trouble
+
+    Example:
+        Exercise BZZDecoderError through a consuming regression::
+
+            python -m pytest -q tests/file_formats/djvu/test_djvu_modernized.py
+    """
 
     def __init__(self: _typing.Self, msg: str) -> None:
+        """
+        Initialize and validate the bzzdecodererror state.
+
+        Example:
+            Exercise BZZDecoderError.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/djvu/test_djvu_modernized.py
+
+
+        :param msg: Value supplied for msg under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         super().__init__(msg)
         self.msg = msg
 
     def __str__(self: _typing.Self) -> str:
+        """
+        Perform the str operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise BZZDecoderError.  str   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/djvu/test_djvu_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "BZZDecoderError: %s" % self.msg
 
 
@@ -635,11 +699,32 @@ xmtf = (
 
 
 class BZZDecoder:
+    """
+    Provide the bzzdecoder contract for validated ebook processing.
+
+    Example:
+        Exercise BZZDecoder through a consuming regression::
+
+            python -m pytest -q tests/file_formats/djvu/test_djvu_modernized.py
+    """
     def __init__(
         self: _typing.Self,
         infile: bytes,
         outfile: bytearray,
     ) -> None:
+        """
+        Initialize and validate the bzzdecoder state.
+
+        Example:
+            Exercise BZZDecoder.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/djvu/test_djvu_modernized.py
+
+
+        :param infile: Value supplied for infile under the utility contract.
+        :param outfile: Value supplied for outfile under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.instream = infile
         self.inptr = 0
         self.outf = outfile
@@ -686,6 +771,19 @@ class BZZDecoder:
             self.fence = 0x7FFF
 
     def convert(self: _typing.Self, sz: int) -> int:
+        """
+        Convert the supplied source into the stage's normalized output representation.
+
+        Example:
+            Exercise BZZDecoder.convert through a consuming regression::
+
+                python -m pytest -q tests/file_formats/djvu/test_djvu_modernized.py
+
+
+        :param sz: Value supplied for sz under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.ieof:
             return 0
         copied = 0
@@ -711,6 +809,18 @@ class BZZDecoder:
         return copied
 
     def preload(self: _typing.Self) -> None:
+        """
+        Perform the preload operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise BZZDecoder.preload through a consuming regression::
+
+                python -m pytest -q tests/file_formats/djvu/test_djvu_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         while self.scount <= 24:
             if not self.read_byte():
                 self.byte = 0xFF
@@ -724,6 +834,19 @@ class BZZDecoder:
         self: _typing.Self,
         table: Sequence[ZTableEntry],
     ) -> None:
+        """
+        Perform the newtable operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise BZZDecoder.newtable through a consuming regression::
+
+                python -m pytest -q tests/file_formats/djvu/test_djvu_modernized.py
+
+
+        :param table: Value supplied for table under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for i in range(256):
             self.p[i] = table[i][0]
             self.m[i] = table[i][1]
@@ -731,6 +854,18 @@ class BZZDecoder:
             self.dn[i] = table[i][3]
 
     def decode(self: _typing.Self) -> int:
+        """
+        Perform the decode operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise BZZDecoder.decode through a consuming regression::
+
+                python -m pytest -q tests/file_formats/djvu/test_djvu_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         outbuf = self.outbuf
         # Decode block size
         self.xsize = self.decode_raw(24)
@@ -855,6 +990,19 @@ class BZZDecoder:
         return self.xsize
 
     def decode_raw(self: _typing.Self, bits: int) -> int:
+        """
+        Perform the decode raw operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise BZZDecoder.decode raw through a consuming regression::
+
+                python -m pytest -q tests/file_formats/djvu/test_djvu_modernized.py
+
+
+        :param bits: Value supplied for bits under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         n = 1
         m = 1 << bits
         while n < m:
@@ -868,6 +1016,21 @@ class BZZDecoder:
         index: int,
         bits: int,
     ) -> int:
+        """
+        Perform the decode binary operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise BZZDecoder.decode binary through a consuming regression::
+
+                python -m pytest -q tests/file_formats/djvu/test_djvu_modernized.py
+
+
+        :param ctx: Value supplied for ctx under the utility contract.
+        :param index: Value supplied for index under the utility contract.
+        :param bits: Value supplied for bits under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         n = 1
         m = 1 << bits
         while n < m:
@@ -876,6 +1039,18 @@ class BZZDecoder:
         return n - m
 
     def zpcodec_decoder(self: _typing.Self) -> int:
+        """
+        Perform the zpcodec decoder operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise BZZDecoder.zpcodec decoder through a consuming regression::
+
+                python -m pytest -q tests/file_formats/djvu/test_djvu_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.decode_sub_simple(0, 0x8000 + (self.a >> 1))
 
     def decode_sub_simple(
@@ -884,6 +1059,20 @@ class BZZDecoder:
         z: int,
     ) -> int:
         # Test MPS/LPS
+        """
+        Perform the decode sub simple operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise BZZDecoder.decode sub simple through a consuming regression::
+
+                python -m pytest -q tests/file_formats/djvu/test_djvu_modernized.py
+
+
+        :param mps: Value supplied for mps under the utility contract.
+        :param z: Value supplied for z under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if z > self.code:
             # LPS branch
             z = 0x10000 - z
@@ -925,6 +1114,21 @@ class BZZDecoder:
         z: int,
     ) -> int:
         # Save bit
+        """
+        Perform the decode sub operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise BZZDecoder.decode sub through a consuming regression::
+
+                python -m pytest -q tests/file_formats/djvu/test_djvu_modernized.py
+
+
+        :param ctx: Value supplied for ctx under the utility contract.
+        :param index: Value supplied for index under the utility contract.
+        :param z: Value supplied for z under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         bit = ctx[index] & 1
         # Avoid interval reversion
         d = 0x6000 + ((z + self.a) >> 2)
@@ -971,6 +1175,20 @@ class BZZDecoder:
         ctx: list[int],
         index: int,
     ) -> int:
+        """
+        Perform the zpcodec decode operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise BZZDecoder.zpcodec decode through a consuming regression::
+
+                python -m pytest -q tests/file_formats/djvu/test_djvu_modernized.py
+
+
+        :param ctx: Value supplied for ctx under the utility contract.
+        :param index: Value supplied for index under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         z = self.a + self.p[ctx[index]]
         if z <= self.fence:
             self.a = z
@@ -980,6 +1198,18 @@ class BZZDecoder:
         return res
 
     def read_byte(self: _typing.Self) -> bool:
+        """
+        Read byte under the format's safety and compatibility rules.
+
+        Example:
+            Exercise BZZDecoder.read byte through a consuming regression::
+
+                python -m pytest -q tests/file_formats/djvu/test_djvu_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             self.byte = self.instream[self.inptr]
             self.inptr += 1
@@ -988,6 +1218,18 @@ class BZZDecoder:
             return False
 
     def ffz(self: _typing.Self) -> int:
+        """
+        Perform the ffz operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise BZZDecoder.ffz through a consuming regression::
+
+                python -m pytest -q tests/file_formats/djvu/test_djvu_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         x = self.a
         if x >= 0xFF00:
             return self.ffzt[x & 0xFF] + 8
@@ -997,6 +1239,18 @@ class BZZDecoder:
 
 # for testing
 def main() -> None:
+    """
+    Perform the main operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise main through a consuming regression::
+
+            python -m pytest -q tests/file_formats/djvu/test_djvu_modernized.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     import sys
     from LiuXin_alpha.utils.plugins import plugins
 

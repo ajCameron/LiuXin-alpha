@@ -1,4 +1,14 @@
-"""Metadata edit parsing and report formatting for the Tk GUI."""
+"""
+Apply metadata edits from the Tk interface.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise metadata editing through a consuming regression::
+
+        python -m pytest -q tests/surfaces/test_tkinter_gui.py
+"""
 
 from __future__ import annotations
 
@@ -22,7 +32,20 @@ _METADATA_FIELD_ALIASES = {
 
 
 def parse_metadata_edit_payload(field: str, text: str) -> tuple[str, dict[str, Any]]:
-    """Return a normalized write field and core metadata.write values payload."""
+    """
+    Return a normalized write field and core metadata.write values payload.
+
+    Example:
+        Exercise parse metadata edit payload through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+    :param field: Metadata or template field addressed by the operation.
+    :param text: Text parsed, normalized or rendered.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     normalized = str(field).strip().lower().replace("-", "_")
     field_name = _METADATA_FIELD_ALIASES.get(normalized, normalized)
     if field_name not in METADATA_EDIT_FIELDS:
@@ -36,7 +59,19 @@ def parse_metadata_edit_payload(field: str, text: str) -> tuple[str, dict[str, A
 
 
 def format_metadata_write_result(result: Mapping[str, Any] | None) -> str:
-    """Format a metadata write response for the metadata panel."""
+    """
+    Format a metadata write response for the metadata panel.
+
+    Example:
+        Exercise format metadata write result through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+    :param result: Value supplied for result under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     data = dict(result or {})
     report = data.get("report") if isinstance(data.get("report"), Mapping) else {}
     changed = "yes" if bool(data.get("changed")) else "no"
@@ -70,6 +105,19 @@ def format_metadata_write_result(result: Mapping[str, Any] | None) -> str:
 
 
 def _split_metadata_values(text: str) -> list[str]:
+    """
+    Perform the split metadata values operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  split metadata values through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+    :param text: Text parsed, normalized or rendered.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     values: list[str] = []
     for value in re.split(r"[;\n]+", str(text or "")):
         value = value.strip()
@@ -79,6 +127,19 @@ def _split_metadata_values(text: str) -> list[str]:
 
 
 def _parse_identifier_values(text: str) -> dict[str, list[str]]:
+    """
+    Parse identifier values under the format's safety and compatibility rules.
+
+    Example:
+        Exercise  parse identifier values through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+    :param text: Text parsed, normalized or rendered.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     identifiers: dict[str, list[str]] = {}
     for entry in _split_metadata_values(text):
         if "=" in entry:
@@ -100,6 +161,20 @@ def _parse_identifier_values(text: str) -> dict[str, list[str]]:
 
 
 def _detail_lines(label: str, values: Any) -> list[str]:
+    """
+    Perform the detail lines operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  detail lines through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+    :param label: Value supplied for label under the utility contract.
+    :param values: Value supplied for values under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if not values:
         return []
     return ["{} detail: {}".format(label, value) for value in values]

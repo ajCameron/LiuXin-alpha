@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:fdm=marker:ai
 
+"""
+Collect words, characters, images and style usage from book content.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise stats through a consuming regression::
+
+        python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -34,18 +45,75 @@ except ModuleNotFoundError:
     QEventLoop = Qt = QSize = QTimer = None
 
     def pyqtProperty(*args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
+        """
+        Perform the pyqtProperty operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise pyqtProperty through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return property(kwargs.get("fget"), kwargs.get("fset"))
 
     def pyqtSlot(*args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
+        """
+        Perform the pyqtSlot operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise pyqtSlot through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         def deco(func: _typing.Any) -> _typing.Any:
+            """
+            Perform the deco operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise pyqtSlot.deco through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+            :param func: Value supplied for func under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return func
 
         return deco
 
     class QWebPage(object):
+        """
+        Provide the qwebpage contract for validated ebook processing.
+
+        Example:
+            Exercise QWebPage through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+        """
         pass
 
     class QWebView(object):
+        """
+        Provide the qwebview contract for validated ebook processing.
+
+        Example:
+            Exercise QWebView through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+        """
         pass
 
 from LiuXin_alpha.constants import iswindows
@@ -63,6 +131,19 @@ __docformat__ = "restructuredtext en"
 
 
 def normalize_font_properties(font: _typing.Any) -> _typing.Any:
+    """
+    Normalize font properties under the format's safety and compatibility rules.
+
+    Example:
+        Exercise normalize font properties through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param font: Value supplied for font under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     w = font.get("font-weight", None)
     if not w and w != 0:
         w = "normal"
@@ -113,6 +194,20 @@ widths = {
 
 
 def get_matching_rules(rules: _typing.Any, font: _typing.Any) -> _typing.Any:
+    """
+    Return matching rules under the format's safety and compatibility rules.
+
+    Example:
+        Exercise get matching rules through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param rules: Value supplied for rules under the utility contract.
+    :param font: Value supplied for font under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     matches = []
 
     # Filter on family
@@ -164,6 +259,19 @@ def get_matching_rules(rules: _typing.Any, font: _typing.Any) -> _typing.Any:
 
 
 def parse_font_families(parser: _typing.Any, raw: _typing.Any) -> _typing.Iterator[_typing.Any]:
+    """
+    Parse font families under the format's safety and compatibility rules.
+
+    Example:
+        Exercise parse font families through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param parser: Value supplied for parser under the utility contract.
+    :param raw: Value supplied for raw under the utility contract.
+    :return: An iterator yielding the normalized values described above.
+    """
     style = parser.parseStyle("font-family:" + raw, validate=False).getProperty("font-family")
     for x in style.propertyValue:
         x = x.value
@@ -172,6 +280,23 @@ def parse_font_families(parser: _typing.Any, raw: _typing.Any) -> _typing.Iterat
 
 
 def get_pseudo_element_font_usage(pseudo_element_font_usage: _typing.Any, first_letter_pat: _typing.Any, parser: _typing.Any) -> _typing.Any:
+    """
+    Return pseudo element font usage under the format's safety and compatibility rules.
+
+    Example:
+        Exercise get pseudo element font usage through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param pseudo_element_font_usage: Value supplied for pseudo element font usage under
+        the utility contract.
+    :param first_letter_pat: Value supplied for first letter pat under the utility
+        contract.
+    :param parser: Value supplied for parser under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     ans = []
     for font_dict, text, pseudo in pseudo_element_font_usage:
         text = text.strip()
@@ -191,7 +316,27 @@ def get_pseudo_element_font_usage(pseudo_element_font_usage: _typing.Any, first_
 
 
 class Page(QWebPage):  # {{{
+    """
+    Provide the page contract for validated ebook processing.
+
+    Example:
+        Exercise Page through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+    """
     def __init__(self: _typing.Self, log: _typing.Any) -> None:
+        """
+        Initialize and validate the page state.
+
+        Example:
+            Exercise Page.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param log: Value supplied for log under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.log = log
         QWebPage.__init__(self)
         self.js = None
@@ -202,12 +347,53 @@ class Page(QWebPage):  # {{{
         self.longjs_counter = 0
 
     def javaScriptConsoleMessage(self: _typing.Self, msg: _typing.Any, lineno: _typing.Any, msgid: _typing.Any) -> None:
+        """
+        Perform the javaScriptConsoleMessage operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Page.javaScriptConsoleMessage through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param msg: Value supplied for msg under the utility contract.
+        :param lineno: Value supplied for lineno under the utility contract.
+        :param msgid: Value supplied for msgid under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.log("JS:", six_unicode(msg))
 
     def javaScriptAlert(self: _typing.Self, frame: _typing.Any, msg: _typing.Any) -> None:
+        """
+        Perform the javaScriptAlert operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Page.javaScriptAlert through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param frame: Value supplied for frame under the utility contract.
+        :param msg: Value supplied for msg under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.log(six_unicode(msg))
 
     def shouldInterruptJavaScript(self: _typing.Self) -> bool:
+        """
+        Perform the shouldInterruptJavaScript operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Page.shouldInterruptJavaScript through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.longjs_counter < 5:
             self.log("Long running javascript, letting it proceed")
             self.longjs_counter += 1
@@ -216,17 +402,54 @@ class Page(QWebPage):  # {{{
         return True
 
     def _pass_json_value_getter(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the pass json value getter operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Page. pass json value getter through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         val = json.dumps(self.bridge_value)
         return val
 
     def _pass_json_value_setter(self: _typing.Self, value: _typing.Any) -> None:
         # Qt WebKit in Qt 4.x adds extra null bytes to the end of the string
         # if the JSON contains non-BMP characters
+        """
+        Perform the pass json value setter operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Page. pass json value setter through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param value: Value normalized, stored, formatted or returned.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.bridge_value = json.loads(six_unicode(value).rstrip("\0"))
 
     _pass_json_value = pyqtProperty(str, fget=_pass_json_value_getter, fset=_pass_json_value_setter)
 
     def load_js(self: _typing.Self) -> None:
+        """
+        Perform the load js operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Page.load js through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.longjs_counter = 0
         if self.js is None:
             from LiuXin_alpha.utils.resources import compiled_coffeescript
@@ -249,7 +472,28 @@ class Page(QWebPage):  # {{{
 
 
 class StatsCollector(object):
+    """
+    Provide the statscollector contract for validated ebook processing.
+
+    Example:
+        Exercise StatsCollector through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+    """
     def __init__(self: _typing.Self, container: _typing.Any, do_embed: bool = False) -> None:
+        """
+        Initialize and validate the statscollector state.
+
+        Example:
+            Exercise StatsCollector.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param container: Value supplied for container under the utility contract.
+        :param do_embed: Value supplied for do embed under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         if CSSParser is None:
             raise ModuleNotFoundError("cssutils is required for oeb polish font statistics.")
         if QEventLoop is None:
@@ -292,6 +536,19 @@ class StatsCollector(object):
             raise Exception("Failed to gather statistics from book, see log for details")
 
     def log_exception(self: _typing.Self, *args: _typing.Any) -> None:
+        """
+        Perform the log exception operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise StatsCollector.log exception through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         orig = self.log.filter_level
         try:
             self.log.filter_level = self.log.DEBUG
@@ -300,6 +557,18 @@ class StatsCollector(object):
             self.log.filter_level = orig
 
     def render_book(self: _typing.Self) -> None:
+        """
+        Perform the render book operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise StatsCollector.render book through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         try:
             if not self.render_queue:
                 self.loop.exit()
@@ -310,11 +579,36 @@ class StatsCollector(object):
             self.loop.exit(1)
 
     def render_next(self: _typing.Self) -> None:
+        """
+        Perform the render next operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise StatsCollector.render next through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         item = six_unicode(self.render_queue.pop(0))
         self.current_item = item
         self._load_html(item, self.view)
 
     def collect(self: _typing.Self, ok: _typing.Any) -> None:
+        """
+        Perform the collect operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise StatsCollector.collect through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param ok: Value supplied for ok under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if not ok:
             self.log.error("Failed to render document: %s" % self.container.relpath(self.current_item))
             self.loop.exit(1)
@@ -333,6 +627,20 @@ class StatsCollector(object):
         self.render_book()
 
     def href_to_name(self: _typing.Self, href: _typing.Any, warn_name: _typing.Any) -> _typing.Any:
+        """
+        Perform the href to name operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise StatsCollector.href to name through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param href: Value supplied for href under the utility contract.
+        :param warn_name: Value supplied for warn name under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not href.startswith("file://"):
             self.log.warn("Non-local URI in", warn_name, ":", href, "ignoring")
             return None
@@ -348,6 +656,18 @@ class StatsCollector(object):
         return name
 
     def collect_font_stats(self: _typing.Self) -> None:
+        """
+        Perform the collect font stats operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise StatsCollector.collect font stats through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.page.evaljs("window.font_stats.get_font_face_rules()")
         font_face_rules = self.page.bridge_value
         if not isinstance(font_face_rules, list):

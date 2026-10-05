@@ -10,22 +10,38 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+"""
+Tokenize raw RTF control words, groups and text payloads.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise tokenize through a consuming regression::
+
+        python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+"""
 from __future__ import annotations
 
-import typing as _typing
 import os
 import re
+import typing as _typing
 
-from LiuXin_alpha.file_formats.rtf2xml import copy
-from LiuXin_alpha.file_formats.rtf2xml import open_for_read, open_for_write
-
+from LiuXin_alpha.file_formats.rtf2xml import copy, open_for_read, open_for_write
 from LiuXin_alpha.utils.libraries.calibre_polyglot.builtins import codepoint_to_chr
-from LiuXin_alpha.utils.mreplace import MReplace
+from LiuXin_alpha.utils.libraries.mreplace import MReplace
 from LiuXin_alpha.utils.ptempfiles import better_mktemp
 
 
 class Tokenize:
-    """Tokenize RTF into one line per field. Each line will contain information useful for the rest of the script"""
+    """
+    Tokenize RTF into one line per field. Each line will contain information useful for the rest of the script
+
+    Example:
+        Exercise Tokenize through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+    """
 
     def __init__(
         self: _typing.Self,
@@ -35,6 +51,21 @@ class Tokenize:
         run_level: int = 1,
         # out_file = None,
     ) -> None:
+        """
+        Initialize and validate the tokenize state.
+
+        Example:
+            Exercise Tokenize.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param in_file: Value supplied for in file under the utility contract.
+        :param bug_handler: Value supplied for bug handler under the utility contract.
+        :param copy: Value supplied for copy under the utility contract.
+        :param run_level: Value supplied for run level under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.__file = in_file
         self.__bug_handler = bug_handler
         self.__copy = copy
@@ -47,10 +78,36 @@ class Tokenize:
         self.__uc_value = [1]
 
     def __reini_utf8_counters(self: _typing.Self) -> None:
+        """
+        Perform the reini utf8 counters operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Tokenize.  reini utf8 counters through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.__uc_char = 0
         self.__uc_bin = False
 
     def __remove_uc_chars(self: _typing.Self, startchar: _typing.Any, token: _typing.Any) -> _typing.Any:
+        """
+        Perform the remove uc chars operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Tokenize.  remove uc chars through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param startchar: Value supplied for startchar under the utility contract.
+        :param token: Value supplied for token under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         for i in range(startchar, len(token)):
             if self.__uc_char:
                 self.__uc_char -= 1
@@ -61,6 +118,19 @@ class Tokenize:
 
     def __unicode_process(self: _typing.Self, token: _typing.Any) -> _typing.Any:
         # change scope in
+        """
+        Perform the unicode process operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Tokenize.  unicode process through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param token: Value supplied for token under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if token == r"\{":
             self.__uc_value.append(self.__uc_value[-1])
             # basic error handling
@@ -119,6 +189,19 @@ class Tokenize:
         return token
 
     def __sub_reg_split(self: _typing.Self, input_file: _typing.Any) -> _typing.Any:
+        """
+        Perform the sub reg split operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Tokenize.  sub reg split through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param input_file: Value supplied for input file under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         input_file = self.__replace_spchar.mreplace(input_file)
         # this is for older RTF
         input_file = self.__par_exp.sub(r"\n\\par \n", input_file)
@@ -134,6 +217,18 @@ class Tokenize:
         return list(filter(lambda x: len(x) > 0 and x != "\n", tokens))
 
     def __compile_expressions(self: _typing.Self) -> None:
+        """
+        Perform the compile expressions operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Tokenize.  compile expressions through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         SIMPLE_RPL = {
             "\\\\": "\\backslash ",
             "\\~": "\\~ ",
@@ -178,9 +273,18 @@ class Tokenize:
         self.__cwdigit_exp = re.compile(r"(\\[a-zA-Z]+[\-0-9]+)([^0-9 \\]+)")
 
     def tokenize(self: _typing.Self) -> None:
-        """Main class for handling other methods. Reads the file \
-        , uses method self.sub_reg to make basic substitutions,\
-        and process tokens by itself"""
+        """
+        Main class for handling other methods. Reads the file , uses method self.sub_reg to make basic substitutions, and process tokens by itself
+
+        Example:
+            Exercise Tokenize.tokenize through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         # read
         with open_for_read(self.__file) as read_obj:
             input_file = read_obj.read()

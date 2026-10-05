@@ -1,3 +1,13 @@
+"""
+Share database allocation and catalogue lifetime across the command-line examples.
+
+An omitted output path uses a temporary directory; an explicit path retains the
+resulting database and must be absent at the initial check. The optional
+LIUXIN_CATALOG_EXAMPLE_TEMPLATE environment variable supplies a database file to
+copy rather than creating a new schema. Expose a Catalog through a context manager
+and re-export the shared diagnostic JSON renderer.
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -25,7 +35,21 @@ from LiuXin_alpha.databases.database import Database
 
 @dataclass(frozen=True, slots=True)
 class CatalogExampleSession:
-    """Live catalog and database details supplied to one example."""
+    """
+    Describe a live Catalog and the database allocation used by one example. This frozen, slotted
+    record does not own or close the database. Its Catalog is usable during the enclosing
+    open_catalog_example context; retaining this record does not extend that lifetime or reopen the
+    connection.
+
+    Example:
+        >>> with open_catalog_example(None) as session:  # doctest: +SKIP
+        ...     catalog = session.catalog
+
+
+    :ivar catalog: Facade over the database opened by the enclosing example context.
+    :ivar database_path: Resolved retained path or database path inside the allocated temporary directory.
+    :ivar database_retained: Whether an explicit output path was requested rather than temporary cleanup.
+    """
 
     catalog: Catalog
     database_path: Path
@@ -33,7 +57,25 @@ class CatalogExampleSession:
 
 
 def add_database_argument(parser: argparse.ArgumentParser) -> None:
-    """Add the common isolated-database option to an example parser."""
+    """
+    Add the shared optional --database argument to an existing parser. Convert supplied text to Path
+    without expanding or checking it. Omission produces None, selecting temporary storage when the
+    example later opens its context. Help explains that an explicit output path is retained and must
+    not already exist; enforcement belongs to open_catalog_example. Parser conflict errors
+    propagate.
+
+    Example:
+        >>> parser = argparse.ArgumentParser()
+        >>> add_database_argument(parser)
+        >>> parser.parse_args([]).database is None
+        True
+        >>> str(parser.parse_args(["--database", "demo.sqlite"]).database)
+        'demo.sqlite'
+
+
+    :param parser: Mutable argument parser to receive the shared database option.
+    :return: None after registering the argument.
+    """
 
     parser.add_argument(
         "--database",
@@ -50,11 +92,34 @@ def add_database_argument(parser: argparse.ArgumentParser) -> None:
 def open_catalog_example(
     database_path: Path | None,
 ) -> Iterator[CatalogExampleSession]:
-    """Open a fresh FRBR database and expose its catalog facade.
+    """
+    Open an example catalogue and yield its allocation details until context exit. Work begins on
+    context entry. With no path, allocate a temporary directory and use catalog.sqlite within it.
+    Otherwise expand/resolve the output, refuse it if it currently exists, and create its parents.
+    This existence check is not an atomic path reservation.
 
-    :param database_path: Optional path at which to retain the example database.
-    :return: Context manager yielding the live catalog and path details.
-    :raises FileExistsError: If a retained database path already exists.
+    A truthy LIUXIN_CATALOG_EXAMPLE_TEMPLATE setting is expanded/resolved, checked as a file
+    distinct from the output, and copied with shutil.copy2. Its existing contents are kept; the
+    helper does not clear template records. Without a template, request schema creation. Open SQLite
+    with backup, automatic storage management, and maintenance disabled, then yield a
+    CatalogExampleSession wrapping Catalog(db).
+
+    Finally close an assigned database, then explicitly clean up a temporary directory. Retained
+    output and created parents remain even after later failures. Template validation and copying
+    happen before this finally block, and a db.close error prevents the explicit temporary cleanup
+    call; no stronger cleanup guarantee is supplied here. Body errors propagate unless replaced by
+    cleanup errors.
+
+    Example:
+        >>> with open_catalog_example(None) as session:  # doctest: +SKIP
+        ...     work_id = session.catalog.works.create({"title": "Example"})
+
+
+    :param database_path: Optional retained output path; None chooses a disposable temporary catalogue.
+    :return: Context manager yielding one live CatalogExampleSession and owning its database lifetime.
+    :raises FileExistsError: If an explicitly retained output path exists at the initial check.
+    :raises FileNotFoundError: If the configured template is not a file.
+    :raises ValueError: If the resolved template and output paths are equal.
     """
 
     temporary_directory: tempfile.TemporaryDirectory[str] | None = None

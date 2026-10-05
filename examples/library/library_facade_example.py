@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 """
-Example: use the unified Library facade for DB + storage.
+Exercise Library-backed Store registration, byte publication, location, and retrieval.
 
-This script:
-1) opens/creates a database,
-2) ensures a managed on-disk store row exists,
-3) refreshes storage manager bindings,
-4) writes and reads one file via `Library`.
+Open/create the selected database, ensure a managed-drive Store row, refresh Store
+bindings, and add a UTF-8 payload through Library. Print catalogue/location details,
+retrieved byte length, and a text preview. The example retains database/files and
+does not assert full payload equality or treat bootstrap report issues as an exit flag.
 """
 
 from __future__ import annotations
@@ -28,6 +27,17 @@ from LiuXin_alpha.library import Library
 
 
 def parse_args() -> argparse.Namespace:
+    """
+    Parse required database/managed-root paths, database type defaulting to SQLite, Store name
+    defaulting to demo_managed_store, and payload text. Database creation is opt-in through
+    --create-db; path expansion, root creation, and storage validation occur later.
+
+    Example:
+        >>> args = parse_args()  # doctest: +SKIP
+
+
+    :return: Parsed argparse namespace; help and invalid arguments raise SystemExit.
+    """
     parser = argparse.ArgumentParser(description="Library facade round-trip example")
     parser.add_argument("--database", required=True, help="Path to LiuXin database file")
     parser.add_argument("--store-root", required=True, help="Root path for managed store")
@@ -39,6 +49,24 @@ def parse_args() -> argparse.Namespace:
 
 
 def ensure_managed_store_row(lib: Library, *, store_root: Path, store_name: str) -> int:
+    """
+    Reuse the first exact-root Store row or create a managed-drive row and return its ID. Search
+    store_root_uri with str(store_root) without path normalization here. For an existing first
+    match, update name, managed-drive kind, file protocol, writable flag, and online status only for
+    allowed columns whose values differ, then sync once if changed. Do not reconcile additional
+    matching rows or refresh active Store objects. Creation supplies all six fields directly through
+    Row.from_idless_row_dict without that allowed-column filter. Prefer row_id when non-None,
+    otherwise read store_id, and convert it to int.
+
+    Example:
+        >>> store_id = ensure_managed_store_row(lib, store_root=root, store_name="demo")  # doctest: +SKIP
+
+
+    :param lib: Open Library whose db supplies Store search, row updates, and insertion.
+    :param store_root: Root path whose exact string is used as the stored/searchable URI value.
+    :param store_name: Name assigned to the selected existing or newly inserted managed Store row.
+    :return: Integer ID of the first matching or newly created Store; database/coercion errors propagate.
+    """
     db = lib.db
     existing = db.search("stores", "store_root_uri", str(store_root))
     if existing:
@@ -76,6 +104,24 @@ def ensure_managed_store_row(lib: Library, *, store_root: Path, store_name: str)
 
 
 def main() -> int:
+    """
+    Ensure a managed Store and publish/retrieve the supplied text through Library. Expand the
+    database path without resolving it, expand/resolve/create the Store root, and open Library with
+    backup and startup-on-add disabled. Ensure the row, refresh bindings with clear_existing=True,
+    and select the first Store with the requested name. Do not branch on bootstrap.ok; missing
+    selection raises StopIteration.
+
+    Add UTF-8 bytes with fixed demo metadata/name, locate the returned Asset, and read through a
+    retrieval context. Print Store/Asset IDs, location/URI, byte count, and a 160-character decoded
+    preview inside the Library context. No full byte-equality assertion is made. Context exit owns
+    cleanup; completed catalogue and byte writes remain after later errors.
+
+    Example:
+        >>> exit_code = main()  # doctest: +SKIP
+
+
+    :return: Zero after reporting and Library cleanup; uncaught parsing, database/storage, selection, or rendering errors propagate.
+    """
     args = parse_args()
     db_path = Path(args.database).expanduser()
     store_root = Path(args.store_root).expanduser().resolve()

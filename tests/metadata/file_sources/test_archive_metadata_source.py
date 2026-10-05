@@ -1,3 +1,14 @@
+"""
+Verify archive metadata dispatch, member selection and fallback behavior.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test archive metadata source through its owning regression module::
+
+        python -m pytest -q tests/metadata/file_sources/test_archive_metadata_source.py
+"""
 from __future__ import annotations
 
 import io
@@ -9,6 +20,19 @@ from LiuXin_alpha.metadata.utils import calibreMetaInformation
 
 
 def _build_cbz_stream(comment: bytes, members: dict[str, bytes] | None = None) -> io.BytesIO:
+    """
+    Perform the build cbz stream test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise build cbz stream through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_archive_metadata_source.py
+
+
+    :param comment: Value supplied for comment in the focused test operation.
+    :param members: Value supplied for members in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     members = members or {"page-001.jpg": b"fake image"}
     stream = io.BytesIO()
     with zipfile.ZipFile(stream, "w") as zf:
@@ -20,6 +44,17 @@ def _build_cbz_stream(comment: bytes, members: dict[str, bytes] | None = None) -
 
 
 def test_is_comic_uses_non_empty_image_only_heuristic() -> None:
+    """
+    Verify is comic uses non empty image only heuristic.
+
+    Example:
+        Exercise test is comic uses non empty image only heuristic through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_archive_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.archive import is_comic
 
     assert is_comic(["Page1.JPG", "nested/page2.png", "Thumbs.db"]) is True
@@ -28,6 +63,17 @@ def test_is_comic_uses_non_empty_image_only_heuristic() -> None:
 
 
 def test_archive_type_detects_zip_and_rar_and_restores_stream_pos() -> None:
+    """
+    Verify archive type detects zip and rar and restores stream pos.
+
+    Example:
+        Exercise test archive type detects zip and rar and restores stream pos through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_archive_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.archive import archive_type
 
     zip_stream = io.BytesIO(b"PK\x03\x04abcd")
@@ -45,6 +91,17 @@ def test_archive_type_detects_zip_and_rar_and_restores_stream_pos() -> None:
 
 
 def test_get_comic_book_info_maps_fields() -> None:
+    """
+    Verify get comic book info maps fields.
+
+    Example:
+        Exercise test get comic book info maps fields through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_archive_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.archive import get_comic_book_info
 
     mi = calibreMetaInformation(None, ["Unknown"])
@@ -81,6 +138,17 @@ def test_get_comic_book_info_maps_fields() -> None:
 
 
 def test_get_comic_metadata_reads_cbz_comment_json() -> None:
+    """
+    Verify get comic metadata reads cbz comment json.
+
+    Example:
+        Exercise test get comic metadata reads cbz comment json through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_archive_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.archive import get_comic_metadata
 
     payload = {
@@ -101,6 +169,17 @@ def test_get_comic_metadata_reads_cbz_comment_json() -> None:
 
 
 def test_get_comic_metadata_tolerates_malformed_comment() -> None:
+    """
+    Verify get comic metadata tolerates malformed comment.
+
+    Example:
+        Exercise test get comic metadata tolerates malformed comment through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_archive_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.archive import get_comic_metadata
 
     stream = _build_cbz_stream(b"this is not json")
@@ -110,6 +189,18 @@ def test_get_comic_metadata_tolerates_malformed_comment() -> None:
 
 
 def test_archive_extract_unwraps_single_supported_member_zip(tmp_path: Path) -> None:
+    """
+    Verify archive extract unwraps single supported member zip.
+
+    Example:
+        Exercise test archive extract unwraps single supported member zip through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_archive_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.archive import ArchiveExtract
 
     archive = tmp_path / "one-book.zip"
@@ -126,6 +217,18 @@ def test_archive_extract_unwraps_single_supported_member_zip(tmp_path: Path) -> 
 
 
 def test_archive_extract_keeps_archive_for_unsupported_or_multi_member(tmp_path: Path) -> None:
+    """
+    Verify archive extract keeps archive for unsupported or multi member.
+
+    Example:
+        Exercise test archive extract keeps archive for unsupported or multi member through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_archive_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.archive import ArchiveExtract
 
     unsupported = tmp_path / "unsupported.zip"
@@ -143,6 +246,18 @@ def test_archive_extract_keeps_archive_for_unsupported_or_multi_member(tmp_path:
 
 
 def test_archive_extract_detects_comic_zip_and_keeps_payload(tmp_path: Path) -> None:
+    """
+    Verify archive extract detects comic zip and keeps payload.
+
+    Example:
+        Exercise test archive extract detects comic zip and keeps payload through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_archive_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.archive import ArchiveExtract
 
     archive = tmp_path / "comic.zip"

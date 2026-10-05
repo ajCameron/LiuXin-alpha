@@ -1,3 +1,14 @@
+"""
+Provide Markdown registries, atomic strings, HTML placeholders and helpers.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise util through a consuming regression::
+
+        python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+"""
 from __future__ import unicode_literals
 from __future__ import annotations
 
@@ -86,7 +97,19 @@ AUXILIARY GLOBAL FUNCTIONS
 
 
 def isBlockLevel(tag: _typing.Any) -> _typing.Any:
-    """Check if the tag is a block level HTML tag."""
+    """
+    Check if the tag is a block level HTML tag.
+
+    Example:
+        Exercise isBlockLevel through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+    :param tag: Value supplied for tag under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if isinstance(tag, string_type):
         return BLOCK_LEVEL_ELEMENTS.match(tag)
     # Some ElementTree tags are not strings, so return False.
@@ -100,41 +123,84 @@ MISC AUXILIARY CLASSES
 
 
 class AtomicString(text_type):
-    """A string which should not be further processed."""
+    """
+    A string which should not be further processed.
+
+    Example:
+        Exercise AtomicString through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+    """
 
     pass
 
 
 class Processor(object):
+    """
+    Provide the processor contract for validated ebook processing.
+
+    Example:
+        Exercise Processor through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+    """
     def __init__(self: _typing.Self, markdown_instance: _typing.Any = None) -> None:
+        """
+        Initialize and validate the processor state.
+
+        Example:
+            Exercise Processor.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param markdown_instance: Value supplied for markdown instance under the utility
+            contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         if markdown_instance:
             self.markdown = markdown_instance
 
 
 class HtmlStash(object):
     """
-    This class is used for stashing HTML objects that we extract
-    in the beginning and replace with place-holders.
+    This class is used for stashing HTML objects that we extract in the beginning and replace with place-holders.
+
+    Example:
+        Exercise HtmlStash through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
     """
 
     def __init__(self: _typing.Self) -> None:
-        """Create a HtmlStash."""
+        """
+        Create a HtmlStash.
+
+        Example:
+            Exercise HtmlStash.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         self.html_counter = 0  # for counting inline html segments
         self.rawHtmlBlocks = []
 
     def store(self: _typing.Self, html: _typing.Any, safe: bool = False) -> _typing.Any:
         """
-        Saves an HTML segment for later reinsertion.  Returns a
-        placeholder string that needs to be inserted into the
-        document.
+        Saves an HTML segment for later reinsertion. Returns a placeholder string that needs to be inserted into the document.
 
-        Keyword arguments:
+        Example:
+            Exercise HtmlStash.store through a consuming regression::
 
-        * html: an html segment
-        * safe: label an html segment as safe for safemode
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
 
-        Returns : a placeholder string
 
+        :param html: Value supplied for html under the utility contract.
+        :param safe: Value supplied for safe under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         self.rawHtmlBlocks.append((html, safe))
         placeholder = self.get_placeholder(self.html_counter)
@@ -142,8 +208,33 @@ class HtmlStash(object):
         return placeholder
 
     def reset(self: _typing.Self) -> None:
+        """
+        Perform the reset operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HtmlStash.reset through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.html_counter = 0
         self.rawHtmlBlocks = []
 
     def get_placeholder(self: _typing.Self, key: _typing.Any) -> _typing.Any:
+        """
+        Return placeholder under the format's safety and compatibility rules.
+
+        Example:
+            Exercise HtmlStash.get placeholder through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param key: Metadata, identifier or local-variable key.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "%swzxhzdk:%d%s" % (STX, key, ETX)

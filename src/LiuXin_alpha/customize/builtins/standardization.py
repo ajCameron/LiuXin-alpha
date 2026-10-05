@@ -1,7 +1,13 @@
 """
-These plugins which represent very basic functions of LiuXin - allows for very deep tweaking of behavior.
+Register built-in metadata-standardization plugins.
 
-In this case, how names are standardized and matched.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise standardization through a consuming regression::
+
+        python -m pytest -q tests/customize/test_customize_base.py
 """
 
 from __future__ import unicode_literals
@@ -38,15 +44,12 @@ except ModuleNotFoundError:
 
 class TitlePhashHandler:
     """
-    When called with a md object, generates a title-author phash which can be used to search the titles table for
-    matches.
-    Used when adding a title to the library to generate the title_phash - also used when trying to see if there's a
-    book corresponding to that metadata in the library.
-    This class exists to generate a range of reasonable phashes from the titles and authors - one of which will
-    hopefully match so that the title in question can be retrieved.
-    Generating the phash, and generating the candidate phashes when searching for a title are similar operations (and
-    having the code for both in the same place just makes sense).
-    ALWAYS USE THE UI. DO NOT LOAD THIS CLASS DIRECTLY.
+    When called with a md object, generates a title-author phash which can be used to search the titles table for matches. Used when adding a title to the library to generate the title_phash - also used when trying to see if there's a book corresponding to that metadata in the library. This class exists to generate a range of reasonable phashes from the titles and authors - one of which will hopefully match so that the title in question can be retrieved. Generating the phash, and generating the candidate phashes when searching for a title are similar operations (and having the code for both in the same place just makes sense). ALWAYS USE THE UI. DO NOT LOAD THIS CLASS DIRECTLY.
+
+    Example:
+        Exercise TitlePhashHandler through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     # Drop strings are strings which should be ignored - they're simplified and have to be surrounded with spaces to
@@ -70,13 +73,17 @@ class TitlePhashHandler:
     @classmethod
     def creator_standardize(cls, creator_string):
         """
-        Brings a name into standard form.
-        This module relies on other standardization modules - the default is the builtin one in
-        LiuXin.customize.builtins.standardization_plugins - when loaded through the title_phash_handler() method in the
-        UI this should be replaced with the actual standardization plugin.
-        In other words - ALWAYS USE THE UI. DO NOT LOAD THIS CLASS DIRECTLY.
-        :param creator_string:
-        :return:
+        Brings a name into standard form. This module relies on other standardization modules - the default is the builtin one in LiuXin.customize.builtins.standardization_plugins - when loaded through the title_phash_handler() method in the UI this should be replaced with the actual standardization plugin. In other words - ALWAYS USE THE UI. DO NOT LOAD THIS CLASS DIRECTLY.
+
+        Example:
+            Exercise TitlePhashHandler.creator standardize through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param creator_string: Value supplied for creator string under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return CreatorStandardize.standardize_creator(creator_string)
 
@@ -84,9 +91,17 @@ class TitlePhashHandler:
     def make_phash(cls, title, authors):
         """
         Takes a title and a list of authors names and generates a phash from them.
-        :param title:
-        :param authors:
-        :return:
+
+        Example:
+            Exercise TitlePhashHandler.make phash through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param title: Value supplied for title under the utility contract.
+        :param authors: Value supplied for authors under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # 1) Standardize the authors list
         authors_list = cls.__do_author_list_standardization(authors)
@@ -106,9 +121,17 @@ class TitlePhashHandler:
     def make_cand_phashes(cls, title, authors):
         """
         Takes the title and an authors iterable - tries to generate reasonable phashes from these.
-        :param title: A string
-        :param authors: An iterable of strings
-        :return:
+
+        Example:
+            Exercise TitlePhashHandler.make cand phashes through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param title: Value supplied for title under the utility contract.
+        :param authors: Value supplied for authors under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # Bring the authors list into a normalized form
         authors_list = []
@@ -154,8 +177,16 @@ class TitlePhashHandler:
     def __do_title_standardization(cls, title_string):
         """
         Standardize the title string.
-        :param title_string:
-        :return:
+
+        Example:
+            Exercise TitlePhashHandler.  do title standardization through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param title_string: Value supplied for title string under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         title_string = icu_lower(title_string)
         title_string = cls.normalize_whitespace(title_string)
@@ -168,8 +199,16 @@ class TitlePhashHandler:
     def __do_author_list_standardization(cls, authors_list):
         """
         Tries to bring the given list of authors names into normal form.
-        :param authors_list:
-        :return:
+
+        Example:
+            Exercise TitlePhashHandler.  do author list standardization through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param authors_list: Value supplied for authors list under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         authors_list = [icu_lower(a) for a in authors_list]
         authors_list = [cls.swap_first_last(a) for a in authors_list]
@@ -183,8 +222,16 @@ class TitlePhashHandler:
     def swap_first_last(cls, author_string):
         """
         Swamps the first and the last name, if the string is broken with a comma.
-        :param author_string:
-        :return:
+
+        Example:
+            Exercise TitlePhashHandler.swap first last through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param author_string: Value supplied for author string under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if "," in author_string:
             author_tokens = author_string.split(",")
@@ -196,8 +243,16 @@ class TitlePhashHandler:
     def normalize_whitespace(cls, author_string):
         """
         Uses a regex replace to normalize all the whitespace down to single spaces.
-        :param author_string:
-        :return:
+
+        Example:
+            Exercise TitlePhashHandler.normalize whitespace through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param author_string: Value supplied for author string under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return re.sub(r"\s+", " ", author_string)
 
@@ -205,8 +260,16 @@ class TitlePhashHandler:
     def drop_prefixes_suffixes(cls, author_string):
         """
         Remove prefixes and suffixes from the given author string.
-        :param author_string:
-        :return:
+
+        Example:
+            Exercise TitlePhashHandler.drop prefixes suffixes through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param author_string: Value supplied for author string under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # Prefixes and suffixes need to be removed without killing chunks of words - so tokenize on spaces, drop any
         # strings which are in the drop list
@@ -223,8 +286,16 @@ class TitlePhashHandler:
     def scrub_little_words(cls, string):
         """
         Remove little words from the given string.
-        :param string:
-        :return:
+
+        Example:
+            Exercise TitlePhashHandler.scrub little words through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param string: Value supplied for string under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         string_tokens = string.split(" ")
         filtered_tokens = []
@@ -237,8 +308,16 @@ class TitlePhashHandler:
     def scrub_forbidden_character(cls, string):
         """
         Remove every forbidden character from the given string - replacing it with whitespace.
-        :param string:
-        :return:
+
+        Example:
+            Exercise TitlePhashHandler.scrub forbidden character through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param string: Value supplied for string under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         allowed_chars = []
         for char in string:
@@ -250,8 +329,17 @@ class TitlePhashHandler:
     def cand_author_strings(cls, author_name_list):
         """
         Takes an author names list - returns a set of candidate strings.
-        :param author_name_list:
-        :return:
+
+        Example:
+            Exercise TitlePhashHandler.cand author strings through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param author_name_list: Value supplied for author name list under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         all_matches = set()
         for author_orders in itertools.permutations(author_name_list):
@@ -261,10 +349,18 @@ class TitlePhashHandler:
     @classmethod
     def _get_all_orderings(cls, author_surname_list):
         """
-        Takes a list of strings - returns a set of them in all possible orders.
-        The size of this return scales factorially. So it can become a problem - fast.
-        :param author_surname_list: A list of strings to be combined in all possible ways.
-        :return:
+        Takes a list of strings - returns a set of them in all possible orders. The size of this return scales factorially. So it can become a problem - fast.
+
+        Example:
+            Exercise TitlePhashHandler. get all orderings through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param author_surname_list: Value supplied for author surname list under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         author_phashes = set()
         for ordering in itertools.permutations(author_surname_list):
@@ -275,8 +371,17 @@ class TitlePhashHandler:
     def _do_one_ordering(cls, ordered_author_name_list):
         """
         Build all author strings for one ordering of author names.
-        :param ordered_author_name_list:
-        :return:
+
+        Example:
+            Exercise TitlePhashHandler. do one ordering through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param ordered_author_name_list: Value supplied for ordered author name list under
+            the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         match_strings = {""}
         for author_name in ordered_author_name_list:
@@ -293,8 +398,12 @@ class TitlePhashHandler:
 
 class CreatorStandardize:
     """
-    Class which presents a single method - standardize_creator. Which does it's best to bring a name into a standard
-    form.
+    Class which presents a single method - standardize_creator. Which does it's best to bring a name into a standard form.
+
+    Example:
+        Exercise CreatorStandardize through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     # 0) Replace all white space with single spaces
@@ -308,8 +417,16 @@ class CreatorStandardize:
     def standardize_creator(cls, creator_string):
         """
         Brings a name into a standard form.
-        :param creator_string:
-        :return:
+
+        Example:
+            Exercise CreatorStandardize.standardize creator through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param creator_string: Value supplied for creator string under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         creator_string = deepcopy(creator_string)
         input_string_tokenized = creator_string.split(",")
@@ -394,6 +511,11 @@ class CreatorStandardize:
 class BaseNameGenerator:
     """
     Makes name for Files stored in the FolderStore.
+
+    Example:
+        Exercise BaseNameGenerator through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     recognized_restrictions = {
@@ -452,9 +574,15 @@ class BaseNameGenerator:
     def __init__(self, restrictions=None):
         """
         Initialize the class
-        :param restrictions: A dictionary of restrictions on the final produce - call recognized_restrictions for a dict
-                             keyed with the name of the recognized restriction and valued with an explanation
-        :return:
+
+        Example:
+            Exercise BaseNameGenerator.  init   through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param restrictions: Value supplied for restrictions under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         if restrictions is not None:
             self.restrictions = restrictions
@@ -464,7 +592,16 @@ class BaseNameGenerator:
     def __sanitize_name_str(self, name_str):
         """
         Remove and replace any characters in the bad characters map.
-        :return:
+
+        Example:
+            Exercise BaseNameGenerator.  sanitize name str through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param name_str: Value supplied for name str under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         name_str = six_unicode(name_str)
 
@@ -475,9 +612,17 @@ class BaseNameGenerator:
 
     def __sanitize_ext_str(self, ext_str):
         """
-        Remove and replace any characters in the bad character map.  "." are still allowed.
-        :param ext_str:
-        :return:
+        Remove and replace any characters in the bad character map. "." are still allowed.
+
+        Example:
+            Exercise BaseNameGenerator.  sanitize ext str through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param ext_str: Value supplied for ext str under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         ext_str = six_unicode(ext_str)
 
@@ -503,23 +648,28 @@ class BaseNameGenerator:
         forbidden_names=None,
     ):
         """
-        Make a name for a file - options to include a lot of information are included - the provided information may or
-        may not be included depending on the restrictions imposed by the file length.
-        :param creator_rows: A list of the rows - must be a list as the order will be preserved from the iterable.
-                            NOTE: The role of the creators will not be recorded - just their names in order
-        :param title: Title string
-        :param extension: The file extension
-        :param series: The series of the object
-        :param series_index: Position of the object in the given series
-        :param book_id: The id of the book this file is linked to on the database
-        :param folder_id: The id of the folder this file should be in
-        :param file_id: The id of this file on the database
-        :param file_priority: The priority of this file in this book on the database
-        :param tag: An optional tag to add at the end of the file name
-        :param forbidden_names: A list of names that already exist in the location the object is going to be placed at -
-                                makes sure that clashes can't occur (which could silently remove data as one file get's
-                                written over the top of another)
-        :return:
+        Make a name for a file - options to include a lot of information are included - the provided information may or may not be included depending on the restrictions imposed by the file length.
+
+        Example:
+            Exercise BaseNameGenerator.make file name through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param title: Value supplied for title under the utility contract.
+        :param creator_rows: Value supplied for creator rows under the utility contract.
+        :param extension: Value supplied for extension under the utility contract.
+        :param series: Value supplied for series under the utility contract.
+        :param series_index: Value supplied for series index under the utility contract.
+        :param book_id: Value supplied for book id under the utility contract.
+        :param folder_id: Value supplied for folder id under the utility contract.
+        :param file_id: Value supplied for file id under the utility contract.
+        :param file_priority: Value supplied for file priority under the utility contract.
+        :param tag: Value supplied for tag under the utility contract.
+        :param forbidden_names: Value supplied for forbidden names under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # To hard to implement the check for extension length in the proper method - so implementing it here
         if self.restrictions is not None:
@@ -654,15 +804,22 @@ class BaseNameGenerator:
         tag=None,
     ):
         """
-        Takes a meta row retrieve from the database - extracts all the information it needs to make a name for a file
-        and returns the new file name.
-        :param meta_row: Contains all the metadata which should be needed to make the file name
-        :param extension: The extension for the file
-        :param folder_id: The id of the folder the file should be in
-        :param file_id: The id of the file on the system
-        :param file_priority: The priority of the file in the book
-        :param tag: Optional tag to add to the end of a file
-        :return:
+        Takes a meta row retrieve from the database - extracts all the information it needs to make a name for a file and returns the new file name.
+
+        Example:
+            Exercise BaseNameGenerator.make file name meta through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param meta_row: Value supplied for meta row under the utility contract.
+        :param extension: Value supplied for extension under the utility contract.
+        :param folder_id: Value supplied for folder id under the utility contract.
+        :param file_id: Value supplied for file id under the utility contract.
+        :param file_priority: Value supplied for file priority under the utility contract.
+        :param tag: Value supplied for tag under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # Check to see if the given extension conforms to the restrictions
         if self.restrictions is not None:
@@ -766,17 +923,33 @@ class BaseNameGenerator:
     def make_book_folder_name_from_row(self, title_row):
         """
         Make the name of a book folder from the books title row
-        :param title_row:
-        :return:
+
+        Example:
+            Exercise BaseNameGenerator.make book folder name from row through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param title_row: Value supplied for title row under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.__sanitize_name_str(ascii_filename(six_unicode(title_row["title"])))
 
     def make_book_folder_name(self, meta_row, folder_id):
         """
         Replace with a call to meta at some point.
-        :param meta_row: The row corresponding to the book from the meta table
-        :param folder_id: The id of the folder that it can be written into the tag
-        :return:
+
+        Example:
+            Exercise BaseNameGenerator.make book folder name through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param meta_row: Value supplied for meta row under the utility contract.
+        :param folder_id: Value supplied for folder id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # Build the name
         title_string = self.__sanitize_name_str(ascii_filename(six_unicode(meta_row["title"])))
@@ -803,8 +976,16 @@ class BaseNameGenerator:
     def make_series_folder_name(self, series_row):
         """
         Make a name for a folder linked to a series.
-        :param series_row:
-        :return:
+
+        Example:
+            Exercise BaseNameGenerator.make series folder name through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param series_row: Value supplied for series row under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if series_row["series"] is None:
             return "Placeholder - series {}".format(series_row["series_id"])
@@ -812,11 +993,18 @@ class BaseNameGenerator:
 
     def make_creators_folder_name(self, creator_list, folder_id):
         """
-        Takes a list of creator rows - creates a nice name for them which can be easily parsed by the system.
-        Assumes the list is sorted in order of name priority - i.e. first name first.
-        :param creator_list:
-        :param folder_id:
-        :return:
+        Takes a list of creator rows - creates a nice name for them which can be easily parsed by the system. Assumes the list is sorted in order of name priority - i.e. first name first.
+
+        Example:
+            Exercise BaseNameGenerator.make creators folder name through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param creator_list: Value supplied for creator list under the utility contract.
+        :param folder_id: Value supplied for folder id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if len(creator_list) == 0:
             err_str = "make_creators_folder_name has been passed a blank index.\n"
@@ -842,8 +1030,17 @@ class BaseNameGenerator:
     def check_against_restrictions(self, candidate_string):
         """
         Checks the string against all the restrictions - returns True if it passes and False otherwise.
-        :param candidate_string:
-        :return:
+
+        Example:
+            Exercise BaseNameGenerator.check against restrictions through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param candidate_string: Value supplied for candidate string under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if self.restrictions is None:
             return True
@@ -856,14 +1053,19 @@ class BaseNameGenerator:
 
     def update_file_name_folder(self, file_name, old_folder_id, new_folder_id):
         """
-        Files are occasionally moved between folders - as the name of the file can depend on the folder it's in (the
-        file name containing the id of the folder) it's then necessary to update the name of the file as well.
-        Currently uses a regular expression - remember that files have to be placed inside a folder and cannot be placed
-        at the root of a folder store - so the ids in both cases shouldn't be None.
-        :param file_name: The name string of the file to update
-        :param old_folder_id: The original folder id - to change
-        :param new_folder_id: The new folder_id - to change it to.
-        :return:
+        Files are occasionally moved between folders - as the name of the file can depend on the folder it's in (the file name containing the id of the folder) it's then necessary to update the name of the file as well. Currently uses a regular expression - remember that files have to be placed inside a folder and cannot be placed at the root of a folder store - so the ids in both cases shouldn't be None.
+
+        Example:
+            Exercise BaseNameGenerator.update file name folder through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param file_name: Value supplied for file name under the utility contract.
+        :param old_folder_id: Value supplied for old folder id under the utility contract.
+        :param new_folder_id: Value supplied for new folder id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         new_folder_id = self.__sanitize_name_str(six_unicode(new_folder_id))
         folder_id_re = r" - lx_folder # ([0-9]+)"
@@ -877,10 +1079,18 @@ class BaseNameGenerator:
     def make_book_cover_name(self, book_row, cover_id, extension):
         """
         Make a name for a book cover.
-        :param book_row:
-        :param cover_id: The id of the cover (included here to reduce the chances of clashing names).
-        :param extension:
-        :return:
+
+        Example:
+            Exercise BaseNameGenerator.make book cover name through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_row: Value supplied for book row under the utility contract.
+        :param cover_id: Value supplied for cover id under the utility contract.
+        :param extension: Value supplied for extension under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         book_meta_row = book_row.db.driver_wrapper.get_view_row_from_id("meta", book_row["book_id"])
         return self.make_book_cover_name_meta(book_meta_row, cover_id, extension)
@@ -888,11 +1098,18 @@ class BaseNameGenerator:
     def make_book_cover_name_meta(self, book_meta_row, cover_id, extension):
         """
         Takes metadata about a book in the form of a row from the meta view - makes a new name for that cover.
-        :param book_meta_row: A row from the meta view containing all the information needed to make the name
-        :param cover_id: The id of the cover file - used to make sure that two covers aren't accidentally generated
-                         in the same place with the same name.
-        :param extension: The extension to give the file
-        :return:
+
+        Example:
+            Exercise BaseNameGenerator.make book cover name meta through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param book_meta_row: Value supplied for book meta row under the utility contract.
+        :param cover_id: Value supplied for cover id under the utility contract.
+        :param extension: Value supplied for extension under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         bcn_components = dict()
         bcn_components["title"] = self.__sanitize_name_str(book_meta_row["title"])
@@ -914,11 +1131,17 @@ class BaseNameGenerator:
         """
         Make a name suitable for a series cover.
 
-        :param series_row: The series that the cover is associated with
-        :param cover_id: The id of the cover file - used to make sure that two covers aren't accidentally generated
-                         in the same place with the same name.
-        :param extension: The extension of the cover
-        :return:
+        Example:
+            Exercise BaseNameGenerator.make series image name through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param series_row: Value supplied for series row under the utility contract.
+        :param cover_id: Value supplied for cover id under the utility contract.
+        :param extension: Value supplied for extension under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         scn_components = dict()
         scn_components["series"] = self.__sanitize_name_str(series_row["series"])
@@ -939,11 +1162,17 @@ class BaseNameGenerator:
         """
         Make a name for a creator image.
 
-        :param creator_row:
-        :param cover_id: The id of the cover file - used to make sure that two covers aren't accidentally generated
-                         in the same place with the same name.
-        :param extension:
-        :return:
+        Example:
+            Exercise BaseNameGenerator.make creator image name through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param creator_row: Value supplied for creator row under the utility contract.
+        :param cover_id: Value supplied for cover id under the utility contract.
+        :param extension: Value supplied for extension under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         cn_components = dict()
         cn_components["creator"] = self.__sanitize_name_str(creator_row["creator"])
@@ -964,8 +1193,15 @@ class BaseNameGenerator:
         """
         Make a name from a cover row for a generic image associated with that creator.
 
-        :param cover_row: The cover row to make the name for.
-        :return:
+        Example:
+            Exercise BaseNameGenerator.make generic image name through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param cover_row: Value supplied for cover row under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # Build the resources needed to make the name
         if cover_row["cover_name"] is not None:
@@ -994,8 +1230,15 @@ def sanitize_object_names(target_name):
     """
     Makes a name safe for actually writing to all operating systems.
 
-    :param target_name:
-    :return:
+    Example:
+        Exercise sanitize object names through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
+
+
+    :param target_name: Value supplied for target name under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     target_name = deepcopy(target_name)
     return target_name.replace(":", "-")

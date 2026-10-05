@@ -1,20 +1,20 @@
-"""Database maintenance subsystem.
+"""
+Expose the plugin maintenance engine and retained compatibility helpers.
 
-This is the new top-level home for maintenance work inside ``databases``.
-It separates:
-- the background engine
-- the plugin primitives
-- builtin maintenance plugins
-- legacy helper functions that still need disentangling
-
-``maintenance_bot.py`` remains as a compatibility wrapper so existing imports do
-not all have to move in one refactor.
+Importing the namespace loads event, plugin, service and legacy definitions but
+starts no worker. MaintenanceBot is an alias of MaintenanceEngine; constructing
+Maintainer starts its engine.
 """
 
 from __future__ import annotations
 
-from LiuXin_alpha.databases.maintenance.builtin_plugins import get_builtin_maintenance_plugins
-from LiuXin_alpha.databases.maintenance.engine import MaintenanceCallbackSink, MaintenanceEngine
+from LiuXin_alpha.databases.maintenance.builtin_plugins import (
+    get_builtin_maintenance_plugins,
+)
+from LiuXin_alpha.databases.maintenance.engine import (
+    MaintenanceCallbackSink,
+    MaintenanceEngine,
+)
 from LiuXin_alpha.databases.maintenance.events import (
     DirtyInterlinkEvent,
     DirtyRowEvent,

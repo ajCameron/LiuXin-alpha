@@ -1,14 +1,15 @@
 #!/usr/bin/env python
 
 """
-PDF metadata source with dependency-light fallbacks.
+Read and update PDF Info/XMP metadata with bounded token parsing and optional external-tool fallbacks.
 
-This module intentionally avoids hard dependencies on compiled PDF bindings when
-reading metadata. It extracts common metadata from:
-1) the PDF Info dictionary
-2) embedded XMP packets when present
+The module keeps malformed-input, optional dependency and resource ownership
+behavior explicit for registry callers.
 
-Writing metadata requires an optional backend (`pypdf`).
+Example:
+    Exercise pdf with pytest::
+
+        python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
 """
 
 from __future__ import annotations
@@ -21,7 +22,6 @@ import shutil
 import subprocess
 import zlib
 from collections import defaultdict
-from pathlib import Path
 from typing import Any
 from xml.etree import ElementTree as ET
 
@@ -30,12 +30,17 @@ from LiuXin_alpha.metadata.constants import (
     INFO_DICT_VALUE_DROP_SET,
     PRODUCER_DROP_REGEX_SET,
 )
-from LiuXin_alpha.metadata.metadata import MetaData
+from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
+    CalibreLikeLiuXinBookMetaData as MetaData,
+)
 from LiuXin_alpha.metadata.utils import check_doi, check_isbn, string_to_authors
 from LiuXin_alpha.utils.libraries.cleantext import clean_xml_chars
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.logging import default_log
-from LiuXin_alpha.utils.python_tools import check_against_regex_set, regex_dict_str_rekey
+from LiuXin_alpha.utils.python_tools import (
+    check_against_regex_set,
+    regex_dict_str_rekey,
+)
 
 VALID_FOR = ["PDF"]
 PRIORITY_FOR = ["PDF"]
@@ -47,16 +52,47 @@ _TRAILER_RE = re.compile(rb"trailer\s*<<(.*?)>>", re.DOTALL | re.IGNORECASE)
 
 
 class PdfParseError(Exception):
-    """Raised when parsing a PDF structure fails in an unexpected way."""
+    """
+    Signal malformed, unsupported or unreadable PDF metadata input.
+
+    Example:
+        Exercise PdfParseError with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+    """
 
 
 def _normalize_text(raw: str | None) -> str:
+    """
+    Collapse whitespace and trim a possibly absent metadata text value.
+
+    Example:
+        Exercise  normalize text with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :param raw: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or serialized value described above.
+    """
     if not raw:
         return ""
     return re.sub(r"\s+", " ", clean_xml_chars(str(raw))).strip()
 
 
 def _safe_decode(data: bytes | str | None) -> str:
+    """
+    Perform decode without propagating optional or recovery failures.
+
+    Example:
+        Exercise  safe decode with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :param data: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or serialized value described above.
+    """
     if data is None:
         return ""
     if isinstance(data, str):
@@ -84,6 +120,19 @@ def _safe_decode(data: bytes | str | None) -> str:
 
 
 def _skip_ws_and_comments(data: bytes, i: int) -> int:
+    """
+    Advance over PDF whitespace and percent comments from the supplied byte offset.
+
+    Example:
+        Exercise  skip ws and comments with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :param data: Raw value or payload to normalize, parse or serialize.
+    :param i: Offset, bound or scalar value used by the operation.
+    :return: Parsed, normalized or serialized value described above.
+    """
     n = len(data)
     while i < n:
         c = data[i : i + 1]
@@ -100,7 +149,19 @@ def _skip_ws_and_comments(data: bytes, i: int) -> int:
 
 def _read_balanced(data: bytes, i: int, start: bytes, end: bytes) -> tuple[bytes, int]:
     """
-    Read a balanced delimiter block. Supports << >> and [ ].
+    Read a nested balanced PDF token while respecting escapes and return the following offset.
+
+    Example:
+        Exercise  read balanced with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :param data: Raw value or payload to normalize, parse or serialize.
+    :param i: Offset, bound or scalar value used by the operation.
+    :param start: Offset, bound or scalar value used by the operation.
+    :param end: Value supplied for end.
+    :return: Parsed, normalized or serialized value described above.
     """
     n = len(data)
     depth = 0
@@ -125,7 +186,17 @@ def _read_balanced(data: bytes, i: int, start: bytes, end: bytes) -> tuple[bytes
 
 def _read_literal_string(data: bytes, i: int) -> tuple[bytes, int]:
     """
-    Read a PDF literal string `( ... )` with basic escape handling.
+    Read and decode one PDF literal string, including escapes and nested parentheses.
+
+    Example:
+        Exercise  read literal string with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :param data: Raw value or payload to normalize, parse or serialize.
+    :param i: Offset, bound or scalar value used by the operation.
+    :return: Parsed, normalized or serialized value described above.
     """
     assert data[i : i + 1] == b"("
     i += 1
@@ -189,6 +260,19 @@ def _read_literal_string(data: bytes, i: int) -> tuple[bytes, int]:
 
 
 def _read_hex_string(data: bytes, i: int) -> tuple[bytes, int]:
+    """
+    Read and decode one PDF hexadecimal string and return the following byte offset.
+
+    Example:
+        Exercise  read hex string with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :param data: Raw value or payload to normalize, parse or serialize.
+    :param i: Offset, bound or scalar value used by the operation.
+    :return: Parsed, normalized or serialized value described above.
+    """
     assert data[i : i + 1] == b"<"
     i += 1
     n = len(data)
@@ -208,6 +292,19 @@ def _read_hex_string(data: bytes, i: int) -> tuple[bytes, int]:
 
 
 def _read_name(data: bytes, i: int) -> tuple[str, int]:
+    """
+    Decode one PDF name token, including hexadecimal name escapes.
+
+    Example:
+        Exercise  read name with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :param data: Raw value or payload to normalize, parse or serialize.
+    :param i: Offset, bound or scalar value used by the operation.
+    :return: Parsed, normalized or serialized value described above.
+    """
     assert data[i : i + 1] == b"/"
     i += 1
     n = len(data)
@@ -230,6 +327,19 @@ def _read_name(data: bytes, i: int) -> tuple[str, int]:
 
 
 def _read_token(data: bytes, i: int) -> tuple[str, Any, int]:
+    """
+    Parse one PDF scalar, string, name, array or dictionary token from the supplied offset.
+
+    Example:
+        Exercise  read token with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :param data: Raw value or payload to normalize, parse or serialize.
+    :param i: Offset, bound or scalar value used by the operation.
+    :return: Parsed, normalized or serialized value described above.
+    """
     i = _skip_ws_and_comments(data, i)
     if i >= len(data):
         return "eof", None, i
@@ -259,6 +369,18 @@ def _read_token(data: bytes, i: int) -> tuple[str, Any, int]:
 
 
 def _parse_array(raw: bytes) -> list[str]:
+    """
+    Parse a raw PDF array into normalized string values.
+
+    Example:
+        Exercise  parse array with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :param raw: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or serialized value described above.
+    """
     if not raw:
         return []
     body = raw[1:-1] if raw.startswith(b"[") and raw.endswith(b"]") else raw
@@ -283,6 +405,18 @@ def _parse_array(raw: bytes) -> list[str]:
 
 
 def _parse_pdf_dict(raw: bytes) -> dict[str, Any]:
+    """
+    Parse a raw PDF dictionary body into key/value pairs used by metadata extraction.
+
+    Example:
+        Exercise  parse pdf dict with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :param raw: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or serialized value described above.
+    """
     raw = raw or b""
     start = raw.find(b"<<")
     if start < 0:
@@ -313,6 +447,18 @@ def _parse_pdf_dict(raw: bytes) -> dict[str, Any]:
 
 
 def _extract_objects(pdf_bytes: bytes) -> dict[tuple[int, int], bytes]:
+    """
+    Index direct PDF objects by object and generation number.
+
+    Example:
+        Exercise  extract objects with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :param pdf_bytes: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or serialized value described above.
+    """
     objects: dict[tuple[int, int], bytes] = {}
     for match in _OBJ_RE.finditer(pdf_bytes):
         num = int(match.group(1))
@@ -323,6 +469,18 @@ def _extract_objects(pdf_bytes: bytes) -> dict[tuple[int, int], bytes]:
 
 
 def _find_info_ref(pdf_bytes: bytes) -> tuple[int, int] | None:
+    """
+    Find the most recent trailer Info indirect reference when present.
+
+    Example:
+        Exercise  find info ref with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :param pdf_bytes: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or serialized value described above.
+    """
     trailers = list(_TRAILER_RE.finditer(pdf_bytes))
     for trailer in reversed(trailers):
         body = trailer.group(1)
@@ -337,6 +495,19 @@ def _find_info_ref(pdf_bytes: bytes) -> tuple[int, int] | None:
 
 
 def _extract_info_dict(pdf_bytes: bytes, objects: dict[tuple[int, int], bytes]) -> dict[str, Any]:
+    """
+    Resolve and parse the PDF Info dictionary from indexed objects or direct trailer data.
+
+    Example:
+        Exercise  extract info dict with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :param pdf_bytes: Raw value or payload to normalize, parse or serialize.
+    :param objects: Value supplied for objects.
+    :return: Parsed, normalized or serialized value described above.
+    """
     info_ref = _find_info_ref(pdf_bytes)
     if info_ref and info_ref in objects:
         return _parse_pdf_dict(objects[info_ref])
@@ -355,6 +526,18 @@ def _extract_info_dict(pdf_bytes: bytes, objects: dict[tuple[int, int], bytes]) 
 
 
 def _extract_stream_data(obj_body: bytes) -> bytes | None:
+    """
+    Return a PDF object's stream payload, inflating supported Flate streams when required.
+
+    Example:
+        Exercise  extract stream data with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :param obj_body: Parsed XML, PDF or metadata node used as the operation context.
+    :return: Parsed, normalized or serialized value described above.
+    """
     match = re.search(rb"stream\r?\n(.*?)\r?\nendstream", obj_body, flags=re.DOTALL)
     if not match:
         return None
@@ -379,6 +562,19 @@ def _extract_stream_data(obj_body: bytes) -> bytes | None:
 
 def _extract_xmp_packet(pdf_bytes: bytes, objects: dict[tuple[int, int], bytes]) -> bytes | None:
     # Prefer explicit metadata streams.
+    """
+    Locate the preferred XMP metadata packet in PDF objects or the raw payload.
+
+    Example:
+        Exercise  extract xmp packet with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :param pdf_bytes: Raw value or payload to normalize, parse or serialize.
+    :param objects: Value supplied for objects.
+    :return: Parsed, normalized or serialized value described above.
+    """
     for _obj_ref, body in objects.items():
         if b"/Type" in body and b"/Metadata" in body and b"stream" in body:
             data = _extract_stream_data(body)
@@ -399,6 +595,19 @@ def _extract_xmp_packet(pdf_bytes: bytes, objects: dict[tuple[int, int], bytes])
 
 
 def _source_name(target_file) -> str:
+    """
+    Return the best available source label for fallback titles and diagnostics.
+
+    Example:
+        Exercise  source name with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :param target_file: Caller-supplied path, path-like object or stream described by
+        this operation.
+    :return: Parsed, normalized or serialized value described above.
+    """
     if isinstance(target_file, os.PathLike):
         return os.fspath(target_file)
     if isinstance(target_file, str):
@@ -407,6 +616,19 @@ def _source_name(target_file) -> str:
 
 
 def _read_source_bytes(target_file) -> tuple[bytes, str]:
+    """
+    Read the complete source payload from bytes, a path or a stream and restore a caller-owned stream position when available.
+
+    Example:
+        Exercise  read source bytes with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :param target_file: Caller-supplied path, path-like object or stream described by
+        this operation.
+    :return: Parsed, normalized or serialized value described above.
+    """
     source_name = _source_name(target_file)
     if isinstance(target_file, os.PathLike):
         target_file = os.fspath(target_file)
@@ -447,6 +669,19 @@ def _read_source_bytes(target_file) -> tuple[bytes, str]:
 
 
 def _default_metadata(source_name: str = "") -> MetaData:
+    """
+    Build minimally usable metadata for missing or explicitly tolerated malformed input.
+
+    Example:
+        Exercise  default metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :param source_name: Source or member label used for lookup, fallback titles or
+        diagnostics.
+    :return: Parsed, normalized or serialized value described above.
+    """
     title = _("Unknown")
     if source_name:
         stem = os.path.splitext(os.path.basename(source_name))[0].strip()
@@ -458,10 +693,34 @@ def _default_metadata(source_name: str = "") -> MetaData:
 
 
 def _payload_looks_like_pdf(payload: bytes) -> bool:
+    """
+    Perform the format-specific payload looks like pdf operation used by this metadata source.
+
+    Example:
+        Exercise  payload looks like pdf with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :param payload: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or serialized value described above.
+    """
     return b"%PDF-" in payload[:1024]
 
 
 def _field_values(raw: Any) -> list[str]:
+    """
+    Perform the format-specific field values operation used by this metadata source.
+
+    Example:
+        Exercise  field values with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :param raw: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or serialized value described above.
+    """
     if raw is None:
         return []
     if isinstance(raw, dict):
@@ -476,7 +735,19 @@ def _field_values(raw: Any) -> list[str]:
 
 def process_key_value_pair(key, value, info_dict_keys, md):
     """
-    Compatibility helper: process one Info key/value pair onto `md`.
+    Map one recognized PDF Info key into the destination metadata object.
+
+    Example:
+        Exercise process key value pair with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :param key: Name, type or encoding selector used for lookup or interpretation.
+    :param value: Offset, bound or scalar value used by the operation.
+    :param info_dict_keys: Value supplied for info dict keys.
+    :param md: Metadata object supplying or receiving the supported fields.
+    :return: None.
     """
     key = _normalize_text(str(key).lower())
     value_str = value
@@ -548,7 +819,17 @@ def process_key_value_pair(key, value, info_dict_keys, md):
 
 def process_metadata_info_dict(info_dict, md):
     """
-    Normalize and consume PDF Info dictionary content.
+    Apply supported PDF Info dictionary fields to the destination metadata object.
+
+    Example:
+        Exercise process metadata info dict with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :param info_dict: Parsed XML, PDF or metadata node used as the operation context.
+    :param md: Metadata object supplying or receiving the supported fields.
+    :return: None.
     """
     regex_rekey_dict = {
         r"^author$": "author",
@@ -584,7 +865,18 @@ def process_metadata_info_dict(info_dict, md):
 
 def process_xmp_metadata_dict(xmp_metadata_dict, metadata_return):
     """
-    Consume parsed XMP metadata and merge onto `metadata_return`.
+    Apply preferred XMP fields and containers to the destination metadata object.
+
+    Example:
+        Exercise process xmp metadata dict with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :param xmp_metadata_dict: Parsed XML, PDF or metadata node used as the operation
+        context.
+    :param metadata_return: Metadata object supplying or receiving the supported fields.
+    :return: None.
     """
     xmp_metadata_dict = dict(xmp_metadata_dict or {})
 
@@ -652,7 +944,12 @@ def process_xmp_metadata_dict(xmp_metadata_dict, metadata_return):
 
 class XmpParser:
     """
-    Lightweight parser for extracting useful XMP namespaces from PDF metadata.
+    Convert XMP/RDF XML properties and containers into simple Python values.
+
+    Example:
+        Exercise XmpParser with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
     """
 
     RDF_NS = "{http://www.w3.org/1999/02/22-rdf-syntax-ns#}"
@@ -665,12 +962,36 @@ class XmpParser:
     }
 
     def __init__(self, xmp: bytes | str):
+        """
+        Implement init for the bound metadata helper while preserving its container invariants.
+
+        Example:
+            Exercise XmpParser.  init   with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+        :param xmp: Raw value or payload to normalize, parse or serialize.
+        :return: None.
+        """
         if isinstance(xmp, bytes):
             xmp = xmp.decode("utf-8", "replace")
         self.tree = ET.XML(xmp)
         self.rdftree = self.tree.find(self.RDF_NS + "RDF")
 
     def _parse_tag(self, el):
+        """
+        Parse tag without inventing absent metadata values.
+
+        Example:
+            Exercise XmpParser. parse tag with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+        :param el: Parsed XML, PDF or metadata node used as the operation context.
+        :return: Parsed, normalized or serialized value described above.
+        """
         ns = None
         tag = el.tag
         if tag.startswith("{"):
@@ -679,6 +1000,18 @@ class XmpParser:
         return ns, tag
 
     def _parse_value(self, el):
+        """
+        Parse value without inventing absent metadata values.
+
+        Example:
+            Exercise XmpParser. parse value with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+        :param el: Parsed XML, PDF or metadata node used as the operation context.
+        :return: Parsed, normalized or serialized value described above.
+        """
         bag = el.find(self.RDF_NS + "Bag")
         if bag is not None:
             return [li.text for li in bag.findall(self.RDF_NS + "li")]
@@ -695,6 +1028,17 @@ class XmpParser:
 
     @property
     def meta(self):
+        """
+        Implement meta for the bound metadata helper while preserving its container invariants.
+
+        Example:
+            Exercise XmpParser.meta with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+        :return: Parsed, normalized or serialized value described above.
+        """
         meta = defaultdict(dict)
         if self.rdftree is None:
             return {}
@@ -707,10 +1051,37 @@ class XmpParser:
 
 
 def xmp_to_dict(xmp):
+    """
+    Parse XMP XML into the simplified property mapping used by the PDF reader.
+
+    Example:
+        Exercise xmp to dict with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :param xmp: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or serialized value described above.
+    """
     return XmpParser(xmp).meta
 
 
 def get_metadata(stream, *, fallback_on_parse_error: bool = False):
+    """
+    Read metadata from the supported path, bytes or stream input while applying module ownership and fallback policy.
+
+    Example:
+        Exercise get metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :param stream: Caller-supplied path, path-like object or stream described by this
+        operation.
+    :param fallback_on_parse_error: Return safe default metadata after parse errors when
+        true; otherwise raise the format error.
+    :return: Parsed, normalized or serialized value described above.
+    """
     source_name = _source_name(stream)
     try:
         pdf_bytes, source_name = _read_source_bytes(stream)
@@ -809,11 +1180,38 @@ def get_metadata(stream, *, fallback_on_parse_error: bool = False):
 
 
 def get_metadata_inplace(target_file, *, fallback_on_parse_error: bool = False):
+    """
+    Read metadata through the path-oriented adapter exposed to registry plugins.
+
+    Example:
+        Exercise get metadata inplace with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :param target_file: Caller-supplied path, path-like object or stream described by
+        this operation.
+    :param fallback_on_parse_error: Return safe default metadata after parse errors when
+        true; otherwise raise the format error.
+    :return: Parsed, normalized or serialized value described above.
+    """
     with open(target_file, "rb") as target_pdf_stream:
         return get_metadata(target_pdf_stream, fallback_on_parse_error=fallback_on_parse_error)
 
 
 def _first_value(raw: Any) -> str | None:
+    """
+    Return the first usable value under fallback policy.
+
+    Example:
+        Exercise  first value with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :param raw: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or serialized value described above.
+    """
     vals = _field_values(raw)
     for val in vals:
         normed = _normalize_text(str(val))
@@ -823,6 +1221,18 @@ def _first_value(raw: Any) -> str | None:
 
 
 def _metadata_to_pdf_dict(mi) -> dict[str, str]:
+    """
+    Serialize supported metadata fields into sanitized PDF Info dictionary strings.
+
+    Example:
+        Exercise  metadata to pdf dict with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :param mi: Metadata object supplying or receiving the supported fields.
+    :return: Parsed, normalized or serialized value described above.
+    """
     out: dict[str, str] = {}
     title = _first_value(getattr(mi, "title", None))
     if title:
@@ -863,10 +1273,18 @@ def _metadata_to_pdf_dict(mi) -> dict[str, str]:
 
 def set_metadata(stream, mi):
     """
-    Write metadata into a PDF stream.
+    Rewrite supported metadata fields without taking ownership of a caller-supplied stream.
 
-    Requires `pypdf` as an optional runtime dependency. If unavailable, this
-    raises a clear RuntimeError.
+    Example:
+        Exercise set metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :param stream: Caller-supplied path, path-like object or stream described by this
+        operation.
+    :param mi: Metadata object supplying or receiving the supported fields.
+    :return: None.
     """
     if isinstance(stream, os.PathLike):
         stream = os.fspath(stream)
@@ -927,7 +1345,16 @@ get_quick_metadata = get_metadata
 
 def get_tool(tool_name):
     """
-    Resolve an external PDF utility binary path, if available.
+    Return the first available supported PDF command-line tool for the requested operation.
+
+    Example:
+        Exercise get tool with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :param tool_name: Name, type or encoding selector used for lookup or interpretation.
+    :return: Parsed, normalized or serialized value described above.
     """
     try:
         from LiuXin_alpha.file_formats.pdf.pdftohtml import PDFTOHTML
@@ -943,35 +1370,24 @@ def get_tool(tool_name):
     return found
 
 
-def read_info(outputdir, get_cover):
-    """
-    Compatibility shim for legacy worker entrypoint.
-    """
-    src = Path(outputdir) / "src.pdf"
-    if not src.is_file():
-        return None
-    md = get_metadata_inplace(src)
-    ans = {}
-    title = _first_value(getattr(md, "title", None))
-    authors = _field_values(getattr(md, "authors", None))
-    tags = _field_values(getattr(md, "tags", None))
-    producer = _first_value(getattr(md, "producers", None))
-    if title:
-        ans["Title"] = title
-    if authors:
-        ans["Author"] = ", ".join(authors)
-    if tags:
-        ans["Keywords"] = ", ".join(tags)
-    if producer:
-        ans["Producer"] = producer
-    # Cover extraction is backend-dependent and intentionally omitted in this shim.
-    del get_cover
-    return ans
 
 
 def page_images(pdfpath, outputdir, first=1, last=1):
     """
-    Render PDF pages to images using `pdftoppm` when available.
+    Render a bounded page range to image files with the configured PDF backend.
+
+    Example:
+        Exercise page images with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :param pdfpath: Caller-supplied path, path-like object or stream described by this
+        operation.
+    :param outputdir: Directory used for temporary or generated output files.
+    :param first: Offset, bound or scalar value used by the operation.
+    :param last: Offset, bound or scalar value used by the operation.
+    :return: Parsed, normalized or serialized value described above.
     """
     pdf_to_ppm = get_tool("pdftoppm")
     if not pdf_to_ppm:
@@ -994,7 +1410,18 @@ def page_images(pdfpath, outputdir, first=1, last=1):
 
 def get_calibre_metadata(stream, cover=True):
     """
-    Compatibility helper returning a calibre-like metadata object.
+    Read PDF metadata through the compatibility entry point and optionally request cover data.
+
+    Example:
+        Exercise get calibre metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdf_metadata_source.py
+
+
+    :param stream: Caller-supplied path, path-like object or stream described by this
+        operation.
+    :param cover: Request cover discovery or cover payload extraction when true.
+    :return: Parsed, normalized or serialized value described above.
     """
     del cover
     md = get_metadata(stream)
@@ -1014,7 +1441,6 @@ __all__ = [
     "get_quick_metadata",
     "set_metadata",
     "get_tool",
-    "read_info",
     "page_images",
     "get_calibre_metadata",
     "process_key_value_pair",

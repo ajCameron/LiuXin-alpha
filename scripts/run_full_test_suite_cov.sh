@@ -168,7 +168,7 @@ if [[ ${RECREATE_VENV} -eq 1 ]]; then
 fi
 
 PIP_UPGRADE_CMD=("${VENV_PYTHON}" -m pip install -U pip)
-PIP_INSTALL_CMD=("${VENV_PYTHON}" -m pip install -e ".[test,search]")
+PIP_INSTALL_CMD=("${VENV_PYTHON}" -m pip install -e ".[test,search,conversion]")
 COV_INSTALL_CMD=("${VENV_PYTHON}" -m pip install pytest-cov)
 COVERAGE_HTML_DIR="${RESULTS_DIR}/${RUN_ID}-html"
 COVERAGE_XML_FILE="${RESULTS_DIR}/${RUN_ID}.xml"

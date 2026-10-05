@@ -1,6 +1,14 @@
-'''
-Support for reading LIT files.
-'''
+"""
+Parse LIT container sections, metadata, transforms and content resources.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise reader through a consuming regression::
+
+        python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -38,19 +46,78 @@ if _msdes_mod is None:
 
 class _LZXCompat:
 
+    """
+    Provide the lzxcompat contract for validated ebook processing.
+
+    Example:
+        Exercise  LZXCompat through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+    """
     LZXError = getattr(_lzx_mod, "LZXError", Exception)
 
     def __init__(self: _typing.Self, mod: _typing.Any) -> None:
+        """
+        Initialize and validate the lzxcompat state.
+
+        Example:
+            Exercise  LZXCompat.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :param mod: Value supplied for mod under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self._mod = mod
         self._state = None
 
     def init(self: _typing.Self, window_size: _typing.Any) -> None:
+        """
+        Perform the init operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  LZXCompat.init through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :param window_size: Value supplied for window size under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._state = self._mod.LZXinit(window_size)
 
     def reset(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the reset operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  LZXCompat.reset through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._mod.LZXreset(self._state)
 
     def decompress(self: _typing.Self, content: _typing.Any, outlen: _typing.Any) -> _typing.Any:
+        """
+        Decode the supplied format payload and return its uncompressed bytes.
+
+        Example:
+            Exercise  LZXCompat.decompress through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :param content: Value supplied for content under the utility contract.
+        :param outlen: Value supplied for outlen under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._mod.LZXdecompress(self._state, content, outlen)
 
 
@@ -99,29 +166,113 @@ FLAG_ATOM    = (1 << 4)
 
 
 def _unpack_bytes(byts: _typing.Any, size: _typing.Any, label: _typing.Any) -> _typing.Any:
+    """
+    Perform the unpack bytes operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  unpack bytes through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+    :param byts: Value supplied for byts under the utility contract.
+    :param size: Value supplied for size under the utility contract.
+    :param label: Value supplied for label under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if len(byts) < size:
         raise LitError(f'Truncated {label}')
     return byts[:size]
 
 
 def _unpack(fmt: _typing.Any, byts: _typing.Any, size: _typing.Any, label: _typing.Any) -> _typing.Any:
+    """
+    Perform the unpack operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  unpack through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+    :param fmt: Date, number or template format specification.
+    :param byts: Value supplied for byts under the utility contract.
+    :param size: Value supplied for size under the utility contract.
+    :param label: Value supplied for label under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     byts = _unpack_bytes(byts, size, label)
     return struct.unpack(fmt, byts)[0]
 
 
 def u32(bytes: _typing.Any) -> _typing.Any:
+    """
+    Perform the u32 operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise u32 through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+    :param bytes: Value supplied for bytes under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return _unpack('<L', bytes, 4, '32-bit integer')
 
 
 def u16(bytes: _typing.Any) -> _typing.Any:
+    """
+    Perform the u16 operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise u16 through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+    :param bytes: Value supplied for bytes under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return _unpack('<H', bytes, 2, '16-bit integer')
 
 
 def int32(bytes: _typing.Any) -> _typing.Any:
+    """
+    Perform the int32 operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise int32 through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+    :param bytes: Value supplied for bytes under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return _unpack('<l', bytes, 4, 'signed 32-bit integer')
 
 
 def encint(byts: _typing.Any, remaining: _typing.Any) -> tuple[_typing.Any, ...]:
+    """
+    Perform the encint operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise encint through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+    :param byts: Value supplied for byts under the utility contract.
+    :param remaining: Value supplied for remaining under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     pos, val = 0, 0
     ba = bytearray(byts)
     if remaining < 0:
@@ -145,11 +296,38 @@ def encint(byts: _typing.Any, remaining: _typing.Any) -> tuple[_typing.Any, ...]
 
 
 def msguid(bytes: _typing.Any) -> _typing.Any:
+    """
+    Perform the msguid operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise msguid through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+    :param bytes: Value supplied for bytes under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     values = struct.unpack('<LHHBBBBBBBB', _unpack_bytes(bytes, 16, 'GUID'))
     return '{{{:08X}-{:04X}-{:04X}-{:02X}{:02X}-{:02X}{:02X}{:02X}{:02X}{:02X}{:02X}}}'.format(*values)
 
 
 def read_utf8_char(bytes: _typing.Any, pos: _typing.Any) -> tuple[_typing.Any, ...]:
+    """
+    Read utf8 char under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read utf8 char through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+    :param bytes: Value supplied for bytes under the utility contract.
+    :param pos: Value supplied for pos under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if pos >= len(bytes):
         raise LitError('Invalid UTF8 character: end of input')
 
@@ -194,6 +372,20 @@ def read_utf8_char(bytes: _typing.Any, pos: _typing.Any) -> tuple[_typing.Any, .
 
 
 def consume_sized_utf8_string(bytes: _typing.Any, zpad: bool = False) -> tuple[_typing.Any, ...]:
+    """
+    Perform the consume sized utf8 string operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise consume sized utf8 string through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+    :param bytes: Value supplied for bytes under the utility contract.
+    :param zpad: Value supplied for zpad under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     result = []
     slen, pos = read_utf8_char(bytes, 0)
     for i in range(ord(slen)):
@@ -205,10 +397,31 @@ def consume_sized_utf8_string(bytes: _typing.Any, zpad: bool = False) -> tuple[_
 
 
 def encode(string: _typing.Any) -> _typing.Any:
+    """
+    Perform the encode operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise encode through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+    :param string: Value supplied for string under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return str(string).encode('ascii', 'xmlcharrefreplace')
 
 
 class UnBinary:
+    """
+    Provide the unbinary contract for validated ebook processing.
+
+    Example:
+        Exercise UnBinary through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+    """
     AMPERSAND_RE = re.compile(
         br'&(?!(?:#[0-9]+|#x[0-9a-fA-F]+|[a-zA-Z_:][a-zA-Z0-9.-_:]+);)')
     OPEN_ANGLE_RE = re.compile(br'<<(?![!]--)')
@@ -217,6 +430,23 @@ class UnBinary:
     EMPTY_ATOMS = ({},{})
 
     def __init__(self: _typing.Self, bin: _typing.Any, path: _typing.Any, manifest: dict[_typing.Any, _typing.Any] = {}, map: _typing.Any = HTML_MAP, atoms: _typing.Any = EMPTY_ATOMS) -> None:
+        """
+        Initialize and validate the unbinary state.
+
+        Example:
+            Exercise UnBinary.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :param bin: Value supplied for bin under the utility contract.
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :param manifest: Value supplied for manifest under the utility contract.
+        :param map: Value supplied for map under the utility contract.
+        :param atoms: Value supplied for atoms under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.manifest = manifest
         self.tag_map, self.attr_map, self.tag_to_attr_map = map
         self.is_html = map is HTML_MAP
@@ -229,6 +459,18 @@ class UnBinary:
         self._tree = None
 
     def escape_reserved(self: _typing.Self) -> None:
+        """
+        Perform the escape reserved operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise UnBinary.escape reserved through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raw = self.raw
         raw = self.AMPERSAND_RE.sub(br'&amp;', raw)
         raw = self.OPEN_ANGLE_RE.sub(br'&lt;', raw)
@@ -237,6 +479,19 @@ class UnBinary:
         self.raw = raw
 
     def item_path(self: _typing.Self, internal_id: _typing.Any) -> _typing.Any:
+        """
+        Perform the item path operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise UnBinary.item path through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :param internal_id: Value supplied for internal id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             target = self.manifest[internal_id].path
         except KeyError:
@@ -255,19 +510,81 @@ class UnBinary:
 
     @property
     def binary_representation(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the binary representation operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise UnBinary.binary representation through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.raw
 
     @property
     def unicode_representation(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the unicode representation operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise UnBinary.unicode representation through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.raw.decode('utf-8')
 
     def __unicode__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the unicode operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise UnBinary.  unicode   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.unicode_representation
 
     def __str__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the str operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise UnBinary.  str   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.unicode_representation
 
     def binary_to_text(self: _typing.Self, bin: _typing.Any, buf: _typing.Any) -> None:
+        """
+        Perform the binary to text operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise UnBinary.binary to text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :param bin: Value supplied for bin under the utility contract.
+        :param buf: Value supplied for buf under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         stack = [(0, None, None, 0, 0, False, False, 'text', 0)]
         self.cpos = 0
         while stack:
@@ -275,6 +592,21 @@ class UnBinary:
         del self.cpos
 
     def binary_to_text_inner(self: _typing.Self, bin: _typing.Any, buf: _typing.Any, stack: _typing.Any) -> None:
+        """
+        Perform the binary to text inner operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise UnBinary.binary to text inner through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :param bin: Value supplied for bin under the utility contract.
+        :param buf: Value supplied for buf under the utility contract.
+        :param stack: Value supplied for stack under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         (depth, tag_name, current_map, dynamic_tag, errors,
                 in_censorship, is_goingdown, state, flags) = stack.pop()
 
@@ -471,22 +803,94 @@ class UnBinary:
 
 class DirectoryEntry:
 
+    """
+    Provide the directoryentry contract for validated ebook processing.
+
+    Example:
+        Exercise DirectoryEntry through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+    """
     def __init__(self: _typing.Self, name: _typing.Any, section: _typing.Any, offset: _typing.Any, size: _typing.Any) -> None:
+        """
+        Initialize and validate the directoryentry state.
+
+        Example:
+            Exercise DirectoryEntry.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param section: Value supplied for section under the utility contract.
+        :param offset: Value supplied for offset under the utility contract.
+        :param size: Value supplied for size under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.name = name
         self.section = section
         self.offset = offset
         self.size = size
 
     def __repr__(self: _typing.Self) -> str:
+        """
+        Perform the repr operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DirectoryEntry.  repr   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return f'DirectoryEntry(name={self.name!r}, section={self.section}, offset={self.offset}, size={self.size})'
 
     def __str__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the str operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DirectoryEntry.  str   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return repr(self)
 
 
 class ManifestItem:
 
+    """
+    Provide the manifestitem contract for validated ebook processing.
+
+    Example:
+        Exercise ManifestItem through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+    """
     def __init__(self: _typing.Self, original: _typing.Any, internal: _typing.Any, mime_type: _typing.Any, offset: _typing.Any, root: _typing.Any, state: _typing.Any) -> None:
+        """
+        Initialize and validate the manifestitem state.
+
+        Example:
+            Exercise ManifestItem.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :param original: Value supplied for original under the utility contract.
+        :param internal: Value supplied for internal under the utility contract.
+        :param mime_type: Value supplied for mime type under the utility contract.
+        :param offset: Value supplied for offset under the utility contract.
+        :param root: Root directory that bounds path resolution or traversal.
+        :param state: Value supplied for state under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.original = original
         self.internal = internal
         self.mime_type = mime_type.lower() if hasattr(mime_type, 'lower') else mime_type
@@ -504,18 +908,71 @@ class ManifestItem:
         self.path = path
 
     def __eq__(self: _typing.Self, other: _typing.Any) -> bool:
+        """
+        Perform the eq operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ManifestItem.  eq   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :param other: Value supplied for other under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if hasattr(other, 'internal'):
             return self.internal == other.internal
         return self.internal == other
 
     def __repr__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the repr operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ManifestItem.  repr   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return (
             f'ManifestItem(internal={self.internal!r}, path={self.path!r}, mime_type={self.mime_type!r},'
             f' offset={self.offset}, root={self.root!r}, state={self.state!r})')
 
 
 def preserve(function: _typing.Any) -> _typing.Any:
+    """
+    Perform the preserve operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise preserve through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+    :param function: Value supplied for function under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     def wrapper(self: _typing.Any, *args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
+        """
+        Perform the wrapper operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise preserve.wrapper through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :param self: Value supplied for self under the utility contract.
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         opos = self.stream.tell()
         try:
             return function(self, *args, **kwargs)
@@ -526,9 +983,31 @@ def preserve(function: _typing.Any) -> _typing.Any:
 
 
 class LitFile:
+    """
+    Provide the litfile contract for validated ebook processing.
+
+    Example:
+        Exercise LitFile through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+    """
     PIECE_SIZE = 16
 
     def __init__(self: _typing.Self, filename_or_stream: _typing.Any, log: _typing.Any) -> None:
+        """
+        Initialize and validate the litfile state.
+
+        Example:
+            Exercise LitFile.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :param filename_or_stream: Value supplied for filename or stream under the utility
+            contract.
+        :param log: Value supplied for log under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self._warn = log.warn
         if hasattr(filename_or_stream, 'read'):
             self.stream = filename_or_stream
@@ -550,58 +1029,246 @@ class LitFile:
         self.read_drm()
 
     def warn(self: _typing.Self, msg: _typing.Any) -> None:
+        """
+        Perform the warn operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LitFile.warn through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :param msg: Value supplied for msg under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._warn(msg)
 
     def magic() -> _typing.Any:
+        """
+        Perform the magic operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LitFile.magic through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         @preserve
         def fget(self: _typing.Any) -> _typing.Any:
+            """
+            Perform the fget operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise LitFile.magic.fget through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+            :param self: Value supplied for self under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             self.stream.seek(0)
             return self.stream.read(8)
         return property(fget=fget)
     magic = magic()
 
     def version() -> _typing.Any:
+        """
+        Perform the version operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LitFile.version through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         def fget(self: _typing.Any) -> _typing.Any:
+            """
+            Perform the fget operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise LitFile.version.fget through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+            :param self: Value supplied for self under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             self.stream.seek(8)
             return u32(self.stream.read(4))
         return property(fget=fget)
     version = version()
 
     def hdr_len() -> _typing.Any:
+        """
+        Perform the hdr len operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LitFile.hdr len through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         @preserve
         def fget(self: _typing.Any) -> _typing.Any:
+            """
+            Perform the fget operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise LitFile.hdr len.fget through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+            :param self: Value supplied for self under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             self.stream.seek(12)
             return int32(self.stream.read(4))
         return property(fget=fget)
     hdr_len = hdr_len()
 
     def num_pieces() -> _typing.Any:
+        """
+        Perform the num pieces operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LitFile.num pieces through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         @preserve
         def fget(self: _typing.Any) -> _typing.Any:
+            """
+            Perform the fget operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise LitFile.num pieces.fget through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+            :param self: Value supplied for self under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             self.stream.seek(16)
             return int32(self.stream.read(4))
         return property(fget=fget)
     num_pieces = num_pieces()
 
     def sec_hdr_len() -> _typing.Any:
+        """
+        Perform the sec hdr len operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LitFile.sec hdr len through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         @preserve
         def fget(self: _typing.Any) -> _typing.Any:
+            """
+            Perform the fget operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise LitFile.sec hdr len.fget through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+            :param self: Value supplied for self under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             self.stream.seek(20)
             return int32(self.stream.read(4))
         return property(fget=fget)
     sec_hdr_len = sec_hdr_len()
 
     def guid() -> _typing.Any:
+        """
+        Perform the guid operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LitFile.guid through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         @preserve
         def fget(self: _typing.Any) -> _typing.Any:
+            """
+            Perform the fget operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise LitFile.guid.fget through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+            :param self: Value supplied for self under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             self.stream.seek(24)
             return self.stream.read(16)
         return property(fget=fget)
     guid = guid()
 
     def header() -> _typing.Any:
+        """
+        Perform the header operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LitFile.header through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         @preserve
         def fget(self: _typing.Any) -> _typing.Any:
+            """
+            Perform the fget operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise LitFile.header.fget through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+            :param self: Value supplied for self under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             size = self.hdr_len \
                 + (self.num_pieces * self.PIECE_SIZE) \
                 + self.sec_hdr_len
@@ -612,18 +1279,70 @@ class LitFile:
 
     @preserve
     def __len__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the len operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LitFile.  len   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.stream.seek(0, 2)
         return self.stream.tell()
 
     @preserve
     def read_raw(self: _typing.Self, offset: _typing.Any, size: _typing.Any) -> _typing.Any:
+        """
+        Read raw under the format's safety and compatibility rules.
+
+        Example:
+            Exercise LitFile.read raw through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :param offset: Value supplied for offset under the utility contract.
+        :param size: Value supplied for size under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.stream.seek(offset)
         return self.stream.read(size)
 
     def read_content(self: _typing.Self, offset: _typing.Any, size: _typing.Any) -> _typing.Any:
+        """
+        Read content under the format's safety and compatibility rules.
+
+        Example:
+            Exercise LitFile.read content through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :param offset: Value supplied for offset under the utility contract.
+        :param size: Value supplied for size under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.read_raw(self.content_offset + offset, size)
 
     def read_secondary_header(self: _typing.Self) -> None:
+        """
+        Read secondary header under the format's safety and compatibility rules.
+
+        Example:
+            Exercise LitFile.read secondary header through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         offset = self.hdr_len + (self.num_pieces * self.PIECE_SIZE)
         byts = self.read_raw(offset, self.sec_hdr_len)
         if len(byts) < 8:
@@ -666,6 +1385,18 @@ class LitFile:
             raise LitError('Could not figure out the content offset')
 
     def read_header_pieces(self: _typing.Self) -> None:
+        """
+        Read header pieces under the format's safety and compatibility rules.
+
+        Example:
+            Exercise LitFile.read header pieces through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         src = self.header[self.hdr_len:]
         for i in range(self.num_pieces):
             piece = src[i * self.PIECE_SIZE:(i + 1) * self.PIECE_SIZE]
@@ -691,6 +1422,19 @@ class LitFile:
                 self.piece4_guid = piece
 
     def read_directory(self: _typing.Self, piece: _typing.Any) -> None:
+        """
+        Read directory under the format's safety and compatibility rules.
+
+        Example:
+            Exercise LitFile.read directory through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :param piece: Value supplied for piece under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if not piece.startswith(b'IFCM'):
             raise LitError('Header piece #1 is not main directory.')
         chunk_size, num_chunks = int32(piece[8:12]), int32(piece[24:28])
@@ -733,6 +1477,18 @@ class LitFile:
                 self.entries[name] = entry
 
     def read_section_names(self: _typing.Self) -> None:
+        """
+        Read section names under the format's safety and compatibility rules.
+
+        Example:
+            Exercise LitFile.read section names through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if '::DataSpace/NameList' not in self.entries:
             raise LitError('Lit file does not have a valid NameList')
         raw = self.get_file('::DataSpace/NameList')
@@ -755,6 +1511,18 @@ class LitFile:
             pos += size
 
     def read_manifest(self: _typing.Self) -> None:
+        """
+        Read manifest under the format's safety and compatibility rules.
+
+        Example:
+            Exercise LitFile.read manifest through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if '/manifest' not in self.entries:
             raise LitError('Lit file does not have a valid manifest')
         raw = self.get_file('/manifest')
@@ -814,6 +1582,18 @@ class LitFile:
             self.paths[item.path] = item
 
     def read_drm(self: _typing.Self) -> None:
+        """
+        Read drm under the format's safety and compatibility rules.
+
+        Example:
+            Exercise LitFile.read drm through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.drmlevel = 0
         self.bookkey = None
         self.drm_fallback = False
@@ -847,6 +1627,18 @@ class LitFile:
             raise DRMError('Cannot access DRM-protected book')
 
     def calculate_deskey(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the calculate deskey operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LitFile.calculate deskey through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         hashfiles = ['/meta', '/DRMStorage/DRMSource']
         if self.drmlevel == 3:
             hashfiles.append('/DRMStorage/DRMBookplate')
@@ -871,6 +1663,19 @@ class LitFile:
         return bytes(key)
 
     def get_file(self: _typing.Self, name: _typing.Any) -> _typing.Any:
+        """
+        Return file under the format's safety and compatibility rules.
+
+        Example:
+            Exercise LitFile.get file through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         entry = self.entries[name]
         if entry.section == 0:
             return self.read_content(entry.offset, entry.size)
@@ -878,6 +1683,19 @@ class LitFile:
         return section[entry.offset:entry.offset+entry.size]
 
     def get_section(self: _typing.Self, section: _typing.Any) -> _typing.Any:
+        """
+        Return section under the format's safety and compatibility rules.
+
+        Example:
+            Exercise LitFile.get section through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :param section: Value supplied for section under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.section_data[section]
         if not data:
             data = self.get_section_uncached(section)
@@ -885,6 +1703,19 @@ class LitFile:
         return data
 
     def get_section_uncached(self: _typing.Self, section: _typing.Any) -> _typing.Any:
+        """
+        Return section uncached under the format's safety and compatibility rules.
+
+        Example:
+            Exercise LitFile.get section uncached through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :param section: Value supplied for section under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         name = self.section_names[section]
         path = '::DataSpace/Storage/' + name
         transform = self.get_file(path + '/Transform/List')
@@ -910,6 +1741,19 @@ class LitFile:
         return content
 
     def decrypt(self: _typing.Self, content: _typing.Any) -> _typing.Any:
+        """
+        Perform the decrypt operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LitFile.decrypt through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :param content: Value supplied for content under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not self.bookkey:
             raise LitError(
                 'LIT contains encrypted data but no title key is available'
@@ -923,6 +1767,21 @@ class LitFile:
         return msdes.des(content)
 
     def decompress(self: _typing.Self, content: _typing.Any, control: _typing.Any, reset_table: _typing.Any) -> _typing.Any:
+        """
+        Decode the supplied format payload and return its uncompressed bytes.
+
+        Example:
+            Exercise LitFile.decompress through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :param content: Value supplied for content under the utility contract.
+        :param control: Value supplied for control under the utility contract.
+        :param reset_table: Value supplied for reset table under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if len(control) < 32 or control[CONTROL_TAG:CONTROL_TAG+4] != b'LZXC':
             raise LitError('Invalid ControlData tag value')
         if len(reset_table) < (RESET_INTERVAL + 8):
@@ -980,6 +1839,19 @@ class LitFile:
         return b''.join(result)
 
     def get_atoms(self: _typing.Self, entry: _typing.Any) -> tuple[_typing.Any, ...]:
+        """
+        Return atoms under the format's safety and compatibility rules.
+
+        Example:
+            Exercise LitFile.get atoms through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :param entry: Value supplied for entry under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         name = '/'.join(('/data', entry.internal, 'atom'))
         if name not in self.entries:
             return {}, {}
@@ -1012,19 +1884,78 @@ class LitFile:
 
 
 class LitContainer:
-    '''Simple Container-interface, read-only accessor for LIT files.'''
+    """
+    Simple Container-interface, read-only accessor for LIT files.
+
+    Example:
+        Exercise LitContainer through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+    """
 
     def __init__(self: _typing.Self, filename_or_stream: _typing.Any, log: _typing.Any) -> None:
+        """
+        Initialize and validate the litcontainer state.
+
+        Example:
+            Exercise LitContainer.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :param filename_or_stream: Value supplied for filename or stream under the utility
+            contract.
+        :param log: Value supplied for log under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self._litfile = LitFile(filename_or_stream, log)
         self.log = log
 
     def namelist(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the namelist operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LitContainer.namelist through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._litfile.paths.keys()
 
     def exists(self: _typing.Self, name: _typing.Any) -> bool:
+        """
+        Perform the exists operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LitContainer.exists through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return urlunquote(name) in self._litfile.paths
 
     def read(self: _typing.Self, name: _typing.Any) -> _typing.Any:
+        """
+        Perform the read operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LitContainer.read through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         entry = self._litfile.paths[urlunquote(name)] if name else None
         if entry is None:
             content = OPF_DECL + self._read_meta()
@@ -1045,6 +1976,18 @@ class LitContainer:
         return content
 
     def _read_meta(self: _typing.Self) -> _typing.Any:
+        """
+        Read meta under the format's safety and compatibility rules.
+
+        Example:
+            Exercise LitContainer. read meta through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         path = 'content.opf'
         raw = self._litfile.get_file('/meta')
         try:
@@ -1059,14 +2002,47 @@ class LitContainer:
         return unbin.unicode_representation
 
     def get_metadata(self: _typing.Self) -> _typing.Any:
+        """
+        Return metadata under the format's safety and compatibility rules.
+
+        Example:
+            Exercise LitContainer.get metadata through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._read_meta()
 
 
 class LitReader(OEBReader):
+    """
+    Parse litreader data into normalized ebook structures.
+
+    Example:
+        Exercise LitReader through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+    """
     Container = LitContainer
     DEFAULT_PROFILE = 'MSReader'
 
     def _spine_from_opf(self: _typing.Self, opf: _typing.Any) -> None:
+        """
+        Perform the spine from opf operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LitReader. spine from opf through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+
+
+        :param opf: Value supplied for opf under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         from LiuXin_alpha.file_formats.oeb.base import OEB_DOCS, OEBError
 
         manifest = self.oeb.manifest

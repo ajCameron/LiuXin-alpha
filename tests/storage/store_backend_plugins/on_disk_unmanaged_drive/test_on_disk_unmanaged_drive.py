@@ -1,23 +1,28 @@
-"""New-API contracts for an existing unmanaged disk Store."""
+"""
+Exercise read-only local discovery, ownership, ingestion, and single-file compatibility.
+
+Tests use real local bytes. Ingestion and manager attachment retain in-memory
+registration while reading/writing filesystem Stores; they are not live database
+persistence checks. Raw undecodable filenames are exercised only on POSIX.
+"""
 
 from __future__ import annotations
 
 import os
-
 from pathlib import Path
 
 import pytest
 
-from LiuXin_alpha.ingest import ingest_store
+from LiuXin_alpha.ingest.stores import ingest_store
 from LiuXin_alpha.storage import api
-from LiuXin_alpha.storage.storage_manager import InMemoryStorageManager
-from LiuXin_alpha.storage.stores import FilesystemStore
+from LiuXin_alpha.storage.storage_manager.manager import TransientStorageManager
 from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_unmanaged_drive import (
     OnDiskUnmanagedStorageBackend,
 )
-from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_unmanaged_drive.on_disk_unmanaged_single_file import (
+from LiuXin_alpha.storage.store_backend_plugins.on_disk_existing_unmanaged_drive.on_disk_existing_unmanaged_drive_single_file import (
     OnDiskUnmanagedSingleFile,
 )
+from LiuXin_alpha.storage.stores import FilesystemStore
 from tests.fixtures.storage_unicode import (
     POSIX_BAD_BYTES_FILENAME,
     POSIX_BAD_BYTES_FILENAME_BYTES,
@@ -31,6 +36,17 @@ from tests.fixtures.storage_unicode import (
 def test_on_disk_unmanaged_drive_discovers_unicode_names_and_bytes(
     tmp_path: Path,
 ) -> None:
+    """
+    Create the shared Unicode path externally, discover it through the read-only Store, and verify
+    basename hints, exact bytes, and URI round-trip identity.
+
+    Example:
+        >>> test_on_disk_unmanaged_drive_discovers_unicode_names_and_bytes(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory used for real local roots, source files, and committed payloads.
+    :return: None after the stated regression assertions pass.
+    """
     path = tmp_path.joinpath(*UNICODE_KEY.split("/"))
     path.parent.mkdir(parents=True)
     path.write_bytes(UNICODE_PAYLOAD)
@@ -51,6 +67,17 @@ def test_on_disk_unmanaged_drive_discovers_unicode_names_and_bytes(
 def test_on_disk_unmanaged_drive_ingests_undecodable_filename_bytes(
     tmp_path: Path,
 ) -> None:
+    """
+    Discover a raw POSIX filename through surrogateescape, preserve its URI identity, and ingest its
+    exact bytes into a real destination using an in-memory manager.
+
+    Example:
+        >>> test_on_disk_unmanaged_drive_ingests_undecodable_filename_bytes(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory used for real local roots, source files, and committed payloads.
+    :return: None after the stated regression assertions pass.
+    """
     source_root = tmp_path / "source"
     source_root.mkdir()
     raw_path = os.path.join(
@@ -70,7 +97,7 @@ def test_on_disk_unmanaged_drive_ingests_undecodable_filename_bytes(
     assert store.location_from_uri(uri) == location
 
     destination = FilesystemStore(tmp_path / "destination")
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((destination.configuration, destination),),
         default_store_ref=destination.store_ref,
     )
@@ -82,6 +109,17 @@ def test_on_disk_unmanaged_drive_ingests_undecodable_filename_bytes(
 
 
 def test_on_disk_unmanaged_drive_init_requires_existing_root(tmp_path: Path) -> None:
+    """
+    Construct at a missing root, verify startup reports unavailable, and ensure the read-only Store
+    does not create that directory.
+
+    Example:
+        >>> test_on_disk_unmanaged_drive_init_requires_existing_root(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory used for real local roots, source files, and committed payloads.
+    :return: None after the stated regression assertions pass.
+    """
     missing = tmp_path / "missing"
     store = OnDiskUnmanagedStorageBackend(missing)
     assert not store.startup().available
@@ -89,6 +127,17 @@ def test_on_disk_unmanaged_drive_init_requires_existing_root(tmp_path: Path) -> 
 
 
 def test_on_disk_unmanaged_drive_exists_and_path_boundary(tmp_path: Path) -> None:
+    """
+    Distinguish a real file from an absent key and reject a parent-traversing location after
+    startup.
+
+    Example:
+        >>> test_on_disk_unmanaged_drive_exists_and_path_boundary(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory used for real local roots, source files, and committed payloads.
+    :return: None after the stated regression assertions pass.
+    """
     (tmp_path / "book.epub").write_bytes(b"book")
     store = OnDiskUnmanagedStorageBackend(tmp_path)
     store.startup()
@@ -99,6 +148,16 @@ def test_on_disk_unmanaged_drive_exists_and_path_boundary(tmp_path: Path) -> Non
 
 
 def test_on_disk_unmanaged_drive_stat(tmp_path: Path) -> None:
+    """
+    Stat an externally created file and verify both its four-byte size and owned Location identity.
+
+    Example:
+        >>> test_on_disk_unmanaged_drive_stat(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory used for real local roots, source files, and committed payloads.
+    :return: None after the stated regression assertions pass.
+    """
     (tmp_path / "book.epub").write_bytes(b"book")
     store = OnDiskUnmanagedStorageBackend(tmp_path)
     info = store.stat_file("book.epub")
@@ -109,6 +168,17 @@ def test_on_disk_unmanaged_drive_stat(tmp_path: Path) -> None:
 def test_on_disk_unmanaged_drive_iter_locations_iterates_recursively(
     tmp_path: Path,
 ) -> None:
+    """
+    Create root and nested files outside the Store and require recursive enumeration to return
+    exactly those two keys.
+
+    Example:
+        >>> test_on_disk_unmanaged_drive_iter_locations_iterates_recursively(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory used for real local roots, source files, and committed payloads.
+    :return: None after the stated regression assertions pass.
+    """
     (tmp_path / "nested").mkdir()
     (tmp_path / "root.bin").write_bytes(b"root")
     (tmp_path / "nested/book.epub").write_bytes(b"book")
@@ -120,6 +190,16 @@ def test_on_disk_unmanaged_drive_iter_locations_iterates_recursively(
 
 
 def test_on_disk_unmanaged_drive_is_read_only(tmp_path: Path) -> None:
+    """
+    Require byte creation and deletion of an existing file to raise StoreReadOnly.
+
+    Example:
+        >>> test_on_disk_unmanaged_drive_is_read_only(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory used for real local roots, source files, and committed payloads.
+    :return: None after the stated regression assertions pass.
+    """
     (tmp_path / "existing").write_bytes(b"data")
     store = OnDiskUnmanagedStorageBackend(tmp_path)
     with pytest.raises(api.StoreReadOnly):
@@ -131,6 +211,17 @@ def test_on_disk_unmanaged_drive_is_read_only(tmp_path: Path) -> None:
 def test_on_disk_unmanaged_drive_startup_and_status_reports_read_only(
     tmp_path: Path,
 ) -> None:
+    """
+    Verify available read-only startup, complete enumeration, and disabled creation capability for
+    an existing directory.
+
+    Example:
+        >>> test_on_disk_unmanaged_drive_startup_and_status_reports_read_only(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory used for real local roots, source files, and committed payloads.
+    :return: None after the stated regression assertions pass.
+    """
     store = OnDiskUnmanagedStorageBackend(tmp_path)
     status = store.startup()
     assert status.available
@@ -140,9 +231,20 @@ def test_on_disk_unmanaged_drive_startup_and_status_reports_read_only(
 
 
 def test_storage_manager_can_attach_on_disk_unmanaged_store(tmp_path: Path) -> None:
+    """
+    Register an unmanaged Store with the in-memory manager and read an externally created file
+    through its owned Location.
+
+    Example:
+        >>> test_storage_manager_can_attach_on_disk_unmanaged_store(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory used for real local roots, source files, and committed payloads.
+    :return: None after the stated regression assertions pass.
+    """
     (tmp_path / "book.epub").write_bytes(b"book")
     store = OnDiskUnmanagedStorageBackend(tmp_path)
-    manager = InMemoryStorageManager(
+    manager = TransientStorageManager(
         store_registrations=((store.configuration, store),),
         default_store_ref=store.store_ref,
     )
@@ -152,6 +254,17 @@ def test_storage_manager_can_attach_on_disk_unmanaged_store(tmp_path: Path) -> N
 def test_unmanaged_single_file_compatibility_facade_uses_current_api(
     tmp_path: Path,
 ) -> None:
+    """
+    Bind a real text file through the legacy facade and check Store/Location identity, size, a
+    two-byte read, and full UTF-8 text.
+
+    Example:
+        >>> test_unmanaged_single_file_compatibility_facade_uses_current_api(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory used for real local roots, source files, and committed payloads.
+    :return: None after the stated regression assertions pass.
+    """
     path = tmp_path / "book.txt"
     path.write_text("book", encoding="utf-8")
     file = OnDiskUnmanagedSingleFile(path)

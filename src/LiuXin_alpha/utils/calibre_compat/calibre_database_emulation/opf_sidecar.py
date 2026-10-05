@@ -1,25 +1,13 @@
 """
-Stage B4 (pre-C): best-effort readers for Calibre sidecar OPF metadata.
+Parse OPF sidecars and project safe metadata onto Calibre library records.
 
-Why this exists
----------------
-Some Calibre libraries drift into states where ``metadata.db`` is missing,
-unreadable, or intentionally excluded from a backup/transfer. In those cases,
-Calibre typically still leaves per-book sidecar files such as:
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
 
-- ``metadata.opf`` (OPF2/OPF3-ish metadata payload)
-- ``cover.jpg`` (or similar)
+Example:
+    Exercise opf sidecar through a consuming regression::
 
-This module provides a conservative, best-effort parser for ``metadata.opf`` and
-a filesystem scanner that yields :class:`~LiuXin_alpha.databases.calibre_emulation.types.CalibreBookNormalized`
-payloads without requiring SQLite access.
-
-Design goals
-------------
-- Never write to disk
-- Do not require Calibre as a dependency
-- Be tolerant of mangled XML/JSON
-- Keep the API surface small and streaming-friendly
+        python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_b4_opf_sidecar.py
 """
 
 from __future__ import annotations
@@ -45,8 +33,15 @@ def _localname(tag: str) -> str:
     """
     Extract the tag text from a tag.
 
-    :param tag:
-    :return:
+    Example:
+        Exercise  localname through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_b4_opf_sidecar.py
+
+
+    :param tag: Value supplied for tag under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     # '{ns}name' -> 'name'
     if not tag:
@@ -60,8 +55,15 @@ def _strip_text(x: Optional[str]) -> str:
     """
     Strip leading and trailing whitespace from a string.
 
-    :param x:
-    :return:
+    Example:
+        Exercise  strip text through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_b4_opf_sidecar.py
+
+
+    :param x: Value supplied for x under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if x is None:
         return ""
@@ -72,9 +74,15 @@ def _iter_elements_by_localname(root: ET.Element, local: str) -> Iterator[ET.Ele
     """
     Iterate over all elements within a local-name tag.
 
-    :param root:
-    :param local:
-    :return:
+    Example:
+        Exercise  iter elements by localname through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_b4_opf_sidecar.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param local: Value supplied for local under the utility contract.
+    :return: An iterator yielding the normalized values described above.
     """
     want = local.lower()
     for elem in root.iter():
@@ -86,8 +94,15 @@ def _meta_key(elem: ET.Element) -> str:
     """
     OPF2 uses name/content; OPF3 uses property/text.
 
-    :param elem:
-    :return:
+    Example:
+        Exercise  meta key through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_b4_opf_sidecar.py
+
+
+    :param elem: Value supplied for elem under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return _strip_text(elem.attrib.get("name") or elem.attrib.get("property"))
 
@@ -96,8 +111,15 @@ def _meta_value(elem: ET.Element) -> str:
     """
     Best effort to get the value from the element.
 
-    :param elem:
-    :return:
+    Example:
+        Exercise  meta value through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_b4_opf_sidecar.py
+
+
+    :param elem: Value supplied for elem under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if "content" in elem.attrib:
         return _strip_text(elem.attrib.get("content"))
@@ -108,8 +130,15 @@ def _safe_parse_xml(opf_bytes: bytes) -> Tuple[Optional[ET.Element], Optional[st
     """
     Pase an xml as bytes into something with an iterate over.
 
-    :param opf_bytes:
-    :return:
+    Example:
+        Exercise  safe parse xml through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_b4_opf_sidecar.py
+
+
+    :param opf_bytes: Value supplied for opf bytes under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     try:
         root = ET.fromstring(opf_bytes)
@@ -133,6 +162,11 @@ def _safe_parse_xml(opf_bytes: bytes) -> Tuple[Optional[ET.Element], Optional[st
 class ParsedOPF:
     """
     The results of parsing an OPF.
+
+    Example:
+        Exercise ParsedOPF through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_b4_opf_sidecar.py
     """
     title: str = ""
     authors: Tuple[str, ...] = ()
@@ -150,10 +184,15 @@ def parse_metadata_opf(opf_path: Path) -> ParsedOPF:
     """
     Parse a Calibre ``metadata.opf`` file best-effort.
 
-    Returns a ParsedOPF with warnings filled if parsing was partial.
+    Example:
+        Exercise parse metadata opf through a consuming regression::
 
-    :param opf_path:
-    :return:
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_b4_opf_sidecar.py
+
+
+    :param opf_path: Value supplied for opf path under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     warnings: List[str] = []
     try:
@@ -227,6 +266,19 @@ def parse_metadata_opf(opf_path: Path) -> ParsedOPF:
 
     def _get_meta(name: str) -> Optional[str]:
         # last one wins
+        """
+        Perform the get meta utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise parse metadata opf. get meta through a consuming regression::
+
+                python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_b4_opf_sidecar.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         out = None
         for k, v in meta_entries:
             if k == name:
@@ -353,7 +405,20 @@ def parse_metadata_opf(opf_path: Path) -> ParsedOPF:
 # ----------------------------
 
 def _ensure_path_under_root(library_root: Path, p: Path) -> Path:
-    """Ensure an absolute path is within the library root."""
+    """
+    Ensure an absolute path is within the library root.
+
+    Example:
+        Exercise  ensure path under root through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_b4_opf_sidecar.py
+
+
+    :param library_root: Root directory of the Calibre library being inspected.
+    :param p: Path-like value normalized or validated by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     root = library_root.resolve()
     pp = p.resolve()
     try:
@@ -367,8 +432,15 @@ def _synthetic_id_from_relpath(rel: str) -> int:
     """
     Deterministic negative int.
 
-    :param rel:
-    :return:
+    Example:
+        Exercise  synthetic id from relpath through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_b4_opf_sidecar.py
+
+
+    :param rel: Value supplied for rel under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     b = rel.encode("utf-8", errors="ignore")
     crc = zlib.crc32(b) & 0xFFFFFFFF
@@ -381,8 +453,15 @@ def _find_cover_file(book_dir: Path) -> Optional[Path]:
     """
     Calibre default is cover.jpg, but we allow a few variants.
 
-    :param book_dir:
-    :return:
+    Example:
+        Exercise  find cover file through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_b4_opf_sidecar.py
+
+
+    :param book_dir: Directory containing one Calibre book's formats and cover.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     candidates = ["cover.jpg", "cover.jpeg", "cover.png", "Cover.jpg", "Cover.jpeg", "Cover.png"]
     for c in candidates:
@@ -400,6 +479,19 @@ def _find_cover_file(book_dir: Path) -> Optional[Path]:
 
 
 def _list_format_files(book_dir: Path) -> Tuple[CalibreFormatRef, ...]:
+    """
+    Return format files under the documented compatibility and safety rules.
+
+    Example:
+        Exercise  list format files through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_b4_opf_sidecar.py
+
+
+    :param book_dir: Directory containing one Calibre book's formats and cover.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     out: List[CalibreFormatRef] = []
     try:
         for p in sorted(book_dir.iterdir()):
@@ -426,6 +518,11 @@ def _list_format_files(book_dir: Path) -> Tuple[CalibreFormatRef, ...]:
 class CalibreSidecarReader:
     """
     Stream Calibre payloads using per-book sidecar files (no metadata.db).
+
+    Example:
+        Exercise CalibreSidecarReader through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_b4_opf_sidecar.py
     """
 
     library_root: Path
@@ -435,8 +532,15 @@ class CalibreSidecarReader:
         """
         Populate the sidecar reader from a Calibre library.
 
-        :param library_root:
-        :return:
+        Example:
+            Exercise CalibreSidecarReader.from root through a consuming regression::
+
+                python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_b4_opf_sidecar.py
+
+
+        :param library_root: Root directory of the Calibre library being inspected.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return cls(library_root=Path(library_root))
 
@@ -444,8 +548,15 @@ class CalibreSidecarReader:
         """
         Open a cover file.
 
-        :param cover_path:
-        :return:
+        Example:
+            Exercise CalibreSidecarReader.open cover through a consuming regression::
+
+                python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_b4_opf_sidecar.py
+
+
+        :param cover_path: Value supplied for cover path under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         root = Path(self.library_root)
         safe = _ensure_path_under_root(root, Path(cover_path))
@@ -455,8 +566,15 @@ class CalibreSidecarReader:
         """
         Open a format file.
 
-        :param fmt:
-        :return:
+        Example:
+            Exercise CalibreSidecarReader.open format through a consuming regression::
+
+                python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_b4_opf_sidecar.py
+
+
+        :param fmt: Date, number or template format specification.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         root = Path(self.library_root)
         safe = _ensure_path_under_root(root, Path(fmt.file_path))
@@ -467,9 +585,15 @@ class CalibreSidecarReader:
         """
         Iterate over a file in chunks.
 
-        :param fh:
-        :param chunk_size:
-        :return:
+        Example:
+            Exercise CalibreSidecarReader.iter file chunks through a consuming regression::
+
+                python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_b4_opf_sidecar.py
+
+
+        :param fh: Value supplied for fh under the utility contract.
+        :param chunk_size: Value supplied for chunk size under the utility contract.
+        :return: An iterator yielding the normalized values described above.
         """
         while True:
             chunk = fh.read(int(chunk_size))
@@ -489,12 +613,20 @@ class CalibreSidecarReader:
         """
         Walk the library and yield per-book payloads based on ``metadata.opf``.
 
-        :param include_formats:
-        :param include_cover_path:
-        :param strict_paths:
-        :param best_effort:
-        :param max_books:
-        :return:
+        Example:
+            Exercise CalibreSidecarReader.iter book payloads through a consuming regression::
+
+                python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_b4_opf_sidecar.py
+
+
+        :param include_formats: Value supplied for include formats under the utility
+            contract.
+        :param include_cover_path: Value supplied for include cover path under the utility
+            contract.
+        :param strict_paths: Value supplied for strict paths under the utility contract.
+        :param best_effort: Value supplied for best effort under the utility contract.
+        :param max_books: Value supplied for max books under the utility contract.
+        :return: An iterator yielding the normalized values described above.
         """
         root = Path(self.library_root)
         yielded = 0

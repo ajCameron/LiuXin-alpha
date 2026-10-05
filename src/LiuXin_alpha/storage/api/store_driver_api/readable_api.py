@@ -1,5 +1,13 @@
 """
-Minimal readable core and safe read-only conveniences for drivers.
+Define the mandatory readable driver core and reusable byte/digest conveniences.
+
+Concrete stat/read methods own backend I/O, range and version enforcement, and
+typed error translation. Shared helpers check address/result relationships, hide
+only genuine not-found results where documented, and manage streams they open.
+Native digest capability is corroborated by its protocol before delegation.
+
+Example:
+    >>> payload = driver.read_bytes(address, length=16)  # doctest: +SKIP
 """
 
 from __future__ import annotations
@@ -30,10 +38,9 @@ class ReadableStorageDriverAPI(Generic[DriverObjectAddressT], abc.ABC):
     """
     Small mandatory core for addressing and reading concrete objects.
 
-    A read-only, non-enumerable source can implement this API honestly. Write,
-    delete, listing, allocation, and hierarchical joining are independent
-    protocols rather than abstract methods that every driver must pretend to
-    support.
+    A read-only, non-enumerable source can implement this API honestly. Write, delete, listing,
+    allocation, and hierarchical joining are independent protocols rather than abstract methods that
+    every driver must pretend to support.
 
     Example:
         >>> header = driver.read_bytes(address, length=16)  # doctest: +SKIP
@@ -51,8 +58,8 @@ class ReadableStorageDriverAPI(Generic[DriverObjectAddressT], abc.ABC):
             >>> checked = driver.check_object_address(address)  # doctest: +SKIP
 
 
-        :param object_address:
-        :return:
+        :param object_address: Typed object address expected to belong to this configured driver.
+        :return: Validated address under the concrete ownership/type checker contract.
         """
         ...
 
@@ -68,8 +75,8 @@ class ReadableStorageDriverAPI(Generic[DriverObjectAddressT], abc.ABC):
             >>> checked = driver.require_canonical_object_address(address)  # doctest: +SKIP
 
 
-        :param object_address:
-        :return:
+        :param object_address: Typed object address expected to belong to this configured driver.
+        :return: Owned canonical address or a typed validation failure.
         """
         ...
 
@@ -84,7 +91,7 @@ class ReadableStorageDriverAPI(Generic[DriverObjectAddressT], abc.ABC):
             True
 
 
-        :return:
+        :return: DriverCapabilities describing supported mechanics, not current online/writable state.
         """
         ...
 
@@ -96,18 +103,17 @@ class ReadableStorageDriverAPI(Generic[DriverObjectAddressT], abc.ABC):
         """
         Describe one object or raise ``StorageNotFound``.
 
-        Connection, permission, and authentication errors must remain visible.
-        The returned ``object_address`` must equal the checked requested
-        address. A driver may populate ``digest`` only when
-        ``capabilities.stat_digest_authoritative`` is true; such a digest is
+        Connection, permission, and authentication errors must remain visible. The returned
+        ``object_address`` must equal the checked requested address. A driver may populate
+        ``digest`` only when ``capabilities.stat_digest_authoritative`` is true; such a digest is
         authoritative for the object version described by this result.
 
         Example:
             >>> info = driver.stat(address)  # doctest: +SKIP
 
 
-        :param object_address:
-        :return:
+        :param object_address: Typed object address expected to belong to this configured driver.
+        :return: Version-specific DriverObjectInfo for the requested address; genuine absence raises StorageNotFound.
         """
         ...
 
@@ -123,28 +129,27 @@ class ReadableStorageDriverAPI(Generic[DriverObjectAddressT], abc.ABC):
         """
         Open a context-managed, binary, read-only object stream.
 
-        The returned stream need not be seekable. Closing it must release all
-        resources. Negative ranges are invalid. A non-default range must either
-        be honoured exactly (returning at most ``length`` bytes) or raise
-        ``StorageUnsupportedOperation``; it must never be silently ignored.
-        ``if_version`` pins the stream to the opaque version returned by
-        ``stat`` and requires ``capabilities.conditional_read``. A stale token
-        raises ``StoragePreconditionFailed`` before any mismatched bytes are
-        returned.
+        The returned stream need not be seekable. Closing it must release all resources. Negative
+        ranges are invalid. A non-default range must either be honoured exactly (returning at most
+        ``length`` bytes) or raise ``StorageUnsupportedOperation``; it must never be silently
+        ignored. ``if_version`` pins the stream to the opaque version returned by ``stat`` and
+        requires ``capabilities.conditional_read``. A stale token raises
+        ``StoragePreconditionFailed`` before any mismatched bytes are returned.
 
         Example:
             >>> with driver.open_read(address, offset=10, length=20) as source:  # doctest: +SKIP
             ...     payload = source.read()
 
 
-        :param object_address:
-        :param offset:
-        :param length:
-        :param if_version:
-        :return:
+        :param object_address: Typed object address expected to belong to this configured driver.
+        :param offset: Nonnegative byte offset from the start of the object.
+        :param length: Maximum bytes to return, or None to read through the end.
+        :param if_version: Optional opaque stat version token requiring conditional-read support.
+        :return: Caller-owned context-manageable binary stream; closing it releases backend resources.
         """
         ...
 
+    # Todo: we want try_* for all methods
     def try_stat(
         self,
         object_address: DriverObjectAddressT,
@@ -152,13 +157,16 @@ class ReadableStorageDriverAPI(Generic[DriverObjectAddressT], abc.ABC):
         """
         Return ``None`` only for genuine absence.
 
+        The initial check_object_address call is outside the not-found guard. This helper does not
+        flatten permission, authentication, or integrity failures into absence.
+
         Example:
             >>> driver.try_stat(missing) is None  # doctest: +SKIP
             True
 
 
-        :param object_address:
-        :return:
+        :param object_address: Typed object address expected to belong to this configured driver.
+        :return: Validated current metadata, or None only for StorageNotFound caught around stat/result validation.
         """
         checked = self.check_object_address(object_address)
         try:
@@ -174,16 +182,20 @@ class ReadableStorageDriverAPI(Generic[DriverObjectAddressT], abc.ABC):
         """
         Require returned metadata to describe the requested object.
 
-        Driver adapters and reusable callers should apply this to results from
-        raw ``stat``, commit, and native operations before trusting them.
+        Driver adapters and reusable callers should apply this to results from raw ``stat``, commit,
+        and native operations before trusting them.
+
+        Canonicalize-check both expected and reported addresses, then enforce the
+        stat_digest_authoritative flag for any supplied digest. This does not read bytes, compare
+        versions, or prove that reported size/digest values are accurate.
 
         Example:
             >>> info = driver.require_object_info(address, driver.stat(address))  # doctest: +SKIP
 
 
-        :param expected_address:
-        :param info:
-        :return:
+        :param expected_address: Requested address checked for canonical round-trip equality.
+        :param info: Returned metadata whose address and digest-advertisement rule are checked.
+        :return: Original info object after checks; a mismatched address or unadvertised digest raises StorageIntegrityError.
         """
         expected = self.require_canonical_object_address(expected_address)
         actual = self.require_canonical_object_address(info.object_address)
@@ -210,8 +222,8 @@ class ReadableStorageDriverAPI(Generic[DriverObjectAddressT], abc.ABC):
             True
 
 
-        :param object_address:
-        :return:
+        :param object_address: Typed object address expected to belong to this configured driver.
+        :return: Whether try_stat returns metadata; other errors propagate.
         """
         return self.try_stat(object_address) is not None
 
@@ -224,8 +236,8 @@ class ReadableStorageDriverAPI(Generic[DriverObjectAddressT], abc.ABC):
             42
 
 
-        :param object_address:
-        :return:
+        :param object_address: Typed object address expected to belong to this configured driver.
+        :return: Validated stat size in bytes, preserving None for unknown size; absence still raises.
         """
         checked = self.check_object_address(object_address)
         return self.require_object_info(checked, self.stat(checked)).size
@@ -241,15 +253,19 @@ class ReadableStorageDriverAPI(Generic[DriverObjectAddressT], abc.ABC):
         """
         Return ``open_read`` using familiar retrieval vocabulary.
 
+        Check the address first and omit the if_version keyword when it is None, preserving
+        compatibility with simple unversioned readers. Range/version validation is delegated to
+        open_read.
+
         Example:
             >>> source = driver.get(address, length=20)  # doctest: +SKIP
 
 
-        :param object_address:
-        :param offset:
-        :param length:
-        :param if_version:
-        :return:
+        :param object_address: Typed object address expected to belong to this configured driver.
+        :param offset: Nonnegative byte offset from the start of the object.
+        :param length: Maximum bytes to return, or None to read through the end.
+        :param if_version: Optional opaque stat version token requiring conditional-read support.
+        :return: Open read stream owned by the caller; all backend errors propagate.
         """
         checked = self.check_object_address(object_address)
         if if_version is None:
@@ -269,16 +285,20 @@ class ReadableStorageDriverAPI(Generic[DriverObjectAddressT], abc.ABC):
         """
         Read one small object or range fully into memory.
 
+        The helper materializes all returned bytes and imposes no independent memory ceiling or
+        range-length check. It closes the stream even when reading fails; a close failure can mask
+        that failure.
+
         Example:
             >>> driver.read_bytes(address, length=4)  # doctest: +SKIP
             b'book'
 
 
-        :param object_address:
-        :param offset:
-        :param length:
-        :param if_version:
-        :return:
+        :param object_address: Typed object address expected to belong to this configured driver.
+        :param offset: Nonnegative byte offset from the start of the object.
+        :param length: Maximum bytes to return, or None to read through the end.
+        :param if_version: Optional opaque stat version token requiring conditional-read support.
+        :return: Complete bytes read from the selected stream, after closing it; non-bytes results raise TypeError.
         """
         checked = self.check_object_address(object_address)
         reader = (
@@ -307,14 +327,19 @@ class ReadableStorageDriverAPI(Generic[DriverObjectAddressT], abc.ABC):
         """
         Use an authoritative native digest or a streaming fallback.
 
+        The native path requires both its capability flag and structural protocol, then trusts the
+        returned Digest without rechecking its algorithm/content. The fallback opens an unversioned
+        stream, treating a falsey chunk as EOF before requiring nonempty chunks to be bytes. It does
+        not pin a source version during hashing.
+
         Example:
             >>> digest = driver.compute_digest(address, "sha256")  # doctest: +SKIP
 
 
-        :param object_address:
-        :param algorithm:
-        :param chunk_size:
-        :return:
+        :param object_address: Typed object address expected to belong to this configured driver.
+        :param algorithm: Algorithm selector passed to native_compute_digest or hashlib.new.
+        :param chunk_size: Positive read chunk size in bytes; validated even for native digest delegation.
+        :return: Native result unchanged or a Digest built from streamed bytes; there is no fallback after a native failure.
         """
         object_address = self.check_object_address(object_address)
         if chunk_size < 1:

@@ -1,6 +1,6 @@
 
 """
-Apply objects to entries in the database.
+Link legacy metadata Rows to resources with method-specific recovery policies.
 """
 
 from LiuXin_alpha.databases.api import DatabaseAPI
@@ -19,12 +19,29 @@ from LiuXin_alpha.catalog.metadata_tools.apply.label_apply_mixin import LabelApp
 
 class Apply(LabelApplyMixin):
     """
-    Class to associate resources on the database together by applying one to the other.
-    Use methods for this class if you want to link elements from the library together - use the get methods if you want
-    to retrieve associated resources - this centralization means that the schema can be more easily changed.
+    Group row-link helpers with caller-wired Add and Ensure peers.
+
+    Several methods insert/resolve metadata before validating a resource, and
+    some recover integrity errors by deleting/replacing links. No common
+    transaction wraps these operations. Return values are usually link Rows.
+
+    Example:
+        After Catalog composition, resolve metadata through catalog.apply and
+        retain returned link Rows when relationship attributes are needed.
     """
 
     def __init__(self, database: DatabaseAPI) -> None:
+        """
+        Retain the database and leave Add/Ensure peers for composition.
+
+        Example:
+            A standalone Apply must have its peers wired before methods resolve text.
+
+
+        :param database: Borrowed database handle; not opened or validated.
+        :return: None; assigns db and sets add/ensure to None.
+        """
+
         self.db = database
         self.add = None
         self.ensure = None
@@ -34,10 +51,19 @@ class Apply(LabelApplyMixin):
     # Todo: And singular to plural
     def comments(self, comment, resource_row):
         """
-        Apply a comment to a resource_row.
-        :param comment:
-        :param resource_row:
-        :return:
+        Create or reuse a Comment Row and link it to a resource.
+
+        Require a discoverable link table, then interlink with the resource as primary.
+        No enclosing transaction or duplicate-error recovery is provided.
+
+        Example:
+            Text creation happens before link-table validation; a later failure can leave the new Row.
+
+
+        :param comment: Concrete Row or text passed to the wired Add helper.
+        :param resource_row: Resource Row used as a link endpoint; table compatibility is checked by the database.
+        :return: Database link Row, not the attached metadata Row.
+        :raises InputIntegrityError: Input type or resource relationship is unsupported.
         """
         if isinstance(comment, Row):
             synopsis_row = comment
@@ -68,10 +94,16 @@ class Apply(LabelApplyMixin):
 
     def cover(self, cover, resource_row):
         """
-        Apply a cover to a resource row.
-        :param cover:
-        :param resource_row:
-        :return:
+        Link an existing concrete Cover Row to a resource.
+
+        Example:
+            No cover file is read or created; this operation only links metadata Rows.
+
+
+        :param cover: Concrete Row accepted without checking its table locally.
+        :param resource_row: Resource Row used as a link endpoint; table compatibility is checked by the database.
+        :return: Database link Row, not the attached metadata Row.
+        :raises InputIntegrityError: The value is not a Row or no cover link table is found.
         """
         if isinstance(cover, Row):
             cover_row = cover
@@ -105,12 +137,20 @@ class Apply(LabelApplyMixin):
         creator_priority="highest",
     ):
         """
-        Associate a creator with a work, with the role they played in that work's creation.
-        :param resource_row: Something which can be associated with a creator
-        :param creator_row: The creator row associated with the creator
-        :param creator_role: What role did the creator play in the creation of this work?
-        :param creator_priority: What priority should the creator have when added to the work?
-        :return:
+        Credit a supplied Creator Row on a compatible resource.
+
+        No Creator type or role validation is added by this wrapper.
+
+        Example:
+            The legacy creators-to-resource route must exist before linking.
+
+
+        :param resource_row: Resource Row used as a link endpoint; table compatibility is checked by the database.
+        :param creator_row: Creator Row passed unchanged.
+        :param creator_role: Role forwarded as the link type.
+        :param creator_priority: Priority forwarded unchanged, default highest.
+        :return: Database link Row, not the attached metadata Row.
+        :raises InputIntegrityError: The resource has no discoverable Creator link table.
         """
         resource_table = resource_row.table
         interlink_table = self.db.driver_wrapper.get_link_table_name("creators", resource_table)
@@ -136,11 +176,17 @@ class Apply(LabelApplyMixin):
 
     def genre(self, resource_row, genre, genre_priority="highest"):
         """
-        Associate a genre with a resource (currently genres can only be associated with titles).
-        :param resource_row: The resource to associate the genre with
-        :param genre: The genre to associate with the resource (can be a string or a Row)
-        :param genre_priority: The priority to associate the genre with
-        :return:
+        Resolve a Genre after checking its resource link route.
+
+        Example:
+            An unsupported resource fails before text is ensured.
+
+
+        :param resource_row: Resource Row used as a link endpoint; table compatibility is checked by the database.
+        :param genre: Concrete Row, or text resolved by ensure.genre.
+        :param genre_priority: Priority forwarded unchanged.
+        :return: Database link Row, not the attached metadata Row.
+        :raises InputIntegrityError: Link route or Genre input type is unsupported.
         """
         resource_table = resource_row.table
         interlink_table = self.db.driver_wrapper.get_link_table_name("genres", resource_table)
@@ -176,12 +222,23 @@ class Apply(LabelApplyMixin):
         validate_id=True,
     ):
         """
-        Apply an identifier row to a resource row.
-        :param resource_row: The resource to appky the identifier to
-        :param identifier: The identifier row
-        :param identifier_type: 'isbn' e.t.c.
-        :param identifier_priority: The priority to apply the identifier to the resource with (defaults to highest)
-        :return:
+        Validate selected identifier schemes and link a resolved Identifier.
+
+        Local validation lowercases the scheme without stripping and checks only
+        isbn/issn. Link-table discovery precedes resolution; a Row bypasses text
+        validation. No enclosing transaction is opened.
+
+        Example:
+            Setting validate_id=False does not disable Ensure.identifier's scheme validation.
+
+
+        :param resource_row: Resource Row used as a link endpoint; table compatibility is checked by the database.
+        :param identifier: Concrete Row or text delegated to add.identifier.
+        :param identifier_type: Scheme forwarded as link type and to identifier creation.
+        :param identifier_priority: Priority forwarded unchanged.
+        :param validate_id: Enable the local ISBN/ISSN precheck for text; downstream validation still applies.
+        :return: Database link Row, not the attached metadata Row.
+        :raises InputIntegrityError: Local validation, input type or link route is unsupported.
         """
         if validate_id and isinstance(identifier, string_types):
             if identifier_type.lower() == "issn":
@@ -244,13 +301,20 @@ class Apply(LabelApplyMixin):
     # Todo: Also want to ship with a language table
     def language(self, language, resource_row, link_type=None):
         """
-        Apply a language to a given resource.
-        Titles can have one and only one language - if the language can't be applied because the title already has one
-        then delete that link and insert a new one for the new language.
-        :param language: The language to be applied
-        :param resource_row: The resource_row to apply the language to.
-        :param link_type:
-        :return:
+        Resolve a Language and replace its link after an integrity error.
+
+        The unlink/retry sequence has no enclosing transaction; retry failure may
+        leave the original relation removed.
+
+        Example:
+            A DatabaseIntegrityError causes unlink_interlink followed by one retry.
+
+
+        :param language: Concrete Row or name text delegated to ensure.language.
+        :param resource_row: Resource Row used as a link endpoint; table compatibility is checked by the database.
+        :param link_type: Relationship type forwarded unchanged.
+        :return: Database link Row, not the attached metadata Row.
+        :raises InputIntegrityError: Language input is neither a Row nor text.
         """
         if isinstance(language, string_types):
             language_row = self.ensure.language(language_string=language)
@@ -278,10 +342,16 @@ class Apply(LabelApplyMixin):
     # Todo: It would seem all of these need, at least, a basic function test
     def contained_language(self, language, title_row):
         """
-        Note that a language is contained in the title.
-        :param language:
-        :param title_row:
-        :return:
+        Link a Language with the contained_in relationship type.
+
+        Example:
+            Duplicate/integrity errors are suppressed without checking their cause.
+
+
+        :param language: Concrete Language Row; enforced with an assertion.
+        :param title_row: Title Row used as primary endpoint.
+        :return: None; ignores DatabaseIntegrityError from linking.
+        :raises AssertionError: Language is not a concrete Row, when assertions are enabled.
         """
         assert isinstance(language, Row), "must pass the language in the form of a row - type(language): {}" "".format(
             type(language)
@@ -294,10 +364,16 @@ class Apply(LabelApplyMixin):
 
     def available_language(self, language, title_row):
         """
-        Note that the language is available for a title (most used for the alternative language tracks of DVDs e.t.c)
-        :param language:
-        :param title_row:
-        :return:
+        Link a Language with the available_language relationship type.
+
+        Example:
+            Duplicate/integrity errors are suppressed without checking their cause.
+
+
+        :param language: Concrete Language Row; enforced with an assertion.
+        :param title_row: Title Row used as primary endpoint.
+        :return: None; ignores DatabaseIntegrityError from linking.
+        :raises AssertionError: Language is not a concrete Row, when assertions are enabled.
         """
         assert isinstance(language, Row), "must pass the language in the form of a row"
 
@@ -308,10 +384,16 @@ class Apply(LabelApplyMixin):
 
     def primary_language(self, language, title_row):
         """
-        Set the primary language of a title. If a primary language has already been set the update it to this row.
-        :param language: The language to be set as primary
-        :param title_row: Set that language row as the primary for the title
-        :return:
+        Set a legacy title's primary Language through metadata_sql.
+
+        Example:
+            This method does not return an interlink Row or suppress SQL failures.
+
+
+        :param language: Concrete Language Row, asserted before use.
+        :param title_row: Title Row whose row_id identifies the title.
+        :return: None; forwards title and Language row IDs.
+        :raises AssertionError: Language is not a concrete Row, when assertions are enabled.
         """
         assert isinstance(language, Row), "must pass the language in the form of a row"
 
@@ -322,10 +404,19 @@ class Apply(LabelApplyMixin):
     # Todo - :param note_type: What type of note is being applied? Options include bio, note & synopsis
     def note(self, note, resource):
         """
-        Apply a note to a given resource.
-        :param note: The text of the note to apply to the resource.
-        :param resource: The thing to apply the note too.
-        :return:
+        Create or reuse a Note, then link it as the primary endpoint.
+
+        Text insertion can precede a resource type/link-table failure. No enclosing
+        transaction protects the aggregate.
+
+        Example:
+            The Note is the primary link endpoint; highest priority is requested.
+
+
+        :param note: Concrete Row or text inserted by add.note.
+        :param resource: Concrete resource Row, validated after Note resolution.
+        :return: Database link Row, not the attached metadata Row.
+        :raises InputIntegrityError: Note/resource type or link route is unsupported.
         """
         if isinstance(note, Row):
             note_row = note
@@ -365,11 +456,20 @@ class Apply(LabelApplyMixin):
     # Todo: title_row should be resource row? For consistency.
     def publisher(self, publisher, title_row):
         """
-        Apply a given publisher row to a given title row.
-        If the publisher and title are already linked, then the priority of the link will be increased to maximum.
-        :param publisher:
-        :param title_row:
-        :return:
+        Resolve a Publisher and link it, promoting an existing legacy link on error.
+
+        Recovery assumes publisher_title_link_priority and raises it above the global
+        maximum. A failed lookup or conversion during recovery propagates after
+        earlier resolution; no enclosing transaction is opened.
+
+        Example:
+            Any DatabaseIntegrityError triggers an existing-link lookup and priority update.
+
+
+        :param publisher: Concrete Row or text ensured without standardization.
+        :param title_row: Title Row used as secondary endpoint.
+        :return: Database link Row, not the attached metadata Row.
+        :raises InputIntegrityError: Publisher input has an unsupported type.
         """
         if isinstance(publisher, Row):
             publisher_row = publisher
@@ -389,11 +489,20 @@ class Apply(LabelApplyMixin):
 
     def rating(self, rating, rating_type, resource_row):
         """
-        Apply a rating to a resource - assumes that the rating is already between 0-10.
-        :param rating: The rating to apply to the resource
-        :param rating_type: The source of the rating - "amazon", "user", e.t.c
-        :param resource_row: The resource to apply the rating to
-        :return:
+        Resolve a Rating and replace same-type links after an integrity error.
+
+        Requests priority=not_set. Recovery is not wrapped in a transaction, so a
+        retry failure can leave existing same-type links removed.
+
+        Example:
+            On DatabaseIntegrityError, unlink all Ratings of rating_type and retry once.
+
+
+        :param rating: Concrete Row or numeric value; floats truncate to int and bool is accepted.
+        :param rating_type: Link type used in creation and recovery deletion.
+        :param resource_row: Resource Row used as a link endpoint; table compatibility is checked by the database.
+        :return: Database link Row, not the attached metadata Row.
+        :raises InputIntegrityError: Rating input or link route is unsupported.
         """
         # Apply a rating to the given resource
         if isinstance(rating, Row):
@@ -452,14 +561,18 @@ class Apply(LabelApplyMixin):
 
     def series(self, series, series_index, resource_row, stand=True):
         """
-        Apply a series to a resource - with the provided series index.
-        :param series:
-        :param series_index:
-        :param resource_row:
-        :param stand: Try to standardize the series or not
-        :type stand: bool
-        :return link_row, series_row: The link row used to connect the series to the resource, the series that the
-                                      resource has been linked to
+        Resolve a Series and attach its index to the resource link.
+
+        Example:
+            Unpack ``link_row, series_row``; the first result carries the relationship index.
+
+
+        :param series: Concrete Row or text resolved by ensure.series_blind.
+        :param series_index: Index value forwarded unchanged to interlink_rows.
+        :param resource_row: Resource Row used as a link endpoint; table compatibility is checked by the database.
+        :param stand: Standardization preference passed only when resolving text.
+        :return: Tuple (link Row, Series Row), in that order.
+        :raises InputIntegrityError: Series input is neither Row nor text.
         """
         # If the series is a string then assume it's a name for a series and ensure it
         if isinstance(series, Row):
@@ -485,11 +598,17 @@ class Apply(LabelApplyMixin):
     # Todo: standarize resource_row to resource
     def subject(self, subject, resource_row, stand=True):
         """
-        Apply a subject to the given resource row - ensure it if required.
-        :param subject:
-        :param resource_row:
-        :param stand:
-        :return:
+        Resolve a Subject and link it to the resource.
+
+        Example:
+            The current Ensure implementation searches exact string text regardless of stand.
+
+
+        :param subject: Concrete Row or text delegated to ensure.subject.
+        :param resource_row: Resource Row used as a link endpoint; table compatibility is checked by the database.
+        :param stand: Forwarded to Ensure.subject, whose current implementation ignores it.
+        :return: None; the interlink result is discarded.
+        :raises InputIntegrityError: Subject input is neither Row nor text.
         """
         # If the subject is a string then assume it's a name for a subject and ensure that it exists - then link it to
         # the given resource row
@@ -507,11 +626,19 @@ class Apply(LabelApplyMixin):
 
     def synopsis(self, synopsis, resource):
         """
-        Apply a synopsis to a resource_row.
-        :param synopsis: The synopsis to associate with the given resource
-        :param resource: The resource row to associate a synopsis with - must be a resource that can be linked to
-                             a synopsis
-        :return link_row:
+        Create or reuse a Synopsis Row and link it to a resource.
+
+        Require a discoverable link table, then interlink with the resource as primary.
+        No enclosing transaction or duplicate-error recovery is provided.
+
+        Example:
+            Text creation happens before link-table validation; a later failure can leave the new Row.
+
+
+        :param synopsis: Concrete Row or text passed to the wired Add helper.
+        :param resource: Resource Row used as a link endpoint; table compatibility is checked by the database.
+        :return: Database link Row, not the attached metadata Row.
+        :raises InputIntegrityError: Input type or resource relationship is unsupported.
         """
         if isinstance(synopsis, Row):
             synopsis_row = synopsis

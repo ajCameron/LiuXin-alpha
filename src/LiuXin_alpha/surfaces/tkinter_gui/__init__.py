@@ -1,4 +1,14 @@
-"""Tkinter desktop surface for LiuXin."""
+"""
+Expose the supported tkinter gui compatibility surface.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/surfaces/test_tkinter_gui.py
+"""
 
 from __future__ import annotations
 

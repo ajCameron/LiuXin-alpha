@@ -1,4 +1,6 @@
-"""Series creation and linking workflows for metadata tools."""
+"""
+Insert a Series, then optionally attach a Creator and Note.
+"""
 
 from __future__ import unicode_literals
 
@@ -13,7 +15,13 @@ from LiuXin_alpha.utils.logging import default_log
 
 class SeriesAdderMixin:
     """
-    Add methods for rows in the ``series`` table.
+    Supply series creation to a legacy Add host.
+
+    The host provides the database and any peers required by the method.
+    Validation and synchronization failures propagate to the caller.
+
+    Example:
+        A failure linking the Note can leave the already-created Series and Creator link.
     """
 
     def series(
@@ -28,7 +36,26 @@ class SeriesAdderMixin:
         series_note=None,
     ):
         """
-        Create a series row.
+        Insert a Series, then optionally attach a Creator and Note.
+
+        Parent type is checked before sync. Creator hashing may fail before its later
+        type check; attachment validation occurs after insertion. A wired Apply peer
+        is required for attachments. No enclosing transaction is opened.
+
+        Example:
+            A failure linking the Note can leave the already-created Series and Creator link.
+
+
+        :param series: Series name stored unchanged.
+        :param series_sort: Sort text; None uses title_sort.
+        :param series_phash: Hash; None generates it from the Creator name, if supplied, and Series name.
+        :param series_parent: Concrete parent Series Row, or None.
+        :param series_parent_position: Parent position; ignored when there is no parent.
+        :param series_full: Full hierarchical name stored unchanged.
+        :param series_creator: Concrete Creator Row; linked after syncing the Series.
+        :param series_note: Concrete Note Row or text to insert/link after syncing the Series.
+        :return: Created database Row; synchronization and schema errors propagate.
+        :raises InputIntegrityError: A parent, Creator or Note argument has an unsupported type.
         """
         series_row = Row(database=self.db)
         series_row["series"] = series

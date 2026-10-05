@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
-"""Run the full pytest suite with xdist and pytest-json-report using the repo-local venv."""
+"""
+Run the complete project test suite.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise run full test suite through a consuming regression::
+
+        python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+"""
 
 from __future__ import annotations
 
@@ -13,16 +23,54 @@ from pathlib import Path
 
 
 def venv_python_path(venv_dir: Path) -> Path:
+    """
+    Perform the venv python path operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise venv python path through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param venv_dir: Value supplied for venv dir under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if os.name == "nt":
         return venv_dir / "Scripts" / "python.exe"
     return venv_dir / "bin" / "python"
 
 
 def shell_join(parts: list[str]) -> str:
+    """
+    Perform the shell join operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise shell join through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param parts: Value supplied for parts under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return shlex.join(parts)
 
 
 def main() -> int:
+    """
+    Perform the main operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise main through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     parser = argparse.ArgumentParser(
         description="Run the full test suite with JSON reporting from the repo-local virtualenv."
     )
@@ -107,7 +155,7 @@ def main() -> int:
         "pip",
         "install",
         "-e",
-        ".[test,search]",
+        ".[test,search,conversion]",
     ]
     pytest_cmd = [
         str(python_exe),

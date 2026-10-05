@@ -1,6 +1,14 @@
 
 """
-Builds test database 4.
+Expose the supported test db 4 compatibility surface.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
 """
 
 
@@ -35,6 +43,11 @@ from utils.lx_libraries.liuxin_random import LiuXinBadPseudoRandomGenerator
 class TestDB4Builder(TestDatabaseBuilder):
     """
     Execute build for a database with comprehensive test metadata - every field has an automatically generated data set.
+
+    Example:
+        Exercise TestDB4Builder through a consuming regression::
+
+            python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
     """
 
     def __init__(
@@ -109,6 +122,135 @@ class TestDB4Builder(TestDatabaseBuilder):
     ):
 
         # Everything is as before - but also need to store a large number of variables to control the data generated
+        """
+        Initialize and validate the testdb4builder state.
+
+        Example:
+            Exercise TestDB4Builder.  init   through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param dst_file_path: Value supplied for dst file path under the utility contract.
+        :param csv_folder_path: Value supplied for csv folder path under the utility
+            contract.
+        :param dump: Value supplied for dump under the utility contract.
+        :param plugin_name: Value supplied for plugin name under the utility contract.
+        :param new_db_uuid: Value supplied for new db uuid under the utility contract.
+        :param test_asset_version: Value supplied for test asset version under the utility
+            contract.
+        :param comment_count: Value supplied for comment count under the utility contract.
+        :param creator_count: Value supplied for creator count under the utility contract.
+        :param genre_count: Value supplied for genre count under the utility contract.
+        :param language_count: Value supplied for language count under the utility contract.
+        :param publisher_count: Value supplied for publisher count under the utility
+            contract.
+        :param series_count: Value supplied for series count under the utility contract.
+        :param subject_count: Value supplied for subject count under the utility contract.
+        :param tag_count: Value supplied for tag count under the utility contract.
+        :param title_count: Value supplied for title count under the utility contract.
+        :param generate_trees: Value supplied for generate trees under the utility contract.
+        :param comment_creator_max: Value supplied for comment creator max under the utility
+            contract.
+        :param comments_for_all_creators: Value supplied for comments for all creators under
+            the utility contract.
+        :param comment_series_max: Value supplied for comment series max under the utility
+            contract.
+        :param comments_for_all_series: Value supplied for comments for all series under the
+            utility contract.
+        :param comment_title_max: Value supplied for comment title max under the utility
+            contract.
+        :param comments_for_all_titles: Value supplied for comments for all titles under the
+            utility contract.
+        :param creator_note_max: Value supplied for creator note max under the utility
+            contract.
+        :param notes_for_all_creators: Value supplied for notes for all creators under the
+            utility contract.
+        :param creator_series_max: Value supplied for creator series max under the utility
+            contract.
+        :param creators_for_all_series: Value supplied for creators for all series under the
+            utility contract.
+        :param creator_synopsis_max: Value supplied for creator synopsis max under the
+            utility contract.
+        :param synopses_for_all_creators: Value supplied for synopses for all creators under
+            the utility contract.
+        :param creator_tag_max: Value supplied for creator tag max under the utility
+            contract.
+        :param tags_for_all_creators: Value supplied for tags for all creators under the
+            utility contract.
+        :param creator_title_max: Value supplied for creator title max under the utility
+            contract.
+        :param creators_for_all_titles: Value supplied for creators for all titles under the
+            utility contract.
+        :param genre_series_max: Value supplied for genre series max under the utility
+            contract.
+        :param genres_for_all_series: Value supplied for genres for all series under the
+            utility contract.
+        :param genre_title_max: Value supplied for genre title max under the utility
+            contract.
+        :param genres_for_all_titles: Value supplied for genres for all titles under the
+            utility contract.
+        :param identifier_title_max: Value supplied for identifier title max under the
+            utility contract.
+        :param identifiers_for_all_titles: Value supplied for identifiers for all titles
+            under the utility contract.
+        :param language_title_contained_max: Value supplied for language title contained max
+            under the utility contract.
+        :param language_title_available_max: Value supplied for language title available max
+            under the utility contract.
+        :param languages_for_all_titles: Value supplied for languages for all titles under
+            the utility contract.
+        :param note_publisher_max: Value supplied for note publisher max under the utility
+            contract.
+        :param notes_for_all_publishers: Value supplied for notes for all publishers under
+            the utility contract.
+        :param note_series_max: Value supplied for note series max under the utility
+            contract.
+        :param notes_for_all_series: Value supplied for notes for all series under the
+            utility contract.
+        :param note_title_max: Value supplied for note title max under the utility contract.
+        :param notes_for_all_titles: Value supplied for notes for all titles under the
+            utility contract.
+        :param publisher_title_max: Value supplied for publisher title max under the utility
+            contract.
+        :param publishers_for_all_titles: Value supplied for publishers for all titles under
+            the utility contract.
+        :param rating_title_max: Value supplied for rating title max under the utility
+            contract.
+        :param ratings_for_all_titles: Value supplied for ratings for all titles under the
+            utility contract.
+        :param series_synopsis_max: Value supplied for series synopsis max under the utility
+            contract.
+        :param synopses_for_all_series: Value supplied for synopses for all series under the
+            utility contract.
+        :param series_tag_max: Value supplied for series tag max under the utility contract.
+        :param tags_for_all_series: Value supplied for tags for all series under the utility
+            contract.
+        :param series_title_max: Value supplied for series title max under the utility
+            contract.
+        :param series_for_all_titles: Value supplied for series for all titles under the
+            utility contract.
+        :param subject_title_max: Value supplied for subject title max under the utility
+            contract.
+        :param subjects_for_all_titles: Value supplied for subjects for all titles under the
+            utility contract.
+        :param tag_title_max: Value supplied for tag title max under the utility contract.
+        :param tags_for_all_titles: Value supplied for tags for all titles under the utility
+            contract.
+        :param synopsis_title_max: Value supplied for synopsis title max under the utility
+            contract.
+        :param synopses_for_all_titles: Value supplied for synopses for all titles under the
+            utility contract.
+        :param folder_store_count: Value supplied for folder store count under the utility
+            contract.
+        :param max_folders_for_book: Value supplied for max folders for book under the
+            utility contract.
+        :param max_files_for_book: Value supplied for max files for book under the utility
+            contract.
+        :param max_folders_for_series: Value supplied for max folders for series under the
+            utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         super(TestDB4Builder, self).__init__(
             dst_file_path=dst_file_path,
             csv_folder_path=csv_folder_path,
@@ -293,19 +435,33 @@ class TestDB4Builder(TestDatabaseBuilder):
     def info(self, *args, **kwargs):
         """
         Prints the given text in green to the terminal.
-        :param args:
-        :param kwargs:
-        :return:
+
+        Example:
+            Exercise TestDB4Builder.info through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         puts(colored.green(*args, **kwargs))
 
     def initialize_random_assets(self, rng=None):
         """
-        Initialize the random number generators/random uuid generators which produce the data that will be used to
-        generate the records.
-        :param rng: If provided, then uses it to advance the initial state of the cycles. If not, then all the cycles
-                    are left at zero
-        :return:
+        Initialize the random number generators/random uuid generators which produce the data that will be used to generate the records.
+
+        Example:
+            Exercise TestDB4Builder.initialize random assets through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param rng: Value supplied for rng under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         from LiuXin_tests.test_constants import test_uuids
 
@@ -393,9 +549,17 @@ class TestDB4Builder(TestDatabaseBuilder):
     def get_random_uuid(self, current_rng, length=None):
         """
         Return a uuid randomly selected from the list
-        :param length: The length of the uuid string to return - defaults to None (the entire string is returned)
-        :param current_rng: You must pass in an rng to use
-        :return:
+
+        Example:
+            Exercise TestDB4Builder.get random uuid through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param current_rng: Value supplied for current rng under the utility contract.
+        :param length: Value supplied for length under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if length is None:
             return current_rng.choice(self.test_uuids_list)
@@ -406,9 +570,17 @@ class TestDB4Builder(TestDatabaseBuilder):
     def get_random_date(internal_rng, start_year=1950):
         """
         Return a date randomly chosen from the list.
-        :param internal_rng: We are moving away from random due to repeatability issues.
-        :param start_year:
-        :return:
+
+        Example:
+            Exercise TestDB4Builder.get random date through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param internal_rng: Value supplied for internal rng under the utility contract.
+        :param start_year: Value supplied for start year under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         with internal_rng as int_rng:
 
@@ -427,9 +599,17 @@ class TestDB4Builder(TestDatabaseBuilder):
     def get_random_datestamp(internal_rng, start_year=2010):
         """
         Return a date randomly chosen from the list.
-        :param internal_rng: We are moving away from random due to repeatability issues.
-        :param start_year:
-        :return:
+
+        Example:
+            Exercise TestDB4Builder.get random datestamp through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param internal_rng: Value supplied for internal rng under the utility contract.
+        :param start_year: Value supplied for start year under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         with internal_rng as int_rng:
 
@@ -446,13 +626,20 @@ class TestDB4Builder(TestDatabaseBuilder):
 
     def get_limited_rows(self, db, table, table_count, for_all_rows=False):
         """
-        Trees built in tables produce a great deal of rows - which is sometimes overkill. This method produces either
-        a limited subset of the rows (the test ones deliberately created).
-        :param db: The scratch db
-        :param table:
-        :param table_count:
-        :param for_all_rows:
-        :return:
+        Trees built in tables produce a great deal of rows - which is sometimes overkill. This method produces either a limited subset of the rows (the test ones deliberately created).
+
+        Example:
+            Exercise TestDB4Builder.get limited rows through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param db: Value supplied for db under the utility contract.
+        :param table: Value supplied for table under the utility contract.
+        :param table_count: Value supplied for table count under the utility contract.
+        :param for_all_rows: Value supplied for for all rows under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if for_all_rows:
             return db.get_all_rows(table)
@@ -465,9 +652,17 @@ class TestDB4Builder(TestDatabaseBuilder):
     def generation_preflight(self, rng, welcome):
         """
         Called before any work of generation is done. Puts the random assets into a predictable form.
-        :param rng: The currently in use rng
-        :param welcome: Welcome string to tell the user what this long running method is actually doing
-        :return:
+
+        Example:
+            Exercise TestDB4Builder.generation preflight through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param rng: Value supplied for rng under the utility contract.
+        :param welcome: Value supplied for welcome under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.okay_print(welcome)
 
@@ -479,11 +674,17 @@ class TestDB4Builder(TestDatabaseBuilder):
 
     def generate_comment_rows(self, scratch_db):
         """
-        Build the specified number of comment rows.
-        These won't be linked to anything in particular. Additional comment rows may be generated as part of making
-        the interlinks.
-        :param scratch_db:
-        :return:
+        Build the specified number of comment rows. These won't be linked to anything in particular. Additional comment rows may be generated as part of making the interlinks.
+
+        Example:
+            Exercise TestDB4Builder.generate comment rows through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         lx_random = LiuXinBadPseudoRandomGenerator(4321654)
 
@@ -507,8 +708,16 @@ class TestDB4Builder(TestDatabaseBuilder):
     def generate_creator_rows(self, scratch_db):
         """
         Build the specified number of creator rows.
-        :param scratch_db:
-        :return:
+
+        Example:
+            Exercise TestDB4Builder.generate creator rows through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         lx_random = LiuXinBadPseudoRandomGenerator(432423424242)
 
@@ -580,8 +789,16 @@ class TestDB4Builder(TestDatabaseBuilder):
     def generate_genre_rows(self, scratch_db):
         """
         Generate genre rows and add them to the database.
-        :param scratch_db:
-        :return:
+
+        Example:
+            Exercise TestDB4Builder.generate genre rows through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         lx_random = LiuXinBadPseudoRandomGenerator(1274)
 
@@ -617,8 +834,16 @@ class TestDB4Builder(TestDatabaseBuilder):
     def generate_language_rows(self, scratch_db):
         """
         Generate false language rows for the database.
-        :param scratch_db:
-        :return:
+
+        Example:
+            Exercise TestDB4Builder.generate language rows through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         from datetime import datetime
         from datetime import timedelta
@@ -659,8 +884,16 @@ class TestDB4Builder(TestDatabaseBuilder):
     def generate_publisher_rows(self, scratch_db):
         """
         Generate false publisher rows for the database.
-        :param scratch_db:
-        :return:
+
+        Example:
+            Exercise TestDB4Builder.generate publisher rows through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         lx_random = LiuXinBadPseudoRandomGenerator(1275)
 
@@ -702,8 +935,16 @@ class TestDB4Builder(TestDatabaseBuilder):
     def generate_series_rows(self, scratch_db):
         """
         Generate series rows for the database.
-        :param scratch_db:
-        :return:
+
+        Example:
+            Exercise TestDB4Builder.generate series rows through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         from datetime import datetime
         from datetime import timedelta
@@ -757,8 +998,16 @@ class TestDB4Builder(TestDatabaseBuilder):
     def generate_subject_rows(self, scratch_db):
         """
         Generate subject rows for the database - including tree data
-        :param scratch_db:
-        :return:
+
+        Example:
+            Exercise TestDB4Builder.generate subject rows through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         from datetime import datetime
         from datetime import timedelta
@@ -805,8 +1054,16 @@ class TestDB4Builder(TestDatabaseBuilder):
     def generate_tag_rows(self, scratch_db):
         """
         Generate tag rows for the database.
-        :param scratch_db:
-        :return:
+
+        Example:
+            Exercise TestDB4Builder.generate tag rows through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         from datetime import datetime
         from datetime import timedelta
@@ -843,8 +1100,17 @@ class TestDB4Builder(TestDatabaseBuilder):
     def generate_title_rows(self, scratch_db, scratch_lib):
         """
         Generate randomly populated tag rows.
-        :param scratch_db:
-        :return:
+
+        Example:
+            Exercise TestDB4Builder.generate title rows through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :param scratch_lib: Value supplied for scratch lib under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         from datetime import datetime
         from datetime import timedelta
@@ -946,10 +1212,17 @@ class TestDB4Builder(TestDatabaseBuilder):
 
     def generate_folder_stores(self, scratch_db):
         """
-        Generate randomly populated folder store rows.
-        This will be built in a test folder store.
-        :param scratch_db:
-        :return:
+        Generate randomly populated folder store rows. This will be built in a test folder store.
+
+        Example:
+            Exercise TestDB4Builder.generate folder stores through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.path_dict = dict()
         for folder_store_num in range(1, self.folder_store_count + 1):
@@ -977,8 +1250,16 @@ class TestDB4Builder(TestDatabaseBuilder):
     def make_comment_creator_links(self, scratch_db):
         """
         Comments on creators - reviewing them (this table needs to be changed to reviews at some point).
-        :param scratch_db:
-        :return:
+
+        Example:
+            Exercise TestDB4Builder.make comment creator links through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         lx_random = LiuXinBadPseudoRandomGenerator(14098)
 
@@ -1010,8 +1291,16 @@ class TestDB4Builder(TestDatabaseBuilder):
     def make_comment_series_links(self, scratch_db):
         """
         Comments on series - reviewing them (this table needs to be changed to reviews at some point).
-        :param scratch_db:
-        :return:
+
+        Example:
+            Exercise TestDB4Builder.make comment series links through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         lx_random = LiuXinBadPseudoRandomGenerator(14098)
 
@@ -1040,8 +1329,16 @@ class TestDB4Builder(TestDatabaseBuilder):
     def make_comment_title_links(self, scratch_db):
         """
         Comments on titles - reviewing them (this table needs to be changed to reviews at some point).
-        :param scratch_db:
-        :return:
+
+        Example:
+            Exercise TestDB4Builder.make comment title links through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         lx_random = LiuXinBadPseudoRandomGenerator(14099)
 
@@ -1073,10 +1370,17 @@ class TestDB4Builder(TestDatabaseBuilder):
 
     def make_creator_note_links(self, scratch_db):
         """
-        Link creators to notes describing them.
-        Notes are generated for the creators as they are needed. This will result in a large number of notes being
-        :param scratch_db:
-        :return:
+        Link creators to notes describing them. Notes are generated for the creators as they are needed. This will result in a large number of notes being
+
+        Example:
+            Exercise TestDB4Builder.make creator note links through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         lx_random = LiuXinBadPseudoRandomGenerator(5484631351)
 
@@ -1103,12 +1407,17 @@ class TestDB4Builder(TestDatabaseBuilder):
 
     def make_creator_series_links(self, scratch_db):
         """
-        Link existing creators to existing series.
-        Number of links to be generated is (by default) a random number up to the number of series available.
-        Series to be linked will also be drawn randomly - with repeated results discarded. So the total number will
-        always be less that the drawn number.
-        :param scratch_db:
-        :return:
+        Link existing creators to existing series. Number of links to be generated is (by default) a random number up to the number of series available. Series to be linked will also be drawn randomly - with repeated results discarded. So the total number will always be less that the drawn number.
+
+        Example:
+            Exercise TestDB4Builder.make creator series links through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         lx_random = LiuXinBadPseudoRandomGenerator(9804814141)
 
@@ -1174,9 +1483,17 @@ class TestDB4Builder(TestDatabaseBuilder):
     def make_creator_synopsis_links(self, scratch_db, scratch_lib):
         """
         Generating and linking synopsis to the creators
-        :param scratch_db:
-        :param scratch_lib:
-        :return:
+
+        Example:
+            Exercise TestDB4Builder.make creator synopsis links through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :param scratch_lib: Value supplied for scratch lib under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         lx_random = LiuXinBadPseudoRandomGenerator(12343525)
 
@@ -1205,8 +1522,16 @@ class TestDB4Builder(TestDatabaseBuilder):
     def make_creator_tag_links(self, scratch_db):
         """
         Applies randomly chosen tags to the creator. Maximum will be set by the creator_tag_max parameter.
-        :param scratch_db:
-        :return:
+
+        Example:
+            Exercise TestDB4Builder.make creator tag links through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         lx_random = LiuXinBadPseudoRandomGenerator(657)
 
@@ -1254,12 +1579,17 @@ class TestDB4Builder(TestDatabaseBuilder):
 
     def make_creator_title_links(self, scratch_db):
         """
-        Construct creator_title links.
-        The maximum number of creators that can be associated with a title is given by the creator_title_max parameter.
-        This is maximum for each CATEGORY of creators - so a title could, theoretically, have
-        len(CREATOR_CATEGORIES) * creator_title_max categories
-        :param scratch_db:
-        :return:
+        Construct creator_title links. The maximum number of creators that can be associated with a title is given by the creator_title_max parameter. This is maximum for each CATEGORY of creators - so a title could, theoretically, have len(CREATOR_CATEGORIES) * creator_title_max categories
+
+        Example:
+            Exercise TestDB4Builder.make creator title links through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         lx_random = LiuXinBadPseudoRandomGenerator(89)
 
@@ -1326,10 +1656,17 @@ class TestDB4Builder(TestDatabaseBuilder):
 
     def make_genre_series_links(self, scratch_db):
         """
-        Construct the genre title links.
-        Titles will be linked to a randomly chosen number of rnadomly chosen genres
-        :param scratch_db:
-        :return:
+        Construct the genre title links. Titles will be linked to a randomly chosen number of rnadomly chosen genres
+
+        Example:
+            Exercise TestDB4Builder.make genre series links through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         lx_random = LiuXinBadPseudoRandomGenerator(494309)
 
@@ -1375,8 +1712,16 @@ class TestDB4Builder(TestDatabaseBuilder):
     def make_genre_title_links(self, scratch_db):
         """
         Link genres to titles. The maximum number of genres that can be linked to a title is given by genre_title_mac
-        :param scratch_db:
-        :return:
+
+        Example:
+            Exercise TestDB4Builder.make genre title links through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         lx_random = LiuXinBadPseudoRandomGenerator(46)
 
@@ -1418,12 +1763,17 @@ class TestDB4Builder(TestDatabaseBuilder):
 
     def make_identifier_title_links(self, scratch_db):
         """
-        Construct identifier-title links.
-        identifiers are generated on the fly.
-        Control the maximum number of identifiers for any one title using the identifier_title_max parameter.
-        Generates both internal and external identifiers.
-        :param scratch_db:
-        :return:
+        Construct identifier-title links. identifiers are generated on the fly. Control the maximum number of identifiers for any one title using the identifier_title_max parameter. Generates both internal and external identifiers.
+
+        Example:
+            Exercise TestDB4Builder.make identifier title links through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         lx_random = LiuXinBadPseudoRandomGenerator(50)
 
@@ -1465,11 +1815,18 @@ class TestDB4Builder(TestDatabaseBuilder):
 
     def make_language_title_links(self, scratch_db, scratch_lib):
         """
-        There are three different types - primary_language, available_language and contained_language - set one for the
-        primary and a random number for the others.
-        :param scratch_db:
-        :param scratch_lib:
-        :return:
+        There are three different types - primary_language, available_language and contained_language - set one for the primary and a random number for the others.
+
+        Example:
+            Exercise TestDB4Builder.make language title links through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :param scratch_lib: Value supplied for scratch lib under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         db_language_count = scratch_db.driver_wrapper.get_record_count("languages")
 
@@ -1566,11 +1923,18 @@ class TestDB4Builder(TestDatabaseBuilder):
 
     def make_note_publisher_links(self, scratch_db, scratch_lib):
         """
-        Generate notes and associate them with the given publisher.
-        The total number of notes that will be associated with any one publisher is controlled with note_publisher_max.
-        :param scratch_db:
-        :param scratch_lib:
-        :return:
+        Generate notes and associate them with the given publisher. The total number of notes that will be associated with any one publisher is controlled with note_publisher_max.
+
+        Example:
+            Exercise TestDB4Builder.make note publisher links through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :param scratch_lib: Value supplied for scratch lib under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         lx_random = LiuXinBadPseudoRandomGenerator(524234234)
 
@@ -1599,11 +1963,18 @@ class TestDB4Builder(TestDatabaseBuilder):
 
     def make_note_series_links(self, scratch_db, scratch_lib):
         """
-        Generates notes and associates them with all series.
-        The maximum number of notes that will be associated with any series is given by note_series_max.
-        :param scratch_db:
-        :param scratch_lib:
-        :return:
+        Generates notes and associates them with all series. The maximum number of notes that will be associated with any series is given by note_series_max.
+
+        Example:
+            Exercise TestDB4Builder.make note series links through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :param scratch_lib: Value supplied for scratch lib under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         lx_random = LiuXinBadPseudoRandomGenerator(41984149141)
 
@@ -1626,12 +1997,18 @@ class TestDB4Builder(TestDatabaseBuilder):
 
     def make_note_title_links(self, scratch_db, scratch_lib):
         """
-        Generate notes and associate them with titles.
-        The maximum number of notes that will be associated with a title is controlled with the note_title_max
-        parameter.
-        :param scratch_db:
-        :param scratch_lib:
-        :return:
+        Generate notes and associate them with titles. The maximum number of notes that will be associated with a title is controlled with the note_title_max parameter.
+
+        Example:
+            Exercise TestDB4Builder.make note title links through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :param scratch_lib: Value supplied for scratch lib under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         lx_random = LiuXinBadPseudoRandomGenerator(552520502525)
 
@@ -1656,10 +2033,17 @@ class TestDB4Builder(TestDatabaseBuilder):
 
     def make_publisher_title_links(self, scratch_db):
         """
-        Publishers are selected from the publishers table and applied to titles from the titles table.
-        The maximum number of titles to be set is controlled with publisher_title_max.
-        :param scratch_db:
-        :return:
+        Publishers are selected from the publishers table and applied to titles from the titles table. The maximum number of titles to be set is controlled with publisher_title_max.
+
+        Example:
+            Exercise TestDB4Builder.make publisher title links through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         lx_random = LiuXinBadPseudoRandomGenerator(49)
 
@@ -1702,11 +2086,17 @@ class TestDB4Builder(TestDatabaseBuilder):
 
     def make_rating_title_links(self, scratch_db):
         """
-        Construct links forming an number of ratings for each of the titles.
-        The maximum number of ratings that will be assigned to a title is determined by rating_title_max. Number will
-        vary between 0 and that value.
-        :param scratch_db:
-        :return:
+        Construct links forming an number of ratings for each of the titles. The maximum number of ratings that will be assigned to a title is determined by rating_title_max. Number will vary between 0 and that value.
+
+        Example:
+            Exercise TestDB4Builder.make rating title links through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         lx_random = LiuXinBadPseudoRandomGenerator(81)
 
@@ -1750,12 +2140,18 @@ class TestDB4Builder(TestDatabaseBuilder):
 
     def make_series_synopsis_links(self, scratch_db, scratch_lib):
         """
-        Generating test series synopsis for the series.
-        Synopsis will be linked. The number generated will be controled by the parameter series_synopsis_max. Number
-        added will be a random choice in the range 0-series_synopsis_max.
-        :param scratch_db:
-        :param scratch_lib:
-        :return:
+        Generating test series synopsis for the series. Synopsis will be linked. The number generated will be controled by the parameter series_synopsis_max. Number added will be a random choice in the range 0-series_synopsis_max.
+
+        Example:
+            Exercise TestDB4Builder.make series synopsis links through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :param scratch_lib: Value supplied for scratch lib under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         lx_random = LiuXinBadPseudoRandomGenerator(57324085)
 
@@ -1786,10 +2182,17 @@ class TestDB4Builder(TestDatabaseBuilder):
 
     def make_series_tag_links(self, scratch_db):
         """
-        Link some of the pre-existing random tags to the series.
-        Tags will be randomly selected from the existing tags table and applied to each of the series rows.
-        :param scratch_db:
-        :return:
+        Link some of the pre-existing random tags to the series. Tags will be randomly selected from the existing tags table and applied to each of the series rows.
+
+        Example:
+            Exercise TestDB4Builder.make series tag links through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         lx_random = LiuXinBadPseudoRandomGenerator(657)
 
@@ -1832,10 +2235,17 @@ class TestDB4Builder(TestDatabaseBuilder):
 
     def make_series_title_links(self, scratch_db):
         """
-        Link each of the titles to a randomly determined number of series.
-        Maximum number of series each title will be linked to is controlled with the series_title_max parameter
-        :param scratch_db:
-        :return:
+        Link each of the titles to a randomly determined number of series. Maximum number of series each title will be linked to is controlled with the series_title_max parameter
+
+        Example:
+            Exercise TestDB4Builder.make series title links through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         lx_random = LiuXinBadPseudoRandomGenerator(58959386)
 
@@ -1883,10 +2293,17 @@ class TestDB4Builder(TestDatabaseBuilder):
 
     def make_subject_title_links(self, scratch_db):
         """
-        Link existing subjects to the existing titles - titles can be linked to multiple subjects - if they will or not
-        depends on the density.
-        :param scratch_db:
-        :return:
+        Link existing subjects to the existing titles - titles can be linked to multiple subjects - if they will or not depends on the density.
+
+        Example:
+            Exercise TestDB4Builder.make subject title links through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         lx_random = LiuXinBadPseudoRandomGenerator(13223)
 
@@ -1931,12 +2348,17 @@ class TestDB4Builder(TestDatabaseBuilder):
 
     def make_tag_title_links(self, scratch_db):
         """
-        Makes the tag_title links.
-        Iterates over the titles table adding tags to each of the title rows.
-        Maximum number of tags which will be applied to a title are given by tag_title_max. A randomly selected number
-        up to that (and including 0) will be selected.
-        :param scratch_db:
-        :return:
+        Makes the tag_title links. Iterates over the titles table adding tags to each of the title rows. Maximum number of tags which will be applied to a title are given by tag_title_max. A randomly selected number up to that (and including 0) will be selected.
+
+        Example:
+            Exercise TestDB4Builder.make tag title links through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         lx_random = LiuXinBadPseudoRandomGenerator(53253255322142142421)
 
@@ -1980,8 +2402,17 @@ class TestDB4Builder(TestDatabaseBuilder):
     def make_synopsis_title_links(self, scratch_db, scratch_lib):
         """
         Generate synopsis rows and link them to every title row.
-        :param scratch_db:
-        :return:
+
+        Example:
+            Exercise TestDB4Builder.make synopsis title links through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :param scratch_lib: Value supplied for scratch lib under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         lx_random = LiuXinBadPseudoRandomGenerator(41984149141)
 
@@ -2015,11 +2446,19 @@ class TestDB4Builder(TestDatabaseBuilder):
     def generic_build_intralink_table(self, scratch_db, target_table, link_types, seed=14567):
         """
         Replacement for the table specific methods.
-        :param scratch_db:
-        :param target_table:
-        :param link_types:
-        :param seed:
-        :return:
+
+        Example:
+            Exercise TestDB4Builder.generic build intralink table through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :param target_table: Value supplied for target table under the utility contract.
+        :param link_types: Value supplied for link types under the utility contract.
+        :param seed: Value supplied for seed under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # Needed to maintain compatibility with the previous implementation
         assert link_types, "some link types need to be provided"
@@ -2075,8 +2514,16 @@ class TestDB4Builder(TestDatabaseBuilder):
     def build_publisher_publisher_intralinks(self, scratch_db):
         """
         Constructs the title-title intralinks
-        :param scratch_db:
-        :return:
+
+        Example:
+            Exercise TestDB4Builder.build publisher publisher intralinks through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         puts(colored.green("About to intralink the creators table"))
 
@@ -2141,13 +2588,23 @@ class TestDB4Builder(TestDatabaseBuilder):
     ):
         """
         Hang trees of the existing rows for the given table.
-        :param scratch_db:
-        :param table:
-        :param tree_count: Total number of trees to be generated and hung off existing rows
-        :param seed: Seed for the rng to be used to determine the characteristics of the trees to be built
-        :param parent_position: If True then will attempt to populate the parent_position column of the database with
-                                a position for the newly created row under the parent.
-        :return:
+
+        Example:
+            Exercise TestDB4Builder.hang trees through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :param table: Value supplied for table under the utility contract.
+        :param tree_count: Value supplied for tree count under the utility contract.
+        :param seed: Value supplied for seed under the utility contract.
+        :param parent_position: Value supplied for parent position under the utility
+            contract.
+        :param start_datestamp: Value supplied for start datestamp under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if start_datestamp is None:
             return self._hang_trees_no_datestamp(
@@ -2216,13 +2673,21 @@ class TestDB4Builder(TestDatabaseBuilder):
     def _hang_trees_no_datestamp(self, scratch_db, table, tree_count=10, seed=1234, parent_position=True):
         """
         Hang trees of the existing rows for the given table.
-        :param scratch_db:
-        :param table:
-        :param tree_count: Total number of trees to be generated and hung off existing rows
-        :param seed: Seed for the rng to be used to determine the characteristics of the trees to be built
-        :param parent_position: If True then will attempt to populate the parent_position column of the database with
-                                a position for the newly created row under the parent.
-        :return:
+
+        Example:
+            Exercise TestDB4Builder. hang trees no datestamp through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :param table: Value supplied for table under the utility contract.
+        :param tree_count: Value supplied for tree count under the utility contract.
+        :param seed: Value supplied for seed under the utility contract.
+        :param parent_position: Value supplied for parent position under the utility
+            contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # Todo: Check that the trees do not intersect or cycle - only want that in deliberately malformed databases
         puts(colored.green("Generating test {} trees. {} will be generated.".format(table, tree_count)))
@@ -2276,14 +2741,17 @@ class TestDB4Builder(TestDatabaseBuilder):
 
     def detail_databases(self, scratch_db):
         """
-        Make a database with comprehensive test metadata.
-        Dummy values are generated for books, files and folders. These are randomly interlinked to try and generate as
-        good a possible an approximating of a thoroughly filled out database.
-        Options are provided to change the number of books and other assets created. This allows generating very large
-        data sets for performance testing.
-        :param scratch_db: The fake data will be added to this database (database should start empty or results will be
-                           unpredictable)
-        :return:
+        Make a database with comprehensive test metadata. Dummy values are generated for books, files and folders. These are randomly interlinked to try and generate as good a possible an approximating of a thoroughly filled out database. Options are provided to change the number of books and other assets created. This allows generating very large data sets for performance testing.
+
+        Example:
+            Exercise TestDB4Builder.detail databases through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         self.initialize_random_assets()
 
@@ -2353,8 +2821,17 @@ class TestDB4Builder(TestDatabaseBuilder):
     def populate_interlink_tables(self, scratch_db, test_lib):
         """
         Populate the interlink tables.
-        :param scratch_db:
-        :return:
+
+        Example:
+            Exercise TestDB4Builder.populate interlink tables through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :param test_lib: Value supplied for test lib under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # ----------------------
         # - MAKE COMMENT-X LINKS
@@ -2421,8 +2898,16 @@ class TestDB4Builder(TestDatabaseBuilder):
     def populate_intralink_tables(self, scratch_db):
         """
         Populate the intralink tables
-        :param scratch_db:
-        :return:
+
+        Example:
+            Exercise TestDB4Builder.populate intralink tables through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # --------------------------------------------------------------------------------------------------------------
         #
@@ -2436,8 +2921,16 @@ class TestDB4Builder(TestDatabaseBuilder):
     def generate_fake_asset_data(self, scratch_db):
         """
         Populate the database with fake asset data.
-        :param test_db:
-        :return:
+
+        Example:
+            Exercise TestDB4Builder.generate fake asset data through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         test_db = scratch_db
 
@@ -2475,27 +2968,49 @@ class TestDB4Builder(TestDatabaseBuilder):
 
     def add_new_main_tables(self, scatch_db):
         """
-        Called before asset generation - gives the user a chance to add any custom tables they want - to populate them,
-        link them to other tables e.t.c.
-        :param scatch_db:
-        :return:
+        Called before asset generation - gives the user a chance to add any custom tables they want - to populate them, link them to other tables e.t.c.
+
+        Example:
+            Exercise TestDB4Builder.add new main tables through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scatch_db: Value supplied for scatch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         pass
 
     def add_custom_columns(self, scratch_db):
         """
-        Called before asset generation - gives the user a chance to add any custom columns they want and to populate
-        them.
-        :param scratch_db:
-        :return:
+        Called before asset generation - gives the user a chance to add any custom columns they want and to populate them.
+
+        Example:
+            Exercise TestDB4Builder.add custom columns through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         pass
 
     def populate_custom_columns(self, scratch_db):
         """
         Gives a user the change to populate the custom columns when they have been created.
-        :param scratch_db:
-        :return:
+
+        Example:
+            Exercise TestDB4Builder.populate custom columns through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         pass
 
@@ -2503,14 +3018,35 @@ class TestDB4Builder(TestDatabaseBuilder):
 
         # Because of the way that books are being created for titles we don't get direct book row access
         # So we need to write this out now, after the fact.
+        """
+        Write timestamps under the format's safety and compatibility rules.
+
+        Example:
+            Exercise TestDB4Builder.write timestamps through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.write_timestamps_books_table(scratch_db)
 
     @staticmethod
     def write_timestamps_books_table(scratch_db):
         """
         Update the timestamp columns of the books field to static values, freezing them after database rebuilds.
-        :param scratch_db:
-        :return:
+
+        Example:
+            Exercise TestDB4Builder.write timestamps books table through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         from datetime import datetime
         from datetime import timedelta
@@ -2537,7 +3073,19 @@ class TestDB4Builder(TestDatabaseBuilder):
     def construct_book_folders(self, scratch_db, scratch_fsm, all_fs_ids_list):
         """
         Build a folder for some books on the database.
-        :return:
+
+        Example:
+            Exercise TestDB4Builder.construct book folders through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :param scratch_fsm: Value supplied for scratch fsm under the utility contract.
+        :param all_fs_ids_list: Value supplied for all fs ids list under the utility
+            contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         lx_random = LiuXinBadPseudoRandomGenerator(114785)
 
@@ -2562,10 +3110,21 @@ class TestDB4Builder(TestDatabaseBuilder):
     def add_random_formats(self, scratch_db, scratch_fsm, all_fs_ids_list, book_extensions):
         """
         Add random formats to the database.
-        :param scratch_db:
-        :param scratch_fsm:
-        :param all_fs_ids_list:
-        :return:
+
+        Example:
+            Exercise TestDB4Builder.add random formats through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :param scratch_fsm: Value supplied for scratch fsm under the utility contract.
+        :param all_fs_ids_list: Value supplied for all fs ids list under the utility
+            contract.
+        :param book_extensions: Value supplied for book extensions under the utility
+            contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         lx_random = LiuXinBadPseudoRandomGenerator(22345)
 
@@ -2594,9 +3153,19 @@ class TestDB4Builder(TestDatabaseBuilder):
     def construct_series_folders(self, scratch_db, scratch_fsm, all_fs_ids_list):
         """
         Does the work of constructing series folders.
-        :param scratch_db:
-        :param scratch_fsm:
-        :return:
+
+        Example:
+            Exercise TestDB4Builder.construct series folders through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :param scratch_fsm: Value supplied for scratch fsm under the utility contract.
+        :param all_fs_ids_list: Value supplied for all fs ids list under the utility
+            contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         lx_random = LiuXinBadPseudoRandomGenerator(1117646)
 
@@ -2647,12 +3216,22 @@ def build_test_db(
     test_asset_version=None,
 ):
     """
-    Construct the test database specified by this module.
-    In this case a blank database is constructed and filled with data - before being copied into the test_databases
-    folder.
-    :param dst_file_path: The file to write the database to after it's been built.
-    :param dump: HERE IGNORED
-    :return:
+    Construct the test database specified by this module. In this case a blank database is constructed and filled with data - before being copied into the test_databases folder.
+
+    Example:
+        Exercise build test db through a consuming regression::
+
+            python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+    :param dst_file_path: Value supplied for dst file path under the utility contract.
+    :param dump: Value supplied for dump under the utility contract.
+    :param plugin_name: Value supplied for plugin name under the utility contract.
+    :param new_db_uuid: Value supplied for new db uuid under the utility contract.
+    :param test_asset_version: Value supplied for test asset version under the utility
+        contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     test_db_builder = TestDB4Builder(
         dst_file_path=dst_file_path,
@@ -2674,18 +3253,23 @@ def generate_test_tree(
     max_layers=5,
 ):
     """
-    Used to build trees of rows rooted at the root row.
-    Trees should not intersect (though additional trees can be hung off other trees and some entries might have more
-    than one tree)
-    :param root_row: The tree will be rooted in this row
-    :param row_name_str: Will be used to generate a name for each of the new rows
-    :param uuid_stream: A source of uuids to insert into the raw name string
-    :param parent_position: Some tables with a tree like structure have a parent_position column. This is used to
-                            sort the sub rows under the main row.
-                            If this parameter is True then the parent_position column will be populated.
-    :param seed:
-    :param max_layers: The maximum number of layers which will be build.
-    :return:
+    Used to build trees of rows rooted at the root row. Trees should not intersect (though additional trees can be hung off other trees and some entries might have more than one tree)
+
+    Example:
+        Exercise generate test tree through a consuming regression::
+
+            python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+    :param root_row: Value supplied for root row under the utility contract.
+    :param row_name_str: Value supplied for row name str under the utility contract.
+    :param uuid_stream: Value supplied for uuid stream under the utility contract.
+    :param parent_position: Value supplied for parent position under the utility
+        contract.
+    :param seed: Value supplied for seed under the utility contract.
+    :param max_layers: Value supplied for max layers under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     lx_random = LiuXinBadPseudoRandomGenerator(seed)
 
@@ -2747,18 +3331,28 @@ def generate_test_tree_with_datestamps(
     max_layers=5,
 ):
     """
-    Used to build trees of rows rooted at the root row.
-    Trees should not intersect (though additional trees can be hung off other trees and some entries might have more
-    than one tree)
-    :param root_row: The tree will be rooted in this row
-    :param row_name_str: Will be used to generate a name for each of the new rows
-    :param uuid_stream: A source of uuids to insert into the raw name string
-    :param parent_position: Some tables with a tree like structure have a parent_position column. This is used to
-                            sort the sub rows under the main row.
-                            If this parameter is True then the parent_position column will be populated.
-    :param seed:
-    :param max_layers: The maximum number of layers which will be build.
-    :return:
+    Used to build trees of rows rooted at the root row. Trees should not intersect (though additional trees can be hung off other trees and some entries might have more than one tree)
+
+    Example:
+        Exercise generate test tree with datestamps through a consuming regression::
+
+            python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+    :param root_row: Value supplied for root row under the utility contract.
+    :param datestamp_col: Value supplied for datestamp col under the utility contract.
+    :param datestamp_start: Value supplied for datestamp start under the utility
+        contract.
+    :param datestamp_delta: Value supplied for datestamp delta under the utility
+        contract.
+    :param row_name_str: Value supplied for row name str under the utility contract.
+    :param uuid_stream: Value supplied for uuid stream under the utility contract.
+    :param parent_position: Value supplied for parent position under the utility
+        contract.
+    :param seed: Value supplied for seed under the utility contract.
+    :param max_layers: Value supplied for max layers under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     lx_random = LiuXinBadPseudoRandomGenerator(seed)
 

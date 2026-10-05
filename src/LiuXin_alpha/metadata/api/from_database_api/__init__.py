@@ -1,7 +1,13 @@
-"""Database-backed source contracts for metadata containers and read-side views.
+"""
+Compose database-backed WEMI, agent and high-level metadata getter contracts into one source surface.
 
-This layer is real infrastructure, not dead scaffolding. It is the read-side
-contract between the database and metadata container/view construction.
+The module makes ordering, fallback, ownership and optional-integration behavior
+explicit for callers.
+
+Example:
+    Exercise   init   with the owning regression module::
+
+        python -m pytest -q tests/metadata/api/test_metadata_hydrator_api.py
 """
 
 from __future__ import annotations
@@ -46,11 +52,30 @@ class DBMetadataSourceAPI(
     AgentProfileGetterAPI,
     MetadataHydratorAPI,
 ):
-    """Single database-backed source surface for metadata objects and views."""
+    """
+    Combine all database-backed metadata getter contracts around one database dependency.
+
+    Example:
+        Exercise DBMetadataSourceAPI with the owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_metadata_hydrator_api.py
+    """
 
     db: 'DatabaseAPI'
 
     def __init__(self, db: 'DatabaseAPI') -> None:
+        """
+        Bind the composite metadata source to the database shared by all inherited getter contracts.
+
+        Example:
+            Exercise DBMetadataSourceAPI.  init   with the owning regression module::
+
+                python -m pytest -q tests/metadata/api/test_metadata_hydrator_api.py
+
+
+        :param db: Database dependency used by inherited or typed metadata getters.
+        :return: None.
+        """
         super().__init__(db)
 
 

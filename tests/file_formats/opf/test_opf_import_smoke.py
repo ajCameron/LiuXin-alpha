@@ -1,9 +1,13 @@
 """
-Import smoke tests for LiuXin_alpha.file_formats.opf.
+Provide test opf import smoke utility behavior.
 
-The first test runs *without* any shims — it should pass once wiring is correct.
-The second test applies a temporary legacy alias shim to let you iterate on deeper
-OPF functionality even if the legacy import path is still present.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test opf import smoke through a consuming regression::
+
+        python -m pytest -q tests/file_formats/opf/test_opf_import_smoke.py
 """
 
 from __future__ import annotations
@@ -18,8 +22,14 @@ def test_import_opf_package_smoke_no_shims() -> None:
     """
     Smoke test: importing the opf package should not raise.
 
-    If this fails, it usually indicates a hard import-time dependency / legacy path
-    that should be moved behind a conditional import.
+    Example:
+        Exercise test import opf package smoke no shims through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf_import_smoke.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     try:
         importlib.import_module("LiuXin_alpha.file_formats.opf")
@@ -31,6 +41,17 @@ def test_import_opf_package_smoke_no_shims() -> None:
 def test_import_opf_facade_smoke_with_legacy_alias(legacy_liuxin_alias) -> None:
     """
     Smoke test with legacy alias shim enabled: imports should succeed so functional tests can run.
+
+    Example:
+        Exercise test import opf facade smoke with legacy alias through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf_import_smoke.py
+
+
+    :param legacy_liuxin_alias: Value supplied for legacy liuxin alias under the utility
+        contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     mod = importlib.import_module("LiuXin_alpha.file_formats.opf.opf")
     assert hasattr(mod, "get_metadata")

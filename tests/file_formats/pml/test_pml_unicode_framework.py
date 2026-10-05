@@ -1,3 +1,14 @@
+"""
+Provide test pml unicode framework utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test pml unicode framework through a consuming regression::
+
+        python -m pytest -q tests/file_formats/pml/test_pml_unicode_framework.py
+"""
 from __future__ import annotations
 
 import builtins
@@ -24,6 +35,19 @@ SUPPORTED_ROUNDTRIP_FRAGMENTS = (
 
 
 def _pml_options(**overrides):
+    """
+    Perform the pml options operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  pml options through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pml/test_pml_unicode_framework.py
+
+
+    :param overrides: Value supplied for overrides under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return text_output_options(
         pml_output_encoding="cp1252",
         full_image_depth=False,
@@ -33,11 +57,37 @@ def _pml_options(**overrides):
 
 
 def _assert_ascii_pml(rendered: str) -> None:
+    """
+    Perform the assert ascii pml operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  assert ascii pml through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pml/test_pml_unicode_framework.py
+
+
+    :param rendered: Value supplied for rendered under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     rendered.encode("ascii", "strict")
     assert_no_replacement_chars(rendered, context="PML output")
 
 
 def test_pmlmlizer_serializes_shared_oeb_with_pml_unicode_escapes(monkeypatch) -> None:
+    """
+    Perform the test pmlmlizer serializes shared oeb with pml unicode escapes operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test pmlmlizer serializes shared oeb with pml unicode escapes through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pml/test_pml_unicode_framework.py
+
+
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     install_minimal_stylizers(monkeypatch)
     pmlml = importlib.import_module("LiuXin_alpha.file_formats.pml.pmlml")
 
@@ -56,6 +106,19 @@ def test_pmlmlizer_serializes_shared_oeb_with_pml_unicode_escapes(monkeypatch) -
 
 
 def test_pmlmlizer_output_roundtrips_supported_foreign_language_fragments(monkeypatch) -> None:
+    """
+    Perform the test pmlmlizer output roundtrips supported foreign language fragments operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test pmlmlizer output roundtrips supported foreign language fragments through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pml/test_pml_unicode_framework.py
+
+
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     install_minimal_stylizers(monkeypatch)
     pmlml = importlib.import_module("LiuXin_alpha.file_formats.pml.pmlml")
     converter = importlib.import_module("LiuXin_alpha.file_formats.pml.pmlconverter")
@@ -69,10 +132,37 @@ def test_pmlmlizer_output_roundtrips_supported_foreign_language_fragments(monkey
 
 
 def test_pml_output_writes_deterministic_pmlz_with_unicode_escaped_pml(tmp_path: Path, monkeypatch) -> None:
+    """
+    Perform the test pml output writes deterministic pmlz with unicode escaped pml operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test pml output writes deterministic pmlz with unicode escaped pml through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pml/test_pml_unicode_framework.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     install_minimal_stylizers(monkeypatch)
     pml_output = importlib.import_module("LiuXin_alpha.file_formats.conversion.plugins.pml_output")
 
     def render_once(run_name: str) -> tuple[list[str], str]:
+        """
+        Perform the render once operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise test pml output writes deterministic pmlz with unicode escaped pml.render once through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pml/test_pml_unicode_framework.py
+
+
+        :param run_name: Value supplied for run name under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         output_path = tmp_path / f"{run_name}.pmlz"
         pml_output.PMLOutput(None).convert(build_text_output_book(), str(output_path), None, _pml_options(), null_log())
         with zipfile.ZipFile(output_path) as zf:
@@ -93,6 +183,20 @@ def test_pml_output_writes_deterministic_pmlz_with_unicode_escaped_pml(tmp_path:
 
 
 def test_pml_output_reports_unsupported_character_replacement(tmp_path: Path, monkeypatch) -> None:
+    """
+    Perform the test pml output reports unsupported character replacement operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test pml output reports unsupported character replacement through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pml/test_pml_unicode_framework.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     install_minimal_stylizers(monkeypatch)
     pml_output = importlib.import_module("LiuXin_alpha.file_formats.conversion.plugins.pml_output")
 
@@ -130,6 +234,20 @@ def test_pml_output_reports_unsupported_character_replacement(tmp_path: Path, mo
 
 
 def test_pml_output_report_uses_explicit_conversion_edge(tmp_path: Path, monkeypatch) -> None:
+    """
+    Perform the test pml output report uses explicit conversion edge operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test pml output report uses explicit conversion edge through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pml/test_pml_unicode_framework.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     install_minimal_stylizers(monkeypatch)
     edges = importlib.import_module("LiuXin_alpha.file_formats.conversion.edges")
     pml_output = importlib.import_module("LiuXin_alpha.file_formats.conversion.plugins.pml_output")
@@ -154,11 +272,42 @@ def test_pml_output_skips_images_when_pillow_is_unavailable_with_minimal_log(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    """
+    Perform the test pml output skips images when pillow is unavailable with minimal log operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test pml output skips images when pillow is unavailable with minimal log through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pml/test_pml_unicode_framework.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     install_minimal_stylizers(monkeypatch)
     pml_output = importlib.import_module("LiuXin_alpha.file_formats.conversion.plugins.pml_output")
     real_import = builtins.__import__
 
     def blocked_import(name, globals=None, locals=None, fromlist=(), level=0):
+        """
+        Perform the blocked import operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise test pml output skips images when pillow is unavailable with minimal log.blocked import through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pml/test_pml_unicode_framework.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param globals: Value supplied for globals under the utility contract.
+        :param locals: Local template variables available during evaluation.
+        :param fromlist: Value supplied for fromlist under the utility contract.
+        :param level: Value supplied for level under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if name == "PIL" or name.startswith("PIL."):
             raise ImportError("Pillow intentionally blocked")
         return real_import(name, globals, locals, fromlist, level)

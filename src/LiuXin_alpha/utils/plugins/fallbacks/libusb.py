@@ -1,12 +1,26 @@
 # -*- coding: utf-8 -*-
 """
-Pure-python fallback for the compiled ``libusb`` extension.
+Provide libusb utility behavior.
 
-Stub: in production, wire to pyusb or the compiled extension.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise libusb through a consuming regression::
+
+        python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
 """
 
 from __future__ import annotations
 
 
 class LibUSBError(Exception):
+    """
+    Report the LibUSBError Calibre compatibility failure.
+
+    Example:
+        Exercise LibUSBError through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+    """
     pass

@@ -1,3 +1,14 @@
+"""
+Verify core book metadata fields, copy behavior and smart updates.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test book metadata base through its owning regression module::
+
+        python -m pytest -q tests/metadata/book/test_book_metadata_base.py
+"""
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -9,6 +20,18 @@ from LiuXin_alpha.metadata.book.base import calibreMetadata, field_from_string, 
 
 
 def _text_multiple_meta(name: str = "Custom Tags") -> dict[str, object]:
+    """
+    Perform the text multiple meta test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise text multiple meta through its owning regression module::
+
+            python -m pytest -q tests/metadata/book/test_book_metadata_base.py
+
+
+    :param name: Value supplied for name in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return {
         "name": name,
         "datatype": "text",
@@ -22,6 +45,18 @@ def _text_multiple_meta(name: str = "Custom Tags") -> dict[str, object]:
 
 
 def _series_meta(name: str = "Custom Series") -> dict[str, object]:
+    """
+    Perform the series meta test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise series meta through its owning regression module::
+
+            python -m pytest -q tests/metadata/book/test_book_metadata_base.py
+
+
+    :param name: Value supplied for name in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return {
         "name": name,
         "datatype": "series",
@@ -31,6 +66,17 @@ def _series_meta(name: str = "Custom Series") -> dict[str, object]:
 
 
 def test_calibre_metadata_core_accessors_identifiers_and_copies() -> None:
+    """
+    Verify calibre metadata core accessors identifiers and copies.
+
+    Example:
+        Exercise test calibre metadata core accessors identifiers and copies through its owning regression module::
+
+            python -m pytest -q tests/metadata/book/test_book_metadata_base.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     metadata = calibreMetadata("  Example Book  ", ["Author One"])
 
     assert metadata.title == "Example Book"
@@ -65,6 +111,19 @@ def test_calibre_metadata_core_accessors_identifiers_and_copies() -> None:
 
 
 def test_custom_metadata_values_extras_and_non_none_fields(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Verify custom metadata values extras and non none fields.
+
+    Example:
+        Exercise test custom metadata values extras and non none fields through its owning regression module::
+
+            python -m pytest -q tests/metadata/book/test_book_metadata_base.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     monkeypatch.setattr(book_base, "sort_key", lambda value: str(value).casefold())
 
     metadata = calibreMetadata("Custom Book", ["Writer"])
@@ -94,6 +153,17 @@ def test_custom_metadata_values_extras_and_non_none_fields(monkeypatch: pytest.M
 
 
 def test_deepcopy_metadata_and_smart_update_merge_semantics() -> None:
+    """
+    Verify deepcopy metadata and smart update merge semantics.
+
+    Example:
+        Exercise test deepcopy metadata and smart update merge semantics through its owning regression module::
+
+            python -m pytest -q tests/metadata/book/test_book_metadata_base.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     target = calibreMetadata("Original", ["Unknown"])
     target.tags = ["Existing", "Keep"]
     target.comments = "short"
@@ -136,6 +206,19 @@ def test_deepcopy_metadata_and_smart_update_merge_semantics() -> None:
 
 
 def test_formatting_helpers_and_string_representation(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Verify formatting helpers and string representation.
+
+    Example:
+        Exercise test formatting helpers and string representation through its owning regression module::
+
+            python -m pytest -q tests/metadata/book/test_book_metadata_base.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     monkeypatch.setattr(book_base, "sort_key", lambda value: str(value).casefold())
 
     metadata = calibreMetadata("Formatted", ["Ada Lovelace", "Grace Hopper"])
@@ -172,6 +255,19 @@ def test_formatting_helpers_and_string_representation(monkeypatch: pytest.Monkey
 def test_unicode_torture_metadata_fields_formatting_and_copies(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """
+    Verify unicode torture metadata fields formatting and copies.
+
+    Example:
+        Exercise test unicode torture metadata fields formatting and copies through its owning regression module::
+
+            python -m pytest -q tests/metadata/book/test_book_metadata_base.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     monkeypatch.setattr(book_base, "sort_key", lambda value: str(value).casefold())
 
     title = "Résumé 東京 普通话 简体中文 日本語 こんにちは العربية עברית Звёзды 한국어 हिन्दी e\u0301 🚀"
@@ -260,15 +356,53 @@ def test_field_from_string_parses_supported_datatypes(
     field_metadata: dict[str, object],
     expected: object,
 ) -> None:
+    """
+    Verify field from string parses supported datatypes.
+
+    Example:
+        Exercise test field from string parses supported datatypes through its owning regression module::
+
+            python -m pytest -q tests/metadata/book/test_book_metadata_base.py
+
+
+    :param field: Value supplied for field in the focused test operation.
+    :param raw: Value supplied for raw in the focused test operation.
+    :param field_metadata: Value supplied for field metadata in the focused test
+        operation.
+    :param expected: Value supplied for expected in the focused test operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     assert field_from_string(field, raw, field_metadata) == expected
 
 
 def test_field_from_string_rejects_unknown_bool_values() -> None:
+    """
+    Verify field from string rejects unknown bool values.
+
+    Example:
+        Exercise test field from string rejects unknown bool values through its owning regression module::
+
+            python -m pytest -q tests/metadata/book/test_book_metadata_base.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     with pytest.raises(ValueError, match="Unknown value"):
         field_from_string("flag", "sometimes", {"datatype": "bool"})
 
 
 def test_field_from_string_preserves_foreign_language_iso_codes() -> None:
+    """
+    Verify field from string preserves foreign language iso codes.
+
+    Example:
+        Exercise test field from string preserves foreign language iso codes through its owning regression module::
+
+            python -m pytest -q tests/metadata/book/test_book_metadata_base.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     assert field_from_string(
         "languages",
         "jpn, zho, cmn, ara, heb, rus, hin, kor",

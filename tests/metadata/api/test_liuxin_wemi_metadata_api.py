@@ -1,3 +1,14 @@
+"""
+Verify common WEMI metadata identity, relations and compatibility aliases.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test liuxin wemi metadata api through its owning regression module::
+
+        python -m pytest -q tests/metadata/api/test_liuxin_wemi_metadata_api.py
+"""
 from __future__ import annotations
 
 import inspect
@@ -18,6 +29,17 @@ from LiuXin_alpha.metadata.containers import LazyLiuXinWEMIMetadata, LiuXinWEMIM
 
 
 def test_liuxin_wemi_metadata_api_is_exported_from_metadata_api_root() -> None:
+    """
+    Verify liuxin wemi metadata api remains exported from metadata api root.
+
+    Example:
+        Exercise test liuxin wemi metadata api is exported from metadata api root through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_liuxin_wemi_metadata_api.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     assert "LiuXinWEMIMetadataAPI" in metadata_api_all
     assert "LiuXinWEMIAPI" in metadata_api_all
     assert "LazyLiuXinWEMIMetadataAPI" in metadata_api_all
@@ -28,11 +50,33 @@ def test_liuxin_wemi_metadata_api_is_exported_from_metadata_api_root() -> None:
 
 
 def test_wemi_level_alias_allows_item_centered_stack_names() -> None:
+    """
+    Verify wemi level alias allows item centered stack names.
+
+    Example:
+        Exercise test wemi level alias allows item centered stack names through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_liuxin_wemi_metadata_api.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     level: WemiLevel = "item"
     assert level == "item"
 
 
 def test_opf_source_alias_covers_bytes_and_paths() -> None:
+    """
+    Verify opf source alias covers bytes and paths.
+
+    Example:
+        Exercise test opf source alias covers bytes and paths through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_liuxin_wemi_metadata_api.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     raw_source: OPFMetadataSource = b"<package />"
     path_source: OPFMetadataSource = "metadata.opf"
 
@@ -41,6 +85,17 @@ def test_opf_source_alias_covers_bytes_and_paths() -> None:
 
 
 def test_wemi_metadata_api_exposes_current_operational_methods() -> None:
+    """
+    Verify wemi metadata api exposes current operational methods.
+
+    Example:
+        Exercise test wemi metadata api exposes current operational methods through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_liuxin_wemi_metadata_api.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     expected_methods = (
         "load",
         "sync_legacy_genres_from_wemi",
@@ -62,6 +117,17 @@ def test_wemi_metadata_api_exposes_current_operational_methods() -> None:
 
 
 def test_wemi_metadata_relation_contract_uses_relation_key_parameter() -> None:
+    """
+    Verify wemi metadata relation contract uses relation key parameter.
+
+    Example:
+        Exercise test wemi metadata relation contract uses relation key parameter through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_liuxin_wemi_metadata_api.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     for metadata_class in (LiuXinWEMIMetadataAPI, LiuXinWEMIMetadata):
         for method_name in (
             "get_wemi_relation_links",
@@ -83,6 +149,17 @@ def test_wemi_metadata_relation_contract_uses_relation_key_parameter() -> None:
 
 
 def test_concrete_wemi_metadata_supports_extended_legacy_sync_contract() -> None:
+    """
+    Verify concrete wemi metadata supports extended legacy sync contract.
+
+    Example:
+        Exercise test concrete wemi metadata supports extended legacy sync contract through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_liuxin_wemi_metadata_api.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     metadata: LiuXinWEMIMetadataAPI = LiuXinWEMIMetadata(
         "Protocol Title",
         ["Protocol Author"],
@@ -98,6 +175,17 @@ def test_concrete_wemi_metadata_supports_extended_legacy_sync_contract() -> None
 
 
 def test_lazy_wemi_metadata_api_exposes_lazy_hydration_surface() -> None:
+    """
+    Verify lazy wemi metadata api exposes lazy hydration surface.
+
+    Example:
+        Exercise test lazy wemi metadata api exposes lazy hydration surface through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_liuxin_wemi_metadata_api.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     expected_methods = (
         "load",
         "install_lazy_value_to_id",
@@ -115,6 +203,17 @@ def test_lazy_wemi_metadata_api_exposes_lazy_hydration_surface() -> None:
 
 
 def test_lazy_wemi_metadata_relation_contract_uses_relation_key_parameter() -> None:
+    """
+    Verify lazy wemi metadata relation contract uses relation key parameter.
+
+    Example:
+        Exercise test lazy wemi metadata relation contract uses relation key parameter through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_liuxin_wemi_metadata_api.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     for metadata_class in (LazyLiuXinWEMIMetadataAPI, LazyLiuXinWEMIMetadata):
         for method_name in (
             "install_lazy_relation_loader",
@@ -132,6 +231,17 @@ def test_lazy_wemi_metadata_relation_contract_uses_relation_key_parameter() -> N
 
 
 def test_concrete_lazy_wemi_metadata_supports_lazy_contract() -> None:
+    """
+    Verify concrete lazy wemi metadata supports lazy contract.
+
+    Example:
+        Exercise test concrete lazy wemi metadata supports lazy contract through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_liuxin_wemi_metadata_api.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     metadata: LazyLiuXinWEMIMetadataAPI = LazyLiuXinWEMIMetadata(
         "Lazy Protocol Title",
         ["Lazy Protocol Author"],

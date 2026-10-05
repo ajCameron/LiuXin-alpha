@@ -1,6 +1,16 @@
 
 """
-Classes which contain update information for tables.
+Describe legacy main-table and association update requests and result payloads.
+
+These mutable payloads describe intentions/results only. They retain
+supplied containers, add no validation or normalization, and neither execute
+writes nor certify that a database transaction succeeded.
+
+Runtime import currently depends on annotation names that are imported only
+under TYPE_CHECKING without postponed annotation evaluation. The first
+MainTableName annotation therefore cannot resolve in an ordinary import.
+The declarations are retained for compatibility/source review; this module
+does not provide executable update coordination.
 """
 
 import dataclasses
@@ -22,11 +32,16 @@ if TYPE_CHECKING:
 @dataclasses.dataclass
 class MainTableUpdate:
     """
-    Contains all the information needed to update a main table.
+    Request row creation, row updates and ID deletion for one main table.
 
-    This has the nature of a request for update.
-    There's a fair amount of matching and completion to do before the update can go through.
-    The result of that effort is a MainTableUpdateResult class.
+    main_table names the target. create_these_row_dicts and
+    update_these_row_dicts carry ordered row dictionaries; delete_these_ids
+    selects owner rows to remove. All fields are required. Matching/completion
+    and persistence belong to a consumer, not this dataclass.
+
+    Example:
+        A request can carry one new row dictionary and a set of obsolete row IDs
+        for a consumer to validate before writing.
     """
     # We're targeting this table
     main_table: MainTableName
@@ -44,7 +59,14 @@ class MainTableUpdate:
 @dataclasses.dataclass
 class MainTableUpdateResults:
     """
-    Results of updating a main table.
+    Report dirty identities and changed row payloads for a main-table operation.
+
+    Require the target table, dirtied_ids and changed_row_dicts. Supplied
+    containers are retained without deriving IDs from payloads or checking that
+    the described changes were persisted.
+
+    Example:
+        A caller can report IDs {1, 2} as dirty with its corresponding changed row dictionaries.
     """
     main_table: MainTableName
 
@@ -57,9 +79,18 @@ class MainTableUpdateResults:
 @dataclasses.dataclass
 class OneOneInterLinkTableUpdate:
     """
-    Updates a basic one-to-one table.
+    Request pair creation and several legacy deletion selectors for a one-to-one link table.
 
-    Update a one-to-one link between two tables.
+    Require the table name, create_these_links, update_for_dst, source and
+    destination deletion sets, explicit link-row deletion IDs, endpoint-based
+    link deletion sets and dirty endpoint hints. Values in create_these_links
+    are broadly annotated; the dataclass does not resolve destination values.
+    Consumers decide which selectors they support and whether update_for_dst
+    requires a separate destination-table operation.
+
+    Example:
+        A create_these_links entry {1: 7} describes a source/destination association
+        for the concrete updater to validate and persist.
     """
     interlink_table: InterLinkTableName
 
@@ -82,7 +113,15 @@ class OneOneInterLinkTableUpdate:
 @dataclasses.dataclass
 class OneOneInterLinkTableUpdateResults:
     """
-    Result of updating a one-to-one link between two tables.
+    Carry endpoint and value-change results for a one-to-one association update.
+
+    Require table identity, deleted source/destination IDs, added/updated
+    destination IDs, src_values_changed and dirty endpoint sets. The fields
+    are consumer-reported facts; construction does not infer them from a request
+    or validate their mutual consistency.
+
+    Example:
+        A caller can record source 1 mapping to destination 7 in src_values_changed.
     """
     interlink_table: InterLinkTableName
 
@@ -101,9 +140,21 @@ class OneOneInterLinkTableUpdateResults:
 @dataclasses.dataclass
 class OneManyInterlinkTableUpdate:
     """
-    We're updating a one-to-many table.
+    Carry legacy one-to-many ordering, typing and link-property intentions.
 
-    (Primary example of these is x-notes).
+    Require the association table, dirty/deleted endpoint sets and maps
+    for priority, type, combined priority/type, primary flags, origin and policy.
+    Pair-property maps use (source_id, destination_id) keys. Optional data/index
+    maps default to None; construction does not turn them into empty mappings.
+    A consumer expecting .items() on those attributes needs actual mappings.
+
+    Source-keyed priority sequences contain ordered destination IDs, while
+    source/type maps contain destination sets. set_these_dst_as_primary selects
+    destination identities; enforcement remains the consumer's responsibility.
+
+    Example:
+        An explicit set_link_priority mapping {(1, 7): 3} describes priority 3
+        for that directed pair; it does not write the physical link by itself.
     """
     interlink_table: InterLinkTableName
 
@@ -145,7 +196,16 @@ class OneManyInterlinkTableUpdate:
 @dataclasses.dataclass
 class OneManyInterLinkTableUpdateResults:
     """
-    Result of updating a one-to-one link between two tables.
+    Report endpoint changes and per-pair property updates for a one-to-many operation.
+
+    All fields are required: table, deleted/added/updated/dirty endpoint IDs,
+    source-to-destination value changes, and priority/type/primary/origin/policy/
+    data/index update maps. No defaults or consistency checks synthesize
+    missing results. Supplied sets/maps remain mutable and shared.
+
+    Example:
+        A priority_updates entry {(1, 7): 3} records the reported change for
+        one directed association.
     """
     interlink_table: InterLinkTableName
 
@@ -185,9 +245,22 @@ class OneManyInterLinkTableUpdateResults:
 @dataclasses.dataclass
 class ManyOneInterlinkTableUpdate:
     """
-    We're updating a many-one table.
+    Carry legacy many-to-one ordering, typing and link-property intentions.
 
-    (Primary example of these is notes-x).
+    Require the association table, dirty/deleted endpoint sets and maps
+    for priority, type, combined priority/type, primary flags, origin and policy.
+    Pair-property maps use (source_id, destination_id) keys. Optional data/index
+    maps default to None; construction does not turn them into empty mappings.
+    A consumer expecting .items() on those attributes needs actual mappings.
+
+    Despite their src_dst_* names, the declared priority/type maps use
+    tuples of source IDs (optionally with a type) as keys and one destination ID
+    as value. This shape is not adapted automatically to the concrete link
+    updater's source-keyed maps. set_these_src_as_primary selects source IDs.
+
+    Example:
+        An explicit set_link_priority mapping {(1, 7): 3} describes priority 3
+        for that directed pair; it does not write the physical link by itself.
     """
     interlink_table: InterLinkTableName
 
@@ -226,16 +299,40 @@ class ManyOneInterlinkTableUpdate:
 
 
 class ManyOneInterLinkTableUpdateResults(OneManyInterLinkTableUpdateResults):
-    """Result aliases for a many-to-one update viewed from its source side."""
+    """
+    Reuse the one-to-many result payload shape for a many-to-one operation.
+
+    This distinct subclass inherits the dataclass constructor and fields
+    without adding fields, converting orientation or validating cardinality.
+    Callers must populate inherited endpoint/property maps consistently with
+    their operation; the class is not an assignment alias.
+
+    Example:
+        Construct this result with the same required endpoint and property
+        arguments as OneManyInterLinkTableUpdateResults.
+    """
 
 
 
 @dataclasses.dataclass
 class ManyManyInterlinkTableUpdate:
     """
-    We're updating a many-many table.
+    Carry legacy many-to-many ordering, typing and link-property intentions.
 
-    E.g. tags-works.
+    Require the association table, dirty/deleted endpoint sets and maps
+    for priority, type, combined priority/type, primary flags, origin and policy.
+    Pair-property maps use (source_id, destination_id) keys. Optional data/index
+    maps default to None; construction does not turn them into empty mappings.
+    A consumer expecting .items() on those attributes needs actual mappings.
+
+    Separate src_dst_* and dst_src_* maps describe both orientations.
+    Source-oriented priority maps contain destination lists; reverse maps use
+    source-ID tuples as keys and one destination as value, optionally with type.
+    Both source and destination primary selectors are required.
+
+    Example:
+        An explicit set_link_priority mapping {(1, 7): 3} describes priority 3
+        for that directed pair; it does not write the physical link by itself.
     """
     interlink_table: InterLinkTableName
 
@@ -279,7 +376,16 @@ class ManyManyInterlinkTableUpdate:
 
 class ManyManyInterLinkTableUpdateResults(OneManyInterLinkTableUpdateResults):
     """
-    The results of updating a Many to Many table.
+    Reuse the one-to-many result payload shape for a many-to-many operation.
+
+    This distinct subclass inherits the dataclass constructor and fields
+    without adding fields, converting orientation or validating cardinality.
+    Callers must populate inherited endpoint/property maps consistently with
+    their operation; the class is not an assignment alias.
+
+    Example:
+        Construct this result with the same required endpoint and property
+        arguments as OneManyInterLinkTableUpdateResults.
     """
 
 

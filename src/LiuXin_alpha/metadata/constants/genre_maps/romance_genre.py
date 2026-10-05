@@ -2,6 +2,22 @@
 # Run this ONLY if you've already classified the work as "Romance".
 # Most-specific-first.
 
+"""
+Provide leaf-label patterns for works already classified in the Romance branch.
+
+Cross-genre romance, historical and contemporary categories, audience/shelf labels,
+and erotica precede the broad Romance fallback. Branch context is required for broad
+expressions such as explicit.
+
+Map canonical labels to tuples of uncompiled regular-expression strings. Consumers
+choose regex flags, normalization, and first-match or multi-match policy; importing
+the module performs no classification.
+
+Example:
+    >>> import re
+    >>> any(re.search(pattern, 'romantic suspense', re.IGNORECASE) for pattern in ROMANCE_LEAF_MAPPING['Romantic Suspense']) is not False
+    True
+"""
 ROMANCE_LEAF_MAPPING = {
     # --- Cross-genre romance (specific) ---
     "Romantic Suspense": (

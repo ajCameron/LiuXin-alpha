@@ -10,6 +10,17 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+"""
+Extract and normalize RTF body-style declarations.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise body styles through a consuming regression::
+
+        python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -26,8 +37,12 @@ Simply write the list of strings after style table
 
 class BodyStyles:
     """
-    Insert table data for tables.
-    Logic:
+    Insert table data for tables. Logic:
+
+    Example:
+        Exercise BodyStyles through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
     """
 
     def __init__(
@@ -39,15 +54,20 @@ class BodyStyles:
         run_level: int = 1,
     ) -> None:
         """
-        Required:
-            'file'--file to parse
-            'table_data' -- a dictionary for each table.
-        Optional:
-            'copy'-- whether to make a copy of result for debugging
-            'temp_dir' --where to output temporary results (default is
-            directory from which the script is run.)
-        Returns:
-            nothing
+        Required: 'file'--file to parse 'table_data' -- a dictionary for each table. Optional: 'copy'-- whether to make a copy of result for debugging 'temp_dir' --where to output temporary results (default is directory from which the script is run.) Returns: nothing
+
+        Example:
+            Exercise BodyStyles.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param in_file: Value supplied for in file under the utility contract.
+        :param list_of_styles: Value supplied for list of styles under the utility contract.
+        :param bug_handler: Value supplied for bug handler under the utility contract.
+        :param copy: Value supplied for copy under the utility contract.
+        :param run_level: Value supplied for run level under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self.__file = in_file
         self.__bug_handler = bug_handler
@@ -58,7 +78,18 @@ class BodyStyles:
         # self.__write_to = 'table_info.data'
 
     def insert_info(self: _typing.Self) -> None:
-        """ """
+        """
+        Perform the insert info operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise BodyStyles.insert info through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         read_obj = open_for_read(self.__file)
         self.__write_obj = open_for_write(self.__write_to)
         line_to_read = 1

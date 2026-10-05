@@ -1,5 +1,16 @@
 # -*- coding: utf-8 -*-
 
+"""
+Convert TCR content from the normalized ebook conversion pipeline.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise tcr output through a consuming regression::
+
+        python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -16,6 +27,14 @@ __docformat__ = "restructuredtext en"
 
 class TCROutput(OutputFormatPlugin):
 
+    """
+    Provide the tcroutput contract for validated ebook processing.
+
+    Example:
+        Exercise TCROutput through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+    """
     name = "TCR Output"
     author = "John Schember"
     file_type = "tcr"
@@ -32,12 +51,20 @@ class TCROutput(OutputFormatPlugin):
     def convert(self: _typing.Self, oeb_book: _typing.Any, output_path: _typing.Any, input_plugin: _typing.Any, opts: _typing.Any, log: _typing.Any) -> None:
         """
         Convert an oeb book to a tcr book.
-        :param oeb_book: OEBBook (LiuXin.file_formats.base.OebBook)
-        :param output_path: tcr file will be written to this path
-        :param input_plugin: The input plugin which produced the OEB which is about to be converted
-        :param opts: Options for the conversion process
-        :param log: Log of the conversion process
-        :return:
+
+        Example:
+            Exercise TCROutput.convert through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param oeb_book: Value supplied for oeb book under the utility contract.
+        :param output_path: Value supplied for output path under the utility contract.
+        :param input_plugin: Value supplied for input plugin under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         log.info("Writing TCR file...")
         from LiuXin_alpha.file_formats.txt.txtml import TXTMLizer

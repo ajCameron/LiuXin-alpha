@@ -1,4 +1,16 @@
-"""Chunk-authenticated encryption wrapper for any range-readable Store."""
+"""
+Expose plaintext Store operations over chunked AES-256-GCM ciphertext.
+
+The encoded object contains a fixed header, a UTF-8 key identifier, and encrypted
+chunks with 16-byte authentication tags. Each chunk binds the complete header,
+physical inner key, and chunk index as associated data. Runtime key providers
+resolve active and historical 32-byte keys; configuration stores identifiers.
+
+Nonempty reads authenticate selected chunks lazily. Header inspection, inventory,
+and empty selected reads do not authenticate tags. Known-size writes encrypt into
+inner staging; unknown-size writes use local plaintext and ciphertext files.
+Publication, versioning, and endpoint health remain inner Store responsibilities.
+"""
 
 from __future__ import annotations
 
@@ -55,16 +67,81 @@ _MAX_CHUNKS = 2**32
 
 @runtime_checkable
 class EncryptionKeyProviderAPI(Protocol):
-    """Resolve active and historical 256-bit encryption keys at runtime."""
+    """
+    Resolve active and historical AES-256 key bytes without persisting them in Store configuration.
 
-    def active_key(self) -> tuple[str, bytes]: ...
-    def key_for_id(self, key_id: str) -> bytes: ...
+    Implementations supply a stable identifier with each active key and resolve identifiers read
+    from object headers. Runtime protocol membership checks method presence; it does not validate
+    the returned key material or retention policy.
+
+    Example:
+        >>> isinstance(provider, EncryptionKeyProviderAPI)  # doctest: +SKIP
+        True
+    """
+
+    def active_key(self) -> tuple[str, bytes]:
+        """
+        Return the identifier and key selected for a new encrypted object.
+
+        Known-size sessions resolve this at construction; unknown-size sessions resolve it when
+        encrypting at commit. Store construction also checks the active key.
+
+        Example:
+            >>> key_id, key = provider.active_key()  # doctest: +SKIP
+
+
+        :return: A header-compatible identifier and exactly 32 key bytes supplied at runtime.
+        """
+        ...
+
+    def key_for_id(self, key_id: str) -> bytes:
+        """
+        Resolve the historical key required by an object header.
+
+        Providers must retain keys needed by existing objects or report that resolution failed.
+        Header parsing alone does not call this method; nonempty reads do.
+
+        Example:
+            >>> key = provider.key_for_id("archive-key-v1")  # doctest: +SKIP
+
+
+        :param key_id: Identifier decoded from the encrypted object header.
+        :return: The corresponding 32-byte key, or an implementation-specific resolution error.
+        """
+        ...
 
 
 class StaticEncryptionKeyProvider:
-    """Small in-process provider suitable for injected secret material."""
+    """
+    Keep a copied mapping of injected key bytes with one active identifier.
+
+    Keys are validated for bytes type and 32-byte length. Identifiers are converted to strings while
+    building the mapping, but header-format validation occurs at the encryption boundary. This
+    provider does not load secrets or rotate itself. The examples use fixed test bytes to illustrate
+    lookup behavior.
+
+    Example:
+        >>> provider = StaticEncryptionKeyProvider({"v1": bytes(32)}, active_key_id="v1")
+        >>> provider.active_key()[0]
+        'v1'
+    """
 
     def __init__(self, keys: Mapping[str, bytes], *, active_key_id: str) -> None:
+        """
+        Copy key material and require the selected active identifier to exist.
+
+        Mapping keys are stringified and collisions after conversion use the last value.
+        active_key_id itself is looked up unchanged. Invalid key bytes raise ValueError; an absent
+        active identifier raises KeyError.
+
+        Example:
+            >>> provider = StaticEncryptionKeyProvider({"test": bytes(32)}, active_key_id="test")
+
+
+        :param keys: Identifier-to-key mapping; every value must be exactly 32 bytes.
+        :param active_key_id: Identifier to select from the copied mapping after its keys are stringified.
+        :return: None after retaining validated key bytes and the selected identifier.
+        """
         self._keys = {
             str(key_id): _validate_key(key)
             for key_id, key in keys.items()
@@ -74,9 +151,32 @@ class StaticEncryptionKeyProvider:
         self._active_key_id = active_key_id
 
     def active_key(self) -> tuple[str, bytes]:
+        """
+        Return the fixed active identifier and its retained key bytes.
+
+        Example:
+            >>> provider = StaticEncryptionKeyProvider({"v1": bytes(32)}, active_key_id="v1")
+            >>> provider.active_key()[0]
+            'v1'
+
+
+        :return: Active identifier/key pair; access does not copy or erase the key material.
+        """
         return self._active_key_id, self._keys[self._active_key_id]
 
     def key_for_id(self, key_id: str) -> bytes:
+        """
+        Look up an exact identifier and translate missing keys into StoreIntegrityError.
+
+        Example:
+            >>> provider = StaticEncryptionKeyProvider({"v1": bytes(32)}, active_key_id="v1")
+            >>> len(provider.key_for_id("v1"))
+            32
+
+
+        :param key_id: Exact key identifier; lookup does not normalize or stringify it.
+        :return: Retained key bytes, or StoreIntegrityError chained from an unknown-key lookup.
+        """
         try:
             return self._keys[key_id]
         except KeyError as error:
@@ -87,6 +187,25 @@ class StaticEncryptionKeyProvider:
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class _EncryptionHeader:
+    """
+    Hold parsed or encoded object layout fields without authenticating them.
+
+    This frozen record has no construction-time validation. Use _encode_header or the Store header
+    reader to enforce format bounds. Even an empty object reserves one chunk and one authentication
+    tag.
+
+    Example:
+        >>> header = _encode_header(chunk_size=4096, plaintext_size=0, key_id="v1", nonce_prefix=bytes(8))
+        >>> header.chunk_count
+        1
+
+
+    :ivar chunk_size: Maximum plaintext bytes in each chunk.
+    :ivar plaintext_size: Declared total plaintext length in bytes.
+    :ivar key_id: Identifier selecting runtime key material.
+    :ivar nonce_prefix: Eight-byte prefix combined with the four-byte chunk index.
+    :ivar encoded: Fixed header followed by UTF-8 key-identifier bytes.
+    """
     chunk_size: int
     plaintext_size: int
     key_id: str
@@ -95,15 +214,48 @@ class _EncryptionHeader:
 
     @property
     def chunk_count(self) -> int:
+        """
+        Compute the ceiling chunk count, reserving one chunk for empty plaintext.
+
+        Example:
+            >>> header = _encode_header(chunk_size=4096, plaintext_size=4097, key_id="v1", nonce_prefix=bytes(8))
+            >>> header.chunk_count
+            2
+
+
+        :return: Number of plaintext chunks/tags implied by the declared size and chunk size.
+        """
         return max(1, (self.plaintext_size + self.chunk_size - 1) // self.chunk_size)
 
     @property
     def ciphertext_size(self) -> int:
+        """
+        Add encoded-header bytes and one 16-byte tag per chunk to the plaintext length.
+
+        Example:
+            >>> header = _encode_header(chunk_size=4096, plaintext_size=0, key_id="v1", nonce_prefix=bytes(8))
+            >>> header.ciphertext_size - len(header.encoded)
+            16
+
+
+        :return: Expected total encrypted-object length in bytes, assuming validated layout fields.
+        """
         return len(self.encoded) + self.plaintext_size + self.chunk_count * _TAG_SIZE
 
 
 class _EncryptedRangeReader(io.RawIOBase):
-    """Lazily fetch and authenticate only ciphertext chunks needed by a read."""
+    """
+    Read a plaintext interval by authenticating chunks from one contiguous ciphertext stream.
+
+    The selected range is validated by EncryptedStore before construction. Each required chunk is
+    authenticated before its plaintext enters the output buffer; chunks outside the interval are not
+    read. Earlier plaintext can already have been returned when a later chunk fails. Close this
+    reader to release the inner stream.
+
+    Example:
+        >>> with store.open_read(location, offset=4090, length=32) as stream:  # doctest: +SKIP
+        ...     selected = stream.read()
+    """
 
     def __init__(
         self,
@@ -115,6 +267,25 @@ class _EncryptedRangeReader(io.RawIOBase):
         length: int,
         if_version: str | None,
     ) -> None:
+        """
+        Resolve the historical key and open the ciphertext span covering a nonempty range.
+
+        The span includes whole encrypted chunks at both boundaries. Construction opens the inner
+        stream but does not decrypt its body. Key lookup and inner-open errors propagate; a supplied
+        version condition is forwarded unchanged.
+
+        Example:
+            >>> reader = _EncryptedRangeReader(store, location, header, offset=10, length=20, if_version=version)  # doctest: +SKIP
+
+
+        :param store: Encryption wrapper supplying the key provider and inner routing.
+        :param location: Wrapper-owned plaintext Location whose key participates in inner routing.
+        :param header: Previously parsed layout for the selected encrypted object.
+        :param offset: Validated plaintext start offset in bytes within the object.
+        :param length: Positive plaintext byte count already clamped to the declared object end.
+        :param if_version: Inner-object version to require, or None to omit the condition keyword.
+        :return: None after storing range state and opening the owned ciphertext stream.
+        """
         self._store = store
         self._inner_location = store._inner_location(location)
         self._header = header
@@ -150,9 +321,33 @@ class _EncryptedRangeReader(io.RawIOBase):
         )
 
     def readable(self) -> bool:
+        """
+        Advertise read support to io.BufferedReader without consulting stream state.
+
+        Example:
+            >>> reader.readable()  # doctest: +SKIP
+            True
+
+
+        :return: True, including when this method is called after close.
+        """
         return True
 
     def readinto(self, buffer: bytearray | memoryview) -> int:
+        """
+        Copy authenticated plaintext into the supplied writable buffer.
+
+        At most the current decrypted chunk and remaining selected range are copied per call. An
+        empty output buffer can still trigger decryption when no plaintext is buffered. Exhausting
+        the selected range returns zero without reading another chunk.
+
+        Example:
+            >>> copied = reader.readinto(bytearray(512))  # doctest: +SKIP
+
+
+        :param buffer: Writable bytearray or memoryview receiving up to its length in plaintext bytes.
+        :return: Number of bytes copied, with zero for a completed range or zero-capacity buffer.
+        """
         if self._remaining <= 0:
             return 0
         while not self._buffer:
@@ -164,6 +359,20 @@ class _EncryptedRangeReader(io.RawIOBase):
         return accepted
 
     def _decrypt_next_chunk(self) -> bytes:
+        """
+        Read and authenticate the next whole chunk, then trim the initial range prefix.
+
+        Truncated input or an exhausted declared chunk count raises StoreIntegrityError. Exceptions
+        from AES setup, associated-data construction, or decryption are chained as authentication
+        failures; stream read errors propagate directly. Advance the chunk index only after
+        successful authentication.
+
+        Example:
+            >>> plaintext = reader._decrypt_next_chunk()  # doctest: +SKIP
+
+
+        :return: Authenticated chunk bytes, excluding bytes before the requested offset on the first chunk.
+        """
         index = self._next_chunk
         if index >= self._header.chunk_count:
             raise StoreIntegrityError("encrypted object ended before its declared size.")
@@ -190,6 +399,18 @@ class _EncryptedRangeReader(io.RawIOBase):
         return plaintext
 
     def close(self) -> None:
+        """
+        Close the ciphertext stream and always mark the raw reader closed.
+
+        Inner close errors propagate after the RawIOBase close attempt. This method does not
+        explicitly erase retained key material or buffered plaintext.
+
+        Example:
+            >>> reader.close()  # doctest: +SKIP
+
+
+        :return: None after releasing the inner stream, unless closing raises.
+        """
         try:
             self._ciphertext.close()
         finally:
@@ -197,7 +418,23 @@ class _EncryptedRangeReader(io.RawIOBase):
 
 
 class _EncryptedWriteSession:
-    """Stage plaintext, verify it, encrypt it, then commit the ciphertext."""
+    """
+    Accept plaintext and publish an encrypted object through one inner Store.
+
+    Known-size writes encrypt chunks directly into inner staging using a key selected at session
+    creation. Unknown-size writes stage plaintext locally, then select the key and create a local
+    ciphertext file at commit. Size/digest expectations concern accepted plaintext; returned
+    versions describe the inner ciphertext object.
+
+    Leaving the context without a successful commit aborts pending work. Cleanup failures may
+    propagate after publication, and a failed local encryption can leave a ciphertext staging file
+    until its containing temporary directory is cleaned.
+
+    Example:
+        >>> with store.begin_write(location, expected_size=3) as session:  # doctest: +SKIP
+        ...     session.write(b"abc")
+        ...     info = session.commit()
+    """
 
     def __init__(
         self,
@@ -209,6 +446,26 @@ class _EncryptedWriteSession:
         expected_digest: Digest | None,
         placement_hints: StoragePlacementHints | None,
     ) -> None:
+        """
+        Prepare plaintext staging or open an inner session and write its encrypted header.
+
+        A supported expected digest creates a separate plaintext hasher; an unsupported algorithm
+        raises StoreUnsupportedOperation before staging. Known-size setup checks the active key and
+        encoded layout immediately. A header-write failure attempts to abort the inner session
+        before propagating.
+
+        Example:
+            >>> session = store.begin_write(location, expected_size=100)  # doctest: +SKIP
+
+
+        :param store: Wrapper providing key selection, chunk size, local staging, and the inner Store.
+        :param location: Validated wrapper Location at which complete plaintext will be exposed.
+        :param mode: Already selected collision policy forwarded to inner publication.
+        :param expected_size: Plaintext byte count for direct staging, or None to use a local plaintext file.
+        :param expected_digest: Optional plaintext digest to verify from accepted writes before publication.
+        :param placement_hints: Advisory hints forwarded to inner writes only when the wrapper enables them.
+        :return: None after preparing an unfinished, uncommitted write session.
+        """
         self._store = store
         self._location = location
         self._mode = mode
@@ -276,6 +533,21 @@ class _EncryptedWriteSession:
         self._committed = False
 
     def write(self, data: bytes) -> int:
+        """
+        Accept bytes, stage or encrypt them, and update plaintext size and digest accounting.
+
+        Reject finished sessions, non-bytes input, and known-size writes exceeding the declared
+        total. Direct staging buffers the supplied data and emits full chunks; a large caller buffer
+        can temporarily exceed one chunk in memory. Encryption or inner-write failures may change
+        staging state before counters advance; callers should abort the session after such failures.
+
+        Example:
+            >>> accepted = session.write(b"chapter text")  # doctest: +SKIP
+
+
+        :param data: Plaintext bytes to append; bytearray and other non-bytes values are rejected.
+        :return: Accepted plaintext byte count, possibly partial for local-file staging.
+        """
         if self._finished:
             raise StoreError("encrypted write session is finished.")
         if not isinstance(data, bytes):
@@ -311,6 +583,26 @@ class _EncryptedWriteSession:
         return accepted
 
     def commit(self) -> FileInfo:
+        """
+        Verify accepted plaintext, finish encryption, and publish the inner object.
+
+        Local plaintext is flushed and fsynced before checking the write-time size and hash; it is
+        not rehashed from disk. Direct writes emit the final chunk, including an empty chunk for an
+        empty object. Locally encrypted writes supply ciphertext size and SHA-256 to inner put. The
+        returned digest instead covers plaintext.
+
+        Failure attempts abort, and the finally block removes known staging paths. Cleanup errors
+        can replace an earlier error or follow a successful publication; a failed _encrypt call may
+        not have returned its ciphertext path for cleanup.
+
+        Example:
+            >>> info = session.commit()  # doctest: +SKIP
+            >>> info.location == location  # doctest: +SKIP
+            True
+
+
+        :return: Wrapper FileInfo with accepted plaintext size/SHA-256 and inner modification time/version.
+        """
         if self._finished:
             raise StoreError("encrypted write session is finished.")
         encrypted_path: Path | None = None
@@ -364,6 +656,18 @@ class _EncryptedWriteSession:
                 encrypted_path.unlink(missing_ok=True)
 
     def _validate_expectations(self) -> None:
+        """
+        Compare write-time plaintext count and digest with caller expectations.
+
+        This checks accumulated observations, not the current contents of the local staging file.
+        Size or digest disagreement raises StoreIntegrityError.
+
+        Example:
+            >>> session._validate_expectations()  # doctest: +SKIP
+
+
+        :return: None when every supplied expectation matches the accepted-write accounting.
+        """
         if self._expected_size is not None and self._size != self._expected_size:
             raise StoreIntegrityError(
                 f"expected {self._expected_size} bytes, received {self._size}."
@@ -376,6 +680,20 @@ class _EncryptedWriteSession:
                 )
 
     def _encrypt(self) -> tuple[Path, int, Digest]:
+        """
+        Encrypt locally staged plaintext into a new fsynced ciphertext file.
+
+        Resolve the active key at this point, generate a nonce prefix, and authenticate each chunk
+        with the encoded header, inner key, and chunk index. Hash ciphertext as it is written.
+        Failures propagate without an internal unlink of the new file; the caller receives its path
+        only on success.
+
+        Example:
+            >>> path, size, digest = session._encrypt()  # doctest: +SKIP
+
+
+        :return: Ciphertext Path, layout-derived total byte count, and computed ciphertext SHA-256.
+        """
         key_id, key = self._store._key_provider.active_key()
         key = _validate_key(key)
         header = _encode_header(
@@ -419,6 +737,20 @@ class _EncryptedWriteSession:
         )
 
     def _write_direct_chunk(self, plaintext: bytes) -> None:
+        """
+        Encrypt and fully stage the next chunk using the session's fixed key and layout.
+
+        Reject excess chunks or an unexpected plaintext length. Associated data binds the header,
+        physical inner key, and chunk index. The index advances only after the inner session has
+        accepted the whole ciphertext chunk and tag.
+
+        Example:
+            >>> session._write_direct_chunk(final_plaintext)  # doctest: +SKIP
+
+
+        :param plaintext: Exactly the bytes required for the next declared chunk, possibly empty for an empty object.
+        :return: None after complete inner acceptance; encryption and invalid-progress failures propagate.
+        """
         assert self._direct_session is not None
         assert self._direct_header is not None
         assert self._direct_key is not None
@@ -446,6 +778,19 @@ class _EncryptedWriteSession:
         self._direct_chunk_index += 1
 
     def abort(self) -> None:
+        """
+        Close/unlink local plaintext and abort uncommitted direct staging.
+
+        Already committed inner objects are retained. Finished state is recorded after cleanup, so
+        an earlier cleanup error can prevent later cleanup and that update. Repeated direct aborts
+        rely on the inner session's abort contract.
+
+        Example:
+            >>> session.abort()  # doctest: +SKIP
+
+
+        :return: None after cleanup and marking the session finished, unless cleanup raises.
+        """
         if self._stream is not None and not self._stream.closed:
             self._stream.close()
         if self._plaintext_path is not None:
@@ -455,6 +800,16 @@ class _EncryptedWriteSession:
         self._finished = True
 
     def __enter__(self) -> _EncryptedWriteSession:
+        """
+        Return this session for a with block, rejecting a finished session.
+
+        Example:
+            >>> with store.begin_write(location) as session:  # doctest: +SKIP
+            ...     session.write(b"temporary")
+
+
+        :return: This unfinished session; the inner session context is not entered here.
+        """
         if self._finished:
             raise StoreError("encrypted write session is finished.")
         return self
@@ -465,12 +820,50 @@ class _EncryptedWriteSession:
         exc: BaseException | None,
         traceback: TracebackType | None,
     ) -> None:
+        """
+        Abort unless commit succeeded, without suppressing a body exception.
+
+        Exception arguments are accepted for the context-manager protocol but are not inspected.
+        Abort failures propagate and can replace the body exception.
+
+        Example:
+            >>> with store.begin_write(location) as session:  # doctest: +SKIP
+            ...     session.write(b"abandoned")
+
+
+        :param exc_type: Body exception type, or None after normal context exit; unused.
+        :param exc: Body exception instance, or None; unused.
+        :param traceback: Body exception traceback, or None; unused.
+        :return: None, so an existing body exception is not suppressed.
+        """
         if not self._committed:
             self.abort()
 
 
 class EncryptedStore(StoreAPI):
-    """Present plaintext semantics over an authenticated encrypted inner Store."""
+    """
+    Expose plaintext Locations over a range-readable inner Store using chunked AES-256-GCM.
+
+    Headers carry layout and key identity; each chunk authenticates its header, physical inner
+    object key, and index. Raw ciphertext cannot be renamed to another key and still authenticate.
+    Wrapper copies use inherited plaintext transfer; native ciphertext copy/move/digest and external
+    URI rendering are not advertised.
+
+    Nonempty reads authenticate the chunks they consume. Stat and inventory parse headers without
+    authenticating tags, and empty selected reads return before key lookup or authentication.
+    Known-size writes encrypt into inner staging, whereas unknown-size writes require local
+    plaintext and ciphertext staging files.
+
+    Generated configuration stores key identifiers, not key bytes. The runtime key provider controls
+    new writes and historical reads, independently of an existing configuration snapshot. Rich
+    metadata forwarding is disabled by default.
+
+    Example:
+        >>> store = EncryptedStore(inner, key_provider=provider, chunk_size=4096)  # doctest: +SKIP
+        >>> info = store.store_bytes(b"payload", location="book.bin")  # doctest: +SKIP
+        >>> store.read_file(info)  # doctest: +SKIP
+        b'payload'
+    """
 
     store_kind = "encrypted"
 
@@ -488,6 +881,36 @@ class EncryptedStore(StoreAPI):
         close_inner: bool = False,
         configuration: StoreConfiguration | None = None,
     ) -> None:
+        """
+        Validate wrapper inputs, retain configuration, and prepare a local staging directory.
+
+        Require a StoreAPI instance with range reads and a runtime key-provider protocol match.
+        Validate the active 32-byte key and header-compatible identifier; invalid identifier values
+        become StoreIntegrityError. The cryptography primitive is loaded later when encryption or
+        decryption actually needs it.
+
+        Without configuration, copy inner configuration with a new wrapper identity, encrypted
+        URI/protocol, and non-key-material backend options. With configuration, retain it without
+        reconciling its options against runtime arguments or the provider. A staging directory is
+        prepared even for read-only/direct-write use; existing directory permissions are not
+        rewritten.
+
+        Example:
+            >>> store = EncryptedStore(inner, key_provider=provider, inner_prefix="private")  # doctest: +SKIP
+
+
+        :param inner_store: Configured Store with range reads; retained and normally borrowed.
+        :param key_provider: Runtime provider for active and historical 32-byte keys.
+        :param name: Generated configuration name; None or empty appends " (encrypted)" to the inner name.
+        :param uuid: UUID or UUID text for generated configuration; None creates a new UUID.
+        :param chunk_size: Plaintext bytes per chunk, checked between 4096 and 64 MiB then converted to int.
+        :param inner_prefix: Optional POSIX key prefix; outer slashes are stripped before component validation.
+        :param forward_placement_hints: Whether rich write hints and read/inventory metadata may pass through to the inner Store.
+        :param local_staging_directory: Directory to create/use for staging, or None for an owned TemporaryDirectory.
+        :param close_inner: Whether closing the wrapper should also close its retained inner Store.
+        :param configuration: Existing configuration to retain instead of deriving one; its UUID takes precedence.
+        :return: None after retaining validated runtime settings and preparing staging.
+        """
         if not isinstance(inner_store, StoreAPI):
             raise TypeError("inner_store must implement StoreAPI.")
         if not isinstance(key_provider, EncryptionKeyProviderAPI):
@@ -550,18 +973,68 @@ class EncryptedStore(StoreAPI):
 
     @property
     def configuration(self) -> StoreConfiguration:
+        """
+        Return the retained configuration snapshot without consulting the current key provider.
+
+        A provider rotated after construction can use a newer key than the key_id recorded in
+        backend_options. Supplied configuration is not rewritten to match it.
+
+        Example:
+            >>> key_id = dict(store.configuration.backend_options)["key_id"]  # doctest: +SKIP
+
+
+        :return: The wrapper configuration, which contains key identity rather than key bytes.
+        """
         return self._configuration
 
     @property
     def inner_store(self) -> StoreAPI:
+        """
+        Expose the retained Store that holds ciphertext at translated object keys.
+
+        Example:
+            >>> store.inner_store is inner  # doctest: +SKIP
+            True
+
+
+        :return: Existing inner Store; access does not transfer or change lifecycle ownership.
+        """
         return self._inner
 
     @property
     def chunk_size(self) -> int:
+        """
+        Return the configured plaintext chunk size used for new encrypted writes.
+
+        Example:
+            >>> store.chunk_size  # doctest: +SKIP
+            4096
+
+
+        :return: Integer chunk size in bytes; existing objects retain the size recorded in their headers.
+        """
         return self._chunk_size
 
     @property
     def capabilities(self) -> StoreCapabilities:
+        """
+        Project inner mechanics while masking configured mutations and ciphertext shortcuts.
+
+        Create, replace, delete, and allocation follow inner support and wrapper read-only policy.
+        Rich hints additionally require explicit forwarding. Range reads are supported; conditional
+        reads, enumeration, capacity, concurrency, and hierarchy claims follow the inner Store.
+        Native copy/move/digest and authoritative stat digests are false, and external URI flags
+        keep their false defaults.
+
+        This is a capability projection, not a live health, credential, or key check.
+
+        Example:
+            >>> store.capabilities.stat_digest_authoritative  # doctest: +SKIP
+            False
+
+
+        :return: New StoreCapabilities describing wrapper operations over the current inner claims.
+        """
         inner = self._inner.capabilities
         writable = not self.configuration.read_only
         can_delete = writable and inner.delete
@@ -600,18 +1073,24 @@ class EncryptedStore(StoreAPI):
 
     @property
     def characteristics(self) -> StorageCharacteristics:
-        """Project inner mechanics while exposing encryption staging overhead.
+        """
+        Project inner publication mechanics while exposing encryption staging and size overhead.
 
-        The wrapper cannot copy an inner byte limit directly to plaintext:
-        authenticated headers and per-chunk tags consume part of that limit.
-        It therefore leaves the plaintext maximum unknown unless a future
-        inner-aware calculation can prove one.
+        Headers and per-chunk tags consume part of an inner object-size limit, so the plaintext
+        maximum remains unknown. Preserve inner path limits, format-rewrite and unmodelled-entry
+        flags, plus existing limitations. Add encryption-overhead and inner-constraint limitations
+        only when their codes are absent.
+
+        Writable wrappers report OBJECT_STAGE; wrappers with neither create nor replace report
+        read-only publication and no write staging. Underlying staging constraints still apply and
+        are not calculated as a combined byte requirement here.
 
         Example:
             >>> store.characteristics.temporary_space  # doctest: +SKIP
             <StorageTemporarySpaceRequirement.OBJECT_STAGE: 'object_stage'>
 
-        :return: Encryption-aware configured Store characteristics.
+
+        :return: Encryption-aware characteristics with unknown plaintext maximum object size.
         """
 
         inner = (
@@ -658,25 +1137,93 @@ class EncryptedStore(StoreAPI):
         )
 
     def startup(self) -> StoreStatus:
+        """
+        Start the inner Store and add wrapper policy/encryption details to its status.
+
+        Example:
+            >>> status = store.startup()  # doctest: +SKIP
+
+
+        :return: Translated startup status; this does not independently test key availability or cryptography.
+        """
         return self._encrypted_status(self._inner.startup())
 
     def probe(self) -> StoreStatus:
+        """
+        Actively probe the inner Store and translate the resulting status.
+
+        Example:
+            >>> status = store.probe()  # doctest: +SKIP
+
+
+        :return: Inner probe status with wrapper writability and encryption details applied.
+        """
         return self._encrypted_status(self._inner.probe())
 
     def status(self, *, refresh: bool = False) -> StoreStatus:
+        """
+        Request the inner cached or refreshed status and apply wrapper status translation.
+
+        Example:
+            >>> status = store.status(refresh=True)  # doctest: +SKIP
+
+
+        :param refresh: Whether to request an inner status refresh rather than its cached observation.
+        :return: Translated inner StoreStatus; capacities/counts continue to describe inner storage.
+        """
         return self._encrypted_status(self._inner.status(refresh=refresh))
 
     def close(self) -> None:
+        """
+        Clean up the owned staging directory, then close the inner Store when requested.
+
+        Caller-supplied staging directories are retained. Outstanding sessions are not tracked or
+        drained here. A temporary-directory cleanup error propagates before any requested inner
+        close is attempted.
+
+        Example:
+            >>> store.close()  # doctest: +SKIP
+
+
+        :return: None after the applicable cleanup and inner-close operations succeed.
+        """
         if self._temporary_directory is not None:
             self._temporary_directory.cleanup()
         if self._close_inner:
             self._inner.close()
 
     def location(self, *tokens: str) -> Location:
+        """
+        Build a logical wrapper Location using the inner Store's token-joining rules.
+
+        The physical inner prefix is not added until an operation translates this Location. No
+        encrypted header or object existence is checked.
+
+        Example:
+            >>> location = store.location("books", "example.epub")  # doctest: +SKIP
+
+
+        :param tokens: Object-key components passed unchanged to the inner location builder.
+        :return: Location with this wrapper UUID and the key produced by the inner builder.
+        """
         inner_location = self._inner.location(*tokens)
         return Location(self.store_ref, inner_location.key)
 
     def locate(self, identifier: str | Location) -> Location:
+        """
+        Accept an owned Location or parse text using the inner Store and substitute wrapper
+        identity.
+
+        Existing Locations receive the wrapper ownership check. Text is passed through the inner
+        parser without adding or removing the configured physical prefix.
+
+        Example:
+            >>> location = store.locate("books/example.epub")  # doctest: +SKIP
+
+
+        :param identifier: Wrapper-owned Location or key text accepted by the inner Store parser.
+        :return: Owned Location; unsupported text or foreign Store identities raise through the delegated checks.
+        """
         if isinstance(identifier, Location):
             return self.require_location(identifier)
         inner_location = self._inner.locate(str(identifier))
@@ -690,6 +1237,23 @@ class EncryptedStore(StoreAPI):
         name_hint: str | None = None,
         placement_hints: StoragePlacementHints | None = None,
     ) -> Location:
+        """
+        Ask the inner allocator for a key and return it under the wrapper UUID.
+
+        Read-only configuration is rejected. Size and digest remain plaintext hints, without
+        adjustment for ciphertext overhead or digest. Placement hints are forwarded only when
+        enabled; physical prefix translation occurs at later I/O.
+
+        Example:
+            >>> location = store.allocate_location(name_hint="book.epub")  # doctest: +SKIP
+
+
+        :param expected_size: Optional plaintext size in bytes, passed unchanged as an allocation hint.
+        :param expected_digest: Optional plaintext digest, passed unchanged to the inner allocator.
+        :param name_hint: Optional preferred object name forwarded to inner allocation.
+        :param placement_hints: Optional rich placement input, replaced by None when forwarding is disabled.
+        :return: Wrapper Location using the allocated inner key, without reserving or publishing bytes here.
+        """
         if self.configuration.read_only:
             raise StoreReadOnly(self.configuration.store_name)
         inner = self._inner.allocate_location(
@@ -703,6 +1267,23 @@ class EncryptedStore(StoreAPI):
         return Location(self.store_ref, inner.key)
 
     def stat(self, location: Location) -> FileInfo:
+        """
+        Parse an encrypted header and verify that its layout matches the reported ciphertext size.
+
+        Stat the inner object first and pin header reads to its version when conditional reads are
+        advertised. No key lookup or chunk authentication is performed, so the returned plaintext
+        size is header-derived and no digest is reported. Basic filename/media hints survive; rich
+        metadata follows the forwarding setting.
+
+        Example:
+            >>> info = store.stat(location)  # doctest: +SKIP
+            >>> info.digest is None  # doctest: +SKIP
+            True
+
+
+        :param location: Wrapper-owned object Location to translate and inspect.
+        :return: Plaintext-shaped FileInfo with inner time/version, or an error for invalid layout or size mismatch.
+        """
         owned = self.require_location(location)
         inner_info = self._inner.stat(self._inner_location(owned))
         header = self._read_header(
@@ -747,6 +1328,31 @@ class EncryptedStore(StoreAPI):
         length: int | None = None,
         if_version: str | None = None,
     ) -> BinaryIO:
+        """
+        Open a bounded plaintext range, authenticating each required chunk when it is read.
+
+        Negative ranges raise ValueError; an explicit version requires conditional-read support.
+        Parse the header, clamp the requested interval to its declared size, then open one
+        contiguous body span for a nonempty interval. A zero-length result returns BytesIO
+        immediately, without key lookup or authentication of any tag, including the tag stored for
+        an empty object.
+
+        A version token pins both header requests and the body request. Without one, these separate
+        reads receive no automatic stat/version pin. The stream checks fetched chunks, not the whole
+        object's layout length or unrequested chunks. The caller owns and must close the returned
+        stream.
+
+        Example:
+            >>> with store.open_read(location, offset=4090, length=32) as stream:  # doctest: +SKIP
+            ...     plaintext = stream.read()
+
+
+        :param location: Wrapper-owned Location selecting the encrypted object.
+        :param offset: Nonnegative plaintext byte offset; offsets past the declared end produce an empty stream.
+        :param length: Maximum plaintext byte count, or None for the remainder of the declared object.
+        :param if_version: Optional inner-object version to require across header and ciphertext reads.
+        :return: Caller-owned binary stream, buffered for nonempty reads or empty BytesIO for an empty interval.
+        """
         owned = self.require_location(location)
         if offset < 0 or (length is not None and length < 0):
             raise ValueError("encrypted read ranges must not be negative.")
@@ -781,6 +1387,26 @@ class EncryptedStore(StoreAPI):
         expected_digest: Digest | None = None,
         placement_hints: StoragePlacementHints | None = None,
     ) -> _EncryptedWriteSession:
+        """
+        Validate ownership, collision mode, and write support before preparing an encrypted session.
+
+        A known plaintext size selects direct ciphertext staging. None selects local plaintext
+        staging followed by encryption at commit. Configured read-only policy is enforced before
+        testing inner mode support; UPSERT requires create and replace.
+
+        Example:
+            >>> with store.begin_write(location, expected_size=3) as session:  # doctest: +SKIP
+            ...     session.write(b"abc")
+            ...     info = session.commit()
+
+
+        :param location: Wrapper-owned destination Location for complete publication.
+        :param mode: WriteMode or convertible value defining collision behavior at the inner destination.
+        :param expected_size: Optional plaintext byte count; a known count must match accepted writes at commit.
+        :param expected_digest: Optional plaintext digest checked from accepted writes before publication.
+        :param placement_hints: Advisory metadata passed to inner publication only when forwarding is enabled.
+        :return: New uncommitted encrypted session; the caller must commit or abort it.
+        """
         owned = self.require_location(location)
         selected_mode = WriteMode(mode)
         if self.configuration.read_only:
@@ -810,6 +1436,21 @@ class EncryptedStore(StoreAPI):
         missing_ok: bool = False,
         if_version: str | None = None,
     ) -> None:
+        """
+        Delete the translated inner object after checking wrapper ownership and read-only policy.
+
+        This does not parse the encrypted header or authenticate ciphertext first. Missing-object
+        and conditional-delete semantics are delegated to the inner Store.
+
+        Example:
+            >>> store.delete(location, if_version=version)  # doctest: +SKIP
+
+
+        :param location: Wrapper-owned Location whose physical ciphertext object should be removed.
+        :param missing_ok: Whether the inner deletion may accept an absent object.
+        :param if_version: Optional inner-object version condition, forwarded even when None.
+        :return: None after the inner deletion succeeds or accepts an allowed absence.
+        """
         owned = self.require_location(location)
         if self.configuration.read_only:
             raise StoreReadOnly(self.configuration.store_name)
@@ -824,6 +1465,20 @@ class EncryptedStore(StoreAPI):
         *,
         prefix: Location | None = None,
     ) -> Iterator[Location]:
+        """
+        Yield wrapper Locations after filtering and stripping the configured inner prefix.
+
+        No headers are read, so matching keys need not contain valid encrypted objects. With no
+        caller prefix, the inner iterator receives None and can enumerate its entire namespace
+        before wrapper filtering. Iteration errors propagate lazily.
+
+        Example:
+            >>> keys = [item.key for item in store.iter_locations()]  # doctest: +SKIP
+
+
+        :param prefix: Optional wrapper Location translated into an inner enumeration prefix.
+        :return: Iterator of matching keys with wrapper UUIDs and the physical prefix removed.
+        """
         inner_prefix = None if prefix is None else self._inner_location(self.require_location(prefix))
         for location in self._inner.iter_locations(prefix=inner_prefix):
             key = self._wrapper_key(location)
@@ -835,6 +1490,16 @@ class EncryptedStore(StoreAPI):
         *,
         prefix: Location | None = None,
     ) -> Iterator[FileInfo]:
+        """
+        Convert header-derived inventory entries to FileInfo without an additional stat.
+
+        Example:
+            >>> infos = list(store.iter_file_infos())  # doctest: +SKIP
+
+
+        :param prefix: Optional wrapper-owned prefix passed through to the rich inventory iterator.
+        :return: Iterator of plaintext-sized FileInfo values with inner times/versions and no authenticated digest.
+        """
         for entry in self.iter_inventory_entries(prefix=prefix):
             assert entry.size is not None
             yield FileInfo(
@@ -851,6 +1516,20 @@ class EncryptedStore(StoreAPI):
         *,
         prefix: Location | None = None,
     ) -> Iterator[StoreInventoryEntry]:
+        """
+        Translate inner inventory into wrapper entries by reading each selected object's header.
+
+        Entries outside the physical prefix are omitted. A missing caller prefix leaves inner
+        enumeration unrestricted. Header reads use entry versions when conditional reads are
+        advertised, but do not authenticate chunks or compare ciphertext size.
+
+        Example:
+            >>> entries = list(store.iter_inventory_entries(prefix=store.locate("books")))  # doctest: +SKIP
+
+
+        :param prefix: Optional wrapper Location to translate into an inner enumeration prefix.
+        :return: Iterator of header-sized plaintext entries; per-object read/parse errors propagate.
+        """
         inner_prefix = (
             None
             if prefix is None
@@ -869,6 +1548,23 @@ class EncryptedStore(StoreAPI):
         limit: int | None = None,
         snapshot_token: str | None = None,
     ) -> StoreInventoryPage:
+        """
+        Translate one inner inventory page while preserving its cursor and snapshot token.
+
+        Require paged-enumeration support. Filtering can produce an empty wrapper page with a
+        nonempty continuation cursor; the limit applies to the inner page and discarded entries are
+        not replaced. Translation reads selected headers eagerly.
+
+        Example:
+            >>> page = store.inventory_page(limit=100)  # doctest: +SKIP
+
+
+        :param prefix: Optional wrapper-owned prefix, or None for unfiltered inner enumeration before wrapper filtering.
+        :param cursor: Opaque inner continuation cursor, or None to begin enumeration.
+        :param limit: Optional inner page-size limit, forwarded without independent validation.
+        :param snapshot_token: Optional inner snapshot token, forwarded unchanged.
+        :return: Page of translated entries retaining the inner continuation and snapshot tokens.
+        """
         if not self.capabilities.paged_enumeration:
             raise StoreUnsupportedOperation(
                 "inner Store does not support paged enumeration."
@@ -899,6 +1595,20 @@ class EncryptedStore(StoreAPI):
         self,
         entry: StoreInventoryEntry,
     ) -> StoreInventoryEntry | None:
+        """
+        Filter one physical key and project its parsed header into a plaintext inventory entry.
+
+        Version pinning follows the inner conditional-read claim. Filename/media hints remain
+        visible; rich metadata requires forwarding. No chunk is authenticated and the supplied
+        ciphertext size is not compared with the encoded layout.
+
+        Example:
+            >>> translated = store._plaintext_inventory_entry(inner_entry)  # doctest: +SKIP
+
+
+        :param entry: Inner inventory observation containing a physical Location, time/version, and hints.
+        :return: Wrapper inventory entry with header-derived size and no digest, or None outside the configured prefix.
+        """
         key = self._wrapper_key(entry.location)
         if key is None:
             return None
@@ -938,6 +1648,22 @@ class EncryptedStore(StoreAPI):
         *,
         if_version: str | None = None,
     ) -> _EncryptionHeader:
+        """
+        Read fixed layout and UTF-8 key identity through two separate ranged requests.
+
+        Validate magic, lengths, chunk bounds, count, and identifier syntax without key lookup or
+        tag authentication. Structural/truncation and UTF-8 decoding failures become
+        StoreIntegrityError. ValueError from the final key-identifier validation propagates
+        directly. Neither ciphertext body length nor tags are checked here.
+
+        Example:
+            >>> header = store._read_header(location, if_version=version)  # doctest: +SKIP
+
+
+        :param location: Wrapper-owned object Location to translate to its physical key.
+        :param if_version: Optional inner version forwarded to both requests; None omits the condition keyword.
+        :return: Structurally checked header record containing the exact encoded header bytes.
+        """
         inner = self._inner_location(location)
         fixed = (
             self._inner.read_bytes(
@@ -996,6 +1722,17 @@ class EncryptedStore(StoreAPI):
         )
 
     def _inner_location(self, location: Location) -> Location:
+        """
+        Check wrapper ownership, prepend the physical prefix, and parse the key with the inner
+        Store.
+
+        Example:
+            >>> physical = store._inner_location(store.locate("book.bin"))  # doctest: +SKIP
+
+
+        :param location: Logical Location that must belong to this wrapper Store UUID.
+        :return: Inner-owned Location; backend key-validation failures propagate.
+        """
         owned = self.require_location(location)
         key = owned.key
         if self._inner_prefix:
@@ -1003,6 +1740,19 @@ class EncryptedStore(StoreAPI):
         return self._inner.locate(key)
 
     def _wrapper_key(self, inner_location: Location) -> str | None:
+        """
+        Strip the physical prefix from an inner key, rejecting keys outside that prefix.
+
+        This helper examines key text only; it does not check the Location UUID, parse the remaining
+        key, or establish that an encrypted object exists.
+
+        Example:
+            >>> key = store._wrapper_key(inner_location)  # doctest: +SKIP
+
+
+        :param inner_location: Inner enumeration Location whose key is assumed to come from the retained Store.
+        :return: Unprefixed key, or None if a configured prefix plus slash does not match.
+        """
         key = inner_location.key
         if not self._inner_prefix:
             return key
@@ -1010,6 +1760,20 @@ class EncryptedStore(StoreAPI):
         return key[len(prefix) :] if key.startswith(prefix) else None
 
     def _encrypted_status(self, status: StoreStatus) -> StoreStatus:
+        """
+        Mask inner writability and append encryption and inner-identity detail entries.
+
+        Availability, counts, capacity, and timing remain inner observations, potentially including
+        objects outside the wrapper prefix. Existing detail keys are not replaced; appended names
+        may duplicate names already present in the detail tuple.
+
+        Example:
+            >>> status = store._encrypted_status(inner_status)  # doctest: +SKIP
+
+
+        :param status: Inner StoreStatus to copy with wrapper read-only policy and descriptive details.
+        :return: Replaced StoreStatus; no key, ciphertext, or endpoint probe is performed here.
+        """
         return dataclasses.replace(
             status,
             writable=status.writable and not self.configuration.read_only,
@@ -1027,6 +1791,26 @@ def _encode_header(
     key_id: str,
     nonce_prefix: bytes,
 ) -> _EncryptionHeader:
+    """
+    Validate layout bounds and encode the fixed header followed by UTF-8 key identity.
+
+    Require 4096-byte to 64-MiB chunks, a nonnegative plaintext size, at most 2**32 chunks, and an
+    eight-byte nonce prefix. An empty object still declares one chunk. Identifier and struct packing
+    errors propagate. Encoding establishes format bytes; authentication occurs when chunks use those
+    bytes as associated data.
+
+    Example:
+        >>> header = _encode_header(chunk_size=4096, plaintext_size=10, key_id="v1", nonce_prefix=bytes(8))
+        >>> header.encoded.startswith(_MAGIC)
+        True
+
+
+    :param chunk_size: Plaintext bytes per chunk within the supported inclusive range.
+    :param plaintext_size: Total nonnegative plaintext byte count used to derive the chunk layout.
+    :param key_id: Identifier encoded as UTF-8 after validation; no key material is stored.
+    :param nonce_prefix: Exactly eight bytes, combined with a four-byte index for each chunk nonce.
+    :return: Header record containing layout fields and their encoded representation.
+    """
     if not 4096 <= chunk_size <= _MAX_CHUNK_SIZE:
         raise ValueError("encrypted chunk size is outside the supported range.")
     if plaintext_size < 0:
@@ -1053,6 +1837,22 @@ def _encode_header(
 
 
 def _chunk_plaintext_size(header: _EncryptionHeader, index: int) -> int:
+    """
+    Calculate a valid chunk's plaintext length from the declared object layout.
+
+    The final chunk may be short; an empty object has a zero-byte chunk. The caller must supply an
+    in-range index because this helper does not reject invalid indices.
+
+    Example:
+        >>> header = _encode_header(chunk_size=4096, plaintext_size=4097, key_id="v1", nonce_prefix=bytes(8))
+        >>> _chunk_plaintext_size(header, 1)
+        1
+
+
+    :param header: Validated object layout supplying plaintext size and chunk size.
+    :param index: Zero-based chunk index, assumed to be below header.chunk_count.
+    :return: Plaintext byte count for that chunk; bounds are not independently checked.
+    """
     if header.plaintext_size == 0:
         return 0
     start = index * header.chunk_size
@@ -1060,6 +1860,22 @@ def _chunk_plaintext_size(header: _EncryptionHeader, index: int) -> int:
 
 
 def _read_exact(source: BinaryIO, size: int) -> bytes:
+    """
+    Accumulate binary reads until the requested count or a falsey end-of-stream result.
+
+    Short EOF returns a shorter byte string for the caller to validate. Nonempty non-bytes chunks
+    raise TypeError. The source is borrowed and must honor the requested maximum read size; this
+    helper does not clamp oversized responses.
+
+    Example:
+        >>> _read_exact(io.BytesIO(b"abc"), 5)
+        b'abc'
+
+
+    :param source: Borrowed binary stream whose read method may return partial chunks.
+    :param size: Nonnegative byte count to accumulate; zero performs no reads.
+    :return: Concatenated bytes, possibly shorter than size at EOF; the source remains open.
+    """
     chunks: list[bytes] = []
     remaining = size
     while remaining:
@@ -1074,6 +1890,20 @@ def _read_exact(source: BinaryIO, size: int) -> bytes:
 
 
 def _write_session_all(session: WriteSessionAPI, data: bytes) -> None:
+    """
+    Write every byte to an inner session while allowing partial acceptance.
+
+    Zero, negative, or excessive acceptance raises StoreIntegrityError. Empty input performs no
+    writes. Publication and abort remain the caller's responsibility.
+
+    Example:
+        >>> _write_session_all(inner_session, ciphertext)  # doctest: +SKIP
+
+
+    :param session: Borrowed inner write session returning the accepted count for each call.
+    :param data: Complete ciphertext or header byte string to deliver.
+    :return: None after all bytes are accepted; invalid progress or write errors propagate.
+    """
     offset = 0
     while offset < len(data):
         accepted = session.write(data[offset:])
@@ -1085,6 +1915,24 @@ def _write_session_all(session: WriteSessionAPI, data: bytes) -> None:
 
 
 def _chunk_aad(header: _EncryptionHeader, inner_key: str, index: int) -> bytes:
+    """
+    Bind encoded layout, physical object-key bytes, and chunk index as associated data.
+
+    NUL separators surround the key, which is encoded using UTF-8 with surrogateescape. The index is
+    an unsigned four-byte big-endian integer. Store UUIDs are not part of this byte sequence, and
+    component validation belongs to the caller.
+
+    Example:
+        >>> header = _encode_header(chunk_size=4096, plaintext_size=1, key_id="v1", nonce_prefix=bytes(8))
+        >>> _chunk_aad(header, "book.bin", 1)[-4:] == (1).to_bytes(4, "big")
+        True
+
+
+    :param header: Header whose exact encoded bytes are included before the key.
+    :param inner_key: Physical inner object key, including any wrapper prefix.
+    :param index: Nonnegative chunk index fitting four bytes.
+    :return: Associated-data bytes passed unchanged to AES-GCM encryption or decryption.
+    """
     return (
         header.encoded
         + b"\0"
@@ -1095,12 +1943,37 @@ def _chunk_aad(header: _EncryptionHeader, inner_key: str, index: int) -> bytes:
 
 
 def _validate_key(value: bytes) -> bytes:
+    """
+    Require bytes containing exactly 32 bytes, without copying or assessing their entropy.
+
+    Example:
+        >>> len(_validate_key(bytes(32)))
+        32
+
+
+    :param value: Key bytes to validate; examples use fixed test material only.
+    :return: Original bytes object, or ValueError for an invalid type or length.
+    """
     if not isinstance(value, bytes) or len(value) != 32:
         raise ValueError("encryption keys must contain exactly 32 bytes.")
     return value
 
 
 def _validate_key_id(value: str) -> str:
+    """
+    Stringify and validate an identifier for the length-prefixed UTF-8 header field.
+
+    Require nonempty text, no NUL, and at most 65535 encoded bytes. Whitespace is retained. UTF-8
+    encoding errors propagate alongside explicit ValueError checks.
+
+    Example:
+        >>> _validate_key_id("archive-key-v2")
+        'archive-key-v2'
+
+
+    :param value: Identifier converted to str before UTF-8 length and content checks.
+    :return: Validated text without stripping whitespace or normalizing Unicode.
+    """
     key_id = str(value)
     encoded = key_id.encode("utf-8")
     if not key_id or len(encoded) > 65535 or "\x00" in key_id:
@@ -1109,6 +1982,24 @@ def _validate_key_id(value: str) -> str:
 
 
 def _validate_inner_prefix(value: str) -> str:
+    """
+    Normalize outer slashes and reject unsafe or noncanonical interior path components.
+
+    Empty text selects the entire inner namespace. Nonempty prefixes may not contain NUL,
+    backslashes, empty interior components, dot, or dot-dot. Leading slashes are stripped rather
+    than treated as a filesystem root; this is key normalization, not filesystem containment or
+    platform-specific filename validation.
+
+    Example:
+        >>> _validate_inner_prefix("/private/books/")
+        'private/books'
+        >>> _validate_inner_prefix("/")
+        ''
+
+
+    :param value: Prefix converted to str and stripped of leading/trailing slash characters.
+    :return: Relative POSIX-style prefix or empty text, with ValueError for rejected components.
+    """
     prefix = str(value).strip("/")
     if not prefix:
         return ""
@@ -1120,6 +2011,19 @@ def _validate_inner_prefix(value: str) -> str:
 
 
 def _aesgcm(key: bytes):
+    """
+    Lazily load the optional AES-GCM primitive and construct it with a validated key.
+
+    Missing cryptography imports become StoreUnsupportedOperation with dependency context. Key
+    validation and primitive-construction failures otherwise propagate.
+
+    Example:
+        >>> cipher = _aesgcm(key_bytes)  # doctest: +SKIP
+
+
+    :param key: Runtime AES-256 key material containing exactly 32 bytes.
+    :return: New AESGCM instance retaining its own cryptography implementation state.
+    """
     try:
         from cryptography.hazmat.primitives.ciphers.aead import AESGCM
     except ImportError as error:

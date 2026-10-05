@@ -1,6 +1,8 @@
 
 """
-Mixin to handle metadata for the actual database.
+Expose schema metadata, column policies and canonical identities through a database facade.
+
+Most methods delegate unchanged arguments to the wrapper or macros. UUID/version properties add local caches with their own refresh and write behavior. Column-policy reads may support older schemas through driver fallbacks; facade setters do not migrate those schemas automatically.
 """
 
 from __future__ import annotations
@@ -35,14 +37,28 @@ if TYPE_CHECKING:
 
 class DatabaseMetadataMixin:
     """
-    Mixin to handle the database metadata.
+    Combine cached library identifiers with schema and column-policy delegates.
+
+    Requires initialized driver, wrapper and macros collaborators. Metadata policy setters and identity migration can write to the database; getters normally query or return cached values, except library_id can generate and store a missing identifier.
+
+    Example:
+        For an open db, metadata = db.get_column_metadata("works", "work_title") reads its column policy; db.get_tables(force_refresh=True) asks the wrapper for fresh schema names.
     """
     @property
     def uuid(self: "DatabaseAPI") -> str:
         """
-        Return the uuid of the database.
+        Return the cached database UUID or load it once from the wrapper.
 
-        :return:
+        A None cache triggers another load. The _uuid attribute must already exist; this getter does not generate a missing UUID itself.
+
+        Example:
+            >>> state = DatabaseMetadataMixin()
+            >>> state._uuid = "cached-id"
+            >>> state.uuid
+            'cached-id'
+
+
+        :return: Cached wrapper UUID value.
         """
         if self._uuid is not None:
             return self._uuid
@@ -53,10 +69,16 @@ class DatabaseMetadataMixin:
     @uuid.setter
     def uuid(self: "DatabaseAPI", value: str) -> None:
         """
-        Set the uuid of the database.
+        Assign the UUID cache before asking the wrapper to persist it.
 
-        :param value:
-        :return:
+        If persistence fails, the assigned cache is not restored.
+
+        Example:
+            For an open db, db.uuid = replacement_uuid updates the local cache and delegates storage.
+
+
+        :param value: UUID value passed unchanged to the wrapper.
+        :return: None.
         """
         self._uuid = value
         self.driver_wrapper.set_uuid(value)
@@ -64,9 +86,18 @@ class DatabaseMetadataMixin:
     @property
     def library_id(self: "DatabaseAPI") -> str:
         """
-        The UUID for this library. As long as the user only operates on libraries with LiuXin, it will be unique.
+        Read a cached library identifier, generating one when the query returns None.
 
-        :return:
+        The nonempty query result is retained directly without extracting its first column; its shape therefore depends on wrapper.get(all=False). A missing value invokes the setter and writes through macros. Reading this property is not always read-only.
+
+        Example:
+            >>> state = DatabaseMetadataMixin()
+            >>> state._library_id_ = "cached-library"
+            >>> state.library_id
+            'cached-library'
+
+
+        :return: Cached wrapper query result, or generated UUID text.
         """
         if getattr(self, "_library_id_", None) is None:
             ans = self.driver_wrapper.get("SELECT library_id_uuid FROM library_id", all=False)
@@ -80,10 +111,16 @@ class DatabaseMetadataMixin:
     @library_id.setter
     def library_id(self: "DatabaseAPI", value: str) -> None:
         """
-        Setter function for the library id - handles updating the database with the new id.
+        Cache the textual library identifier and delegate storage of the original value.
 
-        :param value:
-        :return:
+        The cache changes before storage and is not restored on failure.
+
+        Example:
+            For an open db, db.library_id = replacement_uuid caches its text and calls the library-ID macro.
+
+
+        :param value: Identifier converted to text for the cache but passed unchanged to macros.
+        :return: None.
         """
         self._library_id_ = six_unicode(value)
         self.macros.set_library_id(value)
@@ -91,9 +128,18 @@ class DatabaseMetadataMixin:
     @property
     def database_version(self: "DatabaseAPI") -> str:
         """
-        The UUID for this library. As long as the user only operates on libraries with LiuXin, it will be unique.
+        Return the cached version or read the last version row from the primary connection.
 
-        :return:
+        A None result is queried again on the next access. This method does not create a version row or explicitly close its cursor.
+
+        Example:
+            >>> state = DatabaseMetadataMixin()
+            >>> state._database_version_ = "v1"
+            >>> state.database_version
+            'v1'
+
+
+        :return: Last queried version value, or None when there are no rows.
         """
         if getattr(self, "_database_version_", None) is None:
             c = self.conn.cursor()
@@ -107,10 +153,16 @@ class DatabaseMetadataMixin:
     @database_version.setter
     def database_version(self: "DatabaseAPI", value: str) -> None:
         """
-        Setter function for the library id - handles updating the database with the new id.
+        Cache version text before passing the original value to its storage macro.
 
-        :param value:
-        :return:
+        The cached value remains changed if the macro rejects a protected version table or otherwise fails.
+
+        Example:
+            When the backend permits version changes, db.database_version = version delegates persistence after updating the cache.
+
+
+        :param value: Version converted to text for the cache and passed unchanged to macros.
+        :return: None.
         """
         self._database_version_ = six_unicode(value)
         self.macros.set_database_version(value)
@@ -122,29 +174,42 @@ class DatabaseMetadataMixin:
 
     def get_tables(self: "DatabaseAPI", force_refresh: bool = False) -> list[str]:
         """
-        Directly get the tables for the currently loaded database
+        Delegate table discovery and optional schema-cache refresh to the wrapper.
 
-        :return:
+        Example:
+            For an open db, db.get_tables(force_refresh=True) requests refreshed schema names.
+
+
+        :param force_refresh: Request fresh backend discovery when True.
+        :return: Wrapper table-name list.
         """
         return self.driver_wrapper.get_tables(force_refresh=force_refresh)
 
     # Methods to get basic information about the database start here
     def get_column_headings(self: "DatabaseAPI", table: str) -> list[str]:
         """
-        Gets the column headings for a table in the database.
+        Delegate ordered column discovery for a table.
 
-        :param table:
-        :return column_headings: An index of column headings in the order they appear on the database
+        Example:
+            For an open db, db.get_column_headings("works") identifies available work fields.
+
+
+        :param table: Target table name.
+        :return: Wrapper column-name list in backend order.
         """
         return self.driver_wrapper.get_column_headings(table)
 
     def get_declared_column_datatype(self: "DatabaseAPI", table: str, column: str) -> str:
         """
-        Return the database-native declared datatype for one column.
+        Read the backend-declared type name for one column.
 
-        :param table:
-        :param column:
-        :return:
+        Example:
+            For the current schema, db.get_declared_column_datatype("database_metadata", "database_metadata_unique_id") returns "TEXT".
+
+
+        :param table: Table containing the column.
+        :param column: Column name within that table.
+        :return: Datatype string returned by the wrapper.
         """
         return self.driver_wrapper.get_declared_column_datatype(table, column)
 
@@ -155,7 +220,18 @@ class DatabaseMetadataMixin:
         *,
         force_refresh: bool = False,
     ) -> LinkCapabilities | None:
-        """Return the type/priority capabilities of one interlink or intralink."""
+        """
+        Retrieve the schema capabilities of an interlink or self-link.
+
+        Example:
+            For an open db, capabilities = db.get_link_capabilities("agents", "works") describes its type/priority columns.
+
+
+        :param table1: First endpoint table.
+        :param table2: Second endpoint table; may match the first for a self-link.
+        :param force_refresh: Request refreshed schema capability discovery.
+        :return: LinkCapabilities, or None when no supported relationship is found.
+        """
 
         return self.driver_wrapper.get_link_capabilities(
             table1,
@@ -170,7 +246,18 @@ class DatabaseMetadataMixin:
         *,
         force_refresh: bool = False,
     ) -> bool:
-        """Return whether the link between two tables has a type column."""
+        """
+        Ask the wrapper whether a relationship supports a type column.
+
+        Example:
+            For an open db, db.is_link_typed("agents", "works") tests schema capability rather than a particular stored link type.
+
+
+        :param table1: First endpoint table.
+        :param table2: Second endpoint table.
+        :param force_refresh: Refresh capability discovery when True.
+        :return: Wrapper boolean capability result.
+        """
 
         return self.driver_wrapper.is_link_typed(
             table1,
@@ -185,7 +272,18 @@ class DatabaseMetadataMixin:
         *,
         force_refresh: bool = False,
     ) -> bool:
-        """Return whether the link between two tables has a priority column."""
+        """
+        Ask the wrapper whether a relationship supports priority ordering.
+
+        Example:
+            For an open db, db.is_link_priority("agents", "works") checks whether its relationship schema supports priority.
+
+
+        :param table1: First endpoint table.
+        :param table2: Second endpoint table.
+        :param force_refresh: Refresh capability discovery when True.
+        :return: Wrapper boolean capability result.
+        """
 
         return self.driver_wrapper.is_link_priority(
             table1,
@@ -195,11 +293,17 @@ class DatabaseMetadataMixin:
 
     def get_case_sensitivity(self: "DatabaseAPI", table: str, column: str) -> bool:
         """
-        Return whether text equality for this column is case-sensitive.
+        Read the case-sensitive comparison flag.
 
-        :param table:
-        :param column:
-        :return:
+        Read behavior and legacy defaults belong to the driver; this facade forwards the table and column unchanged.
+
+        Example:
+            For an open db, db.get_case_sensitivity("works", "work_title") reads that column setting.
+
+
+        :param table: Table containing the column.
+        :param column: Column name within that table.
+        :return: The wrapper bool flag result.
         """
         return self.driver_wrapper.get_case_sensitivity(table, column)
 
@@ -208,7 +312,17 @@ class DatabaseMetadataMixin:
         table: str,
         column: str,
     ) -> ColumnMetadata:
-        """Return the complete semantic/writer policy for one column."""
+        """
+        Retrieve the effective policy record for a database column.
+
+        Example:
+            For an open db, policy = db.get_column_metadata("works", "work_title") combines normalization, merge and presentation settings.
+
+
+        :param table: Table containing the column.
+        :param column: Column name within that table.
+        :return: ColumnMetadata returned by the wrapper, including driver-supported legacy read fallbacks.
+        """
 
         return self.driver_wrapper.get_column_metadata(table, column)
 
@@ -216,7 +330,18 @@ class DatabaseMetadataMixin:
         self: "DatabaseAPI",
         metadata: ColumnMetadata,
     ) -> None:
-        """Persist the complete semantic/writer policy for one column."""
+        """
+        Delegate persistence of a complete column-policy record.
+
+        No validation or schema migration is added at this facade boundary; driver errors propagate. Legacy read fallbacks do not imply an old schema supports policy writes.
+
+        Example:
+            After deriving an updated policy with dataclasses.replace, db.set_column_metadata(policy) delegates its persistence.
+
+
+        :param metadata: ColumnMetadata identifying its table/column and replacement policy.
+        :return: None.
+        """
 
         self.driver_wrapper.set_column_metadata(metadata)
 
@@ -225,7 +350,19 @@ class DatabaseMetadataMixin:
         table: str,
         column: str,
     ) -> ColumnSemanticRole:
-        """Return the semantic role for one column."""
+        """
+        Read the semantic role of the stored value.
+
+        Read behavior and legacy defaults belong to the driver; this facade forwards the table and column unchanged.
+
+        Example:
+            For an open db, db.get_semantic_role("works", "work_title") reads that column setting.
+
+
+        :param table: Table containing the column.
+        :param column: Column name within that table.
+        :return: The wrapper ColumnSemanticRole describing the value meaning result.
+        """
 
         return self.driver_wrapper.get_semantic_role(table, column)
 
@@ -235,7 +372,20 @@ class DatabaseMetadataMixin:
         column: str,
         semantic_role: ColumnSemanticRole,
     ) -> None:
-        """Persist the semantic role for one column."""
+        """
+        Delegate storage of the semantic role of the stored value.
+
+        The facade does not validate, normalize or migrate the supplied policy; wrapper/driver errors propagate.
+
+        Example:
+            For an open writable db with a current policy schema, db.set_semantic_role("works", "work_title", ColumnSemanticRole.LABEL) requests the new setting.
+
+
+        :param table: Table containing the column.
+        :param column: Column name within that table.
+        :param semantic_role: ColumnSemanticRole describing the value meaning to persist.
+        :return: None.
+        """
 
         self.driver_wrapper.set_semantic_role(table, column, semantic_role)
 
@@ -244,7 +394,19 @@ class DatabaseMetadataMixin:
         table: str,
         column: str,
     ) -> ColumnNormalizationProfile:
-        """Return the comparison-normalization profile for one column."""
+        """
+        Read the normalization profile for comparable values.
+
+        Read behavior and legacy defaults belong to the driver; this facade forwards the table and column unchanged.
+
+        Example:
+            For an open db, db.get_normalization_profile("works", "work_title") reads that column setting.
+
+
+        :param table: Table containing the column.
+        :param column: Column name within that table.
+        :return: The wrapper ColumnNormalizationProfile result.
+        """
 
         return self.driver_wrapper.get_normalization_profile(table, column)
 
@@ -254,7 +416,20 @@ class DatabaseMetadataMixin:
         column: str,
         normalization_profile: ColumnNormalizationProfile,
     ) -> None:
-        """Persist the comparison-normalization profile for one column."""
+        """
+        Delegate storage of the normalization profile for comparable values.
+
+        The facade does not validate, normalize or migrate the supplied policy; wrapper/driver errors propagate.
+
+        Example:
+            For an open writable db with a current policy schema, db.set_normalization_profile("works", "work_title", ColumnNormalizationProfile.UNICODE_NFC) requests the new setting.
+
+
+        :param table: Table containing the column.
+        :param column: Column name within that table.
+        :param normalization_profile: ColumnNormalizationProfile to persist.
+        :return: None.
+        """
 
         self.driver_wrapper.set_normalization_profile(
             table,
@@ -267,7 +442,19 @@ class DatabaseMetadataMixin:
         table: str,
         column: str,
     ) -> str | None:
-        """Return the derived comparison column, if any."""
+        """
+        Read the companion column used for comparisons.
+
+        Read behavior and legacy defaults belong to the driver; this facade forwards the table and column unchanged.
+
+        Example:
+            For an open db, db.get_comparison_column("works", "work_title") reads that column setting.
+
+
+        :param table: Table containing the column.
+        :param column: Column name within that table.
+        :return: The wrapper Companion column name, or None result.
+        """
 
         return self.driver_wrapper.get_comparison_column(table, column)
 
@@ -276,14 +463,34 @@ class DatabaseMetadataMixin:
         table: str,
         value_column: str,
     ) -> NormalizedIdentitySpec | None:
-        """Return the normalized row-identity declaration for a display column."""
+        """
+        Read the normalized-identity declaration for a display-value column.
+
+        Example:
+            For the current schema, db.get_normalized_identity_spec("tags", "tag") returns the declaration used to identify canonical tag rows.
+
+
+        :param table: Table containing the value column.
+        :param value_column: Display-value column whose identity is declared.
+        :return: NormalizedIdentitySpec, or None when no declaration applies.
+        """
 
         return self.driver_wrapper.get_normalized_identity_spec(table, value_column)
 
     def iter_normalized_identity_specs(
         self: "DatabaseAPI",
     ) -> Iterator[NormalizedIdentitySpec]:
-        """Yield every normalized row identity declared by the database."""
+        """
+        Yield normalized-identity declarations from the wrapper iterator.
+
+        Iteration is lazy: wrapper iteration and its errors occur when the returned generator is consumed.
+
+        Example:
+            For an open db, specs = tuple(db.iter_normalized_identity_specs()) consumes all current declarations.
+
+
+        :return: Iterator yielding NormalizedIdentitySpec objects.
+        """
 
         yield from self.driver_wrapper.iter_normalized_identity_specs()
 
@@ -293,7 +500,20 @@ class DatabaseMetadataMixin:
         value_column: str,
         value: Any,
     ) -> Any:
-        """Derive the declared normalized identity for a display value."""
+        """
+        Normalize a display value using its declared identity profile.
+
+        The macros layer validates identifiers and requires an applicable normalized-identity declaration.
+
+        Example:
+            For an open db, key = db.derive_identity_value("tags", "tag", " Example ") derives the key used for canonical lookup.
+
+
+        :param table: Table containing the display value.
+        :param value_column: Declared display-value column.
+        :param value: Value to normalize.
+        :return: Derived identity key returned by macros, without creating a row.
+        """
 
         return self.macros.derive_identity_value(table, value_column, value)
 
@@ -306,7 +526,22 @@ class DatabaseMetadataMixin:
         scope_values: Mapping[str, Any] | None = None,
         id_column: str | None = None,
     ) -> CanonicalIdentity | None:
-        """Resolve a display value to its complete stored canonical identity."""
+        """
+        Normalize a display value and look up its unique canonical identity.
+
+        Delegates normalization and scoped lookup to macros; multiple matches raise DatabaseIntegrityError. This does not insert missing values.
+
+        Example:
+            For an open db, identity = db.get_canonical_identity("tags", "tag", " EXAMPLE ") finds the stored spelling and row ID for an equivalent value.
+
+
+        :param table: Table containing the canonical row.
+        :param value_column: Declared display-value column.
+        :param value: Display value to normalize before lookup.
+        :param scope_values: Optional values for the declaration scope columns.
+        :param id_column: Optional row-ID column override.
+        :return: CanonicalIdentity for a unique match, or None when absent.
+        """
 
         return self.macros.get_canonical_identity(
             table,
@@ -325,7 +560,22 @@ class DatabaseMetadataMixin:
         scope_values: Mapping[str, Any] | None = None,
         id_column: str | None = None,
     ) -> CanonicalIdentity | None:
-        """Resolve an already-derived identity to its canonical stored row."""
+        """
+        Resolve an already-derived identity key without normalizing it again.
+
+        Macros enforce scope and ID-column validity and reject ambiguous matches; the facade forwards all arguments unchanged.
+
+        Example:
+            After key = db.derive_identity_value("tags", "tag", text), db.get_canonical_identity_by_key("tags", "tag", key) performs the canonical lookup.
+
+
+        :param table: Table containing the canonical row.
+        :param value_column: Declared display-value column.
+        :param identity_value: Non-None normalized key used directly for lookup.
+        :param scope_values: Optional values for the declaration scope columns.
+        :param id_column: Optional row-ID column override.
+        :return: CanonicalIdentity for a unique match, or None when absent.
+        """
 
         return self.macros.get_canonical_identity_by_key(
             table,
@@ -343,7 +593,19 @@ class DatabaseMetadataMixin:
         *,
         scope_values: Mapping[str, Any] | None = None,
     ) -> Any | None:
-        """Resolve a display value and return its canonical stored spelling."""
+        """
+        Return the stored spelling matching a normalized display-value lookup.
+
+        Example:
+            For an existing canonical tag, db.get_canonical_value("tags", "tag", alternate_spelling) returns its stored spelling.
+
+
+        :param table: Table containing the canonical value.
+        :param value_column: Declared display-value column.
+        :param value: Display value normalized by macros.
+        :param scope_values: Optional values for declared scope columns.
+        :return: Canonical stored value, or None when no row matches.
+        """
 
         return self.macros.get_canonical_value(
             table,
@@ -360,7 +622,19 @@ class DatabaseMetadataMixin:
         *,
         scope_values: Mapping[str, Any] | None = None,
     ) -> Any | None:
-        """Resolve a derived identity and return its canonical stored spelling."""
+        """
+        Return the stored spelling matching an already-derived identity key.
+
+        Example:
+            For an open db and derived tag key, db.get_canonical_value_by_identity("tags", "tag", key) reads the canonical spelling without re-normalizing the key.
+
+
+        :param table: Table containing the canonical value.
+        :param value_column: Declared display-value column.
+        :param identity_value: Normalized key passed directly to macros.
+        :param scope_values: Optional values for declared scope columns.
+        :return: Canonical stored value, or None when no row matches.
+        """
 
         return self.macros.get_canonical_value_by_identity(
             table,
@@ -372,14 +646,32 @@ class DatabaseMetadataMixin:
     def audit_normalized_identities(
         self: "DatabaseAPI",
     ) -> NormalizedIdentityMigrationReport:
-        """Report stale keys and collisions without changing the database."""
+        """
+        Delegate inspection of stale identity keys and collisions without migration writes.
+
+        Example:
+            For an open db, report = db.audit_normalized_identities() reports collisions before a planned migration.
+
+
+        :return: NormalizedIdentityMigrationReport describing examined declarations and rows.
+        """
 
         return self.macros.audit_normalized_identities()
 
     def migrate_normalized_identities(
         self: "DatabaseAPI",
     ) -> NormalizedIdentityMigrationReport:
-        """Install, backfill, and index normalized identities atomically."""
+        """
+        Delegate transactional identity-catalog installation, backfill and indexing.
+
+        The macros layer inspects for collisions before applying changes and raises DatabaseIntegrityError when collisions prevent migration. The facade adds no outer transaction or cache management.
+
+        Example:
+            After reviewing an identity audit, report = db.migrate_normalized_identities() applies the macros migration to a writable database.
+
+
+        :return: NormalizedIdentityMigrationReport describing completed changes.
+        """
 
         return self.macros.migrate_normalized_identities()
 
@@ -389,7 +681,20 @@ class DatabaseMetadataMixin:
         column: str,
         comparison_column: str | None,
     ) -> None:
-        """Persist the derived comparison column for one column."""
+        """
+        Delegate storage of the companion column used for comparisons.
+
+        The facade does not validate, normalize or migrate the supplied policy; wrapper/driver errors propagate.
+
+        Example:
+            For an open writable db with a current policy schema, db.set_comparison_column("works", "work_title", "work_sort_title") requests the new setting.
+
+
+        :param table: Table containing the column.
+        :param column: Column name within that table.
+        :param comparison_column: Companion column name, or None to persist.
+        :return: None.
+        """
 
         self.driver_wrapper.set_comparison_column(
             table,
@@ -402,7 +707,19 @@ class DatabaseMetadataMixin:
         table: str,
         column: str,
     ) -> ColumnEmptyValuePolicy:
-        """Return the empty-value policy for one column."""
+        """
+        Read the policy for empty input values.
+
+        Read behavior and legacy defaults belong to the driver; this facade forwards the table and column unchanged.
+
+        Example:
+            For an open db, db.get_empty_value_policy("works", "work_title") reads that column setting.
+
+
+        :param table: Table containing the column.
+        :param column: Column name within that table.
+        :return: The wrapper ColumnEmptyValuePolicy result.
+        """
 
         return self.driver_wrapper.get_empty_value_policy(table, column)
 
@@ -412,7 +729,20 @@ class DatabaseMetadataMixin:
         column: str,
         empty_value_policy: ColumnEmptyValuePolicy,
     ) -> None:
-        """Persist the empty-value policy for one column."""
+        """
+        Delegate storage of the policy for empty input values.
+
+        The facade does not validate, normalize or migrate the supplied policy; wrapper/driver errors propagate.
+
+        Example:
+            For an open writable db with a current policy schema, db.set_empty_value_policy("works", "work_title", ColumnEmptyValuePolicy.PRESERVE) requests the new setting.
+
+
+        :param table: Table containing the column.
+        :param column: Column name within that table.
+        :param empty_value_policy: ColumnEmptyValuePolicy to persist.
+        :return: None.
+        """
 
         self.driver_wrapper.set_empty_value_policy(
             table,
@@ -425,7 +755,19 @@ class DatabaseMetadataMixin:
         table: str,
         column: str,
     ) -> ColumnMergePolicy:
-        """Return the merge policy for one column."""
+        """
+        Read the policy for combining an incoming value with existing data.
+
+        Read behavior and legacy defaults belong to the driver; this facade forwards the table and column unchanged.
+
+        Example:
+            For an open db, db.get_merge_policy("works", "work_title") reads that column setting.
+
+
+        :param table: Table containing the column.
+        :param column: Column name within that table.
+        :return: The wrapper ColumnMergePolicy result.
+        """
 
         return self.driver_wrapper.get_merge_policy(table, column)
 
@@ -435,7 +777,20 @@ class DatabaseMetadataMixin:
         column: str,
         merge_policy: ColumnMergePolicy,
     ) -> None:
-        """Persist the merge policy for one column."""
+        """
+        Delegate storage of the policy for combining an incoming value with existing data.
+
+        The facade does not validate, normalize or migrate the supplied policy; wrapper/driver errors propagate.
+
+        Example:
+            For an open writable db with a current policy schema, db.set_merge_policy("works", "work_title", ColumnMergePolicy.PRESERVE_EXISTING) requests the new setting.
+
+
+        :param table: Table containing the column.
+        :param column: Column name within that table.
+        :param merge_policy: ColumnMergePolicy to persist.
+        :return: None.
+        """
 
         self.driver_wrapper.set_merge_policy(table, column, merge_policy)
 
@@ -444,7 +799,19 @@ class DatabaseMetadataMixin:
         table: str,
         column: str,
     ) -> ColumnValidationProfile:
-        """Return the validation profile for one column."""
+        """
+        Read the validation profile for incoming values.
+
+        Read behavior and legacy defaults belong to the driver; this facade forwards the table and column unchanged.
+
+        Example:
+            For an open db, db.get_validation_profile("works", "work_title") reads that column setting.
+
+
+        :param table: Table containing the column.
+        :param column: Column name within that table.
+        :return: The wrapper ColumnValidationProfile result.
+        """
 
         return self.driver_wrapper.get_validation_profile(table, column)
 
@@ -454,7 +821,20 @@ class DatabaseMetadataMixin:
         column: str,
         validation_profile: ColumnValidationProfile,
     ) -> None:
-        """Persist the validation profile for one column."""
+        """
+        Delegate storage of the validation profile for incoming values.
+
+        The facade does not validate, normalize or migrate the supplied policy; wrapper/driver errors propagate.
+
+        Example:
+            For an open writable db with a current policy schema, db.set_validation_profile("works", "work_title", ColumnValidationProfile.VERBATIM_TEXT) requests the new setting.
+
+
+        :param table: Table containing the column.
+        :param column: Column name within that table.
+        :param validation_profile: ColumnValidationProfile to persist.
+        :return: None.
+        """
 
         self.driver_wrapper.set_validation_profile(
             table,
@@ -467,7 +847,19 @@ class DatabaseMetadataMixin:
         table: str,
         column: str,
     ) -> ColumnOptions:
-        """Return immutable value-formatting hints for one column."""
+        """
+        Read the options for formatting a value.
+
+        Read behavior and legacy defaults belong to the driver; this facade forwards the table and column unchanged.
+
+        Example:
+            For an open db, db.get_formatting_options("works", "work_title") reads that column setting.
+
+
+        :param table: Table containing the column.
+        :param column: Column name within that table.
+        :return: The wrapper Mapping of formatting option names to values result.
+        """
 
         return self.driver_wrapper.get_formatting_options(table, column)
 
@@ -477,7 +869,20 @@ class DatabaseMetadataMixin:
         column: str,
         formatting_options: Mapping[str, object],
     ) -> None:
-        """Persist value-formatting hints for one column."""
+        """
+        Delegate storage of the options for formatting a value.
+
+        The facade does not validate, normalize or migrate the supplied policy; wrapper/driver errors propagate.
+
+        Example:
+            For an open writable db with a current policy schema, db.set_formatting_options("works", "work_title", {"template": "{value}"}) requests the new setting.
+
+
+        :param table: Table containing the column.
+        :param column: Column name within that table.
+        :param formatting_options: Mapping of formatting option names to values to persist.
+        :return: None.
+        """
 
         self.driver_wrapper.set_formatting_options(
             table,
@@ -490,7 +895,19 @@ class DatabaseMetadataMixin:
         table: str,
         column: str,
     ) -> ColumnOptions:
-        """Return immutable surface-display hints for one column."""
+        """
+        Read the presentation options for the column.
+
+        Read behavior and legacy defaults belong to the driver; this facade forwards the table and column unchanged.
+
+        Example:
+            For an open db, db.get_display_options("works", "work_title") reads that column setting.
+
+
+        :param table: Table containing the column.
+        :param column: Column name within that table.
+        :return: The wrapper Mapping of presentation option names to values result.
+        """
 
         return self.driver_wrapper.get_display_options(table, column)
 
@@ -500,7 +917,20 @@ class DatabaseMetadataMixin:
         column: str,
         display_options: Mapping[str, object],
     ) -> None:
-        """Persist surface-display hints for one column."""
+        """
+        Delegate storage of the presentation options for the column.
+
+        The facade does not validate, normalize or migrate the supplied policy; wrapper/driver errors propagate.
+
+        Example:
+            For an open writable db with a current policy schema, db.set_display_options("works", "work_title", {"label": "Title", "visible": True}) requests the new setting.
+
+
+        :param table: Table containing the column.
+        :param column: Column name within that table.
+        :param display_options: Mapping of presentation option names to values to persist.
+        :return: None.
+        """
 
         self.driver_wrapper.set_display_options(
             table,
@@ -515,17 +945,33 @@ class DatabaseMetadataMixin:
         case_sensitive: bool,
     ) -> None:
         """
-        Persist text equality policy for one column.
+        Delegate storage of the case-sensitive comparison flag.
 
-        :param table:
-        :param column:
-        :param case_sensitive:
-        :return:
+        The facade does not validate, normalize or migrate the supplied policy; wrapper/driver errors propagate.
+
+        Example:
+            For an open writable db with a current policy schema, db.set_case_sensitivity("works", "work_title", True) requests the new setting.
+
+
+        :param table: Table containing the column.
+        :param column: Column name within that table.
+        :param case_sensitive: Whether comparisons should be case-sensitive.
+        :return: None.
         """
         self.driver_wrapper.set_case_sensitivity(table, column, case_sensitive)
 
     def is_column_case_sensitive(self: "DatabaseAPI", table: str, column: str) -> bool:
-        """Compatibility alias for :meth:`get_case_sensitivity`."""
+        """
+        Read the case-sensitivity flag through the facade alias.
+
+        Example:
+            For an open db, db.is_column_case_sensitive("works", "work_title") uses the same read path as db.get_case_sensitivity(...).
+
+
+        :param table: Table containing the column.
+        :param column: Column name within that table.
+        :return: Result of get_case_sensitivity for the same table and column.
+        """
 
         return self.get_case_sensitivity(table, column)
 
@@ -535,59 +981,98 @@ class DatabaseMetadataMixin:
         column: str,
         case_sensitive: bool,
     ) -> None:
-        """Compatibility alias for :meth:`set_case_sensitivity`."""
+        """
+        Set the case-sensitivity flag through the facade alias.
+
+        Example:
+            For an open writable db, db.set_column_case_sensitive("works", "work_title", True) delegates to set_case_sensitivity.
+
+
+        :param table: Table containing the column.
+        :param column: Column name within that table.
+        :param case_sensitive: Whether comparisons should be case-sensitive.
+        :return: None.
+        """
 
         self.set_case_sensitivity(table, column, case_sensitive)
 
     def get_view_column_headings(self: "DatabaseAPI", view: str) -> list[str]:
         """
-        Gets the column headings for a table in the database.
+        Delegate ordered column discovery for a view.
 
-        :param view:
-        :return column_headings: An index of column headings in the order they appear on the database
+        Example:
+            For an open db with the compatibility view, db.get_view_column_headings("titles") lists its projected fields.
+
+
+        :param view: Target view name.
+        :return: Wrapper column-name list.
         """
         return self.driver_wrapper.get_view_column_headings(view)
 
     def get_tables_and_columns(self: "DatabaseAPI") -> dict[str, list[str]]:
         """
-        Returns a dictionary keyed by the table name with the column headings as the values.
+        Return the wrapper mapping of tables to column collections.
 
-        :return table_and_columns:
+        Iterate items() to receive table/column pairs rather than table-name keys.
+
+        Example:
+            For an open db, columns = db.get_tables_and_columns()["works"] retrieves its known work columns.
+
+
+        :return: Table-to-columns mapping; concrete backend collections may differ from the list annotation.
         """
         return self.driver_wrapper.get_tables_and_columns()
 
     def get_record_count(self: "DatabaseAPI", target_table: str) -> int:
         """
-        Returns the number of records in a given table.
+        Delegate the current row count of a table.
 
-        :param target_table:
-        :return:
+        Example:
+            For an open db, db.get_record_count("works") counts its current work records.
+
+
+        :param target_table: Target table name.
+        :return: Wrapper integer row count.
         """
         return self.driver_wrapper.get_record_count(target_table)
 
     def get_max(self: "DatabaseAPI", column: str) -> int:
         """
-        Get the maximum value from the given column.
+        Delegate a column maximum directly to the backend driver.
 
-        :param column:
-        :return:
+        Example:
+            For an open db, db.get_max("work_id") queries the driver maximum rather than inspecting loaded Rows.
+
+
+        :param column: Column identifier understood by the driver.
+        :return: Driver maximum result; an empty column may produce None despite the annotation.
         """
         return self.driver.direct_get_max(column)
 
     def get_min(self: "DatabaseAPI", column: str) -> int:
         """
-        Get the minimum value from the given column.
+        Delegate a column minimum directly to the backend driver.
 
-        :param column:
-        :return:
+        Example:
+            For an open db, db.get_min("work_id") queries its driver minimum.
+
+
+        :param column: Column identifier understood by the driver.
+        :return: Driver minimum result; an empty column may produce None despite the annotation.
         """
         return self.driver.direct_get_min(column)
 
     def row_counts(self: "DatabaseAPI") -> dict[str, int]:
         """
-        Returns a string representation of the row counts for every table in the DatabasePing.
+        Format record counts for each cached main, interlink, self-link and helper table.
 
-        :return:
+        Sort table names within each category and query them individually. This is not an atomic snapshot; absent cached categories or missing tables can fail. The result is returned, not printed.
+
+        Example:
+            For a fully initialized db, report = db.row_counts() captures the categorized table counts as text.
+
+
+        :return: Multiline string, despite the legacy dictionary annotation.
         """
         ans = list()
         ans.append("LiuXin _Database: Table row_counts")

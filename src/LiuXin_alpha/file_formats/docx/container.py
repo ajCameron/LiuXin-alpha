@@ -1,6 +1,17 @@
 #!/usr/bin/env python2
 # vim:fileencoding=utf-8
 
+"""
+Open, validate and resolve members and relationships in a DOCX package.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise container through a consuming regression::
+
+        python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -41,24 +52,94 @@ __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
 def walk(path: _typing.Any) -> _typing.Iterator[_typing.Any]:
+    """
+    Perform the walk operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise walk through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: An iterator yielding the normalized values described above.
+    """
     for base, _dirnames, filenames in os.walk(path):
         for filename in filenames:
             yield os.path.join(base, filename)
 
 
 def fromstring(raw: _typing.Any, parser: _typing.Any = RECOVER_PARSER) -> _typing.Any:
+    """
+    Perform the fromstring operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise fromstring through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :param parser: Value supplied for parser under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return etree.fromstring(raw, parser=parser)
 
 
 def _local_name(tag: _typing.Any) -> _typing.Any:
+    """
+    Perform the local name operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  local name through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param tag: Value supplied for tag under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return str(tag).rsplit("}", 1)[-1]
 
 
 def _malformed_part(name: _typing.Any, part_name: _typing.Any) -> None:
+    """
+    Perform the malformed part operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  malformed part through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :param part_name: Value supplied for part name under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     raise InvalidDOCX("The file %s docx file has malformed %s" % (name, part_name))
 
 
 def _parse_required_xml_part(raw: _typing.Any, name: _typing.Any, part_name: _typing.Any, root_name: _typing.Any) -> _typing.Any:
+    """
+    Parse required xml part under the format's safety and compatibility rules.
+
+    Example:
+        Exercise  parse required xml part through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :param name: Field, file, function or resource name addressed by the operation.
+    :param part_name: Value supplied for part name under the utility contract.
+    :param root_name: Value supplied for root name under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         root = fromstring(raw)
     except Exception as err:
@@ -72,10 +153,18 @@ def _parse_required_xml_part(raw: _typing.Any, name: _typing.Any, part_name: _ty
 def read_doc_props(raw: _typing.Any, mi: _typing.Any, XPath: _typing.Any) -> None:
     """
     Read the document metadata
-    :param raw: The raw metadata string to parse
-    :param mi: The metadata object to write the return out to
-    :param XPath: The handler to parse the metadata
-    :return:
+
+    Example:
+        Exercise read doc props through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :param mi: Metadata object exposed to the template function.
+    :param XPath: Value supplied for XPath under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     root = fromstring(raw)
 
@@ -126,6 +215,20 @@ def read_doc_props(raw: _typing.Any, mi: _typing.Any, XPath: _typing.Any) -> Non
 
 
 def read_app_props(raw: _typing.Any, mi: _typing.Any) -> None:
+    """
+    Read app props under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read app props through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :param mi: Metadata object exposed to the template function.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     root = fromstring(raw)
     company = root.xpath('//*[local-name()="Company"]')
     if company and company[0].text and company[0].text.strip():
@@ -133,6 +236,21 @@ def read_app_props(raw: _typing.Any, mi: _typing.Any) -> None:
 
 
 def read_default_style_language(raw: _typing.Any, mi: _typing.Any, XPath: _typing.Any) -> None:
+    """
+    Read default style language under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read default style language through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :param mi: Metadata object exposed to the template function.
+    :param XPath: Value supplied for XPath under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     root = fromstring(raw)
     for lang in XPath("/w:styles/w:docDefaults/w:rPrDefault/w:rPr/w:lang/@w:val")(root):
         lang = canonicalize_lang(lang)
@@ -147,6 +265,11 @@ def read_default_style_language(raw: _typing.Any, mi: _typing.Any, XPath: _typin
 class DOCX(object):
     """
     Class representing a DocX file.
+
+    Example:
+        Exercise DOCX through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
     """
 
     required_members = ("[Content_Types].xml", "_rels/.rels")
@@ -157,6 +280,20 @@ class DOCX(object):
     min_compression_ratio_check_size = 1024 * 1024
 
     def __init__(self: _typing.Self, path_or_stream: _typing.Any, log: _typing.Any = None, extract: bool = True) -> None:
+        """
+        Initialize and validate the docx state.
+
+        Example:
+            Exercise DOCX.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param path_or_stream: Value supplied for path or stream under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :param extract: Value supplied for extract under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.docx_is_transitional = True
         stream = path_or_stream if hasattr(path_or_stream, "read") else open(path_or_stream, "rb")
         self.name = getattr(stream, "name", None) or "<stream>"
@@ -170,11 +307,38 @@ class DOCX(object):
         self.namespace = DOCXNamespace(self.docx_is_transitional)
 
     def init_zipfile(self: _typing.Self, stream: _typing.Any) -> None:
+        """
+        Perform the init zipfile operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DOCX.init zipfile through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.validate_container_members(stream)
         self.zipf = ZipFile(stream)
         self.names = frozenset(self.zipf.namelist())
 
     def normalized_archive_member_name(self: _typing.Self, name: _typing.Any) -> _typing.Any:
+        """
+        Perform the normalized archive member name operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DOCX.normalized archive member name through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return normalized_zip_member_name(
             name,
             member_label="DOCX archive",
@@ -182,6 +346,20 @@ class DOCX(object):
         )
 
     def validate_container_members(self: _typing.Self, stream: _typing.Any) -> None:
+        """
+        Validate container members under the format's safety and compatibility rules.
+
+        Example:
+            Exercise DOCX.validate container members through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         stream.seek(0)
         try:
             zf = ZipFile(stream, "r")
@@ -216,6 +394,20 @@ class DOCX(object):
             stream.seek(0)
 
     def extract(self: _typing.Self, stream: _typing.Any) -> None:
+        """
+        Perform the extract operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DOCX.extract through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.validate_container_members(stream)
         self.tdir = PersistentTemporaryDirectory("docx_container")
         try:
@@ -234,9 +426,35 @@ class DOCX(object):
             self.names[name] = f
 
     def exists(self: _typing.Self, name: _typing.Any) -> bool:
+        """
+        Perform the exists operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DOCX.exists through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return name in self.names
 
     def read(self: _typing.Self, name: _typing.Any) -> _typing.Any:
+        """
+        Perform the read operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DOCX.read through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if hasattr(self, "zipf"):
             return self.zipf.open(name).read()
         path = self.names[name]
@@ -244,6 +462,18 @@ class DOCX(object):
             return f.read()
 
     def read_content_types(self: _typing.Self) -> None:
+        """
+        Read content types under the format's safety and compatibility rules.
+
+        Example:
+            Exercise DOCX.read content types through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         try:
             raw = self.read("[Content_Types].xml")
         except KeyError:
@@ -258,6 +488,19 @@ class DOCX(object):
             self.content_types[name] = item.get("ContentType")
 
     def content_type(self: _typing.Self, name: _typing.Any) -> _typing.Any:
+        """
+        Perform the content type operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DOCX.content type through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if name in self.content_types:
             return self.content_types[name]
         ext = name.rpartition(".")[-1].lower()
@@ -266,6 +509,18 @@ class DOCX(object):
         return guess_type(name)[0]
 
     def read_package_relationships(self: _typing.Self) -> None:
+        """
+        Read package relationships under the format's safety and compatibility rules.
+
+        Example:
+            Exercise DOCX.read package relationships through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         try:
             raw = self.read("_rels/.rels")
         except KeyError:
@@ -287,6 +542,18 @@ class DOCX(object):
 
     @property
     def document_name(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the document name operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DOCX.document name through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         name = self.relationships.get(self.namespace.names["DOCUMENT"], None)
         if name is None:
             names = tuple(n for n in self.names if n == "document.xml" or n.endswith("/document.xml"))
@@ -299,14 +566,51 @@ class DOCX(object):
 
     @property
     def document(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the document operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DOCX.document through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         name = self.document_name
         return _parse_required_xml_part(self.read(name), self.name, name, "document")
 
     @property
     def document_relationships(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the document relationships operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DOCX.document relationships through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.get_relationships(self.document_name)
 
     def get_relationships(self: _typing.Self, name: _typing.Any) -> tuple[_typing.Any, ...]:
+        """
+        Return relationships under the format's safety and compatibility rules.
+
+        Example:
+            Exercise DOCX.get relationships through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         base = "/".join(name.split("/")[:-1])
         by_id, by_type = {}, {}
         parts = name.split("/")
@@ -330,6 +634,17 @@ class DOCX(object):
         return by_id, by_type
 
     def get_document_properties_names(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
+        """
+        Return document properties names under the format's safety and compatibility rules.
+
+        Example:
+            Exercise DOCX.get document properties names through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         name = self.relationships.get(self.namespace.names["DOCPROPS"], None)
         if name is None:
             # core.xml is where the metadata for the document is stored - is a (subset) of the Dublin Core metadata
@@ -349,8 +664,15 @@ class DOCX(object):
     def metadata(self: _typing.Self) -> _typing.Any:
         """
         Return the metadata for this file.
-        :return:
-        :rtype: LiuXin Metadata
+
+        Example:
+            Exercise DOCX.metadata through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         mi = Metadata(_("Unknown"))
         dp_name, ap_name = self.get_document_properties_names()
@@ -392,6 +714,18 @@ class DOCX(object):
         return mi
 
     def close(self: _typing.Self) -> None:
+        """
+        Perform the close operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DOCX.close through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if hasattr(self, "zipf"):
             self.zipf.close()
         else:

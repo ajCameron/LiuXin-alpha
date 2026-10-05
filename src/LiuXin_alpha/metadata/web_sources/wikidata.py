@@ -1,10 +1,13 @@
 """
-Wikidata metadata source.
+Identify book entities and linked bibliographic metadata through Wikidata search, entities and SPARQL APIs.
 
-This source uses the public Wikidata Action API and narrowly scoped WDQS
-queries for conservative metadata enrichment. It intentionally does not expose
-cover capability: Wikidata image statements are usually representative images,
-not edition covers.
+The module keeps network, parsing, caching, cancellation and result-order behavior
+explicit for callers.
+
+Example:
+    Exercise wikidata with the owning regression module::
+
+        python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
 """
 
 from __future__ import annotations
@@ -61,6 +64,19 @@ _LANGUAGE_QIDS = {
 
 
 def _as_text(raw) -> str:
+    """
+    Convert optional or hostile input to text without propagating conversion failures.
+
+    Example:
+        Exercise  as text with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     if raw is None:
         return ""
     if isinstance(raw, bytes):
@@ -72,6 +88,19 @@ def _as_text(raw) -> str:
 
 
 def _first(raw):
+    """
+    Perform the wikidata first operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  first with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     if raw is None:
         return None
     if isinstance(raw, (str, bytes)):
@@ -88,6 +117,19 @@ def _first(raw):
 
 
 def _as_list(raw) -> list:
+    """
+    Perform the wikidata as list operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  as list with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     if raw is None:
         return []
     if isinstance(raw, (str, bytes)):
@@ -100,12 +142,41 @@ def _as_list(raw) -> list:
 
 
 def _first_identifier_value(identifiers, key):
+    """
+    Perform the wikidata first identifier value operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  first identifier value with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+    :param identifiers: Metadata identifier mapping used for direct lookup and cache
+        resolution.
+    :param key: Value supplied for key.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     if not isinstance(identifiers, Mapping):
         return None
     return _first(identifiers.get(key))
 
 
 def _safe_isbn(identifiers) -> str | None:
+    """
+    Return a validated isbn or the documented empty fallback.
+
+    Example:
+        Exercise  safe isbn with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+    :param identifiers: Metadata identifier mapping used for direct lookup and cache
+        resolution.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     for key in ("isbn", "isbn13", "isbn10"):
         raw = _first_identifier_value(identifiers or {}, key)
         if raw is None:
@@ -120,6 +191,19 @@ def _safe_isbn(identifiers) -> str | None:
 
 
 def _normalize_qid(raw) -> str | None:
+    """
+    Normalize normalize qid into the provider's canonical safe representation.
+
+    Example:
+        Exercise  normalize qid with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     text = _as_text(raw).strip()
     if not text:
         return None
@@ -128,6 +212,20 @@ def _normalize_qid(raw) -> str | None:
 
 
 def _wikidata_id_from_identifiers(identifiers) -> str | None:
+    """
+    Perform the wikidata wikidata id from identifiers operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  wikidata id from identifiers with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+    :param identifiers: Metadata identifier mapping used for direct lookup and cache
+        resolution.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     if not isinstance(identifiers, Mapping):
         return None
     for key in _WIKIDATA_ID_KEYS:
@@ -138,6 +236,19 @@ def _wikidata_id_from_identifiers(identifiers) -> str | None:
 
 
 def _dedupe_text(values) -> list[str]:
+    """
+    Perform the wikidata dedupe text operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  dedupe text with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+    :param values: Input values to normalize and deduplicate.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     seen = OrderedDict()
     for raw in _as_list(values):
         text = _as_text(raw).strip()
@@ -147,6 +258,20 @@ def _dedupe_text(values) -> list[str]:
 
 
 def _label_from_entity(entity: Mapping, preferred=("en", "mul")) -> str | None:
+    """
+    Perform the wikidata label from entity operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  label from entity with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+    :param entity: Wikidata entity mapping supplying labels, claims and identifiers.
+    :param preferred: Preferred language codes used for label selection.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     labels = entity.get("labels")
     if not isinstance(labels, Mapping):
         return None
@@ -165,6 +290,20 @@ def _label_from_entity(entity: Mapping, preferred=("en", "mul")) -> str | None:
 
 
 def _description_from_entity(entity: Mapping, preferred=("en", "mul")) -> str | None:
+    """
+    Perform the wikidata description from entity operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  description from entity with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+    :param entity: Wikidata entity mapping supplying labels, claims and identifiers.
+    :param preferred: Preferred language codes used for label selection.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     descriptions = entity.get("descriptions")
     if not isinstance(descriptions, Mapping):
         return None
@@ -178,6 +317,19 @@ def _description_from_entity(entity: Mapping, preferred=("en", "mul")) -> str | 
 
 
 def _claim_value(claim) -> object | None:
+    """
+    Perform the wikidata claim value operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  claim value with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+    :param claim: Wikidata claim object whose snak value is inspected.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     if not isinstance(claim, Mapping):
         return None
     snak = claim.get("mainsnak")
@@ -190,6 +342,20 @@ def _claim_value(claim) -> object | None:
 
 
 def _claim_values(entity: Mapping, prop: str) -> list:
+    """
+    Perform the wikidata claim values operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  claim values with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+    :param entity: Wikidata entity mapping supplying labels, claims and identifiers.
+    :param prop: Wikidata claim property identifier.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     claims = entity.get("claims")
     if not isinstance(claims, Mapping):
         return []
@@ -202,6 +368,19 @@ def _claim_values(entity: Mapping, prop: str) -> list:
 
 
 def _entity_id_from_value(value) -> str | None:
+    """
+    Perform the wikidata entity id from value operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  entity id from value with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+    :param value: Input value to normalize, compare, store or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     if isinstance(value, Mapping):
         qid = _normalize_qid(value.get("id"))
         if qid:
@@ -213,6 +392,20 @@ def _entity_id_from_value(value) -> str | None:
 
 
 def _entity_ids_from_claim(entity: Mapping, prop: str) -> list[str]:
+    """
+    Perform the wikidata entity ids from claim operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  entity ids from claim with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+    :param entity: Wikidata entity mapping supplying labels, claims and identifiers.
+    :param prop: Wikidata claim property identifier.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     out = []
     for value in _claim_values(entity, prop):
         qid = _entity_id_from_value(value)
@@ -222,6 +415,20 @@ def _entity_ids_from_claim(entity: Mapping, prop: str) -> list[str]:
 
 
 def _string_values_from_claim(entity: Mapping, prop: str) -> list[str]:
+    """
+    Perform the wikidata string values from claim operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  string values from claim with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+    :param entity: Wikidata entity mapping supplying labels, claims and identifiers.
+    :param prop: Wikidata claim property identifier.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     out = []
     for value in _claim_values(entity, prop):
         if isinstance(value, Mapping) and "text" in value:
@@ -234,6 +441,21 @@ def _string_values_from_claim(entity: Mapping, prop: str) -> list[str]:
 
 
 def _best_monolingual_text(entity: Mapping, prop: str, preferred=("en", "mul")) -> str | None:
+    """
+    Perform the wikidata best monolingual text operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  best monolingual text with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+    :param entity: Wikidata entity mapping supplying labels, claims and identifiers.
+    :param prop: Wikidata claim property identifier.
+    :param preferred: Preferred language codes used for label selection.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     values = []
     for value in _claim_values(entity, prop):
         if isinstance(value, Mapping):
@@ -253,6 +475,19 @@ def _best_monolingual_text(entity: Mapping, prop: str, preferred=("en", "mul")) 
 
 
 def _wikidata_time_to_date(value):
+    """
+    Perform the wikidata wikidata time to date operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  wikidata time to date with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+    :param value: Input value to normalize, compare, store or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     if not isinstance(value, Mapping):
         return None
     raw_time = _as_text(value.get("time")).strip()
@@ -276,6 +511,20 @@ def _wikidata_time_to_date(value):
 
 
 def _linked_labels(label_map: Mapping[str, str], qids: Iterable[str]) -> list[str]:
+    """
+    Perform the wikidata linked labels operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  linked labels with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+    :param label_map: Entity-id to label mapping used for linked values.
+    :param qids: Wikidata entity identifiers requested or resolved.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     out = []
     for qid in qids:
         label = _as_text(label_map.get(qid)).strip()
@@ -285,6 +534,14 @@ def _linked_labels(label_map: Mapping[str, str], qids: Iterable[str]) -> list[st
 
 
 class Wikidata(Source):
+    """
+    Implement the wikidata metadata-source integration and its explicit recovery policy.
+
+    Example:
+        Exercise Wikidata with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+    """
     name = "Wikidata"
     version = (1, 0, 0)
     description = _("Downloads conservative metadata enrichment from Wikidata")
@@ -320,12 +577,39 @@ class Wikidata(Source):
 
     # URL/query helpers {{{
     def get_book_url(self, identifiers):
+        """
+        Return canonical provider link tuples for recognized metadata identifiers.
+
+        Example:
+            Exercise Wikidata.get book url with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+        :param identifiers: Metadata identifier mapping used for direct lookup and cache
+            resolution.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         qid = _wikidata_id_from_identifiers(identifiers or {})
         if not qid:
             return None
         return ("wikidata", qid, self.ENTITY % quote(qid, safe=""))
 
     def id_from_url(self, url):
+        """
+        Extract a normalized provider identifier from a recognized canonical URL.
+
+        Example:
+            Exercise Wikidata.id from url with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+        :param url: Provider URL to normalize, request or associate with cached data.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         try:
             parsed = urlparse(_as_text(url))
         except Exception:
@@ -343,6 +627,22 @@ class Wikidata(Source):
         return ("wikidata", query_qid) if query_qid else None
 
     def create_query(self, title=None, authors=None, identifiers=None):
+        """
+        Build create query from normalized identifiers and search inputs.
+
+        Example:
+            Exercise Wikidata.create query with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+        :param title: Book title used to construct or rank the provider query.
+        :param authors: Author names used to construct or rank the provider query.
+        :param identifiers: Metadata identifier mapping used for direct lookup and cache
+            resolution.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         identifiers = identifiers or {}
         qid = _wikidata_id_from_identifiers(identifiers)
         if qid:
@@ -360,6 +660,20 @@ class Wikidata(Source):
         return [("search", self._build_search_url(search))]
 
     def _build_search_url(self, search: str, *, limit: int | None = None) -> str:
+        """
+        Build search url from normalized identifiers and search inputs.
+
+        Example:
+            Exercise Wikidata. build search url with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+        :param search: Human-readable Wikidata search expression.
+        :param limit: Maximum number of unique provider results to retain.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         params = {
             "action": "wbsearchentities",
             "search": search,
@@ -373,6 +687,20 @@ class Wikidata(Source):
         return self.API + "?" + urlencode(params)
 
     def _build_entities_url(self, qids: Iterable[str], *, props: str = "labels|descriptions|claims") -> str:
+        """
+        Build entities url from normalized identifiers and search inputs.
+
+        Example:
+            Exercise Wikidata. build entities url with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+        :param qids: Wikidata entity identifiers requested or resolved.
+        :param props: Wikidata entity property groups requested from the API.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         ids = []
         for raw in qids:
             qid = _normalize_qid(raw)
@@ -392,10 +720,36 @@ class Wikidata(Source):
         return self.API + "?" + urlencode(params)
 
     def _build_sparql_url(self, sparql: str) -> str:
+        """
+        Build sparql url from normalized identifiers and search inputs.
+
+        Example:
+            Exercise Wikidata. build sparql url with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+        :param sparql: SPARQL query encoded for the Wikidata endpoint.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         return self.SPARQL + "?" + urlencode({"format": "json", "query": sparql})
 
     @staticmethod
     def _isbn_sparql(isbn: str) -> str:
+        """
+        Perform the wikidata isbn sparql operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise Wikidata. isbn sparql with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+        :param isbn: ISBN value used for direct lookup or related-edition resolution.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         escaped = _as_text(isbn).replace("\\", "\\\\").replace('"', '\\"')
         return (
             "SELECT ?item WHERE {\n"
@@ -409,6 +763,18 @@ class Wikidata(Source):
 
     # Request helpers {{{
     def _retry_policy(self) -> RetryPolicy:
+        """
+        Build the bounded retry policy used by this provider's HTTP requests.
+
+        Example:
+            Exercise Wikidata. retry policy with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         return RetryPolicy(
             attempts=int(self.HTTP_RETRY_ATTEMPTS),
             base_delay=float(self.HTTP_RETRY_BASE_SECONDS),
@@ -416,6 +782,19 @@ class Wikidata(Source):
         )
 
     def _retry_backoff(self, attempt: int) -> float:
+        """
+        Compute the capped delay for one provider retry attempt.
+
+        Example:
+            Exercise Wikidata. retry backoff with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+        :param attempt: Zero-based retry attempt used to calculate backoff.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         return compute_backoff_delay(
             attempt=attempt,
             base_delay=float(self.HTTP_RETRY_BASE_SECONDS),
@@ -423,16 +802,74 @@ class Wikidata(Source):
         )
 
     def _wait_for_backoff(self, abort, delay: float) -> bool:
+        """
+        Wait interruptibly for a retry delay and report whether it completed.
+
+        Example:
+            Exercise Wikidata. wait for backoff with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param delay: Backoff duration in seconds.
+        :return: True when the described condition is satisfied; otherwise False.
+        """
         return wait_for_backoff(abort, delay)
 
     def _request_bytes(self, url: str, timeout: int = 30) -> bytes:
+        """
+        Perform the provider request bytes operation with explicit timeout and response policy.
+
+        Example:
+            Exercise Wikidata. request bytes with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+        :param url: Provider URL to normalize, request or associate with cached data.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         return self.browser().open_novisit(url, timeout=timeout).read()
 
     def _request_json(self, url: str, timeout: int = 30):
+        """
+        Perform the provider request json operation with explicit timeout and response policy.
+
+        Example:
+            Exercise Wikidata. request json with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+        :param url: Provider URL to normalize, request or associate with cached data.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         raw = self._request_bytes(url, timeout=timeout)
         return json.loads(decode_http_body(raw))
 
     def _request_json_with_backoff(self, log, abort, url: str, timeout: int, context: str):
+        """
+        Run the request json operation with bounded retry, diagnostics and cancellation.
+
+        Example:
+            Exercise Wikidata. request json with backoff with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+        :param log: Logger receiving structured provider diagnostics.
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param url: Provider URL to normalize, request or associate with cached data.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :param context: Short operation label included in retry diagnostics.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         return call_with_backoff(
             lambda: self._request_json(url, timeout=timeout),
             log=log,
@@ -449,6 +886,23 @@ class Wikidata(Source):
         )
 
     def _request_json_or_none(self, log, abort, url: str, timeout: int, context: str):
+        """
+        Perform the provider request json or none operation with explicit timeout and response policy.
+
+        Example:
+            Exercise Wikidata. request json or none with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+        :param log: Logger receiving structured provider diagnostics.
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param url: Provider URL to normalize, request or associate with cached data.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :param context: Short operation label included in retry diagnostics.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         try:
             return self._request_json_with_backoff(
                 log=log,
@@ -471,6 +925,19 @@ class Wikidata(Source):
     # Parsing helpers {{{
     @staticmethod
     def _qids_from_search_payload(payload) -> list[str]:
+        """
+        Perform the wikidata qids from search payload operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise Wikidata. qids from search payload with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+        :param payload: Provider response payload or bytes processed by the operation.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         if not isinstance(payload, Mapping):
             return []
         out = []
@@ -484,6 +951,19 @@ class Wikidata(Source):
 
     @staticmethod
     def _qids_from_sparql_payload(payload) -> list[str]:
+        """
+        Perform the wikidata qids from sparql payload operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise Wikidata. qids from sparql payload with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+        :param payload: Provider response payload or bytes processed by the operation.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         if not isinstance(payload, Mapping):
             return []
         results = payload.get("results")
@@ -503,6 +983,19 @@ class Wikidata(Source):
 
     @staticmethod
     def _entities_from_payload(payload) -> dict[str, Mapping]:
+        """
+        Perform the wikidata entities from payload operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise Wikidata. entities from payload with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+        :param payload: Provider response payload or bytes processed by the operation.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         if not isinstance(payload, Mapping):
             return {}
         entities = payload.get("entities")
@@ -519,6 +1012,19 @@ class Wikidata(Source):
 
     @staticmethod
     def _label_map_from_payload(payload) -> dict[str, str]:
+        """
+        Perform the wikidata label map from payload operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise Wikidata. label map from payload with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+        :param payload: Provider response payload or bytes processed by the operation.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         entities = Wikidata._entities_from_payload(payload)
         out = {}
         for qid, entity in entities.items():
@@ -529,12 +1035,37 @@ class Wikidata(Source):
 
     @staticmethod
     def _entity_is_bookish(entity: Mapping) -> bool:
+        """
+        Perform the wikidata entity is bookish operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise Wikidata. entity is bookish with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+        :param entity: Wikidata entity mapping supplying labels, claims and identifiers.
+        :return: True when the described condition is satisfied; otherwise False.
+        """
         if _string_values_from_claim(entity, "P212") or _string_values_from_claim(entity, "P957"):
             return True
         return any(qid in _BOOKISH_TYPE_QIDS for qid in _entity_ids_from_claim(entity, "P31"))
 
     @staticmethod
     def _linked_entity_ids_for_labels(entity: Mapping) -> list[str]:
+        """
+        Perform the wikidata linked entity ids for labels operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise Wikidata. linked entity ids for labels with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+        :param entity: Wikidata entity mapping supplying labels, claims and identifiers.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         ids = []
         for prop in ("P50", "P123", "P136", "P921", "P407"):
             for qid in _entity_ids_from_claim(entity, prop):
@@ -544,9 +1075,36 @@ class Wikidata(Source):
 
     @staticmethod
     def _identifier_values_from_entity(entity: Mapping) -> dict[str, list[str]]:
+        """
+        Perform the wikidata identifier values from entity operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise Wikidata. identifier values from entity with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+        :param entity: Wikidata entity mapping supplying labels, claims and identifiers.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         values: dict[str, list[str]] = {"isbn": [], "lccn": [], "oclc": []}
 
         def add(key: str, value: str | None) -> None:
+            """
+            Perform the wikidata add operation with explicit ordering and failure behavior.
+
+            Example:
+                Exercise Wikidata. identifier values from entity.add with the owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+            :param key: Value supplied for key.
+            :param value: Input value to normalize, compare, store or parse.
+            :return: The normalized provider value, metadata result or collection described
+                above.
+            """
             if not value:
                 return
             if value not in values[key]:
@@ -566,6 +1124,19 @@ class Wikidata(Source):
 
     @staticmethod
     def _publication_date_from_entity(entity: Mapping):
+        """
+        Perform the wikidata publication date from entity operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise Wikidata. publication date from entity with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+        :param entity: Wikidata entity mapping supplying labels, claims and identifiers.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         for value in _claim_values(entity, "P577"):
             parsed = _wikidata_time_to_date(value)
             if parsed is not None:
@@ -574,6 +1145,20 @@ class Wikidata(Source):
 
     @staticmethod
     def _language_from_entity(entity: Mapping, label_map: Mapping[str, str]) -> str | None:
+        """
+        Perform the wikidata language from entity operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise Wikidata. language from entity with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+        :param entity: Wikidata entity mapping supplying labels, claims and identifiers.
+        :param label_map: Entity-id to label mapping used for linked values.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         for qid in _entity_ids_from_claim(entity, "P407"):
             mapped = _LANGUAGE_QIDS.get(qid)
             if mapped:
@@ -589,6 +1174,21 @@ class Wikidata(Source):
         return None
 
     def _metadata_from_entity(self, entity: Mapping, label_map: Mapping[str, str] | None = None, relevance: int = 0):
+        """
+        Project one provider record into normalized metadata and retain source relevance.
+
+        Example:
+            Exercise Wikidata. metadata from entity with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+        :param entity: Wikidata entity mapping supplying labels, claims and identifiers.
+        :param label_map: Entity-id to label mapping used for linked values.
+        :param relevance: Zero-based provider result relevance.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         label_map = label_map or {}
         qid = _normalize_qid(entity.get("id"))
         title = _best_monolingual_text(entity, "P1476") or _label_from_entity(entity) or _("Unknown")
@@ -635,6 +1235,20 @@ class Wikidata(Source):
         return mi
 
     def _postprocess_downloaded_metadata(self, mi, relevance: int = 0):
+        """
+        Apply source relevance, identifier caches and shared cleanup to downloaded metadata.
+
+        Example:
+            Exercise Wikidata. postprocess downloaded metadata with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+        :param mi: Metadata object supplying identifiers or receiving normalized fields.
+        :param relevance: Zero-based provider result relevance.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         if mi is None:
             return None
         mi.source_relevance = relevance
@@ -659,6 +1273,25 @@ class Wikidata(Source):
         identifiers=None,
         timeout=30,
     ):
+        """
+        Run provider lookup, honor cancellation, isolate per-result failures and enqueue normalized metadata.
+
+        Example:
+            Exercise Wikidata.identify with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_wikidata.py
+
+
+        :param log: Logger receiving structured provider diagnostics.
+        :param result_queue: Queue receiving normalized metadata or cover results.
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param title: Book title used to construct or rank the provider query.
+        :param authors: Author names used to construct or rank the provider query.
+        :param identifiers: Metadata identifier mapping used for direct lookup and cache
+            resolution.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :return: None.
+        """
         identifiers = identifiers or {}
         if abort.is_set():
             return

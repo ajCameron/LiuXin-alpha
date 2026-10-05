@@ -10,6 +10,17 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+"""
+Build nested list structure from normalized RTF paragraphs.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise make lists through a consuming regression::
+
+        python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -23,10 +34,12 @@ from LiuXin_alpha.file_formats.rtf2xml import open_for_read, open_for_write
 
 class MakeLists:
     """
-    Form lists.
-    Use RTF's own formatting to determine if a paragraph definition is part of a
-    list.
-    Use indents to determine items and how lists are nested.
+    Form lists. Use RTF's own formatting to determine if a paragraph definition is part of a list. Use indents to determine items and how lists are nested.
+
+    Example:
+        Exercise MakeLists through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
     """
 
     def __init__(
@@ -41,14 +54,26 @@ class MakeLists:
         write_list_info: int = 0,
     ) -> None:
         """
-        Required:
-            'file'
-        Optional:
-            'copy'-- whether to make a copy of result for debugging
-            'temp_dir' --where to output temporary results (default is
-            directory from which the script is run.)
-        Returns:
-            nothing
+        Required: 'file' Optional: 'copy'-- whether to make a copy of result for debugging 'temp_dir' --where to output temporary results (default is directory from which the script is run.) Returns: nothing
+
+        Example:
+            Exercise MakeLists.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param in_file: Value supplied for in file under the utility contract.
+        :param bug_handler: Value supplied for bug handler under the utility contract.
+        :param headings_to_sections: Value supplied for headings to sections under the
+            utility contract.
+        :param list_of_lists: Value supplied for list of lists under the utility contract.
+        :param copy: Value supplied for copy under the utility contract.
+        :param run_level: Value supplied for run level under the utility contract.
+        :param no_headings_as_list: Value supplied for no headings as list under the utility
+            contract.
+        :param write_list_info: Value supplied for write list info under the utility
+            contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self.__file = in_file
         self.__bug_handler = bug_handler
@@ -62,13 +87,16 @@ class MakeLists:
 
     def __initiate_values(self: _typing.Self) -> None:
         """
-        Required:
-            Nothing
-        Return:
-            Nothing
-        Logic:
-            The self.__end_list is a list of tokens that will force a list to end.
-            Likewise, the self.__end_lines is a list of lines that forces a list to end.
+        Required: Nothing Return: Nothing Logic: The self.__end_list is a list of tokens that will force a list to end. Likewise, the self.__end_lines is a list of lines that forces a list to end.
+
+        Example:
+            Exercise MakeLists.  initiate values through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__state = "default"
         self.__left_indent = 0
@@ -123,13 +151,17 @@ class MakeLists:
 
     def __in_pard_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Required:
-            line -- the line of current text.
-        Return:
-            Nothing
-        Logic:
-            You are in a list, but in the middle of a paragraph definition.
-            Don't do anything until you find the end of the paragraph definition.
+        Required: line -- the line of current text. Return: Nothing Logic: You are in a list, but in the middle of a paragraph definition. Don't do anything until you find the end of the paragraph definition.
+
+        Example:
+            Exercise MakeLists.  in pard func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.__token_info == "mi<mk<pard-end__":
             self.__state = "after_pard"
@@ -137,22 +169,17 @@ class MakeLists:
 
     def __after_pard_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Required:
-            line -- the line of current text.
-        Return:
-            Nothing
-        Logic:
-            You are in a list, but after a paragraph definition. You have to
-            determine if the last pargraph definition ends a list, continues
-            the old one, or starts a new one.
-            Otherwise, look for a paragraph definition. If one is found, determine if
-            the paragraph definition contains a list-id. If it does, use the method
-            self.__list_after_par_def to determine the action.
-            If the paragraph definition does not contain a list-id, use the method
-            close_lists to close out items and lists for a paragraph that is not
-            If a bigger block is found (such as a section or a cell), end all lists.
-            indented.
-            If no special line is found, add each line to a buffer.
+        Required: line -- the line of current text. Return: Nothing Logic: You are in a list, but after a paragraph definition. You have to determine if the last pargraph definition ends a list, continues the old one, or starts a new one. Otherwise, look for a paragraph definition. If one is found, determine if the paragraph definition contains a list-id. If it does, use the method self.__list_after_par_def to determine the action. If the paragraph definition does not contain a list-id, use the method close_lists to close out items and lists for a paragraph that is not If a bigger block is found (such as a section or a cell), end all lists. indented. If no special line is found, add each line to a buffer.
+
+        Example:
+            Exercise MakeLists.  after pard func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.__token_info == "mi<tg<open-att__" and line[17:37] == "paragraph-definition":
             is_heading = self.__is_a_heading()
@@ -197,20 +224,18 @@ class MakeLists:
 
     def __list_after_par_def_func(self: _typing.Self, line: _typing.Any, id: _typing.Any) -> None:
         """
-        Required:
-            line -- the line of current text.
-            id -- the id of the current list
-        Return:
-            Nothing
-        Logic:
-            You have found the end of a paragraph definition, and have found
-            another paragraph definition with a list id.
-            If the list-id is different from the last paragraph definition,
-            write the string in the buffer. Close out the lists with another
-            method and start a new list.
-            If the list id is the same as the last one, check the indent on the
-            current paragraph definition. If it is greater than the previous one,
-            do not end the current list or item. Start a new list.
+        Required: line -- the line of current text. id -- the id of the current list Return: Nothing Logic: You have found the end of a paragraph definition, and have found another paragraph definition with a list id. If the list-id is different from the last paragraph definition, write the string in the buffer. Close out the lists with another method and start a new list. If the list id is the same as the last one, check the indent on the current paragraph definition. If it is greater than the previous one, do not end the current list or item. Start a new list.
+
+        Example:
+            Exercise MakeLists.  list after par def func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :param id: Value supplied for id under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         last_list_id = self.__all_lists[-1]["id"]
         if id != last_list_id:
@@ -231,17 +256,16 @@ class MakeLists:
 
     def __close_lists(self: _typing.Self) -> None:
         """
-        Required:
-            Nothing
-        Return:
-            Nothing
-        Logic:
-            Reverse the list of dictionaries. Iterate through the list and
-            get the indent for each list. If the current indent is less than
-            or equal to the indent in the dictionary, close that level.
-            Keep track of how many levels you close. Reduce the list by that
-            many levels.
-            Reverse the list again.
+        Required: Nothing Return: Nothing Logic: Reverse the list of dictionaries. Iterate through the list and get the indent for each list. If the current indent is less than or equal to the indent in the dictionary, close that level. Keep track of how many levels you close. Reduce the list by that many levels. Reverse the list again.
+
+        Example:
+            Exercise MakeLists.  close lists through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.__line_num < 25 and self.__found_appt:
             sys.stderr.write("in closing out lists\n")
@@ -262,33 +286,33 @@ class MakeLists:
 
     def __write_end_list(self: _typing.Self) -> None:
         """
-        Required:
-            Nothing
-        Return:
-            Nothing
-        Logic:
-            Write the end of a list.
+        Required: Nothing Return: Nothing Logic: Write the end of a list.
+
+        Example:
+            Exercise MakeLists.  write end list through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__write_obj.write("mi<tg<close_____<list\n")
         self.__write_obj.write("mi<mk<list_close\n")
 
     def __write_start_list(self: _typing.Self, id: _typing.Any) -> None:
         """
-        Required:
-            id -- the id of the current list.
-        Return:
-            Nothing
-        Logic:
-            Write the start of a list and add the id and left-indent to the
-            self.__all_lists list.
-            Write cues of when a list starts for later processing.
-            In order to determine the type of list, you have to iterate through
-            the self.__list_of lists. This list looks like:
-                [[{list-id: [1, 2], [{}], [{}]] [{list-id: [3, 4], [{}]]]
-            I need to get the inside lists of the main lists. Then I need to get
-            the first item of what I just got. This is a dictionary. Get the list-id.
-            This is  a list. Check to see if the current id is in this list. If
-            so, then get the list-type from the dictionary.
+        Required: id -- the id of the current list. Return: Nothing Logic: Write the start of a list and add the id and left-indent to the self.__all_lists list. Write cues of when a list starts for later processing. In order to determine the type of list, you have to iterate through the self.__list_of lists. This list looks like: [[{list-id: [1, 2], [{}], [{}]] [{list-id: [3, 4], [{}]]] I need to get the inside lists of the main lists. Then I need to get the first item of what I just got. This is a dictionary. Get the list-id. This is a list. Check to see if the current id is in this list. If so, then get the list-type from the dictionary.
+
+        Example:
+            Exercise MakeLists.  write start list through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param id: Value supplied for id under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         the_dict = {}
         the_dict["left-indent"] = self.__left_indent
@@ -342,17 +366,17 @@ class MakeLists:
 
     def __get_index_of_list(self: _typing.Self, id: _typing.Any) -> _typing.Any:
         """
-        Requires:
-            id -- id of current paragraph-definition
-        Returns:
-            an index of where the id occurs in list_of_lists, the
-            dictionary passed to this module.
-        Logic:
-            Iterate through the big lists, the one passed to this module and
-            get the first item, the dictionary. Use a counter to keep
-            track of how many times you iterate with the counter.
-            Once you find a match, return the counter.
-            If no match is found, print out an error message.
+        Requires: id -- id of current paragraph-definition Returns: an index of where the id occurs in list_of_lists, the dictionary passed to this module. Logic: Iterate through the big lists, the one passed to this module and get the first item, the dictionary. Use a counter to keep track of how many times you iterate with the counter. Once you find a match, return the counter. If no match is found, print out an error message.
+
+        Example:
+            Exercise MakeLists.  get index of list through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param id: Value supplied for id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # some RTF use 0 indexed list. Don't know what to do?
         if id == "0":
@@ -377,25 +401,52 @@ class MakeLists:
     #            self.__bug_handler
 
     def __write_start_item(self: _typing.Self) -> None:
+        """
+        Perform the write start item operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MakeLists.  write start item through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.__write_obj.write("mi<mk<item_start\n")
         self.__write_obj.write("mi<tg<open______<item\n")
         self.__write_obj.write("mi<mk<itemstart_\n")
 
     def __write_end_item(self: _typing.Self) -> None:
+        """
+        Perform the write end item operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MakeLists.  write end item through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.__write_obj.write("mi<tg<item_end__\n")
         self.__write_obj.write("mi<tg<close_____<item\n")
         self.__write_obj.write("mi<tg<item__end_\n")
 
     def __default_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Required:
-            self, line
-        Returns:
-            Nothing
-        Logic
-            Look for the start of a paragraph definition. If one is found, check if
-            it contains a list-id. If it does, start a list. Change the state to
-            in_pard.
+        Required: self, line Returns: Nothing Logic Look for the start of a paragraph definition. If one is found, check if it contains a list-id. If it does, start a list. Change the state to in_pard.
+
+        Example:
+            Exercise MakeLists.  default func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.__token_info == "mi<tg<open-att__" and line[17:37] == "paragraph-definition":
             is_a_heading = self.__is_a_heading()
@@ -411,6 +462,18 @@ class MakeLists:
         self.__write_obj.write(line)
 
     def __is_a_heading(self: _typing.Self) -> int:
+        """
+        Perform the is a heading operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MakeLists.  is a heading through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.__style_name in self.__headings:
             if self.__headings_to_sections:
                 return 1
@@ -423,26 +486,70 @@ class MakeLists:
             return 0
 
     def __get_indent(self: _typing.Self, line: _typing.Any) -> None:
+        """
+        Perform the get indent operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MakeLists.  get indent through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.__token_info == "mi<mk<left_inden":
             self.__left_indent = float(line[17:-1])
 
     def __get_list_type(self: _typing.Self, line: _typing.Any) -> None:
+        """
+        Perform the get list type operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MakeLists.  get list type through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.__token_info == "mi<mk<list-type_":  # <ordered
             self.__list_type = line[17:-1]
             if self.__list_type == "item":
                 self.__list_type = "unordered"
 
     def __get_style_name(self: _typing.Self, line: _typing.Any) -> None:
+        """
+        Perform the get style name operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MakeLists.  get style name through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.__token_info == "mi<mk<style-name":
             self.__style_name = line[17:-1]
 
     def make_lists(self: _typing.Self) -> None:
         """
-        Required:
-            nothing
-        Returns:
-            original file will be changed
-        Logic:
+        Required: nothing Returns: original file will be changed Logic:
+
+        Example:
+            Exercise MakeLists.make lists through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__initiate_values()
         read_obj = open_for_read(self.__file)

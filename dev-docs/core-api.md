@@ -157,6 +157,15 @@ Core selects one structured read source. With a configured Cache, structured
 rows, relations, and metadata hydration use the cache-backed source. Without
 one, the same endpoints evaluate against the Database.
 
+Structured cache queries do not silently switch to the Database. A table or
+query shape unsupported by the selected cache raises `read_query_unavailable`
+in both direct and RPC modes, with `table` and `reason` details. Unknown fields
+and unexpected failures retain the normal error path. Presentation code may
+show an explicit unavailable marker for optional counts, but must not turn a
+failed required read into an empty result. Count-only database queries
+(`rows.query` with `limit=0`) filter and count without ordering or projecting
+row identities. See [read-model-failures.md](read-model-failures.md).
+
 Semantic catalog writes go through Catalog. Normalized field writes go through
 the Cache facade when configured. Custom-field/schema mutations identify
 themselves as schema changes; ordinary data writes use data-only cache reload.

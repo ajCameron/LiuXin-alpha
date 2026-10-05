@@ -1,28 +1,14 @@
 #!/usr/bin/env python3
-"""Generate a small corpus of *realistic* Calibre library fixtures.
+"""
+Generate Calibre-compatible fixture libraries.
 
-This script is intended to populate the separate data repository:
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
 
-    ./LiuXin_alpha_data/
+Example:
+    Exercise generate calibre fixture libraries through a consuming regression::
 
-with zipped Calibre libraries (metadata.db + book folders) that stress the
-calibre_emulation reader/import stack.
-
-It tries hard to:
-- Keep fixtures small enough to commit.
-- Exercise nasty corners (custom columns, drift, unicode paths, mangled schema).
-- Emit a JSON snapshot of what LiuXin's CalibreReader observes.
-
-Run from the main repo root:
-
-    python scripts/generate_calibre_fixture_libraries.py
-
-Or specify an explicit output directory:
-
-    python scripts/generate_calibre_fixture_libraries.py --out /path/to/LiuXin_alpha_data
-
-Note: The data repo is optional; if it can't be found automatically, the script
-will error with a clear message.
+        python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
 """
 
 from __future__ import annotations
@@ -45,6 +31,19 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 
 def _find_repo_root(start: Path) -> Optional[Path]:
+    """
+    Find repo root under the format's safety and compatibility rules.
+
+    Example:
+        Exercise  find repo root through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param start: Value supplied for start under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     start = start.resolve()
     for p in [start] + list(start.parents):
         if (p / "src" / "LiuXin_alpha").is_dir() and (p / "tests").is_dir():
@@ -54,6 +53,19 @@ def _find_repo_root(start: Path) -> Optional[Path]:
 
 def _ensure_importable(repo_root: Path) -> None:
     # Make local sources importable when running as a script.
+    """
+    Perform the ensure importable operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  ensure importable through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param repo_root: Value supplied for repo root under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     root_str = str(repo_root)
     src_str = str(repo_root / "src")
     if root_str not in sys.path:
@@ -63,6 +75,20 @@ def _ensure_importable(repo_root: Path) -> None:
 
 
 def _resolve_data_repo_root(repo_root: Path, explicit: Optional[Path]) -> Path:
+    """
+    Perform the resolve data repo root operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  resolve data repo root through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param repo_root: Value supplied for repo root under the utility contract.
+    :param explicit: Value supplied for explicit under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if explicit is not None:
         p = Path(explicit).expanduser()
         if not p.is_absolute():
@@ -93,6 +119,19 @@ def _resolve_data_repo_root(repo_root: Path, explicit: Optional[Path]) -> Path:
 
 
 def _resolve_md_corpus_dir(data_repo_root: Path) -> Optional[Path]:
+    """
+    Perform the resolve md corpus dir operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  resolve md corpus dir through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param data_repo_root: Value supplied for data repo root under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     for name in ("md_test_files", "md_test_books"):
         p = data_repo_root / name
         if p.is_dir():
@@ -107,7 +146,14 @@ def _resolve_md_corpus_dir(data_repo_root: Path) -> Optional[Path]:
 
 @dataclass(frozen=True)
 class FixtureSpec:
-    """Name and optional database features for one generated Calibre fixture."""
+    """
+    Name and optional database features for one generated Calibre fixture.
+
+    Example:
+        Exercise FixtureSpec through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+    """
 
     name: str
     description: str
@@ -151,6 +197,20 @@ FIXTURES: Tuple[FixtureSpec, ...] = (
 def _read_any_file_bytes(corpus_dir: Path, *, prefer_exts: Sequence[str]) -> bytes:
     # Pick the first matching file for a given extension preference.
     # This keeps the script robust even if the corpus contents change.
+    """
+    Read any file bytes under the format's safety and compatibility rules.
+
+    Example:
+        Exercise  read any file bytes through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param corpus_dir: Value supplied for corpus dir under the utility contract.
+    :param prefer_exts: Value supplied for prefer exts under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     by_ext: Dict[str, List[Path]] = {}
     for p in corpus_dir.rglob("*"):
         if p.is_dir() or p.name.startswith("."):
@@ -176,7 +236,28 @@ def _read_any_file_bytes(corpus_dir: Path, *, prefer_exts: Sequence[str]) -> byt
 
 
 def _default_cover_bytes(repo_root: Path) -> bytes:
-    p = repo_root / "LiuXin_resources" / "calibre_resources" / "catalog" / "DefaultCover.jpg"
+    """
+    Perform the default cover bytes operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  default cover bytes through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param repo_root: Value supplied for repo root under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
+    p = (
+        repo_root
+        / "src"
+        / "LiuXin_alpha"
+        / "resources"
+        / "calibre"
+        / "catalog"
+        / "DefaultCover.jpg"
+    )
     if p.exists():
         return p.read_bytes()
     # fallback: tiny jpeg header-ish bytes (tests should treat as opaque)
@@ -197,9 +278,43 @@ def _write_opf(
 ) -> None:
     # A deliberately small OPF that our robust sidecar parser can read.
     # Namespace prefixes are intentionally minimal.
+    """
+    Write opf under the format's safety and compatibility rules.
+
+    Example:
+        Exercise  write opf through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param opf_path: Value supplied for opf path under the utility contract.
+    :param title: Value supplied for title under the utility contract.
+    :param authors: Value supplied for authors under the utility contract.
+    :param tags: Value supplied for tags under the utility contract.
+    :param languages: Value supplied for languages under the utility contract.
+    :param identifiers: Value supplied for identifiers under the utility contract.
+    :param comments_html: Value supplied for comments html under the utility contract.
+    :param series: Value supplied for series under the utility contract.
+    :param user_metadata: Value supplied for user metadata under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     from xml.sax.saxutils import escape
 
     def e(s: str) -> str:
+        """
+        Perform the e operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  write opf.e through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+        :param s: Value supplied for s under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return escape(str(s), entities={"\"": "&quot;"})
 
     meta_lines: List[str] = []
@@ -258,6 +373,20 @@ def _write_opf(
 
 
 def _zip_dir(src_dir: Path, dst_zip: Path) -> None:
+    """
+    Perform the zip dir operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  zip dir through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param src_dir: Value supplied for src dir under the utility contract.
+    :param dst_zip: Value supplied for dst zip under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     dst_zip.parent.mkdir(parents=True, exist_ok=True)
     if dst_zip.exists():
         dst_zip.unlink()
@@ -276,6 +405,20 @@ def _zip_dir(src_dir: Path, dst_zip: Path) -> None:
 
 
 def _relpath(root: Path, p: Path) -> str:
+    """
+    Perform the relpath operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  relpath through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param p: Path-like value normalized or validated by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         return p.relative_to(root).as_posix()
     except Exception:
@@ -288,6 +431,22 @@ def _relpath(root: Path, p: Path) -> str:
 
 
 def _create_base_library(tmp_root: Path, *, name: str, notes_db: bool, fts_db: bool) -> Path:
+    """
+    Create base library under the format's safety and compatibility rules.
+
+    Example:
+        Exercise  create base library through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param tmp_root: Value supplied for tmp root under the utility contract.
+    :param name: Field, file, function or resource name addressed by the operation.
+    :param notes_db: Value supplied for notes db under the utility contract.
+    :param fts_db: Value supplied for fts db under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     from LiuXin_alpha.databases.database_driver_plugins.SQL.calibre_database_generator import (
         create_calibre_library_skeleton,
     )
@@ -307,6 +466,19 @@ def _create_base_library(tmp_root: Path, *, name: str, notes_db: bool, fts_db: b
 
 
 def _snapshot_library(lib_root: Path) -> dict[str, Any]:
+    """
+    Perform the snapshot library operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  snapshot library through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param lib_root: Value supplied for lib root under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     from LiuXin_alpha.utils.calibre_compat.calibre_database_emulation import CalibreReader
 
     reader = CalibreReader.from_root(lib_root)
@@ -406,6 +578,23 @@ def _populate_fixture(
     md_corpus_dir: Path,
     cover_bytes: bytes,
 ) -> None:
+    """
+    Perform the populate fixture operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  populate fixture through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param spec: Value supplied for spec under the utility contract.
+    :param repo_root: Value supplied for repo root under the utility contract.
+    :param lib_root: Value supplied for lib root under the utility contract.
+    :param md_corpus_dir: Value supplied for md corpus dir under the utility contract.
+    :param cover_bytes: Value supplied for cover bytes under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.databases.database_driver_plugins.SQL.calibre_database_generator import CalibreLibraryBuilder
 
     builder = CalibreLibraryBuilder(lib_root)
@@ -643,6 +832,22 @@ def generate_all(
     fixtures: Sequence[str] | None,
     clean: bool,
 ) -> Path:
+    """
+    Perform the generate all operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise generate all through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param repo_root: Value supplied for repo root under the utility contract.
+    :param data_repo_root: Value supplied for data repo root under the utility contract.
+    :param fixtures: Value supplied for fixtures under the utility contract.
+    :param clean: Value supplied for clean under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     from LiuXin_alpha.databases.database_driver_plugins.SQL.calibre_database_generator.database_generator import (
         calibre_metadata_schema_info,
     )
@@ -722,6 +927,19 @@ Run from the main repo:
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
+    """
+    Perform the main operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise main through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param argv: Value supplied for argv under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     ap = argparse.ArgumentParser(description="Generate Calibre library fixtures into LiuXin_alpha_data.")
     ap.add_argument(
         "--out",

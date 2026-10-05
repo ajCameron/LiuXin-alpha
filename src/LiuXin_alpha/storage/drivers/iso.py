@@ -1,5 +1,12 @@
 """
-Dependency-free read-only driver for ISO 9660, Rock Ridge, and Joliet images.
+Read ISO/Rock Ridge/Joliet extents and optionally stage UDF bridge members.
+
+Direct parsing needs no external archive library. Optional pycdlib support adds
+UDF namespace inventory and full-member spooling. Accepted projections enforce
+path, topology, metadata, logical-size, and expansion policies; their boundaries
+are distinct from parser allocation and cumulative nested-container work.
+Filesystem metadata supplies image-wide version evidence. Returned readers own
+their image handle or spool, with format-specific cleanup and signature checks.
 """
 
 from __future__ import annotations
@@ -69,22 +76,31 @@ _VERSION_SUFFIX = re.compile(r";[0-9]+$")
 @dataclasses.dataclass(slots=True, frozen=True)
 class IsoObjectAddress(DriverObjectAddress):
     """
-    Canonical relative path in one selected ISO filesystem namespace.
+    Represent a selected-namespace member key together with its driver UUID.
+
+    This subclass adds no path validation. Parse text through the driver; checks of existing typed
+    addresses establish type and ownership without reparsing their keys.
 
     Example:
-        >>> IsoObjectAddress("books/novel.epub", UUID(int=1)).value
-        'books/novel.epub'
+        >>> IsoObjectAddress("books/雪.epub", UUID(int=1)).value
+        'books/雪.epub'
     """
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class _IsoExtent:
     """
-    Locate one contiguous logical file-data extent in the image.
+    Retain one physical byte range without validating its position or length.
+
+    Parser helpers validate ranges against the image; the frozen record itself does not.
 
     Example:
         >>> _IsoExtent(4096, 12).byte_length
         12
+
+
+    :ivar byte_offset: Absolute byte offset from the start of the image.
+    :ivar byte_length: Number of logical file bytes contributed by this extent.
     """
 
     byte_offset: int
@@ -94,11 +110,20 @@ class _IsoExtent:
 @dataclasses.dataclass(slots=True, frozen=True)
 class _IsoEntry:
     """
-    Retain the indexed extents and caller-visible facts for one file.
+    Retain indexed size/time and either direct extents or a UDF extraction path.
+
+    No consistency checks are applied between size, extents, and the optional path. UDF indexing
+    uses empty extents; direct indexing leaves udf_path as None.
 
     Example:
-        >>> _IsoEntry((_IsoExtent(4096, 4),), 4, None).size
-        4
+        >>> _IsoEntry((_IsoExtent(4096, 4),), 4, None).udf_path is None
+        True
+
+
+    :ivar extents: Ordered physical ranges used by direct ISO reads.
+    :ivar size: Indexed logical member length in bytes.
+    :ivar modified_at: Indexed aware timestamp, or None when decoding supplied no valid time.
+    :ivar udf_path: Original absolute UDF path for parser extraction, or None for direct extents.
     """
 
     extents: tuple[_IsoExtent, ...]
@@ -108,14 +133,54 @@ class _IsoEntry:
 
 
 class _BoundedIsoSpool:
-    """Expose a file-like UDF sink with a strict output-size ceiling."""
+    """
+    Adapt a borrowed binary destination to the UDF extractor with a write-end bound.
+
+    The wrapper checks current position plus offered length, permits overwrites and unbounded seeks,
+    and does not own or close the destination.
+
+    Example:
+        >>> target = io.BytesIO()
+        >>> sink = _BoundedIsoSpool(target, max_size=4, member="book")
+        >>> sink.write(b"book")
+        4
+        >>> target.getvalue()
+        b'book'
+    """
 
     def __init__(self, target: BinaryIO, *, max_size: int, member: str) -> None:
+        """
+        Retain a borrowed destination, unvalidated write ceiling, and diagnostic member key.
+
+        Example:
+            >>> sink = _BoundedIsoSpool(io.BytesIO(), max_size=4, member="book")
+
+
+        :param target: Borrowed seekable binary destination; lifecycle remains with the caller.
+        :param max_size: Maximum allowed end position in bytes for an offered write.
+        :param member: Member key included in an overrun diagnostic.
+        :return: None after retaining the supplied objects and ceiling.
+        """
         self._target = target
         self._max_size = max_size
         self._member = member
 
     def write(self, payload: bytes) -> int:
+        """
+        Reject offered bytes that would end beyond the ceiling, otherwise delegate the write.
+
+        The check uses current position, not cumulative bytes or final file length. The underlying
+        return count and errors pass through unchanged.
+
+        Example:
+            >>> sink = _BoundedIsoSpool(io.BytesIO(), max_size=4, member="book")
+            >>> sink.write(b"book")
+            4
+
+
+        :param payload: Bytes offered at the current destination position.
+        :return: Accepted-byte count from the destination; an overrun raises StorageIntegrityError before writing.
+        """
         if self._target.tell() + len(payload) > self._max_size:
             raise StorageIntegrityError(
                 f"ISO/UDF member {self._member!r} exceeded its indexed size."
@@ -123,26 +188,78 @@ class _BoundedIsoSpool:
         return self._target.write(payload)
 
     def tell(self) -> int:
+        """
+        Expose the destination's current byte position without additional checks.
+
+        Example:
+            >>> _BoundedIsoSpool(io.BytesIO(), max_size=4, member="book").tell()
+            0
+
+
+        :return: Position reported by the destination.
+        """
         return self._target.tell()
 
     def seek(self, offset: int, whence: int = os.SEEK_SET) -> int:
+        """
+        Delegate repositioning without checking the write ceiling or current file length.
+
+        Example:
+            >>> _BoundedIsoSpool(io.BytesIO(), max_size=4, member="book").seek(8)
+            8
+
+
+        :param offset: Byte displacement interpreted from whence.
+        :param whence: Seek origin: start, current position, or end.
+        :return: New absolute destination position.
+        """
         return self._target.seek(offset, whence)
 
     def flush(self) -> None:
+        """
+        Flush the borrowed destination buffer without fsync or ownership transfer.
+
+        Example:
+            >>> _BoundedIsoSpool(io.BytesIO(), max_size=4, member="book").flush()
+
+
+        :return: None after delegated flush succeeds; errors propagate.
+        """
         self._target.flush()
 
 
 class _UdfOnlyImage(Exception):
-    """Signal that the direct ISO parser found a UDF-only image."""
+    """
+    Signal that recognition markers were found without an initial ISO descriptor.
+
+    The driver catches this internal parser signal to attempt or reject optional UDF support.
+
+    Example:
+        >>> isinstance(_UdfOnlyImage(), Exception)
+        True
+    """
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class _IsoInspection:
-    """Features observed while projecting an image into regular-file objects.
+    """
+    Collect observed omissions and descriptor fields relevant to status and rebuild policy.
+
+    This frozen record validates neither counts nor signature tuples. Parser inspection sorts
+    signature sets before constructing it; supplied tuples retain their order.
 
     Example:
         >>> _IsoInspection(skipped_symlinks=1).rebuild_loss_reasons
         ('1 symbolic-link entry',)
+
+
+    :ivar skipped_symlinks: Count of observed symbolic-link entries omitted from the projection.
+    :ivar skipped_non_regular: Count of other observed unsupported file kinds.
+    :ivar boot_descriptors: Number of boot volume descriptors encountered.
+    :ivar partition_descriptors: Number of partition descriptors encountered.
+    :ivar unsupported_supplementary_descriptors: Number of supplementary descriptors without a recognized Joliet level.
+    :ivar udf_signatures: Observed UDF recognition identifiers.
+    :ivar unpreserved_susp_signatures: SUSP identifiers outside the parser's preserved subset.
     """
 
     skipped_symlinks: int = 0
@@ -155,11 +272,18 @@ class _IsoInspection:
 
     @property
     def rebuild_loss_reasons(self) -> tuple[str, ...]:
-        """Describe detected image features a normalized rebuild would lose.
+        """
+        Render nonzero counts and nonempty signature collections as ordered loss descriptions.
+
+        Counts are included when truthy, with singular wording only for one. Supplied signature
+        ordering is preserved; the property neither sorts nor mutates the record.
 
         Example:
-            >>> _IsoInspection(boot_descriptors=1).rebuild_loss_reasons
-            ('1 boot volume descriptor',)
+            >>> _IsoInspection(boot_descriptors=1, udf_signatures=("NSR03",)).rebuild_loss_reasons
+            ('1 boot volume descriptor', 'UDF bridge markers NSR03')
+
+
+        :return: Tuple of human-readable omissions/features, or an empty tuple when none are recorded.
         """
 
         reasons: list[str] = []
@@ -195,11 +319,26 @@ class _IsoInspection:
 @dataclasses.dataclass(slots=True, frozen=True)
 class _IsoDirectoryRecord:
     """
-    Represent the ISO directory-record fields used by the reader.
+    Retain the subset of a directory record used for naming, traversal, and extent reads.
+
+    The record is passive; parsing and extent helpers supply validation. Flag properties only
+    inspect bits and do not establish the existence of a following record.
 
     Example:
-        >>> record.data_length  # doctest: +SKIP
-        4
+        >>> record = _IsoDirectoryRecord(b"BOOK;1", 20, 0, 4, 0, 0, 0, None, b"")
+        >>> record.is_directory
+        False
+
+
+    :ivar identifier: Raw namespace identifier bytes.
+    :ivar extent_lba: Logical block address before extended-attribute adjustment.
+    :ivar extended_attribute_blocks: Blocks skipped before the actual extent data.
+    :ivar data_length: Extent byte count from the directory record.
+    :ivar flags: Raw directory-record flag bits.
+    :ivar file_unit_size: Interleaving unit field; nonzero file values are unsupported.
+    :ivar interleave_gap_size: Interleaving gap field; nonzero file values are unsupported.
+    :ivar recorded_at: Decoded recording time, or None for invalid timestamp metadata.
+    :ivar system_use: Remaining bytes after the identifier and its padding.
     """
 
     identifier: bytes
@@ -215,14 +354,15 @@ class _IsoDirectoryRecord:
     @property
     def is_directory(self) -> bool:
         """
-        Return whether the ISO directory flag is set.
+        Return whether the raw directory flag bit 0x02 is set.
+
+        This bit test performs no related record or extent validation.
 
         Example:
             >>> record.is_directory  # doctest: +SKIP
-            False
 
 
-        :return:
+        :return: True when flags contains 0x02, otherwise False.
         """
 
         return bool(self.flags & 0x02)
@@ -230,14 +370,15 @@ class _IsoDirectoryRecord:
     @property
     def is_multi_extent(self) -> bool:
         """
-        Return whether another extent record must follow this one.
+        Return whether the raw continuation flag bit 0x80 is set.
+
+        This bit test performs no related record or extent validation.
 
         Example:
             >>> record.is_multi_extent  # doctest: +SKIP
-            False
 
 
-        :return:
+        :return: True when flags contains 0x80, otherwise False.
         """
 
         return bool(self.flags & 0x80)
@@ -246,11 +387,22 @@ class _IsoDirectoryRecord:
 @dataclasses.dataclass(slots=True, frozen=True)
 class _SuspInfo:
     """
-    Retain Rock Ridge name and relocation evidence from SUSP entries.
+    Collect per-record Rock Ridge naming, relocation, and unsupported-kind evidence.
+
+    Defaults describe no recognized extensions. The frozen record adds no validation and does not
+    retain every parsed SUSP field.
 
     Example:
-        >>> _SuspInfo().is_symlink
-        False
+        >>> _SuspInfo().alternate_name is None
+        True
+
+
+    :ivar alternate_name: Concatenated NM name bytes, or None when no fragments were retained.
+    :ivar is_symlink: Whether an SL signature was observed.
+    :ivar is_relocated: Whether an RE signature marks a relocated entry to omit.
+    :ivar child_link_lba: CL relocation target, or None to use the original directory extent.
+    :ivar is_non_regular: Whether a parsed PX mode identifies an unsupported kind.
+    :ivar is_compressed: Whether a ZF signature identifies unsupported zisofs data.
     """
 
     alternate_name: bytes | None = None
@@ -264,11 +416,19 @@ class _SuspInfo:
 @dataclasses.dataclass(slots=True, frozen=True)
 class _IsoVolume:
     """
-    Describe the selected namespace and its root directory.
+    Bind the selected direct namespace to its root, block size, and SUSP skip count.
+
+    The record does not validate these fields; selection and descriptor parsing do.
 
     Example:
         >>> volume.namespace  # doctest: +SKIP
         'joliet'
+
+
+    :ivar root: Parsed root directory record for the selected namespace.
+    :ivar logical_block_size: Bytes per logical block used to resolve extents.
+    :ivar namespace: Selected rock-ridge, joliet, or iso9660 decoding policy.
+    :ivar susp_skip: Initial system-use bytes skipped for Rock Ridge interpretation.
     """
 
     root: _IsoDirectoryRecord
@@ -279,11 +439,19 @@ class _IsoVolume:
 
 class _IsoExtentReader(io.RawIOBase):
     """
-    Stream an exact logical range across one or more ISO extents.
+    Read a clipped logical range from ordered physical extents and own the image stream.
+
+    Reads seek to each required physical segment and require exactly the requested bytes. The
+    wrapper adds no extent validation or content verification, and has no seek API for repositioning
+    the logical read cursor.
 
     Example:
-        >>> reader.read()  # doctest: +SKIP
-        b'book'
+        >>> source = io.BytesIO(b"xxbookyy")
+        >>> with _IsoExtentReader(source, (_IsoExtent(2, 4),), offset=1, length=2, target="image::book") as reader:
+        ...     reader.read()
+        b'oo'
+        >>> source.closed
+        True
     """
 
     def __init__(
@@ -296,18 +464,27 @@ class _IsoExtentReader(io.RawIOBase):
         target: str,
     ) -> None:
         """
-        Resolve a logical range into physical image segments.
+        Translate a logical range into mutable physical segments without opening or reading the
+        source.
+
+        The available length comes from the sum of extent lengths minus offset; length clips that
+        remainder. Inputs are trusted rather than checked for nonnegative ranges or physical image
+        bounds. Each segment retains its own consumed-byte count.
 
         Example:
-            >>> _IsoExtentReader(source, (_IsoExtent(2048, 4),), offset=0, length=4, target="image::book")  # doctest: +SKIP
+            >>> source = io.BytesIO(b"book")
+            >>> reader = _IsoExtentReader(source, (_IsoExtent(0, 4),), offset=1, length=2, target="image::book")
+            >>> reader.read()
+            b'oo'
+            >>> reader.close()
 
 
-        :param source:
-        :param extents:
-        :param offset:
-        :param length:
-        :param target:
-        :return:
+        :param source: Seekable binary image stream transferred to this reader for cleanup.
+        :param extents: Ordered byte ranges contributing to the logical file.
+        :param offset: Logical bytes skipped before the exposed range; caller supplies a valid nonnegative offset.
+        :param length: Maximum exposed bytes, or None for the remaining extents.
+        :param target: Image/member label used in read-failure diagnostics.
+        :return: None after building the segment cursor; the source position is initially unchanged.
         """
 
         self._source = source
@@ -333,29 +510,35 @@ class _IsoExtentReader(io.RawIOBase):
 
     def readable(self) -> bool:
         """
-        Report that the wrapper implements binary reads.
+        Advertise binary read support without checking the source or closed state.
 
         Example:
             >>> reader.readable()  # doctest: +SKIP
             True
 
 
-        :return:
+        :return: True unconditionally.
         """
 
         return True
 
     def readinto(self, buffer: Buffer) -> int:
         """
-        Fill a caller buffer from consecutive physical extents.
+        Fill a byte-oriented writable buffer across consecutive physical segments.
+
+        Each segment read must return bytes of exactly the requested length. OSErrors from seek/read
+        are translated; non-bytes mean unavailability and a length mismatch means integrity failure.
+        Completed segment progress and buffer writes are retained if a later read fails. Buffer
+        shape/assignment errors are not translated.
 
         Example:
-            >>> reader.readinto(bytearray(4))  # doctest: +SKIP
+            >>> output = bytearray(4)
+            >>> reader.readinto(output)  # doctest: +SKIP
             4
 
 
-        :param buffer:
-        :return:
+        :param buffer: Writable byte-oriented buffer filled from its start; a zero-length buffer performs no reads.
+        :return: Number of bytes copied, possibly short at the logical range end or zero at EOF.
         """
 
         target = memoryview(buffer)
@@ -401,13 +584,15 @@ class _IsoExtentReader(io.RawIOBase):
 
     def close(self) -> None:
         """
-        Close the owned ISO image stream.
+        Close the owned image stream, then run the base close hook even if source closure fails.
+
+        There is no separate once-only guard around source.close; repeated calls invoke it again.
 
         Example:
             >>> reader.close()  # doctest: +SKIP
 
 
-        :return:
+        :return: None when both close operations succeed; closure errors propagate.
         """
 
         try:
@@ -418,14 +603,17 @@ class _IsoExtentReader(io.RawIOBase):
 
 class IsoStorageDriver(StorageDriverAPI[IsoObjectAddress]):
     """
-    Read and completely enumerate one ISO 9660-compatible image.
+    Expose a regular-file projection of a local ISO image, with optional UDF support.
 
-    Standard Rock Ridge names are preferred because they preserve POSIX byte
-    names. A Joliet supplementary volume is selected when Rock Ridge is absent,
-    with the primary ISO 9660 namespace as the final fallback.
+    Direct parsing prefers detected Rock Ridge, then Joliet, then primary ISO. Enabled UDF bridge
+    support may replace a non-Rock-Ridge projection. Direct reads use physical extents; UDF reads
+    stage complete members before exposing ranges. Filesystem metadata provides version evidence
+    rather than content hashes or a write lock.
 
     Example:
-        >>> driver = IsoStorageDriver("library.iso", address_space_uuid=UUID(int=1))  # doctest: +SKIP
+        >>> driver = IsoStorageDriver(path, address_space_uuid=UUID(int=1))  # doctest: +SKIP
+        >>> driver.startup().available  # doctest: +SKIP
+        True
     """
 
     def __init__(
@@ -445,25 +633,30 @@ class IsoStorageDriver(StorageDriverAPI[IsoObjectAddress]):
         reject_unsafe_members: bool = True,
     ) -> None:
         """
-        Configure one image and bounded parser limits.
+        Resolve an existing regular image and retain policy for lazy indexing and reads.
+
+        The file check precedes limit validation. Positive integer-like limits are checked before
+        int conversion; the logical expansion ratio must be finite and at least one. The smaller
+        UDF-member/total limit also bounds direct ISO members. Construction does not parse the image
+        or import pycdlib and starts with unavailable status.
 
         Example:
-            >>> IsoStorageDriver("library.iso", address_space_uuid=UUID(int=1))  # doctest: +SKIP
+            >>> driver = IsoStorageDriver(path, address_space_uuid=UUID(int=1), enable_udf=False)  # doctest: +SKIP
 
 
-        :param image_path:
-        :param address_space_uuid:
-        :param max_inventory_entries:
-        :param max_directory_bytes:
-        :param max_depth:
-        :param max_susp_bytes:
-        :param max_udf_member_bytes:
-        :param max_total_uncompressed_bytes:
-        :param max_logical_expansion_ratio:
-        :param max_path_bytes:
-        :param enable_udf:
-        :param reject_unsafe_members:
-        :return:
+        :param image_path: Local image pathname expanded and resolved before the regular-file check.
+        :param address_space_uuid: Owner UUID for member addresses.
+        :param max_inventory_entries: Positive all-entry cap; direct parsing excludes self/parent records.
+        :param max_directory_bytes: Positive maximum bytes loaded for each direct-parser directory.
+        :param max_depth: Positive path-component and direct traversal depth policy.
+        :param max_susp_bytes: Positive continuation-byte budget reset for each Rock Ridge record.
+        :param max_udf_member_bytes: Positive per-member byte limit, also applied to direct ISO files.
+        :param max_total_uncompressed_bytes: Positive maximum declared logical bytes across indexed regular files.
+        :param max_logical_expansion_ratio: Finite maximum logical-member bytes divided by physical image bytes, at least one.
+        :param max_path_bytes: Positive maximum UTF-8/surrogatepass bytes in a complete canonical key.
+        :param enable_udf: Whether to attempt optional UDF parsing when namespace selection allows it.
+        :param reject_unsafe_members: Whether direct parsing rejects symlinks/non-regular files instead of omitting them; UDF always rejects them.
+        :return: None after binding path, policy, ownership, synchronization, and empty cache state.
         """
 
         self._image_path = pathlib.Path(image_path).expanduser().resolve(strict=False)
@@ -526,14 +719,14 @@ class IsoStorageDriver(StorageDriverAPI[IsoObjectAddress]):
     @property
     def image_path(self) -> pathlib.Path:
         """
-        Return the resolved local path of the configured image.
+        Return the path resolved at construction without rechecking the filesystem.
 
         Example:
-            >>> driver.image_path  # doctest: +SKIP
-            PosixPath('/srv/archive/library.iso')
+            >>> driver.image_path.is_absolute()  # doctest: +SKIP
+            True
 
 
-        :return:
+        :return: Retained Path naming the image.
         """
 
         return self._image_path
@@ -543,14 +736,15 @@ class IsoStorageDriver(StorageDriverAPI[IsoObjectAddress]):
         self,
     ) -> ScopedDriverObjectAddressChecker[IsoObjectAddress]:
         """
-        Return the checker that brands addresses for this image.
+        Expose the checker requiring ISO address type and this driver's UUID.
+
+        Checking a typed record does not reparse its member path.
 
         Example:
             >>> driver.object_address_checker.address_space_uuid  # doctest: +SKIP
-            UUID('00000000-0000-0000-0000-000000000001')
 
 
-        :return:
+        :return: Retained scoped checker for IsoObjectAddress values.
         """
 
         return self._checker
@@ -558,14 +752,16 @@ class IsoStorageDriver(StorageDriverAPI[IsoObjectAddress]):
     @property
     def root_uri(self) -> str:
         """
-        Return the credential-free file URI for the ISO image.
+        Render the resolved container path as a file URI.
+
+        This root label does not enable parsing external member URIs.
 
         Example:
-            >>> driver.root_uri  # doctest: +SKIP
-            'file:///srv/archive/library.iso'
+            >>> driver.root_uri.startswith("file:")  # doctest: +SKIP
+            True
 
 
-        :return:
+        :return: File URI of the container path, without a member suffix.
         """
 
         return self._image_path.as_uri()
@@ -573,14 +769,17 @@ class IsoStorageDriver(StorageDriverAPI[IsoObjectAddress]):
     @property
     def capabilities(self) -> DriverCapabilities:
         """
-        Describe complete enumeration and concurrent conditional range reads.
+        Advertise conditional range reads and complete hierarchical prefix enumeration.
+
+        Concurrent reads are supported with a recommendation of four; UDF ranges still require
+        complete member materialization.
 
         Example:
-            >>> driver.capabilities.range_reads  # doctest: +SKIP
-            True
+            >>> driver.capabilities.concurrency.recommended_parallel_reads  # doctest: +SKIP
+            4
 
 
-        :return:
+        :return: New read-only DriverCapabilities record.
         """
 
         return DriverCapabilities(
@@ -598,13 +797,18 @@ class IsoStorageDriver(StorageDriverAPI[IsoObjectAddress]):
 
     @property
     def storage_characteristics(self) -> StorageCharacteristics:
-        """Advertise the reader's format boundary and regular-file projection.
+        """
+        Describe configured limits and direct/UDF format boundaries without inspecting the image.
+
+        Object staging is advertised for UDF support even though direct reads use extents. The
+        whole-key byte limit is exposed as max_component_bytes. Limitation text is fixed and does
+        not reflect the direct parser's optional unsafe-member omission policy.
 
         Example:
-            >>> driver.storage_characteristics.publication_model  # doctest: +SKIP
-            <StoragePublicationModel.READ_ONLY: 'read_only'>
+            >>> driver.storage_characteristics.max_object_bytes  # doctest: +SKIP
 
-        :return: Structured read-only ISO characteristics.
+
+        :return: New read-only characteristics record with effective member, path, and format limitations.
         """
 
         return StorageCharacteristics(
@@ -648,28 +852,31 @@ class IsoStorageDriver(StorageDriverAPI[IsoObjectAddress]):
 
     def startup(self) -> DriverStatus:
         """
-        Parse the image and build its initial member index.
+        Run the current probe implementation and return its result.
 
         Example:
             >>> driver.startup().available  # doctest: +SKIP
             True
 
 
-        :return:
+        :return: Status returned by probe; inventory or dependency failures propagate.
         """
 
         return self.probe()
 
     def probe(self) -> DriverStatus:
         """
-        Rebuild the index and report the selected ISO namespace.
+        Force index construction and cache a read-only status for the selected namespace.
+
+        Reports projected file count, inspection loss warnings, and logical-expansion policy. It
+        does not read member payloads; a failed rebuild leaves the previous status unchanged.
 
         Example:
-            >>> driver.probe().writable  # doctest: +SKIP
-            False
+            >>> dict(driver.probe().details)["namespace"]  # doctest: +SKIP
+            'joliet'
 
 
-        :return:
+        :return: New cached DriverStatus with a UTC check time after successful inventory.
         """
 
         index = self._get_index(force=True)
@@ -704,27 +911,30 @@ class IsoStorageDriver(StorageDriverAPI[IsoObjectAddress]):
 
     def status(self) -> DriverStatus:
         """
-        Return the most recently observed image status.
+        Return the last successful probe result, or the initial unavailable snapshot.
+
+        No filesystem access, freshness check, or probe is performed.
 
         Example:
-            >>> driver.status().available  # doctest: +SKIP
-            True
+            >>> status = driver.status()  # doctest: +SKIP
 
 
-        :return:
+        :return: Cached DriverStatus, which may no longer describe the current container.
         """
 
         return self._last_status
 
     def close(self) -> None:
         """
-        Complete lifecycle cleanup; reads own their image handles.
+        Complete the lifecycle hook without clearing the cache or closing outstanding readers.
+
+        Callers close their returned readers, which own an image stream or UDF spool.
 
         Example:
             >>> driver.close()  # doctest: +SKIP
 
 
-        :return:
+        :return: None; this hook performs no cleanup.
         """
 
         return None
@@ -734,15 +944,18 @@ class IsoStorageDriver(StorageDriverAPI[IsoObjectAddress]):
         identifier: DriverObjectAddressInput[IsoObjectAddress],
     ) -> IsoObjectAddress:
         """
-        Validate a persisted member path in this image's address space.
+        Check typed ownership or validate a relative member key under depth and byte limits.
+
+        Text validation uses surrogatepass byte accounting and preserves Unicode spelling. Typed
+        addresses are not reparsed; neither branch tests existence or decodes external URIs.
 
         Example:
-            >>> str(driver.parse_object_address("books/novel.epub"))  # doctest: +SKIP
-            'books/novel.epub'
+            >>> driver.parse_object_address("books/雪.epub").value  # doctest: +SKIP
+            'books/雪.epub'
 
 
-        :param identifier:
-        :return:
+        :param identifier: Owned IsoObjectAddress or relative member-key text.
+        :return: Owned address for the supplied member key.
         """
 
         if isinstance(identifier, DriverObjectAddress):
@@ -756,15 +969,18 @@ class IsoStorageDriver(StorageDriverAPI[IsoObjectAddress]):
 
     def join_object_address(self, *tokens: str) -> IsoObjectAddress:
         """
-        Join path components without weakening canonical validation.
+        Join one or more stringified key fragments with slashes, then parse the result.
+
+        Fragments are not trimmed or normalized before validation; empty fragments can therefore
+        produce an invalid key.
 
         Example:
-            >>> str(driver.join_object_address("books", "novel.epub"))  # doctest: +SKIP
+            >>> driver.join_object_address("books", "novel.epub").value  # doctest: +SKIP
             'books/novel.epub'
 
 
-        :param tokens:
-        :return:
+        :param tokens: One or more member-key fragments, in path order.
+        :return: Owned ISO address; an empty argument list or invalid combined key raises StorageInvalidAddress.
         """
 
         if not tokens:
@@ -776,15 +992,14 @@ class IsoStorageDriver(StorageDriverAPI[IsoObjectAddress]):
         object_address: IsoObjectAddress,
     ) -> DriverObjectInfo[IsoObjectAddress]:
         """
-        Return indexed size, timestamp, version, and filename hints.
+        Project an owned member from a current index snapshot without reading its payload.
 
         Example:
-            >>> driver.stat(driver.parse_object_address("books/novel.epub")).size  # doctest: +SKIP
-            42
+            >>> info = driver.stat(driver.parse_object_address("book.epub"))  # doctest: +SKIP
 
 
-        :param object_address:
-        :return:
+        :param object_address: Owned address selecting a regular file in the chosen namespace.
+        :return: Indexed size/time, image-wide version, filename/MIME hints, and namespace metadata; absence raises StorageNotFound.
         """
 
         checked = self.check_object_address(object_address)
@@ -820,23 +1035,27 @@ class IsoStorageDriver(StorageDriverAPI[IsoObjectAddress]):
         if_version: str | None = None,
     ) -> BinaryIO:
         """
-        Open an exact logical range without materialising the member in memory.
+        Open a clipped logical range using direct extents or a fully staged UDF member.
 
-        The version token describes the containing image. The opened file
-        handle is checked against the indexed image before any member bytes are
-        returned.
+        Ownership, nonnegative range, indexed presence, and optional image version are checked
+        before zero-length/past-EOF requests return an empty stream. Nonempty reads open the image
+        and compare fstat metadata with the index. Direct readers retain that descriptor; UDF closes
+        it and reopens the path through pycdlib, then checks size and path metadata.
+
+        Matching metadata is not content verification or protection from later in-place writes. The
+        initial open/fstat and final wrapper-construction paths have no comprehensive resource
+        cleanup guard if an intermediate step fails.
 
         Example:
-            >>> with driver.open_read(address, offset=2, length=4) as source:  # doctest: +SKIP
-            ...     source.read()
-            b'book'
+            >>> with driver.open_read(address, offset=2, length=4, if_version=version) as source:  # doctest: +SKIP
+            ...     payload = source.read()
 
 
-        :param object_address:
-        :param offset:
-        :param length:
-        :param if_version:
-        :return:
+        :param object_address: Owned regular-member address.
+        :param offset: Nonnegative logical byte offset; at/beyond indexed size produces an empty reader.
+        :param length: Nonnegative byte cap clipped to the remainder, or None for all remaining bytes.
+        :param if_version: Required whole-image version token, or None to omit the initial version condition.
+        :return: Caller-owned buffered extent/UDF range reader, or empty BytesIO for an empty range.
         """
 
         checked = self.check_object_address(object_address)
@@ -919,15 +1138,17 @@ class IsoStorageDriver(StorageDriverAPI[IsoObjectAddress]):
         prefix: IsoObjectAddress | None = None,
     ) -> Iterator[DriverInventoryEntry[IsoObjectAddress]]:
         """
-        Yield indexed regular files beneath an optional path prefix.
+        Yield sorted regular-file observations from one index/signature/namespace snapshot.
+
+        An owned prefix includes its exact key and slash-separated descendants. Enumeration does not
+        read or hash member payloads.
 
         Example:
-            >>> [str(item.object_address) for item in driver.iter_inventory()]  # doctest: +SKIP
-            ['books/novel.epub']
+            >>> keys = [str(item.object_address) for item in driver.iter_inventory()]  # doctest: +SKIP
 
 
-        :param prefix:
-        :return:
+        :param prefix: Owned address selecting a key and its descendants, or None for the complete projection.
+        :return: Iterator of member addresses, indexed sizes/times, image-wide versions, and namespace hints.
         """
 
         prefix_key = None if prefix is None else str(self.check_object_address(prefix))
@@ -955,15 +1176,18 @@ class IsoStorageDriver(StorageDriverAPI[IsoObjectAddress]):
 
     def _get_index(self, *, force: bool = False) -> dict[str, _IsoEntry]:
         """
-        Return a snapshot of the cached index, rebuilding after image changes.
+        Return a shallow index copy, rebuilding when forced or path metadata differs.
+
+        The instance lock protects cache access and the build. A successful build replaces index,
+        signature, namespace, and inspection together. Its signature comes from the opened image;
+        there is no final path comparison here.
 
         Example:
-            >>> sorted(driver._get_index())  # doctest: +SKIP
-            ['books/novel.epub']
+            >>> index = driver._get_index(force=True)  # doctest: +SKIP
 
 
-        :param force:
-        :return:
+        :param force: Whether to rebuild despite matching cached filesystem metadata.
+        :return: New dictionary retaining the cached _IsoEntry values.
         """
 
         with self._index_lock:
@@ -994,14 +1218,23 @@ class IsoStorageDriver(StorageDriverAPI[IsoObjectAddress]):
         _IsoInspection,
     ]:
         """
-        Parse the preferred filesystem namespace into bounded file entries.
+        Build the preferred namespace and enforce aggregate logical size/ratio policy.
+
+        Direct parsing uses an opened descriptor and its initial fstat signature. Detected Rock
+        Ridge retains priority; an enabled UDF bridge can replace Joliet/primary ISO. Only a
+        missing-import-caused UDF unsupported error permits hybrid fallback. For the UDF-only
+        signal, disabled support rejects immediately and a UDF integrity failure becomes the
+        explicit unsupported UDF-only boundary.
+
+        UDF opens the path independently. The returned signature is not refreshed after parsing, and
+        no content hash is computed. OSErrors are translated; other typed parser failures propagate.
+        The cache is not modified by this helper.
 
         Example:
-            >>> driver._build_index()[2]  # doctest: +SKIP
-            'joliet'
+            >>> index, signature, namespace, inspection = driver._build_index()  # doctest: +SKIP
 
 
-        :return:
+        :return: Tuple of fresh member index, initial image-descriptor signature, selected namespace, and combined inspection.
         """
 
         try:
@@ -1110,7 +1343,24 @@ class IsoStorageDriver(StorageDriverAPI[IsoObjectAddress]):
     def _build_udf_index(
         self,
     ) -> tuple[dict[str, _IsoEntry], str, _IsoInspection]:
-        """Build a bounded regular-file projection of the UDF namespace."""
+        """
+        Walk pycdlib's UDF namespace into a bounded regular-file projection.
+
+        The optional parser is constructed before the guarded open/walk. Directories and filenames
+        count toward the cap and undergo topology checks; UDF symlinks and other non-files always
+        reject the namespace. Member/total sizes and canonical key limits are enforced without
+        reading payloads. No direct-parser directory/SUSP budget or filesystem signature comparison
+        is added here.
+
+        Validation errors are preserved, OSErrors translated, and other Exceptions become integrity
+        failures. Finally attempts image.close and suppresses Exception from it.
+
+        Example:
+            >>> index, namespace, inspection = driver._build_udf_index()  # doctest: +SKIP
+
+
+        :return: Member index with empty extents and UDF paths, the literal udf namespace, and inspection record.
+        """
 
         pycdlib = _require_pycdlib(self._image_path)
         image = pycdlib.PyCdlib()
@@ -1266,7 +1516,24 @@ class IsoStorageDriver(StorageDriverAPI[IsoObjectAddress]):
         implicit_directory_keys: set[str],
         backend: str,
     ) -> None:
-        """Reject duplicate names and file/directory overwrite aliases."""
+        """
+        Reject duplicate keys and file/ancestor conflicts before recording the entry.
+
+        The caller supplies a canonical key. Required ancestors are tracked even without explicit
+        directory records; this helper only updates the supplied collections.
+
+        Example:
+            >>> driver._record_member_topology("books/a", is_directory=False, seen_keys={}, file_keys=set(), implicit_directory_keys=set(), backend="ISO/UDF")  # doctest: +SKIP
+
+
+        :param key: Canonical key without a trailing directory slash.
+        :param is_directory: Whether this entry is an explicit directory.
+        :param seen_keys: Mutable key-to-kind map of previously seen entries.
+        :param file_keys: Mutable set of existing file keys.
+        :param implicit_directory_keys: Mutable set of ancestors required by prior entries.
+        :param backend: Backend label included in conflict errors.
+        :return: None after updating topology; conflicts raise StorageIntegrityError.
+        """
 
         kind = "directory" if is_directory else "file"
         previous_kind = seen_keys.get(key)
@@ -1300,7 +1567,30 @@ class IsoStorageDriver(StorageDriverAPI[IsoObjectAddress]):
         expected_signature: tuple[int, int, int, int, int],
         if_version: str | None,
     ) -> BinaryIO:
-        """Stage one UDF member and reject image replacement or size drift."""
+        """
+        Stage one UDF member and compare final position and image metadata with its index.
+
+        The entry must have a UDF path. Writes are bounded by current position plus offered bytes,
+        and final position must equal indexed size; there is no independent length or checksum pass.
+        Extraction errors close the spool, with generic Exceptions classified as integrity failures.
+        Parser close errors derived from Exception are ignored.
+
+        After extraction, a path-stat failure or signature mismatch explicitly closes the spool. A
+        conditional mismatch becomes precondition failure, otherwise unavailability. PyCdlib
+        construction occurs after spool allocation but before its cleanup guard; BaseException paths
+        and cleanup failures do not have a universal recovery guarantee.
+
+        Example:
+            >>> with driver._materialize_udf_member(entry, key=key, expected_signature=signature, if_version=None) as staged:  # doctest: +SKIP
+            ...     payload = staged.read()
+
+
+        :param entry: Indexed UDF path and expected byte length.
+        :param key: Canonical member key for diagnostics.
+        :param expected_signature: Expected device/inode/size/mtime/ctime metadata tuple.
+        :param if_version: Optional condition whose presence selects signature-mismatch classification; its text is not compared here.
+        :return: Caller-owned binary temporary file rewound to zero after the recorded checks.
+        """
 
         assert entry.udf_path is not None
         pycdlib = _require_pycdlib(self._image_path)
@@ -1393,13 +1683,13 @@ class IsoStorageDriver(StorageDriverAPI[IsoObjectAddress]):
         _IsoInspection,
     ]:
         """
-        Capture one internally consistent index, image identity, and namespace.
+        Capture matching cached index, signature, namespace, and inspection under the index lock.
 
         Example:
             >>> index, signature, namespace, inspection = driver._index_snapshot()  # doctest: +SKIP
 
 
-        :return:
+        :return: Tuple containing a shallow index copy and retained non-None signature/namespace plus inspection.
         """
 
         with self._index_lock:
@@ -1415,14 +1705,14 @@ class IsoStorageDriver(StorageDriverAPI[IsoObjectAddress]):
 
     def _current_version(self) -> str:
         """
-        Render the cached image identity as an opaque conditional-read token.
+        Refresh the index as needed and render its cached image signature as a version token.
 
         Example:
             >>> driver._current_version().startswith("iso:")  # doctest: +SKIP
             True
 
 
-        :return:
+        :return: Opaque iso-prefixed token derived from filesystem metadata, not a payload digest.
         """
 
         _index, signature, _namespace, _inspection = self._index_snapshot()
@@ -1431,10 +1721,15 @@ class IsoStorageDriver(StorageDriverAPI[IsoObjectAddress]):
 
 class _IsoParser:
     """
-    Parse one bounded ISO image without mounting or extracting it.
+    Parse direct ISO/Rock Ridge/Joliet metadata over a borrowed seekable image stream.
+
+    Limits apply to individual directories, completed files, total logical bytes, path shape,
+    inventory entries, and per-record SUSP continuations. State is retained across calls; use a new
+    parser for a fresh inventory. The parser neither closes the stream nor compares filesystem
+    signatures.
 
     Example:
-        >>> parser.build_index()  # doctest: +SKIP
+        >>> entries, namespace = parser.build_index()  # doctest: +SKIP
     """
 
     def __init__(
@@ -1453,24 +1748,25 @@ class _IsoParser:
         target: str,
     ) -> None:
         """
-        Bind an image stream and parser safety limits.
+        Retain a borrowed stream and unvalidated parser policy, initializing persistent traversal
+        state.
 
         Example:
-            >>> _IsoParser(source, image_size=40960, max_inventory_entries=100, max_directory_bytes=1048576, max_depth=32, max_susp_bytes=65536, target="library.iso")  # doctest: +SKIP
+            >>> parser = _IsoParser(source, image_size=40960, max_inventory_entries=100, max_directory_bytes=1048576, max_depth=32, max_susp_bytes=65536, max_member_bytes=1048576, max_total_uncompressed_bytes=4194304, max_path_bytes=1024, reject_unsafe_members=True, target="library.iso")  # doctest: +SKIP
 
 
-        :param source:
-        :param image_size:
-        :param max_inventory_entries:
-        :param max_directory_bytes:
-        :param max_depth:
-        :param max_susp_bytes:
-        :param max_member_bytes:
-        :param max_total_uncompressed_bytes:
-        :param max_path_bytes:
-        :param reject_unsafe_members:
-        :param target:
-        :return:
+        :param source: Borrowed seekable binary image stream; the parser does not close it.
+        :param image_size: Image byte length used for extent and read bounds.
+        :param max_inventory_entries: Maximum non-self/non-parent directory records processed.
+        :param max_directory_bytes: Maximum bytes loaded for an individual directory extent.
+        :param max_depth: Maximum recursive directory depth and canonical key components.
+        :param max_susp_bytes: Continuation-byte budget reset for each Rock Ridge record.
+        :param max_member_bytes: Maximum completed logical member size in bytes.
+        :param max_total_uncompressed_bytes: Maximum sum of completed indexed regular-file bytes.
+        :param max_path_bytes: Maximum encoded bytes per complete canonical key.
+        :param reject_unsafe_members: Whether direct symlink/non-regular entries raise instead of being omitted.
+        :param target: Image label included in inventory diagnostics.
+        :return: None after retaining policy and initializing empty counters, index, topology, and inspection sets.
         """
 
         self._source = source
@@ -1501,13 +1797,17 @@ class _IsoParser:
 
     def build_index(self) -> tuple[dict[str, _IsoEntry], str]:
         """
-        Select the best namespace and recursively enumerate regular files.
+        Detect UDF markers, select a direct namespace, and walk its root into retained state.
+
+        The returned dictionary is a shallow copy. Counters, visited directories, and index are not
+        reset, so repeated calls are not fresh independent parses. UDF-only recognition raises the
+        internal signal for the driver to handle.
 
         Example:
-            >>> entries, namespace = parser.build_index()  # doctest: +SKIP
+            >>> index, namespace = parser.build_index()  # doctest: +SKIP
 
 
-        :return:
+        :return: Copy of the accumulated regular-file index and selected direct namespace label.
         """
 
         self._detect_udf_signatures()
@@ -1517,13 +1817,15 @@ class _IsoParser:
 
     @property
     def inspection(self) -> _IsoInspection:
-        """Return detected features outside the regular-file projection.
+        """
+        Snapshot current omission counters and sorted signature sets without further image reads.
 
         Example:
-            >>> parser.inspection.skipped_symlinks  # doctest: +SKIP
-            0
+            >>> parser.inspection.udf_signatures  # doctest: +SKIP
+            ('NSR02',)
 
-        :return: Immutable inspection evidence for status and mutation policy.
+
+        :return: New frozen _IsoInspection containing current parser evidence.
         """
 
         return _IsoInspection(
@@ -1541,12 +1843,17 @@ class _IsoParser:
         )
 
     def _detect_udf_signatures(self) -> None:
-        """Record UDF bridge markers without treating a hybrid as UDF-only.
+        """
+        Inspect complete descriptor sectors 16 through at most 63 for NSR02/NSR03 markers.
+
+        A marker requires descriptor type zero and version one. Observed identifiers are added to
+        the retained set; no UDF namespace is opened or validated.
 
         Example:
             >>> parser._detect_udf_signatures()  # doctest: +SKIP
 
-        :return: None.
+
+        :return: None after updating recognition evidence; image read failures propagate.
         """
 
         sector_count = min(64, self._image_size // ISO_DESCRIPTOR_SECTOR_SIZE)
@@ -1566,14 +1873,22 @@ class _IsoParser:
 
     def _select_volume(self) -> _IsoVolume:
         """
-        Prefer Rock Ridge, then the highest Joliet level, then primary ISO.
+        Select detected Rock Ridge, otherwise the highest Joliet level, otherwise primary ISO.
+
+        Reads at most 128 descriptors beginning at sector 16, requires CD001/version one, a
+        terminator, and a primary descriptor. Tracks boot/partition and unrecognized supplementary
+        descriptors. A malformed first identifier signals UDF-only when prior markers exist,
+        otherwise unsupported ISO; malformed later descriptors mean integrity failure.
+
+        The first primary descriptor is retained. A valid SP marker in its root self record selects
+        Rock Ridge without further extension conformance checks. Equal highest Joliet levels retain
+        the first encountered descriptor.
 
         Example:
-            >>> parser._select_volume().namespace  # doctest: +SKIP
-            'joliet'
+            >>> volume = parser._select_volume()  # doctest: +SKIP
 
 
-        :return:
+        :return: Selected _IsoVolume; malformed, incomplete, or unsupported descriptor sequences raise.
         """
 
         primary: bytes | None = None
@@ -1634,18 +1949,19 @@ class _IsoParser:
 
     def _rock_ridge_skip(self, volume: _IsoVolume) -> int | None:
         """
-        Inspect the root directory's self record for the SUSP ``SP`` marker.
+        Read the primary root self record and return its detected SUSP SP skip byte.
 
-        Rock Ridge records the marker on the root ``.`` entry rather than on
-        the copy of the root record embedded in the volume descriptor.
+        Reads at most the first logical block of the validated root extent. Requires a complete
+        first record with the self identifier; it does not use the descriptor's embedded root
+        system-use bytes as extension evidence.
 
         Example:
             >>> parser._rock_ridge_skip(volume)  # doctest: +SKIP
             0
 
 
-        :param volume:
-        :return:
+        :param volume: Primary volume supplying its root extent and logical block size.
+        :return: SP skip count, including zero, or None when the valid self record has no recognized marker.
         """
 
         extent = self._file_extent(volume.root, volume.logical_block_size)
@@ -1673,15 +1989,19 @@ class _IsoParser:
         namespace: Literal["joliet", "iso9660"],
     ) -> _IsoVolume:
         """
-        Parse logical block size and root record from one descriptor.
+        Validate the both-endian block size and embedded root record in a supplied descriptor.
+
+        The block size must pass the power-of-two and 512-to-65536 range checks. The embedded record
+        must fit, parse successfully, and carry the directory flag. Descriptor identifier/version
+        and physical extent checks belong to other helpers.
 
         Example:
-            >>> parser._volume_from_descriptor(descriptor, namespace="joliet")  # doctest: +SKIP
+            >>> volume = parser._volume_from_descriptor(descriptor, namespace="joliet")  # doctest: +SKIP
 
 
-        :param descriptor:
-        :param namespace:
-        :return:
+        :param descriptor: Descriptor bytes containing the block-size field and root record.
+        :param namespace: Direct namespace label to attach to the parsed volume.
+        :return: New _IsoVolume with the parsed root and block size, and the default zero SUSP skip.
         """
 
         block_size = _both_endian_u16(descriptor[128:132], "logical block size")
@@ -1718,17 +2038,28 @@ class _IsoParser:
         depth: int,
     ) -> None:
         """
-        Recursively add regular files from one directory extent.
+        Traverse one directory and accumulate regular files under canonical member keys.
+
+        Depth is checked before repeated LBA/data-length directory identities are skipped. The
+        identity omits extended-attribute blocks. Whole directory data and record tuples are loaded
+        before iteration; self/parent records do not count, while relocated entries count before
+        omission. Directory handling precedes unsafe file-kind checks.
+
+        Symlinks/non-regular files either reject or are omitted according to policy. Zisofs and
+        interleaving reject supported file paths. Multi-extent parts accumulate by key until a final
+        record, retaining the first timestamp; size limits apply on completion. The helper checks
+        physical bounds but not independent extent overlap or adjacency. Failures can leave
+        counters, topology, and index partially updated.
 
         Example:
-            >>> parser._walk_directory(root, volume=volume, parent="", depth=0)  # doctest: +SKIP
+            >>> parser._walk_directory(volume.root, volume=volume, parent="", depth=0)  # doctest: +SKIP
 
 
-        :param record:
-        :param volume:
-        :param parent:
-        :param depth:
-        :return:
+        :param record: Directory record whose extent will be enumerated.
+        :param volume: Selected namespace, block size, and SUSP policy.
+        :param parent: Canonical parent key, or empty text for the root.
+        :param depth: Current recursive directory depth, with root at zero.
+        :return: None after adding completed files; malformed names/topology/extents or policy violations raise.
         """
 
         if depth > self._max_depth:
@@ -1850,7 +2181,17 @@ class _IsoParser:
             )
 
     def _record_member_topology(self, key: str, *, is_directory: bool) -> None:
-        """Reject duplicate names and file/directory overwrite aliases."""
+        """
+        Reject duplicate keys and file/ancestor conflicts before updating retained topology.
+
+        Example:
+            >>> parser._record_member_topology("books/a", is_directory=False)  # doctest: +SKIP
+
+
+        :param key: Canonical key supplied by traversal.
+        :param is_directory: Whether this record represents an explicit directory.
+        :return: None after recording the key, kind, and required ancestors; conflicts raise StorageIntegrityError.
+        """
 
         kind = "directory" if is_directory else "file"
         previous_kind = self._seen_keys.get(key)
@@ -1889,15 +2230,20 @@ class _IsoParser:
         block_size: int,
     ) -> tuple[_IsoDirectoryRecord, ...]:
         """
-        Parse all records from one bounded directory extent.
+        Load one bounded directory extent and parse its records into a tuple.
+
+        A directory over the byte limit raises unavailability. Zero-length entries advance to the
+        next logical block boundary; nonzero records must be at least 34 bytes and fit within the
+        payload. This helper does not apply the all-entry cap or separately reject a record crossing
+        a logical block boundary.
 
         Example:
-            >>> parser._directory_records(root, 2048)  # doctest: +SKIP
+            >>> records = parser._directory_records(volume.root, volume.logical_block_size)  # doctest: +SKIP
 
 
-        :param directory:
-        :param block_size:
-        :return:
+        :param directory: Directory record supplying the physical extent and declared length.
+        :param block_size: Logical block length in bytes, used for extent conversion and padding skips.
+        :return: Tuple of parsed records, including self/parent entries; malformed records raise integrity errors.
         """
 
         if directory.data_length > self._max_directory_bytes:
@@ -1932,16 +2278,20 @@ class _IsoParser:
 
     def _susp_info(self, system_use: bytes, *, volume: _IsoVolume) -> _SuspInfo:
         """
-        Decode relevant Rock Ridge SUSP entries for one record.
+        Interpret selected Rock Ridge fields from one record and update loss inspection.
+
+        Other namespaces return empty evidence. Rock Ridge skips the configured prefix, then follows
+        continuations under a fresh byte budget. NM fragments excluding current/parent flags
+        concatenate; SL/RE/CL/PX/ZF supply kind, relocation, mode, and compression evidence.
+        Unpreserved signature names are recorded even when a field also informs rejection.
 
         Example:
-            >>> parser._susp_info(b"", volume=volume)  # doctest: +SKIP
-            _SuspInfo(alternate_name=None, is_symlink=False, is_relocated=False, child_link_lba=None, is_non_regular=False, is_compressed=False)
+            >>> evidence = parser._susp_info(record.system_use, volume=volume)  # doctest: +SKIP
 
 
-        :param system_use:
-        :param volume:
-        :return:
+        :param system_use: Raw record bytes following its name and padding.
+        :param volume: Namespace and SUSP skip/block-size context.
+        :return: New _SuspInfo with recognized naming and feature flags.
         """
 
         if volume.namespace != "rock-ridge":
@@ -2000,18 +2350,24 @@ class _IsoParser:
         block_size: int,
     ) -> Iterator[tuple[bytes, bytes]]:
         """
-        Yield SUSP entries, following bounded continuation areas.
+        Yield SUSP payloads while following bounded continuation areas.
+
+        Depth greater than four raises integrity failure. Malformed entry headers stop iteration
+        silently; ST ends it. CE entries decode both-endian fields, decrement a shared byte budget
+        before reading, and recurse rather than being yielded. Initial data is not charged to that
+        budget. Budget exhaustion means unavailability; malformed continuation records or
+        out-of-image reads mean integrity failure.
 
         Example:
             >>> list(parser._iter_susp_entries(b"", budget=[1024], depth=0, block_size=2048))  # doctest: +SKIP
             []
 
 
-        :param data:
-        :param budget:
-        :param depth:
-        :param block_size:
-        :return:
+        :param data: Current system-use or continuation-area bytes.
+        :param budget: Mutable one-element remaining-continuation-byte list shared across recursion.
+        :param depth: Current continuation depth, starting at zero.
+        :param block_size: Bytes per logical block for continuation addresses.
+        :return: Iterator of two-byte signatures and payload bytes excluding each four-byte header.
         """
 
         if depth > 4:
@@ -2065,15 +2421,15 @@ class _IsoParser:
         block_size: int,
     ) -> _IsoExtent:
         """
-        Resolve one directory record to a validated physical image range.
+        Resolve the data range after extended-attribute blocks and require it to fit the image.
 
         Example:
-            >>> parser._file_extent(record, 2048)  # doctest: +SKIP
+            >>> extent = parser._file_extent(record, 2048)  # doctest: +SKIP
 
 
-        :param record:
-        :param block_size:
-        :return:
+        :param record: Record supplying extent LBA, extended-attribute blocks, and data length.
+        :param block_size: Logical block size in bytes; caller supplies validated policy.
+        :return: Physical _IsoExtent; negative or out-of-image ranges raise StorageIntegrityError.
         """
 
         byte_offset = (
@@ -2091,16 +2447,20 @@ class _IsoParser:
 
     def _read_at(self, offset: int, length: int, *, reason: str) -> bytes:
         """
-        Read an exact bounded image range or raise a typed integrity error.
+        Seek and read an exact range within the configured image size.
+
+        Requires a bytes result with exactly the requested length. Range/type/length failures use
+        the supplied integrity diagnostic; seek/read OSErrors propagate for the outer driver to
+        translate. The stream position is not restored.
 
         Example:
-            >>> parser._read_at(0, 4, reason="bad")  # doctest: +SKIP
+            >>> payload = parser._read_at(0, 4, reason="invalid header range")  # doctest: +SKIP
 
 
-        :param offset:
-        :param length:
-        :param reason:
-        :return:
+        :param offset: Absolute byte position from the image start.
+        :param length: Exact byte count, including zero.
+        :param reason: Explanation used when bounds or returned bytes fail validation.
+        :return: Exactly length bytes, or a propagated/typed read failure.
         """
 
         if offset < 0 or length < 0 or offset + length > self._image_size:
@@ -2113,15 +2473,14 @@ class _IsoParser:
 
     def _failure(self, reason: str) -> str:
         """
-        Add stable ISO inventory context to one parser explanation.
+        Format an ISO inventory diagnostic using the retained image label and shared text filtering.
 
         Example:
-            >>> "library.iso" in parser._failure("malformed")  # doctest: +SKIP
-            True
+            >>> message = parser._failure("invalid root record")  # doctest: +SKIP
 
 
-        :param reason:
-        :return:
+        :param reason: Human-readable inventory failure explanation.
+        :return: Formatted ISO build-inventory message.
         """
 
         return driver_failure_message(
@@ -2134,14 +2493,17 @@ class _IsoParser:
 
 def _parse_directory_record(record: bytes) -> _IsoDirectoryRecord:
     """
-    Parse and cross-check one complete ISO directory record.
+    Parse one complete record, checking length, identifier bounds, padding, and endian agreement.
+
+    Decodes the subset needed for traversal and reading; invalid recording time becomes None. This
+    helper does not validate volume-sequence fields, image bounds, or all flags.
 
     Example:
-        >>> _parse_directory_record(record_bytes)  # doctest: +SKIP
+        >>> parsed = _parse_directory_record(record_bytes)  # doctest: +SKIP
 
 
-    :param record:
-    :return:
+    :param record: Complete directory record bytes, whose first byte must equal their length.
+    :return: Passive _IsoDirectoryRecord; malformed lengths, padding, or paired integers raise StorageIntegrityError.
     """
 
     if len(record) < 34 or record[0] != len(record):
@@ -2168,16 +2530,16 @@ def _parse_directory_record(record: bytes) -> _IsoDirectoryRecord:
 
 def _both_endian_u16(value: bytes, label: str) -> int:
     """
-    Parse an ISO 16-bit both-endian number and require agreement.
+    Decode a paired unsigned 16-bit value only when its little/big-endian halves agree.
 
     Example:
         >>> _both_endian_u16(bytes((0, 8, 8, 0)), "block size")
         2048
 
 
-    :param value:
-    :param label:
-    :return:
+    :param value: Exactly four bytes: little-endian half followed by big-endian half.
+    :param label: Field label included in length/agreement errors.
+    :return: Agreed unsigned integer; malformed length or disagreement raises StorageIntegrityError.
     """
 
     if len(value) != 4:
@@ -2191,16 +2553,16 @@ def _both_endian_u16(value: bytes, label: str) -> int:
 
 def _both_endian_u32(value: bytes, label: str) -> int:
     """
-    Parse an ISO 32-bit both-endian number and require agreement.
+    Decode a paired unsigned 32-bit value only when its little/big-endian halves agree.
 
     Example:
         >>> _both_endian_u32(bytes((16, 0, 0, 0, 0, 0, 0, 16)), "extent")
         16
 
 
-    :param value:
-    :param label:
-    :return:
+    :param value: Exactly eight bytes: little-endian half followed by big-endian half.
+    :param label: Field label included in length/agreement errors.
+    :return: Agreed unsigned integer; malformed length or disagreement raises StorageIntegrityError.
     """
 
     if len(value) != 8:
@@ -2214,15 +2576,19 @@ def _both_endian_u32(value: bytes, label: str) -> int:
 
 def _recording_datetime(value: bytes) -> datetime | None:
     """
-    Decode a seven-byte ISO recording timestamp as aware UTC.
+    Decode a seven-byte recording timestamp and convert its local clock fields to UTC.
+
+    The year byte is relative to 1900. Signed quarter-hour offsets must be between -48 and 52
+    inclusive. Wrong length, invalid offset, or invalid calendar fields return None rather than
+    rejecting the directory record.
 
     Example:
-        >>> _recording_datetime(bytes((124, 1, 2, 3, 4, 5, 0))).year
-        2024
+        >>> _recording_datetime(bytes((124, 1, 2, 3, 4, 5, 4))).isoformat()
+        '2024-01-02T02:04:05+00:00'
 
 
-    :param value:
-    :return:
+    :param value: Seven recording-time bytes from an ISO directory record.
+    :return: Aware UTC datetime or None for the handled malformed metadata.
     """
 
     if len(value) != 7:
@@ -2247,15 +2613,19 @@ def _recording_datetime(value: bytes) -> datetime | None:
 
 def _rock_ridge_susp_skip(system_use: bytes) -> int | None:
     """
-    Detect the mandatory SUSP ``SP`` entry and return its skip value.
+    Scan system-use records for the first valid SP marker and return its skip byte.
+
+    Requires SP version one and the BE/EF check bytes. Invalid entry lengths end the search with
+    None; this scanner does not follow continuations or validate a full Rock Ridge extension
+    declaration.
 
     Example:
-        >>> _rock_ridge_susp_skip(b"SP" + bytes((7, 1, 190, 239, 0)))
-        0
+        >>> _rock_ridge_susp_skip(b"SP" + bytes((7, 1, 190, 239, 2)))
+        2
 
 
-    :param system_use:
-    :return:
+    :param system_use: System-use bytes from the root self record.
+    :return: Recognized skip count, including zero, or None when no valid marker is found.
     """
 
     position = 0
@@ -2283,22 +2653,26 @@ def _decode_iso_identifier(
     is_directory: bool = False,
 ) -> str:
     """
-    Decode one namespace identifier without Unicode normalization.
+    Decode a namespace name while preserving unusual byte/code-unit spellings.
 
-    Rock Ridge and non-standard primary identifiers preserve malformed UTF-8
-    bytes with surrogate escapes. Joliet uses UTF-16BE and retains unpaired
-    surrogate code units so an unusual image remains addressable.
+    Rock Ridge alternate bytes use UTF-8 surrogateescape; primary bytes do too. Joliet uses UTF-16BE
+    surrogatepass and maps an odd trailing byte to U+DC00 plus that byte. Non-alternate file names
+    lose one terminal numeric version suffix and then one trailing dot. Directories and Rock Ridge
+    alternate names retain those literals. No Unicode normalization or canonical-path validation
+    occurs.
 
     Example:
         >>> _decode_iso_identifier(b"BOOK.EPUB;1", namespace="iso9660", alternate_name=None)
         'BOOK.EPUB'
+        >>> _decode_iso_identifier(b"IGNORED;1", namespace="rock-ridge", alternate_name=b"literal;1")
+        'literal;1'
 
 
-    :param identifier:
-    :param namespace:
-    :param alternate_name:
-    :param is_directory:
-    :return:
+    :param identifier: Raw directory-record identifier bytes.
+    :param namespace: Name-decoding policy chosen for this volume.
+    :param alternate_name: Optional NM bytes used only for Rock Ridge.
+    :param is_directory: Whether to preserve version-like suffixes and terminal dots.
+    :return: Decoded name text retaining namespace-specific literal spelling.
     """
 
     uses_alternate_name = namespace == "rock-ridge" and alternate_name is not None
@@ -2329,15 +2703,21 @@ def _canonical_iso_key(
     max_path_bytes: int | None = None,
 ) -> str:
     """
-    Validate one relative POSIX member key without normalizing Unicode.
+    Validate a relative slash-separated key without normalizing Unicode or trimming text.
+
+    Rejects empty keys, NUL, backslashes, leading slashes, and empty/dot/parent components. Optional
+    byte accounting uses UTF-8 surrogatepass over the entire key, preserving surrogate code units;
+    the limits themselves are not validated.
 
     Example:
-        >>> _canonical_iso_key("books/novel.epub")
-        'books/novel.epub'
+        >>> _canonical_iso_key("books/雪.epub", max_depth=2)
+        'books/雪.epub'
 
 
-    :param value:
-    :return:
+    :param value: Value stringified as a relative member key.
+    :param max_depth: Maximum component count, or None to omit that check.
+    :param max_path_bytes: Maximum whole-key encoded bytes, or None to omit byte accounting.
+    :return: Canonical key with retained component spelling; invalid keys raise StorageInvalidAddress.
     """
 
     key = str(value)
@@ -2368,15 +2748,15 @@ def _canonical_iso_key(
 
 def _file_signature(result: os.stat_result) -> tuple[int, int, int, int, int]:
     """
-    Return the local identity fields used by conditional ISO reads.
+    Extract filesystem identity/change fields used for image cache and version evidence.
 
     Example:
         >>> len(_file_signature(path.stat()))  # doctest: +SKIP
         5
 
 
-    :param result:
-    :return:
+    :param result: Stat/fstat result supplying device, inode, size, and nanosecond modification/change times.
+    :return: Five integer fields in device/inode/size/mtime/ctime order; no content hash is computed.
     """
 
     return (
@@ -2392,22 +2772,36 @@ def _version_from_signature(
     signature: tuple[int, int, int, int, int],
 ) -> str:
     """
-    Render a local image identity as an opaque conditional-read token.
+    Render supplied filesystem fields as a colon-separated opaque ISO version.
+
+    No tuple length, field type, or filesystem freshness validation is performed.
 
     Example:
         >>> _version_from_signature((1, 2, 3, 4, 5))
         'iso:1:2:3:4:5'
 
 
-    :param signature:
-    :return:
+    :param signature: Filesystem metadata tuple to stringify in order.
+    :return: iso-prefixed version text.
     """
 
     return "iso:" + ":".join(str(value) for value in signature)
 
 
 def _require_pycdlib(target: pathlib.Path) -> ModuleType:
-    """Load optional UDF support with an actionable storage-layer error."""
+    """
+    Import optional pycdlib support or translate ImportError into an archives-extra hint.
+
+    The target supplies diagnostic context only. Other import errors propagate and the returned
+    module interface is not validated here.
+
+    Example:
+        >>> module = _require_pycdlib(pathlib.Path("library.iso"))  # doctest: +SKIP
+
+
+    :param target: Image path included in the dependency-error diagnostic.
+    :return: Imported module; ImportError raises StorageUnsupportedOperation with installation guidance.
+    """
 
     try:
         return importlib.import_module("pycdlib")
@@ -2426,7 +2820,24 @@ def _require_pycdlib(target: pathlib.Path) -> ModuleType:
 
 
 def _udf_datetime(value: object) -> datetime | None:
-    """Convert a pycdlib UDF timestamp to an aware UTC datetime."""
+    """
+    Combine UDF calendar, offset, and subsecond fields into an aware UTC datetime.
+
+    Absent input or required attributes yield None. Optional centiseconds, hundreds of microseconds,
+    and microseconds are added; tz=-2047 or an absent tz uses UTC. Attribute, overflow, type, and
+    value errors during conversion return None, but the initial attribute-presence checks occur
+    outside that guard.
+
+    Example:
+        >>> from types import SimpleNamespace
+        >>> stamp = SimpleNamespace(year=2024, month=1, day=2, hour=3, minute=4, second=5, tz=60)
+        >>> _udf_datetime(stamp).isoformat()
+        '2024-01-02T02:04:05+00:00'
+
+
+    :param value: Parser timestamp object with six calendar/clock attributes and optional offset/fraction fields.
+    :return: Aware UTC datetime, or None for absent fields and handled conversion failures.
+    """
 
     required = ("year", "month", "day", "hour", "minute", "second")
     if value is None or any(not hasattr(value, field) for field in required):

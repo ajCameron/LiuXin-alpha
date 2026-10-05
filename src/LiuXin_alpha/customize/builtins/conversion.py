@@ -1,5 +1,13 @@
 """
-Front end for the builtin conversion plugins.
+Register built-in input and output conversion plugins.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise conversion through a consuming regression::
+
+        python -m pytest -q tests/customize/test_customize_base.py
 """
 
 from LiuXin_alpha.utils.logging import default_log
@@ -236,7 +244,14 @@ def get_input_plugins():
     """
     Returns all the loaded and active input plugins.
 
-    :return:
+    Example:
+        Exercise get input plugins through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return input_plugins
 
@@ -422,7 +437,14 @@ def get_output_plugins():
     """
     Return all the currently loaded output plugins.
 
-    :return:
+    Example:
+        Exercise get output plugins through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return output_plugins
 

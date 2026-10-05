@@ -1,5 +1,16 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
+"""
+Parse, normalize and format dates through retained Calibre date semantics.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise calibre date through a consuming regression::
+
+        python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+"""
 from __future__ import with_statement, division, absolute_import, print_function, unicode_literals
 
 __license__ = "GPL v3"
@@ -29,6 +40,14 @@ from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode, iterkeys
 
 
 class SafeLocalTimeZone(tzlocal):
+    """
+    Provide the SafeLocalTimeZone utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise SafeLocalTimeZone through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+    """
     def _isdst(self, dt):
         # We can't use mktime here. It is unstable when deciding if
         # the hour near to a change is DST or not.
@@ -54,6 +73,19 @@ class SafeLocalTimeZone(tzlocal):
         #
         # Here is a more stable implementation:
         #
+        """
+        Perform the isdst utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise SafeLocalTimeZone. isdst through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+        :param dt: Date or datetime value parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             timestamp = (dt.toordinal() - EPOCHORDINAL) * 86400 + dt.hour * 3600 + dt.minute * 60 + dt.second
             return time.localtime(timestamp + time.timezone).tm_isdst
@@ -88,6 +120,20 @@ else:
     try:
 
         def first_index(raw, queries):
+            """
+            Perform the first index utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise first index through a consuming regression::
+
+                    python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+            :param raw: Value supplied for raw under the utility contract.
+            :param queries: Value supplied for queries under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             for q in queries:
                 try:
                     return raw.index(q)
@@ -109,6 +155,18 @@ EPOCH = datetime(1970, 1, 1, tzinfo=_utc_tz)
 
 
 def is_date_undefined(qt_or_dt):
+    """
+    Return or update whether is date undefined holds for the compatibility value.
+
+    Example:
+        Exercise is date undefined through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+    :param qt_or_dt: Value supplied for qt or dt under the utility contract.
+    :return: True when the documented condition holds; otherwise False.
+    """
     d = qt_or_dt
     if d is None:
         return True
@@ -126,16 +184,20 @@ def is_date_undefined(qt_or_dt):
 
 def parse_date(date_string, assume_utc=False, as_utc=True, default=None):
     """
-    Parse a date/time string into a timezone aware datetime object. The timezone
-    is always either UTC or the local timezone.
+    Parse a date/time string into a timezone aware datetime object. The timezone is always either UTC or the local timezone.
 
-    :param assume_utc: If True and date_string does not specify a timezone,
-    assume UTC, otherwise assume local timezone.
+    Example:
+        Exercise parse date through a consuming regression::
 
-    :param as_utc: If True, return a UTC datetime
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
 
-    :param default: Missing fields are filled in from default. If None, the
-    current date is used.
+
+    :param date_string: Value supplied for date string under the utility contract.
+    :param assume_utc: Whether naive input is interpreted as UTC.
+    :param as_utc: Whether the result is normalized to UTC.
+    :param default: Value supplied for default under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     from liuxin_dateutil.parser import parse
 
@@ -158,9 +220,19 @@ def parse_date(date_string, assume_utc=False, as_utc=True, default=None):
 
 def parse_only_date(raw, assume_utc=True, as_utc=True):
     """
-    Parse a date string that contains no time information in a manner that
-    guarantees that the month and year are always correct in all timezones, and
-    the day is at most one day wrong.
+    Parse a date string that contains no time information in a manner that guarantees that the month and year are always correct in all timezones, and the day is at most one day wrong.
+
+    Example:
+        Exercise parse only date through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :param assume_utc: Whether naive input is interpreted as UTC.
+    :param as_utc: Whether the result is normalized to UTC.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     f = utcnow if assume_utc else now
     default = f().replace(hour=0, minute=0, second=0, microsecond=0, day=15)
@@ -174,6 +246,22 @@ def parse_only_date(raw, assume_utc=True, as_utc=True):
 
 
 def strptime(val, fmt, assume_utc=False, as_utc=True):
+    """
+    Perform the strptime utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise strptime through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+    :param val: Template or metadata value evaluated by the operation.
+    :param fmt: Date, number or template format specification.
+    :param assume_utc: Whether naive input is interpreted as UTC.
+    :param as_utc: Whether the result is normalized to UTC.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     dt = datetime.strptime(val, fmt)
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=_utc_tz if assume_utc else _local_tz)
@@ -181,6 +269,21 @@ def strptime(val, fmt, assume_utc=False, as_utc=True):
 
 
 def dt_factory(time_t, assume_utc=False, as_utc=True):
+    """
+    Perform the dt factory utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise dt factory through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+    :param time_t: Value supplied for time t under the utility contract.
+    :param assume_utc: Whether naive input is interpreted as UTC.
+    :param as_utc: Whether the result is normalized to UTC.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     dt = datetime(*(time_t[0:6]))
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=_utc_tz if assume_utc else _local_tz)
@@ -191,6 +294,21 @@ safeyear = lambda x: min(max(x, MINYEAR), MAXYEAR)
 
 
 def qt_to_dt(qdate_or_qdatetime, as_utc=True):
+    """
+    Perform the qt to dt utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise qt to dt through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+    :param qdate_or_qdatetime: Value supplied for qdate or qdatetime under the utility
+        contract.
+    :param as_utc: Whether the result is normalized to UTC.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     o = qdate_or_qdatetime
     if hasattr(o, "toUTC"):
         # QDateTime
@@ -230,6 +348,20 @@ def qt_to_dt(qdate_or_qdatetime, as_utc=True):
 
 
 def fromtimestamp(ctime, as_utc=True):
+    """
+    Perform the fromtimestamp utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise fromtimestamp through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+    :param ctime: Value supplied for ctime under the utility contract.
+    :param as_utc: Whether the result is normalized to UTC.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     dt = datetime.utcfromtimestamp(ctime).replace(tzinfo=_utc_tz)
     if not as_utc:
         dt = dt.astimezone(_local_tz)
@@ -237,11 +369,41 @@ def fromtimestamp(ctime, as_utc=True):
 
 
 def fromordinal(day, as_utc=True):
+    """
+    Perform the fromordinal utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise fromordinal through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+    :param day: Value supplied for day under the utility contract.
+    :param as_utc: Whether the result is normalized to UTC.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return datetime.fromordinal(day).replace(tzinfo=_utc_tz if as_utc else _local_tz)
 
 
 # Imported into LiuXin
 def isoformat(date_time, assume_utc=False, as_utc=True, sep="T"):
+    """
+    Perform the isoformat utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise isoformat through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+    :param date_time: Value supplied for date time under the utility contract.
+    :param assume_utc: Whether naive input is interpreted as UTC.
+    :param as_utc: Whether the result is normalized to UTC.
+    :param sep: Delimiter used to split or join list values.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if not hasattr(date_time, "tzinfo"):
         return six_unicode(date_time.isoformat())
     if date_time.tzinfo is None:
@@ -252,6 +414,20 @@ def isoformat(date_time, assume_utc=False, as_utc=True, sep="T"):
 
 
 def as_local_time(date_time, assume_utc=True):
+    """
+    Perform the as local time utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise as local time through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+    :param date_time: Value supplied for date time under the utility contract.
+    :param assume_utc: Whether naive input is interpreted as UTC.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if not hasattr(date_time, "tzinfo"):
         return date_time
     if date_time.tzinfo is None:
@@ -260,12 +436,39 @@ def as_local_time(date_time, assume_utc=True):
 
 
 def dt_as_local(dt):
+    """
+    Perform the dt as local utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise dt as local through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+    :param dt: Date or datetime value parsed, normalized or rendered.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if dt.tzinfo is local_tz:
         return dt
     return dt.astimezone(local_tz)
 
 
 def as_utc(date_time, assume_utc=True):
+    """
+    Perform the as utc utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise as utc through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+    :param date_time: Value supplied for date time under the utility contract.
+    :param assume_utc: Whether naive input is interpreted as UTC.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if not hasattr(date_time, "tzinfo"):
         return date_time
     if date_time.tzinfo is None:
@@ -274,14 +477,51 @@ def as_utc(date_time, assume_utc=True):
 
 
 def now():
+    """
+    Perform the now utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise now through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return datetime.now().replace(tzinfo=_local_tz)
 
 
 def utcnow():
+    """
+    Perform the utcnow utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise utcnow through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return datetime.utcnow().replace(tzinfo=_utc_tz)
 
 
 def utcfromtimestamp(stamp):
+    """
+    Perform the utcfromtimestamp utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise utcfromtimestamp through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+    :param stamp: Value supplied for stamp under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         return datetime.utcfromtimestamp(stamp).replace(tzinfo=_utc_tz)
     except ValueError:
@@ -298,6 +538,20 @@ def utcfromtimestamp(stamp):
 
 
 def timestampfromdt(dt, assume_utc=True):
+    """
+    Perform the timestampfromdt utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise timestampfromdt through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+    :param dt: Date or datetime value parsed, normalized or rendered.
+    :param assume_utc: Whether naive input is interpreted as UTC.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return (as_utc(dt, assume_utc=assume_utc) - EPOCH).total_seconds()
 
 
@@ -305,6 +559,21 @@ def timestampfromdt(dt, assume_utc=True):
 
 
 def fd_format_hour(dt, ampm, hr):
+    """
+    Perform the fd format hour utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise fd format hour through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+    :param dt: Date or datetime value parsed, normalized or rendered.
+    :param ampm: Value supplied for ampm under the utility contract.
+    :param hr: Value supplied for hr under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     l = len(hr)
     h = dt.hour
     if ampm:
@@ -315,6 +584,21 @@ def fd_format_hour(dt, ampm, hr):
 
 
 def fd_format_minute(dt, ampm, min):
+    """
+    Perform the fd format minute utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise fd format minute through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+    :param dt: Date or datetime value parsed, normalized or rendered.
+    :param ampm: Value supplied for ampm under the utility contract.
+    :param min: Value supplied for min under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     l = len(min)
     if l == 1:
         return "%d" % dt.minute
@@ -322,6 +606,21 @@ def fd_format_minute(dt, ampm, min):
 
 
 def fd_format_second(dt, ampm, sec):
+    """
+    Perform the fd format second utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise fd format second through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+    :param dt: Date or datetime value parsed, normalized or rendered.
+    :param ampm: Value supplied for ampm under the utility contract.
+    :param sec: Value supplied for sec under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     l = len(sec)
     if l == 1:
         return "%d" % dt.second
@@ -329,6 +628,21 @@ def fd_format_second(dt, ampm, sec):
 
 
 def fd_format_ampm(dt, ampm, ap):
+    """
+    Perform the fd format ampm utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise fd format ampm through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+    :param dt: Date or datetime value parsed, normalized or rendered.
+    :param ampm: Value supplied for ampm under the utility contract.
+    :param ap: Value supplied for ap under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     res = strftime("%p", t=dt.timetuple())
     if ap == "AP":
         return res
@@ -336,6 +650,21 @@ def fd_format_ampm(dt, ampm, ap):
 
 
 def fd_format_day(dt, ampm, dy):
+    """
+    Perform the fd format day utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise fd format day through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+    :param dt: Date or datetime value parsed, normalized or rendered.
+    :param ampm: Value supplied for ampm under the utility contract.
+    :param dy: Value supplied for dy under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     l = len(dy)
     if l == 1:
         return "%d" % dt.day
@@ -345,6 +674,21 @@ def fd_format_day(dt, ampm, dy):
 
 
 def fd_format_month(dt, ampm, mo):
+    """
+    Perform the fd format month utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise fd format month through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+    :param dt: Date or datetime value parsed, normalized or rendered.
+    :param ampm: Value supplied for ampm under the utility contract.
+    :param mo: Value supplied for mo under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     l = len(mo)
     if l == 1:
         return "%d" % dt.month
@@ -354,6 +698,21 @@ def fd_format_month(dt, ampm, mo):
 
 
 def fd_format_year(dt, ampm, yr):
+    """
+    Perform the fd format year utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise fd format year through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+    :param dt: Date or datetime value parsed, normalized or rendered.
+    :param ampm: Value supplied for ampm under the utility contract.
+    :param yr: Value supplied for yr under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if len(yr) == 2:
         return "%02d" % (dt.year % 100)
     return "%04d" % dt.year
@@ -372,6 +731,21 @@ fd_function_index = {
 
 
 def fd_repl_func(dt, ampm, mo):
+    """
+    Perform the fd repl func utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise fd repl func through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+    :param dt: Date or datetime value parsed, normalized or rendered.
+    :param ampm: Value supplied for ampm under the utility contract.
+    :param mo: Value supplied for mo under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     s = mo.group(0)
     if not s:
         return ""
@@ -379,7 +753,22 @@ def fd_repl_func(dt, ampm, mo):
 
 
 def format_date(dt, format, assume_utc=False, as_utc=False):
-    """Return a date formatted as a string using a subset of Qt's formatting codes"""
+    """
+    Return a date formatted as a string using a subset of Qt's formatting codes
+
+    Example:
+        Exercise format date through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+    :param dt: Date or datetime value parsed, normalized or rendered.
+    :param format: Value supplied for format under the utility contract.
+    :param assume_utc: Whether naive input is interpreted as UTC.
+    :param as_utc: Whether the result is normalized to UTC.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if not format:
         format = "dd MMM yyyy"
 
@@ -409,31 +798,115 @@ def format_date(dt, format, assume_utc=False, as_utc=False):
 
 
 def cd_has_hour(tt, dt):
+    """
+    Perform the cd has hour utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise cd has hour through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+    :param tt: Value supplied for tt under the utility contract.
+    :param dt: Date or datetime value parsed, normalized or rendered.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     tt["hour"] = dt.hour
     return ""
 
 
 def cd_has_minute(tt, dt):
+    """
+    Perform the cd has minute utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise cd has minute through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+    :param tt: Value supplied for tt under the utility contract.
+    :param dt: Date or datetime value parsed, normalized or rendered.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     tt["min"] = dt.minute
     return ""
 
 
 def cd_has_second(tt, dt):
+    """
+    Perform the cd has second utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise cd has second through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+    :param tt: Value supplied for tt under the utility contract.
+    :param dt: Date or datetime value parsed, normalized or rendered.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     tt["sec"] = dt.second
     return ""
 
 
 def cd_has_day(tt, dt):
+    """
+    Perform the cd has day utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise cd has day through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+    :param tt: Value supplied for tt under the utility contract.
+    :param dt: Date or datetime value parsed, normalized or rendered.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     tt["day"] = dt.day
     return ""
 
 
 def cd_has_month(tt, dt):
+    """
+    Perform the cd has month utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise cd has month through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+    :param tt: Value supplied for tt under the utility contract.
+    :param dt: Date or datetime value parsed, normalized or rendered.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     tt["mon"] = dt.month
     return ""
 
 
 def cd_has_year(tt, dt):
+    """
+    Perform the cd has year utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise cd has year through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+    :param tt: Value supplied for tt under the utility contract.
+    :param dt: Date or datetime value parsed, normalized or rendered.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     tt["year"] = dt.year
     return ""
 
@@ -449,6 +922,21 @@ cd_function_index = {
 
 
 def cd_repl_func(tt, dt, match_object):
+    """
+    Perform the cd repl func utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise cd repl func through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+    :param tt: Value supplied for tt under the utility contract.
+    :param dt: Date or datetime value parsed, normalized or rendered.
+    :param match_object: Value supplied for match object under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     s = match_object.group(0)
     if not s:
         return ""
@@ -456,7 +944,20 @@ def cd_repl_func(tt, dt, match_object):
 
 
 def clean_date_for_sort(dt, fmt=None):
-    """Return dt with fields not in shown in format set to a default"""
+    """
+    Return dt with fields not in shown in format set to a default
+
+    Example:
+        Exercise clean date for sort through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+    :param dt: Date or datetime value parsed, normalized or rendered.
+    :param fmt: Date, number or template format specification.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if not fmt:
         fmt = "yyMd"
 
@@ -495,6 +996,20 @@ def clean_date_for_sort(dt, fmt=None):
 
 def replace_months(datestr, clang):
     # Replace months by english equivalent for parse_date
+    """
+    Perform the replace months utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise replace months through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+    :param datestr: Value supplied for datestr under the utility contract.
+    :param clang: Value supplied for clang under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     frtoen = {
         "[jJ]anvier": "jan",
         "[fF].vrier": "feb",
@@ -542,8 +1057,15 @@ def c_parse(val):
     """
     Parse a value into a datetime object.
 
-    :param val:
-    :return:
+    Example:
+        Exercise c parse through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_speedup_parse_date_epoch_ints.py
+
+
+    :param val: Template or metadata value evaluated by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     from datetime import datetime, timedelta
 

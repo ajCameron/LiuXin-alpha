@@ -195,7 +195,7 @@ if [[ ${RECREATE_VENV} -eq 1 ]]; then
     CREATE_VENV_CMD+=("--recreate")
 fi
 PIP_UPGRADE_CMD=("${VENV_PYTHON}" -m pip install -U pip)
-PIP_INSTALL_CMD=("${VENV_PYTHON}" -m pip install -e ".[test,search]")
+PIP_INSTALL_CMD=("${VENV_PYTHON}" -m pip install -e ".[test,search,conversion]")
 PYTEST_CMD=(
     "${VENV_PYTHON}" -u -m pytest tests
     -n "${WORKERS}"

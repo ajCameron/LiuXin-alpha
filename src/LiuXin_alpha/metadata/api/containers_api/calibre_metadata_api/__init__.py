@@ -1,8 +1,14 @@
-"""API contracts for Calibre-shaped book metadata objects.
+"""
+Expose the Calibre-readable, mutable Calibre, and richer LiuXin-compatible metadata contracts.
 
-Category: high-level metadata compatibility API.
-This module defines the subset of Calibre's mutable book metadata surface used
-by LiuXin import/export and plugin-facing workflows.
+The facade also exports shared field, identifier, payload, path, and
+custom-descriptor aliases. These are structural typing interfaces; concrete book
+containers live under their implementation modules.
+
+Example:
+    Exercise the owning behavior with pytest::
+
+        python -m pytest -q tests/metadata/api/test_calibre_metadata_api.py
 """
 
 from __future__ import annotations

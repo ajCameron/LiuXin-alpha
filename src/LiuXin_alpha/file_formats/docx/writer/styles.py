@@ -1,5 +1,16 @@
 #!/usr/bin/env python2
 # vim:fileencoding=utf-8
+"""
+Build DOCX style definitions from normalized HTML and CSS properties.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise styles through a consuming regression::
+
+        python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -43,6 +54,18 @@ ignore = object()
 
 
 def parse_css_font_family(raw: _typing.Any) -> _typing.Iterator[_typing.Any]:
+    """
+    Parse css font family under the format's safety and compatibility rules.
+
+    Example:
+        Exercise parse css font family through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :return: An iterator yielding the normalized values described above.
+    """
     if css_parser is not None:
         decl, errs = css_parser.parse_style_attr("font-family:" + raw)
         if decl:
@@ -65,6 +88,19 @@ def parse_css_font_family(raw: _typing.Any) -> _typing.Iterator[_typing.Any]:
 
 
 def css_font_family_to_docx(raw: _typing.Any) -> _typing.Any:
+    """
+    Perform the css font family to docx operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise css font family to docx through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     generic = {
         "serif": "Cambria",
         "sansserif": "Candara",
@@ -77,10 +113,36 @@ def css_font_family_to_docx(raw: _typing.Any) -> _typing.Any:
 
 
 def bmap(x: _typing.Any) -> _typing.Any:
+    """
+    Perform the bmap operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise bmap through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param x: Value supplied for x under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return "on" if x else "off"
 
 
 def is_dropcaps(html_tag: _typing.Any, tag_style: _typing.Any) -> bool:
+    """
+    Return whether is dropcaps holds for the supplied ebook data.
+
+    Example:
+        Exercise is dropcaps through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param html_tag: Value supplied for html tag under the utility contract.
+    :param tag_style: Value supplied for tag style under the utility contract.
+    :return: True when the documented condition holds; otherwise False.
+    """
     return (
         len(html_tag) < 2
         and len(etree.tostring(html_tag, method="text", encoding=six_unicode, with_tail=False)) < 5
@@ -89,19 +151,68 @@ def is_dropcaps(html_tag: _typing.Any, tag_style: _typing.Any) -> bool:
 
 
 class CombinedStyle(object):
+    """
+    Provide the combinedstyle contract for validated ebook processing.
+
+    Example:
+        Exercise CombinedStyle through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+    """
     def __init__(self: _typing.Self, bs: _typing.Any, rs: _typing.Any, blocks: _typing.Any, namespace: _typing.Any) -> None:
+        """
+        Initialize and validate the combinedstyle state.
+
+        Example:
+            Exercise CombinedStyle.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param bs: Value supplied for bs under the utility contract.
+        :param rs: Value supplied for rs under the utility contract.
+        :param blocks: Value supplied for blocks under the utility contract.
+        :param namespace: Value supplied for namespace under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.bs, self.rs, self.blocks = bs, rs, blocks
         self.namespace = namespace
         self.id = self.name = self.seq = None
         self.outline_level = None
 
     def apply(self: _typing.Self) -> None:
+        """
+        Perform the apply operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CombinedStyle.apply through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for block in self.blocks:
             block.linked_style = self
             for run in block.runs:
                 run.parent_style = self.rs
 
     def serialize(self: _typing.Self, styles: _typing.Any, normal_style: _typing.Any) -> None:
+        """
+        Perform the serialize operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CombinedStyle.serialize through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param styles: Value supplied for styles under the utility contract.
+        :param normal_style: Value supplied for normal style under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         makeelement = self.namespace.makeelement
         w = lambda x: "{%s}%s" % (self.namespace.namespaces["w"], x)
         block = makeelement(styles, "w:style", w_styleId=self.id, w_type="paragraph")
@@ -120,7 +231,29 @@ class CombinedStyle(object):
 
 
 class FloatSpec(object):
+    """
+    Provide the floatspec contract for validated ebook processing.
+
+    Example:
+        Exercise FloatSpec through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+    """
     def __init__(self: _typing.Self, namespace: _typing.Any, html_tag: _typing.Any, tag_style: _typing.Any) -> None:
+        """
+        Initialize and validate the floatspec state.
+
+        Example:
+            Exercise FloatSpec.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param namespace: Value supplied for namespace under the utility contract.
+        :param html_tag: Value supplied for html tag under the utility contract.
+        :param tag_style: Value supplied for tag style under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.makeelement = namespace.makeelement
         self.is_dropcaps = is_dropcaps(html_tag, tag_style)
         self.blocks = []
@@ -145,6 +278,20 @@ class FloatSpec(object):
         read_css_block_borders(self, tag_style)
 
     def serialize(self: _typing.Self, block: _typing.Any, parent: _typing.Any) -> None:
+        """
+        Perform the serialize operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise FloatSpec.serialize through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param block: Value supplied for block under the utility contract.
+        :param parent: Value supplied for parent under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.is_dropcaps:
             attrs = dict(
                 w_dropCap="drop",
@@ -198,10 +345,30 @@ class FloatSpec(object):
 
 class DOCXStyle(object):
 
+    """
+    Provide the docxstyle contract for validated ebook processing.
+
+    Example:
+        Exercise DOCXStyle through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+    """
     ALL_PROPS = ()
     TYPE = "paragraph"
 
     def __init__(self: _typing.Self, namespace: _typing.Any) -> None:
+        """
+        Initialize and validate the docxstyle state.
+
+        Example:
+            Exercise DOCXStyle.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param namespace: Value supplied for namespace under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.namespace = namespace
         self.w = lambda x: "{%s}%s" % (namespace.namespaces["w"], x)
         self._hash = hash(tuple(getattr(self, x) for x in self.ALL_PROPS))
@@ -209,21 +376,86 @@ class DOCXStyle(object):
         self.next_style = None
 
     def makeelement(self: _typing.Self, parent: _typing.Any, name: _typing.Any, **attrs: _typing.Any) -> _typing.Any:
+        """
+        Perform the makeelement operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DOCXStyle.makeelement through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return parent.makeelement(self.w(name), **{self.w(k): v for k, v in iteritems(attrs)})
 
     def __hash__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the hash operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DOCXStyle.  hash   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._hash
 
     def __eq__(self: _typing.Self, other: _typing.Any) -> bool:
+        """
+        Perform the eq operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DOCXStyle.  eq   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param other: Value supplied for other under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         for x in self.ALL_PROPS:
             if getattr(self, x) != getattr(other, x, None):
                 return False
         return True
 
     def __ne__(self: _typing.Self, other: _typing.Any) -> bool:
+        """
+        Perform the ne operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DOCXStyle.  ne   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param other: Value supplied for other under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return not self == other
 
     def __repr__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the repr operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DOCXStyle.  repr   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return etree.tostring(
             self.serialize(etree.Element(self.__class__.__name__, nsmap={"w": self.namespace.namespaces["w"]})),
             pretty_print=True,
@@ -232,6 +464,20 @@ class DOCXStyle(object):
     __str__ = __repr__
 
     def serialize(self: _typing.Self, styles: _typing.Any, normal_style: _typing.Any) -> _typing.Any:
+        """
+        Perform the serialize operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DOCXStyle.serialize through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param styles: Value supplied for styles under the utility contract.
+        :param normal_style: Value supplied for normal style under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         makeelement = self.makeelement
         style = makeelement(styles, "style", styleId=self.id, type=self.TYPE)
         style.append(makeelement(style, "name", val=self.name))
@@ -257,6 +503,14 @@ LINE_STYLES = {
 
 class TextStyle(DOCXStyle):
 
+    """
+    Provide the textstyle contract for validated ebook processing.
+
+    Example:
+        Exercise TextStyle through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+    """
     ALL_PROPS = (
         "font_family",
         "font_size",
@@ -280,6 +534,21 @@ class TextStyle(DOCXStyle):
     TYPE = "character"
 
     def __init__(self: _typing.Self, namespace: _typing.Any, css: _typing.Any, is_parent_style: bool = False) -> None:
+        """
+        Initialize and validate the textstyle state.
+
+        Example:
+            Exercise TextStyle.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param namespace: Value supplied for namespace under the utility contract.
+        :param css: Value supplied for css under the utility contract.
+        :param is_parent_style: Value supplied for is parent style under the utility
+            contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.font_family = css_font_family_to_docx(css["font-family"])
         try:
             self.font_size = max(0, int(float(css["font-size"]) * 2))  # stylizer normalizes all font sizes into pts
@@ -367,6 +636,20 @@ class TextStyle(DOCXStyle):
         DOCXStyle.__init__(self, namespace)
 
     def serialize_borders(self: _typing.Self, bdr: _typing.Any, normal_style: _typing.Any) -> _typing.Any:
+        """
+        Serialize borders under the format's safety and compatibility rules.
+
+        Example:
+            Exercise TextStyle.serialize borders through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param bdr: Value supplied for bdr under the utility contract.
+        :param normal_style: Value supplied for normal style under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         w = self.w
         is_normal_style = self is normal_style
         if is_normal_style or self.padding != normal_style.padding:
@@ -380,6 +663,20 @@ class TextStyle(DOCXStyle):
         return bdr
 
     def serialize(self: _typing.Self, styles: _typing.Any, normal_style: _typing.Any) -> _typing.Any:
+        """
+        Perform the serialize operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TextStyle.serialize through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param styles: Value supplied for styles under the utility contract.
+        :param normal_style: Value supplied for normal style under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         makeelement = self.makeelement
         style_root = DOCXStyle.serialize(self, styles, normal_style)
         style = makeelement(style_root, "rPr")
@@ -389,6 +686,20 @@ class TextStyle(DOCXStyle):
         return style_root
 
     def serialize_properties(self: _typing.Self, rPr: _typing.Any, normal_style: _typing.Any) -> None:
+        """
+        Serialize properties under the format's safety and compatibility rules.
+
+        Example:
+            Exercise TextStyle.serialize properties through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param rPr: Value supplied for rPr under the utility contract.
+        :param normal_style: Value supplied for normal style under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         makeelement = self.makeelement
         is_normal_style = self is normal_style
         if is_normal_style or self.font_family != normal_style.font_family:
@@ -405,6 +716,19 @@ class TextStyle(DOCXStyle):
                     rPr.append(makeelement(rPr, name + suffix, val=vmap(val)))
 
         def check_attr(local_attr: _typing.Any) -> bool:
+            """
+            Perform the check attr operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise TextStyle.serialize properties.check attr through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+            :param local_attr: Value supplied for local attr under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             local_val = getattr(self, local_attr)
             return is_normal_style or (local_val != getattr(normal_style, local_attr))
 
@@ -446,19 +770,80 @@ class TextStyle(DOCXStyle):
 
 
 class DescendantTextStyle(object):
+    """
+    Provide the descendanttextstyle contract for validated ebook processing.
+
+    Example:
+        Exercise DescendantTextStyle through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+    """
     def __init__(self: _typing.Self, parent_style: _typing.Any, child_style: _typing.Any) -> None:
+        """
+        Initialize and validate the descendanttextstyle state.
+
+        Example:
+            Exercise DescendantTextStyle.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param parent_style: Value supplied for parent style under the utility contract.
+        :param child_style: Value supplied for child style under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.id = self.name = None
         self.makeelement = child_style.makeelement
 
         p = []
 
         def add(name: _typing.Any, **props: _typing.Any) -> None:
+            """
+            Perform the add operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise DescendantTextStyle.  init  .add through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+            :param name: Field, file, function or resource name addressed by the operation.
+            :param props: Value supplied for props under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             p.append((name, frozenset(iteritems(props))))
 
         def vals(local_attr: _typing.Any) -> tuple[_typing.Any, ...]:
+            """
+            Perform the vals operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise DescendantTextStyle.  init  .vals through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+            :param local_attr: Value supplied for local attr under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return getattr(parent_style, local_attr), getattr(child_style, local_attr)
 
         def check(local_attr: _typing.Any) -> bool:
+            """
+            Perform the check operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise DescendantTextStyle.  init  .check through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+            :param local_attr: Value supplied for local attr under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             local_pval, local_cval = vals(local_attr)
             return local_pval != local_cval
 
@@ -512,15 +897,66 @@ class DescendantTextStyle(object):
         self._hash = hash(self.properties)
 
     def __hash__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the hash operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DescendantTextStyle.  hash   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._hash
 
     def __eq__(self: _typing.Self, other: _typing.Any) -> bool:
+        """
+        Perform the eq operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DescendantTextStyle.  eq   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param other: Value supplied for other under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.properties == other.properties
 
     def __ne__(self: _typing.Self, other: _typing.Any) -> bool:
+        """
+        Perform the ne operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DescendantTextStyle.  ne   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param other: Value supplied for other under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.properties != other.properties
 
     def serialize(self: _typing.Self, styles: _typing.Any) -> _typing.Any:
+        """
+        Perform the serialize operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DescendantTextStyle.serialize through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param styles: Value supplied for styles under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         makeelement = self.makeelement
         style = makeelement(styles, "style", styleId=self.id, type="character")
         style.append(makeelement(style, "name", val=self.name))
@@ -533,6 +969,22 @@ class DescendantTextStyle(object):
 
 
 def read_css_block_borders(self: _typing.Any, css: _typing.Any, store_css_style: bool = False) -> None:
+    """
+    Read css block borders under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read css block borders through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param self: Value supplied for self under the utility contract.
+    :param css: Value supplied for css under the utility contract.
+    :param store_css_style: Value supplied for store css style under the utility
+        contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     for edge in border_edges:
         if css is None:
             setattr(self, "padding_" + edge, 0)
@@ -580,6 +1032,14 @@ def read_css_block_borders(self: _typing.Any, css: _typing.Any, store_css_style:
 
 class BlockStyle(DOCXStyle):
 
+    """
+    Provide the blockstyle contract for validated ebook processing.
+
+    Example:
+        Exercise BlockStyle through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+    """
     ALL_PROPS = tuple(
         "text_align css_text_indent text_indent line_height background_color".split()
         + ["margin_" + edge for edge in border_edges]
@@ -588,6 +1048,21 @@ class BlockStyle(DOCXStyle):
     )
 
     def __init__(self: _typing.Self, namespace: _typing.Any, css: _typing.Any, html_block: _typing.Any, is_table_cell: bool = False) -> None:
+        """
+        Initialize and validate the blockstyle state.
+
+        Example:
+            Exercise BlockStyle.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param namespace: Value supplied for namespace under the utility contract.
+        :param css: Value supplied for css under the utility contract.
+        :param html_block: Value supplied for html block under the utility contract.
+        :param is_table_cell: Value supplied for is table cell under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         read_css_block_borders(self, css)
         if is_table_cell:
             for edge in border_edges:
@@ -625,6 +1100,20 @@ class BlockStyle(DOCXStyle):
         DOCXStyle.__init__(self, namespace)
 
     def serialize_borders(self: _typing.Self, bdr: _typing.Any, normal_style: _typing.Any) -> _typing.Any:
+        """
+        Serialize borders under the format's safety and compatibility rules.
+
+        Example:
+            Exercise BlockStyle.serialize borders through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param bdr: Value supplied for bdr under the utility contract.
+        :param normal_style: Value supplied for normal style under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         w = self.w
         for edge in border_edges:
             e = bdr.makeelement(w(edge))
@@ -646,6 +1135,20 @@ class BlockStyle(DOCXStyle):
         return bdr
 
     def serialize(self: _typing.Self, styles: _typing.Any, normal_style: _typing.Any) -> _typing.Any:
+        """
+        Perform the serialize operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise BlockStyle.serialize through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param styles: Value supplied for styles under the utility contract.
+        :param normal_style: Value supplied for normal style under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         makeelement = self.makeelement
         style_root = DOCXStyle.serialize(self, styles, normal_style)
         style = makeelement(style_root, "pPr")
@@ -655,6 +1158,20 @@ class BlockStyle(DOCXStyle):
         return style_root
 
     def serialize_properties(self: _typing.Self, pPr: _typing.Any, normal_style: _typing.Any) -> None:
+        """
+        Serialize properties under the format's safety and compatibility rules.
+
+        Example:
+            Exercise BlockStyle.serialize properties through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param pPr: Value supplied for pPr under the utility contract.
+        :param normal_style: Value supplied for normal style under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         makeelement, w = self.makeelement, self.w
         spacing = makeelement(pPr, "spacing")
         for edge, attr in iteritems({"top": "before", "bottom": "after"}):
@@ -736,13 +1253,50 @@ class BlockStyle(DOCXStyle):
 
 
 class StylesManager(object):
+    """
+    Provide the stylesmanager contract for validated ebook processing.
+
+    Example:
+        Exercise StylesManager through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+    """
     def __init__(self: _typing.Self, namespace: _typing.Any, log: _typing.Any, document_lang: _typing.Any) -> None:
+        """
+        Initialize and validate the stylesmanager state.
+
+        Example:
+            Exercise StylesManager.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param namespace: Value supplied for namespace under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :param document_lang: Value supplied for document lang under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.namespace = namespace
         self.document_lang = lang_as_iso639_1(document_lang) or "en"
         self.log = log
         self.block_styles, self.text_styles = {}, {}
 
     def create_text_style(self: _typing.Self, css_style: _typing.Any, is_parent_style: bool = False) -> _typing.Any:
+        """
+        Create text style under the format's safety and compatibility rules.
+
+        Example:
+            Exercise StylesManager.create text style through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param css_style: Value supplied for css style under the utility contract.
+        :param is_parent_style: Value supplied for is parent style under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = TextStyle(self.namespace, css_style, is_parent_style=is_parent_style)
         existing = self.text_styles.get(ans, None)
         if existing is None:
@@ -752,6 +1306,21 @@ class StylesManager(object):
         return ans
 
     def create_block_style(self: _typing.Self, css_style: _typing.Any, html_block: _typing.Any, is_table_cell: bool = False) -> _typing.Any:
+        """
+        Create block style under the format's safety and compatibility rules.
+
+        Example:
+            Exercise StylesManager.create block style through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param css_style: Value supplied for css style under the utility contract.
+        :param html_block: Value supplied for html block under the utility contract.
+        :param is_table_cell: Value supplied for is table cell under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = BlockStyle(self.namespace, css_style, html_block, is_table_cell=is_table_cell)
         existing = self.block_styles.get(ans, None)
         if existing is None:
@@ -761,6 +1330,19 @@ class StylesManager(object):
         return ans
 
     def finalize(self: _typing.Self, all_blocks: _typing.Any) -> None:
+        """
+        Perform the finalize operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise StylesManager.finalize through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param all_blocks: Value supplied for all blocks under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         block_counts, run_counts = Counter(), Counter()
         block_rmap, run_rmap = defaultdict(list), defaultdict(list)
         used_pairs = defaultdict(list)
@@ -858,6 +1440,19 @@ class StylesManager(object):
                     ms = s.rs.font_size
 
     def serialize(self: _typing.Self, styles: _typing.Any) -> None:
+        """
+        Perform the serialize operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise StylesManager.serialize through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param styles: Value supplied for styles under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         lang = styles.xpath('descendant::*[local-name()="lang"]')[0]
         for k in tuple(lang.attrib):
             lang.attrib[k] = self.document_lang

@@ -1,4 +1,14 @@
-"""Workflow-level metadata writes shared by Core and interaction surfaces."""
+"""
+Apply public metadata write requests and summarize their WEMI writer reports.
+
+The workflow normalizes field and kind names, hydrates an item, updates its metadata
+containers, and delegates persistence to their write_to_database method.
+
+Example:
+    Exercise the owning behavior with pytest::
+
+        python -m pytest -q tests/core/test_core_application_api.py::test_core_catalog_and_cache_api_round_trip_real_database
+"""
 
 from __future__ import annotations
 
@@ -30,7 +40,19 @@ _METADATA_WRITE_KINDS = {
 
 
 def normalize_metadata_write_field(field: str) -> str:
-    """Return the canonical public name for one writable metadata field."""
+    """
+    Resolve a supported write-field alias after trimming, lower-casing, and replacing hyphens.
+
+    Unsupported names raise ValueError; only the aliases in this module are accepted.
+
+    Example:
+        >>> normalize_metadata_write_field(' Genres ')
+        'genre'
+
+
+    :param field: Field or alias converted to text before normalization.
+    :return: Canonical public field name.
+    """
 
     normalized = str(field).strip().lower().replace("-", "_")
     try:
@@ -42,7 +64,20 @@ def normalize_metadata_write_field(field: str) -> str:
 
 
 def metadata_write_report_summary(report: Any) -> str:
-    """Return the compact shared human summary for a metadata write report."""
+    """
+    Summarize row/link additions and removals, skipped operations, and errors.
+
+    Missing or false report attributes count as empty collections.
+
+    Example:
+        >>> from types import SimpleNamespace
+        >>> metadata_write_report_summary(SimpleNamespace(rows_added=[1])).startswith('metadata report: rows_added=1,')
+        True
+
+
+    :param report: Object exposing sized report collections as attributes.
+    :return: One human-readable metadata report line.
+    """
 
     rows_added = len(getattr(report, "rows_added", []) or [])
     rows_updated = len(getattr(report, "rows_updated", []) or [])
@@ -77,7 +112,36 @@ def write_wemi_metadata_values(
     target_level: str = "work",
     mark_dirty: bool = True,
 ) -> dict[str, Any]:
-    """Apply selected values through the established WEMI metadata writer."""
+    """
+    Hydrate an item, apply requested relation values, and persist them through the WEMI writer.
+
+    Accept calibre, liuxin, and WEMI kind aliases. Empty values, unsupported
+    kinds/fields, or missing requested values raise ValueError. Field names are
+    normalized, while value lookup tries only canonical, singular, and plural keys. The
+    database and persistence transaction policy belong to the caller and writer; this
+    facade does not close the database.
+
+    Example:
+        Exercise the owning behavior with pytest::
+
+            python -m pytest -q tests/core/test_core_application_api.py::test_core_catalog_and_cache_api_round_trip_real_database
+
+
+    :param database: Caller-owned database used by the metadata writer for persistence;
+        this method does not close it.
+    :param item_id: Item identifier converted to int for hydration and writing.
+    :param values: Field-to-value mapping copied before lookup; must be nonempty.
+    :param fields: Requested field names; None uses the supplied value keys and a string
+        requests one field.
+    :param kind: Metadata family selector; false values default to liuxin.
+    :param replace: Whether to clear each selected container and request replacement on
+        write.
+    :param target_level: WEMI target level forwarded to the writer; false values become
+        work.
+    :param mark_dirty: Whether the writer should mark changed metadata dirty.
+    :return: Receipt dictionary containing item_id, normalized kind and fields, replace,
+        changed, summary, and a report mapping.
+    """
 
     from LiuXin_alpha.metadata.containers import LiuXinWEMIMetadataHydrator
 
@@ -147,6 +211,21 @@ def _metadata_write_value(
     values: dict[str, Any],
     field_name: str,
 ) -> Any:
+    """
+    Read a value using canonical, stripped-plural, then appended-plural field keys.
+
+    The first present key wins, including a value of None. Raise ValueError when none is
+    present; this lookup does not perform general alias normalization.
+
+    Example:
+        >>> _metadata_write_value({'tag': ['history']}, 'tags')
+        ['history']
+
+
+    :param values: Mapping of caller-supplied field keys to values.
+    :param field_name: Canonical field name used to generate the three candidates.
+    :return: Value stored under the first matching key.
+    """
     candidate_keys = (
         field_name,
         field_name.rstrip("s"),
@@ -167,6 +246,26 @@ def _apply_metadata_write_value(
     *,
     replace: bool,
 ) -> None:
+    """
+    Apply one field value to an already hydrated metadata object.
+
+    Replacement first calls nullify, ignoring KeyError only. Identifiers require a
+    callable set_identifiers and receive a dictionary plus the inverse replacement flag
+    as update. Other non-string, non-mapping iterables are assigned entry by entry,
+    skipping None and empty strings; scalar values are assigned once.
+
+    Example:
+        Exercise the owning behavior with pytest::
+
+            python -m pytest -q tests/core/test_core_application_api.py::test_core_catalog_and_cache_api_round_trip_real_database
+
+
+    :param metadata: Hydrated metadata object mutated through its public setters.
+    :param field_name: Canonical field name being updated.
+    :param value: Scalar, iterable entries, or identifier mapping for this field.
+    :param replace: Whether to nullify the old value and replace identifier contents.
+    :return: None.
+    """
     if replace:
         try:
             metadata.nullify(field_name)

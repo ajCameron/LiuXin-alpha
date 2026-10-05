@@ -1,5 +1,9 @@
 """
-Composite Digital Asset catalogue and resolution workflows.
+Implement Composite catalogue changes and required-member availability workflows.
+
+Metadata mutations use shared locking and transaction hooks. Member resolution and
+assessment read catalogue and Store evidence separately, preserve relationship
+context, and do not assemble physical byte streams.
 """
 
 from __future__ import annotations
@@ -13,12 +17,15 @@ from LiuXin_alpha.storage.storage_manager.mixins._state import _StorageManagerSt
 
 class CompositeDigitalAssetMixin(_StorageManagerState):
     """
-    Manage ordered logical assemblies of atomic Digital Assets.
+    Manage Composite catalogue records and resolve their atomic membership relationships.
 
-    Composite records describe membership, names, and attributes while the
-    member Assets continue to own byte identity and Replica placement.  All
-    mutations validate member references and use revision preconditions; this
-    component never concatenates or materialises member bytes.
+    Declaration/replacement validate referenced Assets before their metadata mutation. Replacement
+    and forgetting support optional revision preconditions. Selection and assessment perform
+    separate reads, preserve relationship context, and do not concatenate or materialize member
+    bytes.
+
+    Example:
+        >>> composite = manager.declare_composite_digital_asset(declaration)  # doctest: +SKIP
     """
 
     @override
@@ -27,11 +34,19 @@ class CompositeDigitalAssetMixin(_StorageManagerState):
         declaration: api.CompositeDigitalAssetDeclaration,
     ) -> api.CompositeDigitalAssetRecord:
         """
-        Register an ordered Composite after validating every member.
+        Resolve every referenced Asset, then allocate and store a new Composite under the manager
+        lock and metadata transaction.
+
+        Member checks occur before the transaction and include optional members. Each call creates a
+        new ID and revision without deduplicating an equivalent declaration. Supplied membership
+        order and descriptive values are retained; no physical Replica check occurs.
+
+        Example:
+            >>> composite = manager.declare_composite_digital_asset(declaration)  # doctest: +SKIP
 
 
-        :param declaration:
-        :return:
+        :param declaration: Complete membership and metadata for a newly allocated Composite.
+        :return: Newly stored Composite record; missing members and repository/transaction errors propagate.
         """
 
         for member in declaration.members:
@@ -56,11 +71,17 @@ class CompositeDigitalAssetMixin(_StorageManagerState):
         composite_digital_asset_id: api.CompositeDigitalAssetID,
     ) -> api.CompositeDigitalAssetRecord:
         """
-        Return one Composite record.
+        Look up the exact Composite key under the manager lock.
+
+        A mapping KeyError becomes CompositeDigitalAssetNotFound with the original error chained.
+        Other repository errors propagate, and members are not resolved.
+
+        Example:
+            >>> composite = manager.get_composite_digital_asset_record(composite_id)  # doctest: +SKIP
 
 
-        :param composite_digital_asset_id:
-        :return:
+        :param composite_digital_asset_id: Manager-assigned Composite identity to resolve.
+        :return: Retained record for the requested Composite key.
         """
 
         with self._lock:
@@ -80,13 +101,22 @@ class CompositeDigitalAssetMixin(_StorageManagerState):
         if_revision: str | None = None,
     ) -> api.CompositeDigitalAssetRecord:
         """
-        Replace Composite metadata and membership under revision control.
+        Validate all replacement Asset references, then replace the Composite after optional
+        revision checking.
+
+        Member lookup precedes the locked metadata transaction and lookup of the Composite itself.
+        The new record retains the requested Composite ID, replaces the complete
+        membership/name/attributes, and receives a new revision. No byte changes occur; transaction
+        guarantees depend on the manager composition.
+
+        Example:
+            >>> composite = manager.replace_composite_digital_asset(composite_id, declaration, if_revision=old.revision)  # doctest: +SKIP
 
 
-        :param composite_digital_asset_id:
-        :param declaration:
-        :param if_revision:
-        :return:
+        :param composite_digital_asset_id: Manager-assigned Composite identity to resolve.
+        :param declaration: Complete replacement values, with all member Assets required to exist.
+        :param if_revision: Expected current revision, or None to omit the optimistic precondition.
+        :return: Newly stored replacement record, after member and revision checks succeed.
         """
 
         for member in declaration.members:
@@ -109,10 +139,16 @@ class CompositeDigitalAssetMixin(_StorageManagerState):
         self,
     ) -> Iterator[api.CompositeDigitalAssetRecord]:
         """
-        Iterate over a stable Composite snapshot.
+        Capture records under the lock in ascending Composite-key order and return a tuple iterator.
+
+        The sequence is stable after return, but retained records and nested values are not deep
+        copies. Repository iteration and lookup failures propagate.
+
+        Example:
+            >>> composites = tuple(manager.iter_composite_digital_asset_records())  # doctest: +SKIP
 
 
-        :return:
+        :return: Iterator over the captured ordered Composite record references.
         """
 
         with self._lock:
@@ -128,13 +164,22 @@ class CompositeDigitalAssetMixin(_StorageManagerState):
         if_revision: str | None = None,
     ) -> bool:
         """
-        Forget an unlinked Composite without touching member Assets.
+        Remove one Composite record after optional revision and reference checks in the metadata
+        transaction.
+
+        Absence returns False before checking a revision. When require_unlinked is true, matching
+        Item targets and Composite references in derivation sources raise StoragePreconditionFailed.
+        False skips both reference checks. The operation does not remove Item links, provenance,
+        member Assets, or Store bytes; repository constraints may still reject the deletion.
+
+        Example:
+            >>> removed = manager.forget_composite_digital_asset(composite_id, require_unlinked=True)  # doctest: +SKIP
 
 
-        :param composite_digital_asset_id:
-        :param require_unlinked:
-        :param if_revision:
-        :return:
+        :param composite_digital_asset_id: Manager-assigned Composite identity to resolve.
+        :param require_unlinked: Whether Item-target and derivation-source references must prevent deletion.
+        :param if_revision: Expected current revision, or None to omit the optimistic precondition.
+        :return: True after deleting the record, or False if already absent; failed preconditions and persistence errors propagate.
         """
 
         with self._lock, self._metadata_transaction():
@@ -171,13 +216,25 @@ class CompositeDigitalAssetMixin(_StorageManagerState):
         require_verified: bool = False,
     ) -> tuple[api.CompositeDigitalAssetMemberResolution, ...]:
         """
-        Resolve each readable Composite member without flattening context.
+        Resolve each membership in stored order using the default ACTIVE atomic-selection mode.
+
+        DigitalAssetNotFound and NoReadableReplica omit optional members and accumulate required
+        member IDs. Processing continues after those failures; at the end, any missing required
+        membership raises CompositeDigitalAssetIncomplete instead of returning a partial tuple.
+        Other failures propagate immediately.
+
+        Successful results retain each full membership relationship, including repeated Assets, and
+        are not sorted by sequence number. Separate member resolutions do not form an atomic storage
+        snapshot or perform fresh digest verification merely because require_verified is true.
+
+        Example:
+            >>> members = manager.resolve_composite_digital_asset(composite_id, preferred_store_ref=store_uuid)  # doctest: +SKIP
 
 
-        :param composite_digital_asset_id:
-        :param preferred_store_ref:
-        :param require_verified:
-        :return:
+        :param composite_digital_asset_id: Manager-assigned Composite identity to resolve.
+        :param preferred_store_ref: Optional Store UUID to prefer without excluding eligible copies elsewhere.
+        :param require_verified: Whether selection requires a recorded VERIFIED state; this flag does not itself request fresh digest verification.
+        :return: Tuple of successful member resolutions in stored order if all required memberships resolve.
         """
 
         record = self.get_composite_digital_asset_record(composite_digital_asset_id)
@@ -213,11 +270,25 @@ class CompositeDigitalAssetMixin(_StorageManagerState):
         composite_digital_asset_id: api.CompositeDigitalAssetID,
     ) -> api.CompositeDigitalAssetAvailabilityAssessment:
         """
-        Assess member existence and current Replica readability.
+        Count required membership occurrences whose Assets exist and whose ACTIVE Replicas can be
+        selected.
+
+        Optional members are ignored entirely. Each required occurrence performs an Asset lookup,
+        then default Replica selection without requiring recorded verification. DigitalAssetNotFound
+        at the first lookup and NoReadableReplica during selection become diagnostics; other errors
+        propagate.
+
+        Missing Asset IDs are deduplicated in first-seen order while error messages remain per
+        failure, and repeated memberships still contribute separately to counts. With no required
+        members, the zero-count assessment is readable. This method does not recompute digests or
+        update observations itself.
+
+        Example:
+            >>> assessment = manager.assess_composite_digital_asset(composite_id)  # doctest: +SKIP
 
 
-        :param composite_digital_asset_id:
-        :return:
+        :param composite_digital_asset_id: Manager-assigned Composite identity to resolve.
+        :return: Assessment of required-member presence and selection, with deduplicated missing IDs and ordered errors.
         """
 
         record = self.get_composite_digital_asset_record(composite_digital_asset_id)

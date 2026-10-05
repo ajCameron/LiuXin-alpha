@@ -1,5 +1,16 @@
 # Generates test_db_2 - which is a database with a number of empty blank custom columns
 
+"""
+Build the deterministic test_db_2 database fixture and its declared content profile.
+
+The module keeps generated data, ordering and failure modes explicit so consumers
+can assert stable behavior.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/databases/test_test_resources_manager.py
+"""
 from LiuXin_alpha.utils.libraries.liuxin_clint import puts, colored
 
 from ..test_db_1 import test_db_1_folder as __folder__
@@ -9,13 +20,26 @@ from .. import TestDatabaseBuilder
 class TestDB2Builder(TestDatabaseBuilder):
     """
     Executes build for the test database described here.
+
+    Example:
+        Exercise TestDB2Builder through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
     """
 
     def detail_databases(self, scratch_db):
         """
         Delete all but the first title (and title 0 - if it exists).
-        :param scratch_db:
-        :return:
+
+        Example:
+            Exercise TestDB2Builder.detail databases through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param scratch_db: Scratch database receiving deterministic schema and rows.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
         """
         title_count = scratch_db.driver_wrapper.get_record_count("titles")
 
@@ -33,8 +57,15 @@ class TestDB2Builder(TestDatabaseBuilder):
     def write_timestamps_books_table(scratch_db):
         """
         Update the timestamp columns of the books field to static values, freezing them after database rebuilds.
-        :param scratch_db:
-        :return:
+
+        Example:
+            Exercise TestDB2Builder.write timestamps books table through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param scratch_db: Scratch database receiving deterministic schema and rows.
+        :return: None; fixture state or the supplied destination is updated in place.
         """
         # Update the books table
 
@@ -53,15 +84,23 @@ def build_test_db(
     test_asset_version=None,
 ):
     """
-    test_db_2 is intended for applications where the whole database had to be read into the cache - as such size is at a
-    premium in order to speed up the tests.
-    The test database has one title - it's got all the metadata associated with that title - but it only has one title.
-    This method constructs the test database - starting with a regular test database and removing everything except
-    title 1 (and the unknown title - if it exists).
-    :param dst_file_path: Place to copy the database file to after it's been built
-    :param dump: If True then the csv files compromising this database will be written into the folder where this
-                 script is running.
-    :return:
+    test_db_2 is intended for applications where the whole database had to be read into the cache - as such size is at a premium in order to speed up the tests. The test database has one title - it's got all the metadata associated with that title - but it only has one title. This method constructs the test database - starting with a regular test database and removing everything except title 1 (and the unknown title - if it exists).
+
+    Example:
+        Exercise build test db through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param dst_file_path: Destination file written with the generated database or asset.
+    :param dump: Value supplied for dump under the deterministic fixture contract.
+    :param plugin_name: Value supplied for plugin name under the deterministic fixture
+        contract.
+    :param new_db_uuid: Value supplied for new db uuid under the deterministic fixture
+        contract.
+    :param test_asset_version: Value supplied for test asset version under the
+        deterministic fixture contract.
+    :return: None; fixture state or the supplied destination is updated in place.
     """
     test_db_builder = TestDB2Builder(
         dst_file_path=dst_file_path,

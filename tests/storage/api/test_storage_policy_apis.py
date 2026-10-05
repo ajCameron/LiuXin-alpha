@@ -1,3 +1,11 @@
+"""
+Exercise policy-value defaults, selected validation rules, and assessment/plan fields.
+
+These cases construct public domain values without registering policies or touching
+Store bytes. They distinguish declared flags and retained identifiers from actual
+publication, retention, verification, or planning behavior.
+"""
+
 from __future__ import annotations
 
 from uuid import uuid4
@@ -19,6 +27,18 @@ from LiuXin_alpha.storage.api import (
 
 
 def test_replication_policy_defaults_are_explicit_and_safe() -> None:
+    """
+    Check the default target fallback, separation, synchronous count, flags, mode, and loss action.
+
+    These assertions inspect a constructed value; they do not demonstrate publication durability,
+    automatic healing, or policy execution.
+
+    Example:
+        >>> test_replication_policy_defaults_are_explicit_and_safe()
+
+
+    :return: None after the stated policy-value assertions pass.
+    """
     policy = ReplicationPolicy(name="two_copies", min_copies=2)
 
     assert policy.effective_target_copies == 2
@@ -30,6 +50,20 @@ def test_replication_policy_defaults_are_explicit_and_safe() -> None:
 
 
 def test_replication_policy_validates_zero_copy_and_durability_constraints() -> None:
+    """
+    Exercise zero-copy consent, target ordering, synchronous-count bounds, and nonempty separation
+    validation.
+
+    An explicit ACCEPT_LOSS policy with zero synchronous copies is accepted at a zero target.
+    Rejected combinations are checked through their ValueError diagnostics, without storing or
+    deleting any bytes.
+
+    Example:
+        >>> test_replication_policy_validates_zero_copy_and_durability_constraints()
+
+
+    :return: None after the stated policy-value assertions pass.
+    """
     with pytest.raises(ValueError, match="zero-copy"):
         ReplicationPolicy(min_copies=0)
     assert ReplicationPolicy(
@@ -50,6 +84,19 @@ def test_replication_policy_validates_zero_copy_and_durability_constraints() -> 
 
 
 def test_backup_policy_modes_counts_and_retention_are_validated() -> None:
+    """
+    Check archive-mode defaults and rejection of invalid mode, target, and zero-copy retention-lock
+    combinations.
+
+    Verification flags and target fallback are inspected as declarations. The test does not execute
+    a backup or prove enforcement of retention by a planner or deletion workflow.
+
+    Example:
+        >>> test_backup_policy_modes_counts_and_retention_are_validated()
+
+
+    :return: None after the stated policy-value assertions pass.
+    """
     policy = BackupPolicy(
         name="deep_archive",
         min_copies=2,
@@ -69,6 +116,20 @@ def test_backup_policy_modes_counts_and_retention_are_validated() -> None:
 
 
 def test_policy_assessment_and_plans_keep_typed_asset_replica_and_store_ids() -> None:
+    """
+    Retain representative Asset/Replica IDs, Store UUIDs, and diagnostics in assessment and plan
+    tuples.
+
+    The test also rejects a target-satisfied flag with an unsatisfied minimum. NewType IDs remain
+    ordinary runtime integers; these assertions do not establish broader identity/type validation or
+    execute the proposed work.
+
+    Example:
+        >>> test_policy_assessment_and_plans_keep_typed_asset_replica_and_store_ids()
+
+
+    :return: None after the stated policy-value assertions pass.
+    """
     asset_id = DigitalAssetID(7)
     replica_id = ReplicaID(12)
     store_ref = uuid4()

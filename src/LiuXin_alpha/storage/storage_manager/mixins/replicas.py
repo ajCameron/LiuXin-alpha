@@ -1,5 +1,9 @@
 """
-Replica lifecycle, verification, and removal workflows.
+Implement Replica lookup, byte replication, observation updates, and claim removal.
+
+Store operations precede or follow separate manager metadata transactions. The
+methods expose recorded outcomes and typed failures without providing rollback of
+completed physical changes when a later phase fails.
 """
 
 from __future__ import annotations
@@ -15,12 +19,15 @@ from LiuXin_alpha.storage.storage_manager.mixins._state import _StorageManagerSt
 
 class ReplicaLifecycleMixin(_StorageManagerState):
     """
-    Manage physical-location claims for Digital Asset bytes.
+    Manage Replica claims and coordinate their recorded observations with Store operations.
 
-    Replica records connect one content identity to one opaque Store Location
-    and track observations such as present, verified, missing, or corrupt.
-    Removal coordinates Store deletion where requested, but metadata absence is
-    never treated as proof that physical bytes were deleted.
+    The mixin uses shared allocation, selection, inspection, and repository hooks. Byte
+    publication/deletion occurs separately from metadata transactions, so errors can leave completed
+    byte changes or earlier recorded observations in place. A retained claim is not proof that
+    physical bytes remain readable.
+
+    Example:
+        >>> replica = manager.replicate_digital_asset(asset_id, destination_store_ref=archive_uuid)  # doctest: +SKIP
     """
 
     @override
@@ -29,11 +36,17 @@ class ReplicaLifecycleMixin(_StorageManagerState):
         replica_id: api.ReplicaID,
     ) -> api.ReplicaRecord:
         """
-        Return one Replica record.
+        Look up the exact Replica key under the manager lock.
+
+        A mapping KeyError becomes ReplicaNotFound with the original error chained. Other repository
+        failures propagate; no physical Store operation occurs.
+
+        Example:
+            >>> replica = manager.get_replica_record(replica_id)  # doctest: +SKIP
 
 
-        :param replica_id:
-        :return:
+        :param replica_id: Manager-assigned Replica ID to resolve.
+        :return: Retained Replica record for the requested identity.
         """
 
         with self._lock:
@@ -53,13 +66,21 @@ class ReplicaLifecycleMixin(_StorageManagerState):
         mode: api.ReplicaMode | None = None,
     ) -> Iterator[api.ReplicaRecord]:
         """
-        Iterate over a filtered stable snapshot of Replica records.
+        Capture Replica records under the lock in ascending ID-key order, applying every supplied
+        filter.
+
+        Asset and Store filters compare by equality; mode compares by enum identity and is not
+        coerced from strings. State is not filtered, so deleted or unavailable claims remain
+        eligible. The returned tuple iterator retains record references rather than deep copies.
+
+        Example:
+            >>> replicas = tuple(manager.iter_replica_records(store_ref=store_uuid))  # doctest: +SKIP
 
 
-        :param digital_asset_id:
-        :param store_ref:
-        :param mode:
-        :return:
+        :param digital_asset_id: Optional exact owning Asset ID; None omits this comparison.
+        :param store_ref: Optional exact Store UUID compared with each record Location.
+        :param mode: Optional mode singleton compared with is; None includes every mode.
+        :return: Iterator over the captured matching records, including any matching tombstones.
         """
 
         with self._lock:
@@ -87,16 +108,35 @@ class ReplicaLifecycleMixin(_StorageManagerState):
         verify: bool = True,
     ) -> api.ReplicaRecord:
         """
-        Copy one Asset through staged publication and register its Replica.
+        Select or resolve a source, publish its bytes to a destination, then register and optionally
+        verify the copy.
+
+        An explicit source must belong to the Asset but is not otherwise selected by health or mode
+        here. None placement hints inherit the source record's value; an explicit value replaces it.
+        Destination checks cover configuration, mode, availability, writability, creation
+        capability, and declared size through shared hooks.
+
+        After allocation, the source reader context feeds Store.put with expected size and the
+        preferred digest (SHA-256 when present). The read adds no version precondition. Source
+        cleanup finishes before the PRESENT Replica claim is registered, so close or registration
+        failures can leave published bytes without the new claim; no rollback is added.
+
+        With verify enabled, verify_replica records its report and the latest record is fetched
+        again. An unhealthy report does not itself raise or trigger removal: the returned record can
+        be CORRUPT or UNAVAILABLE. Later errors can leave the published bytes and earlier metadata
+        changes in place.
+
+        Example:
+            >>> replica = manager.replicate_digital_asset(asset_id, destination_store_ref=archive_uuid, verify=True)  # doctest: +SKIP
 
 
-        :param digital_asset_id:
-        :param destination_store_ref:
-        :param source_replica_id:
-        :param placement_hints:
-        :param mode:
-        :param verify:
-        :return:
+        :param digital_asset_id: Manager-assigned atomic Asset ID to resolve.
+        :param destination_store_ref: Destination Store UUID, or None to resolve the current default.
+        :param source_replica_id: Explicit source claim, or None to use select_replica.
+        :param placement_hints: Destination override, or None to retain the source claim's advisory hints.
+        :param mode: Requested destination mode checked against Store configuration.
+        :param verify: Whether to inspect the registered copy and return its refreshed record.
+        :return: Newly registered Replica record, refreshed after optional verification; healthy state is not guaranteed.
         """
 
         asset_record = self.get_digital_asset_record(digital_asset_id)
@@ -159,12 +199,27 @@ class ReplicaLifecycleMixin(_StorageManagerState):
         calculate_digests: bool = True,
     ) -> api.ReplicaVerificationReport:
         """
-        Inspect and persist one Replica's latest physical observation.
+        Inspect a Replica against its Asset and persist the resulting observation before returning
+        the report.
+
+        The shared inspector translates selected storage failures into MISSING or UNAVAILABLE
+        reports and identifies size/digest disagreement as CORRUPT. Digest inspection can trust an
+        authoritative SHA-256 stat value or calculate expected algorithms; disabling it leaves
+        matching-size evidence PRESENT rather than VERIFIED. Unexpected lookup or inspection errors
+        can propagate.
+
+        The report becomes an observation with error messages joined by semicolons, then the update
+        hook replaces metadata and advances revision/generation. Observation validation or
+        persistence can fail after inspection. This method does not require the report to be
+        healthy, and it adds no revision precondition tying the update to the initially read record.
+
+        Example:
+            >>> report = manager.verify_replica(replica_id, calculate_digests=True)  # doctest: +SKIP
 
 
-        :param replica_id:
-        :param calculate_digests:
-        :return:
+        :param replica_id: Manager-assigned Replica ID to resolve.
+        :param calculate_digests: Whether the inspector obtains digest evidence in addition to stat size/existence.
+        :return: Inspection report after its observation update succeeds, including unhealthy outcomes.
         """
 
         record = self.get_replica_record(replica_id)
@@ -194,14 +249,29 @@ class ReplicaLifecycleMixin(_StorageManagerState):
         all_replicas: bool | None = None,
     ) -> api.DigitalAssetVerificationReport:
         """
-        Verify an exact subset, every Replica, or one healthy copy.
+        Resolve the Asset and selected claims before sequentially verifying records in the chosen
+        order.
+
+        The Asset lookup precedes argument-conflict checks. Explicit IDs are materialized, required
+        to be nonempty and unique, then all resolved and checked for ownership and nondeleted state
+        before any verification. An implicit selection captures the manager's ID-ordered records and
+        excludes DELETED enum instances.
+
+        The default stops after the first healthy report for an implicit scan and checks all
+        explicit selections. all_replicas supplies the inverse stop policy and conflicts with any
+        explicit stop_after_first_healthy value. Each verification can persist an observation; later
+        failures do not undo earlier results. An implicit scan with no eligible claims returns an
+        empty, unreadable aggregate.
+
+        Example:
+            >>> report = manager.verify_digital_asset(asset_id, replica_ids=(second_id, first_id))  # doctest: +SKIP
 
 
-        :param digital_asset_id:
-        :param replica_ids:
-        :param stop_after_first_healthy:
-        :param all_replicas:
-        :return:
+        :param digital_asset_id: Manager-assigned atomic Asset ID to resolve.
+        :param replica_ids: Exact ordered subset to resolve before inspecting, or None to capture nondeleted claims.
+        :param stop_after_first_healthy: Optional early-stop flag; defaults to true only for an implicit scan.
+        :param all_replicas: Optional inverse stop flag; rejected whenever stop_after_first_healthy is also supplied.
+        :return: Aggregate containing only reports produced before completion or a successful early stop; errors propagate instead of returning a partial aggregate.
         """
 
         self.get_digital_asset_record(digital_asset_id)
@@ -262,13 +332,27 @@ class ReplicaLifecycleMixin(_StorageManagerState):
         retain_tombstone: bool = True,
     ) -> api.ReplicaRemovalReport:
         """
-        Coordinate Store deletion with record removal or tombstoning.
+        Optionally delete the claimed bytes, then tombstone or remove the current Replica record.
+
+        Only StoreNotFound from the initial stat is treated as already absent. Otherwise deletion
+        requests missing_ok=True and uses the observed version only when conditional deletion is
+        advertised. bytes_deleted becomes True after the delete call returns, regardless of its
+        return value; this is not a separate absence check.
+
+        Metadata is then changed under the lock and transaction hook without a revision
+        precondition. Tombstoning replaces the observation with DELETED at the current UTC time and
+        advances revision; either branch advances Replica generation. If bytes are deliberately
+        preserved with a tombstone, the report includes a warning. A later metadata error can follow
+        completed byte deletion, and no byte rollback is provided.
+
+        Example:
+            >>> report = manager.remove_replica(replica_id, retain_tombstone=True)  # doctest: +SKIP
 
 
-        :param replica_id:
-        :param delete_bytes:
-        :param retain_tombstone:
-        :return:
+        :param replica_id: Manager-assigned Replica ID to resolve.
+        :param delete_bytes: Whether to stat and attempt deletion before metadata mutation.
+        :param retain_tombstone: Whether to replace observation with DELETED instead of deleting the record.
+        :return: Removal flags and warnings after both requested phases complete; unknown identities and unsuppressed failures raise.
         """
 
         record = self.get_replica_record(replica_id)
@@ -324,13 +408,26 @@ class ReplicaLifecycleMixin(_StorageManagerState):
         if_revision: str | None = None,
     ) -> bool:
         """
-        Forget one Replica claim after optional absence confirmation.
+        Remove a claim after optional absence evidence and revision checks, without deleting bytes.
+
+        Read the record under the lock and return False if absent, then check the optional revision.
+        When absence is required, only StoreNotFound from stat is accepted; successful stat raises
+        StoragePreconditionFailed and other errors propagate. The record is fetched again inside the
+        metadata transaction, the revision is checked again, and deletion advances Replica
+        generation.
+
+        The storage observation and metadata deletion are separate operations. With no revision
+        supplied, this is not an atomic proof that bytes remain absent or that the record stayed
+        unchanged between checks.
+
+        Example:
+            >>> removed = manager.forget_replica(replica_id, if_revision=replica.revision)  # doctest: +SKIP
 
 
-        :param replica_id:
-        :param require_bytes_absent:
-        :param if_revision:
-        :return:
+        :param replica_id: Manager-assigned Replica ID to resolve.
+        :param require_bytes_absent: Whether a StoreNotFound observation is required before entering the metadata mutation.
+        :param if_revision: Expected current revision, or None to omit the optimistic precondition.
+        :return: True after removing the claim, or False if absent at either record lookup; precondition and storage errors propagate.
         """
 
         with self._lock:

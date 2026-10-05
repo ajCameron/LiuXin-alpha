@@ -1,10 +1,13 @@
 """
-OverDrive metadata source.
+Identify library-distribution metadata and covers from OverDrive search and detail markup.
 
-This is a modernized, dependency-light implementation that can:
-- identify by OverDrive media id or search terms
-- parse metadata from OverDrive detail HTML (JSON-LD + meta fallbacks)
-- download covers from cached/discovered URLs
+The module keeps network, parsing, caching, cancellation and result-order behavior
+explicit for callers.
+
+Example:
+    Exercise overdrive with the owning regression module::
+
+        python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
 """
 
 from __future__ import annotations
@@ -38,6 +41,19 @@ _TAG_RE = re.compile(r"<[^>]+>")
 
 
 def _as_text(raw) -> str:
+    """
+    Convert optional or hostile input to text without propagating conversion failures.
+
+    Example:
+        Exercise  as text with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     if isinstance(raw, bytes):
         return raw.decode("utf-8", "replace")
     try:
@@ -47,6 +63,19 @@ def _as_text(raw) -> str:
 
 
 def _first(raw):
+    """
+    Perform the overdrive first operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  first with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     if raw is None:
         return None
     if isinstance(raw, (str, bytes)):
@@ -62,12 +91,40 @@ def _first(raw):
 
 
 def _first_identifier_value(identifiers, key):
+    """
+    Perform the overdrive first identifier value operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  first identifier value with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+    :param identifiers: Metadata identifier mapping used for direct lookup and cache
+        resolution.
+    :param key: Value supplied for key.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     if not isinstance(identifiers, Mapping):
         return None
     return _first(identifiers.get(key))
 
 
 def _extract_overdrive_id(raw) -> str | None:
+    """
+    Extract overdrive id with stable ordering and malformed-input tolerance.
+
+    Example:
+        Exercise  extract overdrive id with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     text = _as_text(raw).strip()
     if not text:
         return None
@@ -81,10 +138,37 @@ def _extract_overdrive_id(raw) -> str | None:
 
 
 def _strip_tags(raw: str) -> str:
+    """
+    Normalize strip tags into the provider's canonical safe representation.
+
+    Example:
+        Exercise  strip tags with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     return re.sub(r"\s+", " ", _TAG_RE.sub(" ", _as_text(raw))).strip()
 
 
 def _safe_isbn(identifiers) -> str | None:
+    """
+    Return a validated isbn or the documented empty fallback.
+
+    Example:
+        Exercise  safe isbn with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+    :param identifiers: Metadata identifier mapping used for direct lookup and cache
+        resolution.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     for key in ("isbn", "isbn13", "isbn10"):
         raw = _first_identifier_value(identifiers or {}, key)
         if raw is None:
@@ -96,6 +180,19 @@ def _safe_isbn(identifiers) -> str | None:
 
 
 def _parse_pubdate(raw) -> datetime | None:
+    """
+    Parse pubdate without inventing absent provider data.
+
+    Example:
+        Exercise  parse pubdate with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     text = _as_text(raw).strip()
     if not text:
         return None
@@ -123,6 +220,19 @@ def _parse_pubdate(raw) -> datetime | None:
 
 
 def _extract_json_ld_objects(raw_html: str):
+    """
+    Extract json ld objects with stable ordering and malformed-input tolerance.
+
+    Example:
+        Exercise  extract json ld objects with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+    :param raw_html: Provider HTML response to parse without executing content.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     out = []
     for block in re.findall(
         r'<script[^>]+type=["\']application/ld\+json["\'][^>]*>(.*?)</script>',
@@ -144,6 +254,20 @@ def _extract_json_ld_objects(raw_html: str):
 
 
 def _extract_overdrive_ids_from_search_html(raw_html: str, limit: int = 8):
+    """
+    Extract overdrive ids from search html with stable ordering and malformed-input tolerance.
+
+    Example:
+        Exercise  extract overdrive ids from search html with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+    :param raw_html: Provider HTML response to parse without executing content.
+    :param limit: Maximum number of unique provider results to retain.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     seen = OrderedDict()
     for media_id in _MEDIA_ID_RE.findall(_as_text(raw_html)):
         norm = _extract_overdrive_id(media_id)
@@ -156,6 +280,20 @@ def _extract_overdrive_ids_from_search_html(raw_html: str, limit: int = 8):
 
 
 def _extract_meta_content(raw_html: str, key: str):
+    """
+    Extract meta content with stable ordering and malformed-input tolerance.
+
+    Example:
+        Exercise  extract meta content with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+    :param raw_html: Provider HTML response to parse without executing content.
+    :param key: Value supplied for key.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     for pat in (
         rf'<meta[^>]+property=["\']{re.escape(key)}["\'][^>]+content=["\'](.*?)["\']',
         rf'<meta[^>]+name=["\']{re.escape(key)}["\'][^>]+content=["\'](.*?)["\']',
@@ -167,6 +305,19 @@ def _extract_meta_content(raw_html: str, key: str):
 
 
 def _html_title(raw_html: str) -> str | None:
+    """
+    Perform the overdrive html title operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  html title with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+    :param raw_html: Provider HTML response to parse without executing content.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     match = re.search(r"<title[^>]*>(.*?)</title>", raw_html, re.IGNORECASE | re.DOTALL)
     if not match:
         return None
@@ -174,6 +325,19 @@ def _html_title(raw_html: str) -> str | None:
 
 
 def _response_markers(raw_html: str) -> dict:
+    """
+    Perform the overdrive response markers operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  response markers with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+    :param raw_html: Provider HTML response to parse without executing content.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     html = _as_text(raw_html)
     lowered = html.lower()
     return {
@@ -190,6 +354,19 @@ def _response_markers(raw_html: str) -> dict:
 
 
 def _parse_series_and_index(raw):
+    """
+    Parse series and index without inventing absent provider data.
+
+    Example:
+        Exercise  parse series and index with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     text = _as_text(raw).strip()
     if not text:
         return None, None
@@ -210,6 +387,19 @@ def _parse_series_and_index(raw):
 
 
 def _safe_cover_url(raw: str) -> str:
+    """
+    Return a validated cover url or the documented empty fallback.
+
+    Example:
+        Exercise  safe cover url with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     text = _as_text(raw).strip()
     if not text:
         return ""
@@ -220,6 +410,14 @@ def _safe_cover_url(raw: str) -> str:
 
 
 class OverDrive(Source):
+    """
+    Implement the overdrive metadata-source integration and its explicit recovery policy.
+
+    Example:
+        Exercise OverDrive with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+    """
     name = "OverDrive"
     version = (2, 0, 0)
     description = _("Downloads metadata and covers from OverDrive")
@@ -262,6 +460,18 @@ class OverDrive(Source):
     HTTP_RETRY_MAX_SECONDS = 6.0
 
     def _retry_policy(self) -> RetryPolicy:
+        """
+        Build the bounded retry policy used by this provider's HTTP requests.
+
+        Example:
+            Exercise OverDrive. retry policy with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         return RetryPolicy(
             attempts=int(self.HTTP_RETRY_ATTEMPTS),
             base_delay=float(self.HTTP_RETRY_BASE_SECONDS),
@@ -269,6 +479,19 @@ class OverDrive(Source):
         )
 
     def _retry_backoff(self, attempt: int) -> float:
+        """
+        Compute the capped delay for one provider retry attempt.
+
+        Example:
+            Exercise OverDrive. retry backoff with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+        :param attempt: Zero-based retry attempt used to calculate backoff.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         return compute_backoff_delay(
             attempt=attempt,
             base_delay=float(self.HTTP_RETRY_BASE_SECONDS),
@@ -276,9 +499,39 @@ class OverDrive(Source):
         )
 
     def _wait_for_backoff(self, abort, delay: float) -> bool:
+        """
+        Wait interruptibly for a retry delay and report whether it completed.
+
+        Example:
+            Exercise OverDrive. wait for backoff with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param delay: Backoff duration in seconds.
+        :return: True when the described condition is satisfied; otherwise False.
+        """
         return wait_for_backoff(abort, delay)
 
     def _open_bytes_with_backoff(self, log, abort, url: str, timeout: int, context: str):
+        """
+        Run the open bytes operation with bounded retry, diagnostics and cancellation.
+
+        Example:
+            Exercise OverDrive. open bytes with backoff with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+        :param log: Logger receiving structured provider diagnostics.
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param url: Provider URL to normalize, request or associate with cached data.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :param context: Short operation label included in retry diagnostics.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         return call_with_backoff(
             lambda: self.browser().open_novisit(url, timeout=timeout).read(),
             log=log,
@@ -295,12 +548,46 @@ class OverDrive(Source):
         )
 
     def _open_text_with_backoff(self, log, abort, url: str, timeout: int, context: str):
+        """
+        Run the open text operation with bounded retry, diagnostics and cancellation.
+
+        Example:
+            Exercise OverDrive. open text with backoff with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+        :param log: Logger receiving structured provider diagnostics.
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param url: Provider URL to normalize, request or associate with cached data.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :param context: Short operation label included in retry diagnostics.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         raw = self._open_bytes_with_backoff(log=log, abort=abort, url=url, timeout=timeout, context=context)
         if not raw:
             return ""
         return decode_http_body(raw)
 
     def _open_text_or_none(self, log, abort, url: str, timeout: int, context: str):
+        """
+        Perform the provider open text or none operation with explicit timeout and response policy.
+
+        Example:
+            Exercise OverDrive. open text or none with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+        :param log: Logger receiving structured provider diagnostics.
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param url: Provider URL to normalize, request or associate with cached data.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :param context: Short operation label included in retry diagnostics.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         try:
             return self._open_text_with_backoff(log=log, abort=abort, url=url, timeout=timeout, context=context)
         except Exception as err:
@@ -313,12 +600,39 @@ class OverDrive(Source):
             return ""
 
     def get_book_url(self, identifiers):
+        """
+        Return canonical provider link tuples for recognized metadata identifiers.
+
+        Example:
+            Exercise OverDrive.get book url with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+        :param identifiers: Metadata identifier mapping used for direct lookup and cache
+            resolution.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         media_id = _extract_overdrive_id(_first_identifier_value(identifiers or {}, "overdrive"))
         if media_id:
             return ("overdrive", media_id, self.DETAIL_BASE + media_id)
         return None
 
     def id_from_url(self, url):
+        """
+        Extract a normalized provider identifier from a recognized canonical URL.
+
+        Example:
+            Exercise OverDrive.id from url with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+        :param url: Provider URL to normalize, request or associate with cached data.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         parsed = urlparse(_as_text(url))
         m = _MEDIA_ID_RE.search(parsed.path or "")
         if not m:
@@ -326,6 +640,20 @@ class OverDrive(Source):
         return ("overdrive", m.group(1))
 
     def get_cached_cover_url(self, identifiers):
+        """
+        Return cached cover url when present without network access.
+
+        Example:
+            Exercise OverDrive.get cached cover url with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+        :param identifiers: Metadata identifier mapping used for direct lookup and cache
+            resolution.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         media_id = _extract_overdrive_id(_first_identifier_value(identifiers or {}, "overdrive"))
         if media_id is None:
             isbn = _safe_isbn(identifiers or {})
@@ -336,6 +664,22 @@ class OverDrive(Source):
         return self.cached_identifier_to_cover_url(_as_text(media_id))
 
     def create_query(self, title=None, authors=None, identifiers=None):
+        """
+        Build create query from normalized identifiers and search inputs.
+
+        Example:
+            Exercise OverDrive.create query with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+        :param title: Book title used to construct or rank the provider query.
+        :param authors: Author names used to construct or rank the provider query.
+        :param identifiers: Metadata identifier mapping used for direct lookup and cache
+            resolution.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         identifiers = identifiers or {}
         media_id = _extract_overdrive_id(_first_identifier_value(identifiers, "overdrive"))
         if media_id:
@@ -354,6 +698,21 @@ class OverDrive(Source):
         return ("search", self.SEARCH_BASE + quote_plus(query), None)
 
     def _metadata_from_detail_html(self, raw_html: str, media_id: str | None, relevance: int):
+        """
+        Project one provider record into normalized metadata and retain source relevance.
+
+        Example:
+            Exercise OverDrive. metadata from detail html with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+        :param raw_html: Provider HTML response to parse without executing content.
+        :param media_id: Value supplied for media id.
+        :param relevance: Zero-based provider result relevance.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         html = _as_text(raw_html)
         title = ""
         authors = []
@@ -509,6 +868,25 @@ class OverDrive(Source):
         identifiers=None,
         timeout=30,
     ):
+        """
+        Run provider lookup, honor cancellation, isolate per-result failures and enqueue normalized metadata.
+
+        Example:
+            Exercise OverDrive.identify with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+        :param log: Logger receiving structured provider diagnostics.
+        :param result_queue: Queue receiving normalized metadata or cover results.
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param title: Book title used to construct or rank the provider query.
+        :param authors: Author names used to construct or rank the provider query.
+        :param identifiers: Metadata identifier mapping used for direct lookup and cache
+            resolution.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :return: None.
+        """
         identifiers = identifiers or {}
         if abort.is_set():
             return
@@ -588,6 +966,26 @@ class OverDrive(Source):
         timeout=30,
         get_best_cover=False,
     ):
+        """
+        Resolve and download cover candidates, honor cancellation and enqueue valid image bytes.
+
+        Example:
+            Exercise OverDrive.download cover with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_overdrive.py
+
+
+        :param log: Logger receiving structured provider diagnostics.
+        :param result_queue: Queue receiving normalized metadata or cover results.
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param title: Book title used to construct or rank the provider query.
+        :param authors: Author names used to construct or rank the provider query.
+        :param identifiers: Metadata identifier mapping used for direct lookup and cache
+            resolution.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :param get_best_cover: Stop after the best usable cover when true.
+        :return: None.
+        """
         del get_best_cover
         identifiers = identifiers or {}
 

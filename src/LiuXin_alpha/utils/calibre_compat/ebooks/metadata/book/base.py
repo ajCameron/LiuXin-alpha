@@ -1,7 +1,13 @@
-"""calibre.ebooks.metadata.book.base compatibility layer.
+"""
+Provide a compact Calibre-compatible metadata container and field access surface.
 
-Use LiuXin's calibre-derived metadata implementation as the canonical
-``Metadata`` class exposed to calibre plugins.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise base through a consuming regression::
+
+        python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
 """
 
 from __future__ import annotations
@@ -35,12 +41,37 @@ field_metadata = _core_base.field_metadata
 
 
 def reset_field_metadata():
+    """
+    Perform the reset field metadata utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise reset field metadata through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     _core_base.reset_field_metadata()
     globals()["field_metadata"] = _core_base.field_metadata
 
 
 def human_readable(size, precision=2):
-    """Match calibre's display semantics for byte sizes."""
+    """
+    Match calibre's display semantics for byte sizes.
+
+    Example:
+        Exercise human readable through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+    :param size: Value supplied for size under the utility contract.
+    :param precision: Value supplied for precision under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     ans = size / (1024 * 1024)
     if ans < 0.1:
         return "<0.1 MB"
@@ -48,7 +79,14 @@ def human_readable(size, precision=2):
 
 
 class Metadata(_CoreMetadata):
-    """Calibre-compatible Metadata object backed by LiuXin internals."""
+    """
+    Calibre-compatible Metadata object backed by LiuXin internals.
+
+    Example:
+        Exercise Metadata through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
 
     # Keep parity with calibre API where these constants are expected
     # to exist on module import targets.
@@ -59,33 +97,122 @@ class Metadata(_CoreMetadata):
     TOP_LEVEL_IDENTIFIERS = TOP_LEVEL_IDENTIFIERS
 
     def set_null(self, field):
+        """
+        Set null under the documented compatibility and safety rules.
+
+        Example:
+            Exercise Metadata.set null through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param field: Metadata or template field addressed by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         null_val = copy.copy(NULL_VALUES.get(field))
         setattr(self, field, null_val)
 
     def _evaluate_all_composites(self):
+        """
+        Perform the evaluate all composites utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise Metadata. evaluate all composites through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         custom_fields = object.__getattribute__(self, "_data")["user_metadata"]
         for field in custom_fields:
             self._evaluate_composite(field)
 
     def _evaluate_composite(self, field):
+        """
+        Perform the evaluate composite utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise Metadata. evaluate composite through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param field: Metadata or template field addressed by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         f = object.__getattribute__(self, "_data")["user_metadata"].get(field, None)
         if f is not None and f.get("datatype") == "composite" and f.get("#value#") is None:
             self.get(field)
 
     def deepcopy(self, class_generator=lambda: None):
+        """
+        Perform the deepcopy utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise Metadata.deepcopy through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param class_generator: Value supplied for class generator under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if class_generator is None:
             class_generator = lambda: Metadata(None)
         return super().deepcopy(class_generator=class_generator)
 
     def deepcopy_metadata(self):
+        """
+        Perform the deepcopy metadata utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise Metadata.deepcopy metadata through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         m = Metadata(None)
         object.__setattr__(m, "_data", copy.deepcopy(object.__getattribute__(self, "_data")))
         return m
 
     def __unicode__representation__(self):
+        """
+        Perform the unicode representation utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise Metadata.  unicode  representation   through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.__unicode__()
 
     def remove_stale_user_metadata(self, other_mi):
+        """
+        Remove stale user metadata under the documented compatibility and safety rules.
+
+        Example:
+            Exercise Metadata.remove stale user metadata through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param other_mi: Value supplied for other mi under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         me = self.get_all_user_metadata(make_copy=False)
         other = set(other_mi.custom_field_keys())
         new = {}
@@ -102,7 +229,14 @@ def get_model_metadata_instance():
     """
     Return a metadata instance populated with plausible values.
 
-    Mirrors calibre behavior and is intended for GUI-thread use.
+    Example:
+        Exercise get model metadata instance through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     from calibre.gui2 import is_gui_thread
 

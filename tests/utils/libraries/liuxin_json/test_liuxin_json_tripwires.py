@@ -1,15 +1,13 @@
-"""Tripwire tests for LiuXin's JSON fork.
+"""
+Provide test liuxin json tripwires utility behavior.
 
-These tests run a *nested* pytest invocation in a fresh subprocess to catch the
-exact class of failure you previously hit:
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
 
-  - LiuXin accidentally monkeypatches stdlib `json` (or `json.decoder`)
-  - pytest's cacheprovider attempts to read a corrupted/empty cache JSON file
-  - instead of a recoverable ValueError, something uncaught is raised and the
-    pytest process crashes.
+Example:
+    Exercise test liuxin json tripwires through a consuming regression::
 
-The subprocess approach makes these tests immune to import order / prior state
-in the current test session.
+        python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json_tripwires.py
 """
 
 from __future__ import annotations
@@ -23,7 +21,18 @@ import pytest
 
 
 def _project_root() -> Path:
-    """Locate the project root by walking up until we find src/ and tests/."""
+    """
+    Locate the project root by walking up until we find src/ and tests/.
+
+    Example:
+        Exercise  project root through a consuming regression::
+
+            python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json_tripwires.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     here = Path(__file__).resolve()
     for parent in here.parents:
         if (parent / "src").exists() and (parent / "tests").exists():
@@ -44,12 +53,20 @@ def test_tripwire_pytest_cacheprovider_corrupt_lastfailed_does_not_crash(
     tmp_path: Path,
     corrupt_content: str,
 ) -> None:
-    """Running pytest should *not* crash even if lastfailed cache is corrupt.
+    """
+    Running pytest should *not* crash even if lastfailed cache is corrupt.
 
-    This is the same failure mode you saw in the terminal: pytest calls
-    Cache.get("cache/lastfailed", {}), which does json.load() on a cache file.
-    JSONDecodeError is a ValueError and should be caught by pytest; any crash
-    here strongly suggests stdlib json was modified.
+    Example:
+        Exercise test tripwire pytest cacheprovider corrupt lastfailed does not crash through a consuming regression::
+
+            python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json_tripwires.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param corrupt_content: Value supplied for corrupt content under the utility
+        contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     # Minimal test project.
     (tmp_path / "test_dummy.py").write_text(

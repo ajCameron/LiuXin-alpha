@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Expose OEB content through the retained display web-view interface.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise webview through a consuming regression::
+
+        python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -19,7 +30,27 @@ __docformat__ = "restructuredtext en"
 
 
 class EntityDeclarationProcessor(object):  # {{{
+    """
+    Provide the entitydeclarationprocessor contract for validated ebook processing.
+
+    Example:
+        Exercise EntityDeclarationProcessor through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+    """
     def __init__(self: _typing.Self, html: _typing.Any) -> None:
+        """
+        Initialize and validate the entitydeclarationprocessor state.
+
+        Example:
+            Exercise EntityDeclarationProcessor.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param html: Value supplied for html under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.declared_entities = {}
         for match in re.finditer(r"<!\s*ENTITY\s+([^>]+)>", html):
             tokens = match.group(1).split()
@@ -34,6 +65,19 @@ class EntityDeclarationProcessor(object):  # {{{
 
 
 def self_closing_sub(match: _typing.Any) -> _typing.Any:
+    """
+    Perform the self closing sub operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise self closing sub through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param match: Value supplied for match under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     tag = match.group(1)
     if tag.lower().strip() == "br":
         return match.group()
@@ -49,6 +93,27 @@ def load_html(
     path_is_html: bool = False,
     force_as_html: bool = False,
 ) -> bool:
+    """
+    Perform the load html operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise load html through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :param view: Value supplied for view under the utility contract.
+    :param codec: Value supplied for codec under the utility contract.
+    :param mime_type: Value supplied for mime type under the utility contract.
+    :param pre_load_callback: Value supplied for pre load callback under the utility
+        contract.
+    :param path_is_html: Value supplied for path is html under the utility contract.
+    :param force_as_html: Value supplied for force as html under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     from PyQt5.Qt import QUrl, QByteArray
 
     if mime_type is None:

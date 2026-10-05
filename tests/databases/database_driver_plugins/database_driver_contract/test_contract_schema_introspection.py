@@ -1,9 +1,10 @@
-"""Driver contract: schema introspection.
+"""
+Check schema discovery, declared types, link capabilities, column policies, normalized identities, and eligible views.
 
-This module exercises the driver's table/column discovery helpers. These are
-core building blocks used throughout the higher-level Database APIs.
+Example:
+    Run with pytest::
 
-The tests are intentionally backend-agnostic and run for every selected driver.
+        python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_schema_introspection.py
 """
 
 from __future__ import annotations
@@ -26,14 +27,37 @@ from LiuXin_alpha.utils.language_tools.pluralizers import plural_singular_mapper
 
 
 def _coerce_str_set(values: Iterable[str]) -> set[str]:
+    """
+    Convert each supplied item to str and deduplicate the resulting values.
+
+    Example:
+        >>> sorted(_coerce_str_set([1, '1', None]))
+        ['1', 'None']
+
+
+    :param values: Iterable of values accepted by str.
+    :return: Set of string representations.
+    """
     return {str(v) for v in values}
 
 
 def _discover_views(driver) -> list[str]:
-    """Return view names using sqlite_master.
+    """
+    List view names from driver.conn, retrying through conn.get after any execute/fetchall Exception.
 
-    Not all drivers expose a direct_* view listing helper, so we fall back to a
-    direct SQL query against the connection.
+    Return an empty list without a connection. Ignore None rows, take the first item of
+    list/tuple rows, and stringify other rows. Empty list/tuple rows raise IndexError;
+    names retain query order.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_schema_introspection.py
+
+
+    :param driver: Driver supplied by the isolated Database fixture; teardown attempts
+        to close it.
+    :return: List of view-name strings; no commit or close occurs.
     """
 
     conn = getattr(driver, "conn", None)
@@ -58,6 +82,21 @@ def _discover_views(driver) -> list[str]:
 
 
 def test_direct_get_tables_is_deterministic_and_cached(driver) -> None:
+    """
+    Require refreshed and cached table results to have equal name sets and include the core schema relations.
+
+    The test compares contents, without measuring query counts or cache object identity.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_schema_introspection.py::test_direct_get_tables_is_deterministic_and_cached
+
+
+    :param driver: Driver supplied by the isolated Database fixture; teardown attempts
+        to close it.
+    :return: None; failed expectations raise AssertionError.
+    """
     tables_first = driver.direct_get_tables(force_refresh=True)
     tables_second = driver.direct_get_tables()
 
@@ -76,6 +115,22 @@ def test_direct_get_tables_is_deterministic_and_cached(driver) -> None:
 
 
 def test_direct_get_tables_and_columns_is_total_and_stable(driver) -> None:
+    """
+    Check table/column mapping shape and repeated keys, then compare headings and exercise available ID/timestamp helpers.
+
+    Only tables with matching column-name patterns exercise each helper; at least one of
+    each must be checked.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_schema_introspection.py::test_direct_get_tables_and_columns_is_total_and_stable
+
+
+    :param driver: Driver supplied by the isolated Database fixture; teardown attempts
+        to close it.
+    :return: None; failed expectations raise AssertionError.
+    """
     tac_first = driver.direct_get_tables_and_columns()
     tac_second = driver.direct_get_tables_and_columns()
 
@@ -126,6 +181,19 @@ def test_direct_get_tables_and_columns_is_total_and_stable(driver) -> None:
 
 
 def test_declared_column_datatype_is_available_and_strict(driver) -> None:
+    """
+    Require INTEGER and TEXT metadata types and InputIntegrityError for unknown columns or tables.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_schema_introspection.py::test_declared_column_datatype_is_available_and_strict
+
+
+    :param driver: Driver supplied by the isolated Database fixture; teardown attempts
+        to close it.
+    :return: None; failed expectations raise AssertionError.
+    """
     assert (
         driver.direct_get_declared_column_datatype(
             "database_metadata",
@@ -155,6 +223,19 @@ def test_declared_column_datatype_is_available_and_strict(driver) -> None:
 
 
 def test_declared_column_datatype_cache_is_invalidated_with_schema_cache(driver) -> None:
+    """
+    Populate the declared-type cache, invalidate schema caches, and require the captured cache dictionary to be empty.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_schema_introspection.py::test_declared_column_datatype_cache_is_invalidated_with_schema_cache
+
+
+    :param driver: Driver supplied by the isolated Database fixture; teardown attempts
+        to close it.
+    :return: None; failed expectations raise AssertionError.
+    """
     driver.direct_get_declared_column_datatype(
         "database_metadata",
         "database_metadata_unique_id",
@@ -182,6 +263,22 @@ def test_direct_link_capabilities_classify_physical_link_columns(
     table2: str,
     expected_kind: LinkKind,
 ) -> None:
+    """
+    Require the expected link kind, matching typed/priority flags, and actual declared optional columns.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_schema_introspection.py::test_direct_link_capabilities_classify_physical_link_columns
+
+
+    :param driver: Driver supplied by the isolated Database fixture; teardown attempts
+        to close it.
+    :param table1: First table in the parametrized schema pair.
+    :param table2: Second table in the parametrized schema pair.
+    :param expected_kind: Expected LinkKind enum member for the pair.
+    :return: None; failed expectations raise AssertionError.
+    """
     capabilities = driver.direct_get_link_capabilities(table1, table2)
 
     assert capabilities is not None
@@ -209,6 +306,19 @@ def test_direct_link_capabilities_classify_physical_link_columns(
 
 
 def test_direct_link_capabilities_distinguish_absent_and_invalid_links(driver) -> None:
+    """
+    Require None/False for valid unlinked tables and InputIntegrityError for a missing table.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_schema_introspection.py::test_direct_link_capabilities_distinguish_absent_and_invalid_links
+
+
+    :param driver: Driver supplied by the isolated Database fixture; teardown attempts
+        to close it.
+    :return: None; failed expectations raise AssertionError.
+    """
     assert (
         driver.direct_get_link_capabilities("agents", "database_metadata")
         is None
@@ -225,6 +335,19 @@ def test_direct_link_capabilities_distinguish_absent_and_invalid_links(driver) -
 
 
 def test_direct_link_capabilities_support_intralinks(driver) -> None:
+    """
+    Require works intralinks to expose the typed self-link table and type column without a priority column.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_schema_introspection.py::test_direct_link_capabilities_support_intralinks
+
+
+    :param driver: Driver supplied by the isolated Database fixture; teardown attempts
+        to close it.
+    :return: None; failed expectations raise AssertionError.
+    """
     capabilities = driver.direct_get_link_capabilities("works", "works")
 
     assert capabilities is not None
@@ -235,6 +358,19 @@ def test_direct_link_capabilities_support_intralinks(driver) -> None:
 
 
 def test_column_case_sensitivity_is_persisted_and_strict(driver) -> None:
+    """
+    Check known case-sensitivity flags, toggle the title flag with finally restoration, and reject non-bool or unknown inputs.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_schema_introspection.py::test_column_case_sensitivity_is_persisted_and_strict
+
+
+    :param driver: Driver supplied by the isolated Database fixture; teardown attempts
+        to close it.
+    :return: None; failed expectations raise AssertionError.
+    """
     assert driver.direct_get_case_sensitivity("tags", "tag") is False
     assert driver.direct_get_case_sensitivity("works", "work_title") is False
     assert driver.direct_get_case_sensitivity("notes", "note") is True
@@ -256,6 +392,21 @@ def test_column_case_sensitivity_is_persisted_and_strict(driver) -> None:
 
 
 def test_column_metadata_policy_is_complete_and_persisted(driver) -> None:
+    """
+    Check taxonomy, identifier, relationship-key, and scratch policies, round-trip a changed title merge policy, and reject an unknown comparison column.
+
+    Restore title metadata in finally after the mutation attempt.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_schema_introspection.py::test_column_metadata_policy_is_complete_and_persisted
+
+
+    :param driver: Driver supplied by the isolated Database fixture; teardown attempts
+        to close it.
+    :return: None; failed expectations raise AssertionError.
+    """
     metadata = driver.direct_get_column_metadata("tags", "tag")
 
     assert metadata.semantic_role is ColumnSemanticRole.TAXONOMY_TERM
@@ -302,6 +453,22 @@ def test_column_metadata_policy_is_complete_and_persisted(driver) -> None:
 
 
 def test_normalized_identity_declarations_are_database_backed(driver) -> None:
+    """
+    Require tag and parent-scoped genre identities, their iterator membership, and no title identity.
+
+    Reject incompatible normalization, comparison-column removal, and case sensitivity
+    for the declared tag identity.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_schema_introspection.py::test_normalized_identity_declarations_are_database_backed
+
+
+    :param driver: Driver supplied by the isolated Database fixture; teardown attempts
+        to close it.
+    :return: None; failed expectations raise AssertionError.
+    """
     tag_spec = driver.direct_get_normalized_identity_spec("tags", "tag")
     assert tag_spec is not None
     assert tag_spec.identity_column == "tag_phash"
@@ -334,6 +501,22 @@ def test_normalized_identity_declarations_are_database_backed(driver) -> None:
 
 
 def test_column_metadata_field_accessors_are_typed_and_persisted(driver) -> None:
+    """
+    Round-trip each title policy accessor and nested formatting/display options, then restore the complete original record in finally.
+
+    Require InputIntegrityError for an unknown comparison column, set-valued formatting
+    option, and NaN display option.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_schema_introspection.py::test_column_metadata_field_accessors_are_typed_and_persisted
+
+
+    :param driver: Driver supplied by the isolated Database fixture; teardown attempts
+        to close it.
+    :return: None; failed expectations raise AssertionError.
+    """
     table = "works"
     column = "work_title"
     original = driver.direct_get_column_metadata(table, column)
@@ -448,6 +631,19 @@ def test_column_metadata_field_accessors_are_typed_and_persisted(driver) -> None
 
 
 def test_column_naming_helpers_match_pluralizer(driver) -> None:
+    """
+    Compare both column-base helpers with the pluralizer for each present relation in the representative sample.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_schema_introspection.py::test_column_naming_helpers_match_pluralizer
+
+
+    :param driver: Driver supplied by the isolated Database fixture; teardown attempts
+        to close it.
+    :return: None; failed expectations raise AssertionError.
+    """
     tables = _coerce_str_set(driver.direct_get_tables(force_refresh=True))
 
     # Representative sample: test common tables if present.
@@ -475,6 +671,19 @@ def test_column_naming_helpers_match_pluralizer(driver) -> None:
 
 
 def test_validate_existing_table_name_accepts_real_and_rejects_controls(driver) -> None:
+    """
+    Accept an existing table with optional surrounding spaces and reject semicolon, colon, or ampersand suffixes.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_schema_introspection.py::test_validate_existing_table_name_accepts_real_and_rejects_controls
+
+
+    :param driver: Driver supplied by the isolated Database fixture; teardown attempts
+        to close it.
+    :return: None; failed expectations raise AssertionError.
+    """
     tables = driver.direct_get_tables(force_refresh=True)
     assert tables
 
@@ -493,6 +702,19 @@ def test_validate_existing_table_name_accepts_real_and_rejects_controls(driver) 
 
 
 def test_unknown_table_raises_input_integrity(driver) -> None:
+    """
+    Require InputIntegrityError from heading and ID discovery for a missing table.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_schema_introspection.py::test_unknown_table_raises_input_integrity
+
+
+    :param driver: Driver supplied by the isolated Database fixture; teardown attempts
+        to close it.
+    :return: None; failed expectations raise AssertionError.
+    """
     with pytest.raises(InputIntegrityError):
         driver.direct_get_column_headings("__definitely_not_a_real_table__")
 
@@ -501,6 +723,22 @@ def test_unknown_table_raises_input_integrity(driver) -> None:
 
 
 def test_view_introspection_if_views_exist(driver) -> None:
+    """
+    Check view headings and dictionary keys for views with usable literal id rows.
+
+    Suppress row-probe exceptions and skip unresolvable rows; skip the test when no view
+    or eligible row is exercised.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_schema_introspection.py::test_view_introspection_if_views_exist
+
+
+    :param driver: Driver supplied by the isolated Database fixture; teardown attempts
+        to close it.
+    :return: None; failed expectations raise AssertionError.
+    """
     views = _discover_views(driver)
     if not views:
         pytest.skip("No SQL views found in this test database")

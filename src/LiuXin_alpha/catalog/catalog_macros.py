@@ -1,14 +1,13 @@
 
-"""Frozen reference helpers for the pre-facade catalog write path.
+"""
+Frozen reference helpers for the pre-facade catalog write path.
 
-Existing Calibre-cache callers still import these functions. New catalog code
-must use :class:`Catalog` repositories, coordinated mutations, or normalized
-writers. The module is retained after callers migrate because its direct-SQL
-operations are useful reference material for future measured fast paths. It
-must not gain new callers or features while it remains a compatibility path.
-
-The helpers do not own transaction commits; transaction policy belongs to
-their caller or the database operation they invoke.
+Existing compatibility consumers require legacy tables and helper attributes.
+New Catalog code must use repositories, coordinated mutations or normalized
+writers. Retain these direct-SQL operations as reference material without new
+callers or features. Helpers do not open a transaction or commit themselves;
+atomicity and commit policy belong to the caller or delegated operation.
+Multi-step helpers can leave partial effects when a later operation fails.
 """
 from __future__ import division, absolute_import, print_function, unicode_literals, annotations
 
@@ -28,25 +27,34 @@ if TYPE_CHECKING:
 
 def library_set_title(db: "CatalogAPI", title_id: int, title: str) -> None:
     """
-    Set the title of the work - updates both the title table and the books table.
+    Forward a legacy title change to metadata_sql.update_title.
 
-    If you attempt to set the title to something with evaluates as False the attempted update will be ignored.
-    :param db: The database to preform the set in
-    :param title_id: The id the title to update the title for
-    :param title: The title string to set the title too
-    :return:
+    Example:
+        A title update delegates validation and any related book-row changes to update_title.
+
+
+    :param db: Legacy Catalog/database facade supplying metadata_sql and any row helpers used here.
+    :param title_id: Legacy title ID.
+    :param title: Title value passed unchanged to the SQL helper.
+    :return: None; delegated return values are discarded and failures propagate.
     """
     db.metadata_sql.update_title(title_id=title_id, title=title)
 
 
 def library_add_feed(db: "CatalogAPI", title: Union[bytes, str], script: Union[bytes, str]) -> None:
     """
-    Add to the field table - assume that the title and script is encoded in utf-8.
+    Decode byte feed values as UTF-8 before inserting the feed.
 
-    :param db: The database to do the update on
-    :param title: The title of the feed
-    :param script: The script to fetch the feed
-    :return:
+    Decoding failures propagate before insertion; nonbytes values pass through unchanged.
+
+    Example:
+        UTF-8 bytes for the title and script become strings before add_feed is called.
+
+
+    :param db: Legacy Catalog/database facade supplying metadata_sql and any row helpers used here.
+    :param title: Feed title as text or UTF-8 bytes.
+    :param script: Feed script as text or UTF-8 bytes.
+    :return: None; delegated return values are discarded and failures propagate.
     """
     if isbytestring(title):
         title = title.decode("utf-8")
@@ -57,61 +65,79 @@ def library_add_feed(db: "CatalogAPI", title: Union[bytes, str], script: Union[b
 
 def library_remove_feeds(db: "CatalogAPI", ids: set[int]) -> None:
     """
-    Remove feeds from the feeds table.
+    Forward feed IDs to the legacy feed deletion helper.
 
-    :param db: The database to do the update on
-    :param ids: The ids of the feeds to remove
-    :return:
+    Example:
+        An empty ID set is forwarded too; the SQL helper determines its effect.
+
+
+    :param db: Legacy Catalog/database facade supplying metadata_sql and any row helpers used here.
+    :param ids: Feed IDs to delete; not copied or validated here.
+    :return: None; delegated return values are discarded and failures propagate.
     """
     db.metadata_sql.delete_feed(ids)
 
 
 def library_unapply_series_tags(db: "CatalogAPI", series_id: int, tags: Iterable[str]):
     """
-    Remove every tag in the given iterator of tags from the given series with the given series_id.
+    Delegate removal of named tags from one Series.
 
-    If the tag is not linked to the series no change is made.
-    :param db: The database to preform the changes to
-    :param series_id: The id of the seris to remove the tags from
-    :param tags: Text of the tags to remove from the series
-    :return:
+    Example:
+        Removing Series tags leaves matching and missing-tag policy to metadata_sql.
+
+
+    :param db: Legacy Catalog/database facade supplying metadata_sql and any row helpers used here.
+    :param series_id: Legacy Series ID.
+    :param tags: Tag texts consumed by the delegated helper.
+    :return: None; delegated return values are discarded and failures propagate.
     """
     db.metadata_sql.unapply_series_tags(series_id, tags)
 
 
 def library_update_feed(db: "CatalogAPI", feed_id: int, script: Union[bytes, str], title: str) -> None:
     """
-    Update the feed table with a new script and title.
+    Forward a feed replacement script and title without decoding.
 
-    :param db: The database to do the update on
-    :param feed_id: Ids from the feed table
-    :param script: The script to update the table with
-    :param title: The title of the feed
-    :return:
+    Example:
+        Unlike feed insertion, this wrapper passes a byte script directly to update_feed.
+
+
+    :param db: Legacy Catalog/database facade supplying metadata_sql and any row helpers used here.
+    :param feed_id: Existing feed ID.
+    :param script: Replacement script passed unchanged, including bytes.
+    :param title: Replacement title passed unchanged.
+    :return: None; delegated return values are discarded and failures propagate.
     """
     db.metadata_sql.update_feed(feed_id, script, title)
 
 
 def library_set_feeds(db: "CatalogAPI", feeds: Iterable[Union[bytes, str]]) -> None:
     """
-    Clears the entire feed table and updates it with entirely new feeds.
+    Delegate complete replacement of the legacy feed collection.
 
-    :param db:
-    :param feeds: An iterable of tuples - title, script. These will be set as the new feed_title, feed_script fields
-                  of the feeds table. The feeds table will be cleared otherwise.
-    :return:
+    Example:
+        Provide title/script pairs to replace feeds; this wrapper does not validate their shape.
+
+
+    :param db: Legacy Catalog/database facade supplying metadata_sql and any row helpers used here.
+    :param feeds: Iterable of title/script pairs expected by set_feeds; the annotation is narrower.
+    :return: None; delegated return values are discarded and failures propagate.
     """
     db.metadata_sql.set_feeds(feeds)
 
 
 def library_set_author_sort(db: "CatalogAPI", title_id, sort):
     """
-    Sets the author sort field for the given book/title id.
+    Forward the legacy title author-sort value.
 
-    :param db:
-    :param title_id:
-    :param sort:
-    :return:
+    Example:
+        Pass the already prepared sort string to the SQL helper; no normalization occurs here.
+
+
+    :param db: Legacy Catalog/database facade supplying metadata_sql and any row helpers used here.
+    :param title_id: Legacy title ID.
+    :param sort: Replacement author-sort value.
+    :return: None; delegated return values are discarded and failures propagate.
     """
     db.metadata_sql.set_author_sort(title_id, sort)
 
@@ -119,23 +145,30 @@ def library_set_author_sort(db: "CatalogAPI", title_id, sort):
 # Todo: I guess this would be in items now? Does it still exist?
 def library_set_cover(db: "CatalogAPI", book_id: int, value: bool) -> None:
     """
-    Update the flag stored in the books table - in book_has_cover
+    Forward the legacy book cover-presence flag.
 
-    :param db:
-    :param book_id:
-    :param value:
-    :return:
+    Example:
+        Setting the flag does not create or inspect a cover file in this wrapper.
+
+
+    :param db: Legacy Catalog/database facade supplying metadata_sql and any row helpers used here.
+    :param book_id: Legacy book ID.
+    :param value: Cover-presence value passed to set_has_cover.
+    :return: None; delegated return values are discarded and failures propagate.
     """
     db.metadata_sql.set_has_cover(book_id, value)
 
 
 def library_remove_unused_series(db: "CatalogAPI") -> None:
     """
-    Remove series that are not currently in use from the specified database.
+    Delegate removal of Series considered unused by the SQL layer.
 
-    "in use" means series linked to works.
-    :param db:
-    :return:
+    Example:
+        The SQL helper decides which unlinked Series rows qualify for removal.
+
+
+    :param db: Legacy Catalog/database facade supplying metadata_sql and any row helpers used here.
+    :return: None; delegated return values are discarded and failures propagate.
     """
     db.metadata_sql.remove_unused_series()
 
@@ -152,27 +185,34 @@ def library_remove_unused_series(db: "CatalogAPI") -> None:
 # Todo: If this means, really, conversion policy, then we should be able to set it at multiple levels
 def library_set_conversion_options(db: "CatalogAPI", book_id: int, fmt: str, options):
     """
-    Sets a conversion option for a book.
+    Delegate storage of per-book, per-format conversion options.
 
-    :param db: The database to preform the update on
-    :param book_id: The id of the book to set the conversion option for (not the id of the entry in the conversion
-                    option table)
-    :param fmt: Format to update the conversion option for
-    :param options: This wil be stored as a CPickle.dump in the conversion_option_data column
-    :return:
+    Example:
+        A caller may store EPUB options under its book ID; this wrapper does not serialize them.
+
+
+    :param db: Legacy Catalog/database facade supplying metadata_sql and any row helpers used here.
+    :param book_id: Legacy book ID.
+    :param fmt: Format key passed unchanged.
+    :param options: Options object; serialization belongs to the SQL helper.
+    :return: None; delegated return values are discarded and failures propagate.
     """
     db.metadata_sql.set_conversion_options(book_id=book_id, fmt=fmt, options=options)
 
 
 def library_delete_conversion_options(db: "CatalogAPI", book_id: int, fmt: str, commit: bool = True) -> None:
     """
-    Remove a conversion option for a given format from a given id
+    Forward conversion-option deletion and its commit preference.
 
-    :param db: The database to preform the update on
-    :param book_id: The id of the book to remove the conversion option from
-    :param fmt: The format to remove the conversion option for
-    :param commit: Commit the change once it's been made
-    :return:
+    Example:
+        Use ``commit=False`` when the delegated operation must participate in caller-owned work.
+
+
+    :param db: Legacy Catalog/database facade supplying metadata_sql and any row helpers used here.
+    :param book_id: Legacy book ID.
+    :param fmt: Format key to delete.
+    :param commit: Commit flag forwarded as the third SQL-helper argument.
+    :return: None; delegated return values are discarded and failures propagate.
     """
     db.metadata_sql.delete_conversion_options(book_id, fmt, commit)
 
@@ -180,12 +220,16 @@ def library_delete_conversion_options(db: "CatalogAPI", book_id: int, fmt: str, 
 # Todo: Sensible, but there are, again, multiple levels this could be applied to.
 def library_set_isbn(db: "CatalogAPI", title_id: int, isbn: str) -> bool:
     """
-    Set an isbn in the identifiers table.
+    Delegate the ISBN update and return its result.
 
-    :param db: The database to preform the update on
-    :param title_id: The id of the book to update.
-    :param isbn: The isbn of the book to update.
-    :return
+    Example:
+        The result of set_title_isbn is returned unchanged.
+
+
+    :param db: Legacy Catalog/database facade supplying metadata_sql and any row helpers used here.
+    :param title_id: Legacy title ID.
+    :param isbn: ISBN text; normalization belongs to the SQL helper.
+    :return: Boolean result reported by metadata_sql.set_title_isbn.
     """
     return db.metadata_sql.set_title_isbn(title_id, isbn)
 
@@ -196,18 +240,24 @@ def library_set_publisher(
         publisher: Optional[str] = None,
         publisher_id: Optional[int] = None) -> tuple[Optional[int], Optional[str]]:
     """
-    Changes the primary publisher of the title to be the given publisher.
+    Promote, create or clear legacy title-publisher relationships.
 
-    If the publisher row is None, then the book_publisher column will be set None.
-    :param db: The database to preform the update on
-    :param title_id: The id of the book row to set the publisher for
-    :param publisher: The publisher string to set - the publisher will be trivially matched to a row in the
-                      publisher row
-    :param publisher_id: If provided, will preform the link to the publisher represented by this id, rather than the
-                         one named in the :param publisher: string.
-                         publisher_id will take precedence over publisher if both are provided.
+    A list is deep-copied and processed in reverse. The returned pair describes
+    the first processed entry (the original last ID), while later recursive calls
+    may change priority again. A truthy scalar ID wins over the name. Otherwise
+    ensure.publisher is called without standardization. Existing links are moved
+    above the global maximum priority; new links are interlinked, then null links
+    are cleared. Failures may leave earlier operations applied.
 
-    :return:
+    Example:
+        An empty publisher-ID list clears publisher links; absent name and ID instead link the null publisher.
+
+
+    :param db: Legacy Catalog/database facade supplying metadata_sql and any row helpers used here.
+    :param title_id: Legacy title ID.
+    :param publisher: Publisher name used only when no truthy publisher ID is supplied.
+    :param publisher_id: Publisher ID; also accepts a list at runtime despite the annotation.
+    :return: Publisher ID/name pair, or (None, None) for clearing/null selection.
     """
     if isinstance(publisher_id, list):
         publisher_id = deepcopy(publisher_id)
@@ -281,15 +331,20 @@ def library_set_publisher(
 # Todo: Probably the answer is items. By default, I think the answer is items
 def library_set_comment(db: "CatalogAPI", title_id: int, text: Optional[str]) -> Optional[int]:
     """
-    Set the primary comment/note on a title (and thus on a book) to be this text.
+    Add and link a truthy comment, or clear comments for a title.
 
-    Multiple comments can be set for a title - this just sets the primary comment.
-    Note - comments are a type of note - so the text will be stored in the notes table and linked to the title with
-    the link type "comment"
-    :param db: The database to preform the update on
-    :param title_id: The id of the title/book to deal with.
-    :param text: The text of the comment to set.
-    :return: Optional new comment id
+    Nonempty text is passed to add.comment, then interlinked to the title;
+    the wrapper reads comment_id from the returned row and does not remove older
+    comments in that branch. It relies on the legacy comment-row contract.
+
+    Example:
+        An empty string clears existing title comments without creating a comment row.
+
+
+    :param db: Legacy Catalog/database facade supplying metadata_sql and any row helpers used here.
+    :param title_id: Legacy title ID.
+    :param text: Comment text; any false-valued input requests clearing.
+    :return: Created comment_id, or None after clearing.
     """
     if text:
         comment_row = db.add.comment(text)
@@ -304,23 +359,30 @@ def library_set_comment(db: "CatalogAPI", title_id: int, text: Optional[str]) ->
 # Todo: This should probably be a bool - as the tag might not match
 def library_delete_tag(db: "CatalogAPI", tag: str) -> None:
     """
-    Delete a tag from the tag text.
+    Delegate deletion of a tag by its stored value.
 
-    :param db:
-    :param tag:
-    :return:
+    Example:
+        Use the stored spelling when calling this exact-value deletion wrapper.
+
+
+    :param db: Legacy Catalog/database facade supplying metadata_sql and any row helpers used here.
+    :param tag: Tag text, passed without lowercasing or stripping.
+    :return: None; delegated return values are discarded and failures propagate.
     """
     db.metadata_sql.delete_tag_by_value(tag)
 
 
 def library_delete_tags(db: "CatalogAPI", tags: Iterable[str]) -> None:
     """
-    Delete every tag from an iterable of tags.
+    Delete tag values one at a time in iterable order.
 
-    No update is made to the cache - presumably this is handled at a higher level.
-    :param db: The database to preform the delete on
-    :param tags: An iterable of tag texts to be deleted.
-    :return:
+    Example:
+        If a later deletion fails, earlier deletions are not rolled back by this helper.
+
+
+    :param db: Legacy Catalog/database facade supplying metadata_sql and any row helpers used here.
+    :param tags: Tag texts; duplicates are not removed.
+    :return: None; delegated return values are discarded and failures propagate.
     """
     for tag in tags:
         library_delete_tag(db, tag)
@@ -328,13 +390,16 @@ def library_delete_tags(db: "CatalogAPI", tags: Iterable[str]) -> None:
 
 def library_unapply_tags(db: "CatalogAPI", book_id: int, tags: Iterable[str]) -> set[int]:
     """
-    Remove every tag in the given tags from the given book_id.
+    Resolve tag values and remove truthy-ID links from a title.
 
-    If the tag is not linked to the book no change is made.
-    :param db: The database to apply the changes to
-    :param book_id: The id of the book/title to remove the tags from
-    :param tags: An iterable of the exact text of each of the tags to remove.
-    :return:
+    Example:
+        An unknown tag still contributes its lookup result (often None) to the returned set.
+
+
+    :param db: Legacy Catalog/database facade supplying metadata_sql and any row helpers used here.
+    :param book_id: Legacy title/book ID.
+    :param tags: Exact tag texts to resolve; no normalization is applied.
+    :return: Set of lookup results, including false-valued misses despite the int annotation.
     """
     tag_ids = set()
     for tag in tags:
@@ -347,13 +412,16 @@ def library_unapply_tags(db: "CatalogAPI", book_id: int, tags: Iterable[str]) ->
 
 def library_unapply_creator_tags(db: "CatalogAPI", creator_id: int, tags: Iterable[str]) -> None:
     """
-    Remove every tag in the given iterator of tags from the given creator with the given creator_id.
+    Resolve exact tag values and unlink truthy matches from a Creator.
 
-    If the tag is not linked to the creator no change is made.
-    :param db: The database to preform the update in
-    :param creator_id:
-    :param tags:
-    :return:
+    Example:
+        Unknown tag values cause no unlink; the locally collected IDs are not returned.
+
+
+    :param db: Legacy Catalog/database facade supplying metadata_sql and any row helpers used here.
+    :param creator_id: Legacy Creator ID.
+    :param tags: Exact tag texts to resolve.
+    :return: None; delegated return values are discarded and failures propagate.
     """
     tag_ids = set()
     for tag in tags:
@@ -365,30 +433,38 @@ def library_unapply_creator_tags(db: "CatalogAPI", creator_id: int, tags: Iterab
 
 def library_unapply_title_tags(db: "CatalogAPI", book_id: int, tags: Iterable[str]) -> set[int]:
     """
-    Remove every tag in the given tags from the given book_id.
+    Apply the title-named alias of library_unapply_tags.
 
-    If the tag is not linked to the book no change is made.
-    :param db:
-    :param book_id: The id of the book/title to remove the tags from
-    :param tags: An iterable of the exact text of each of the tags to remove.
-    :return:
+    Example:
+        The alias preserves false-valued lookup results in the returned set.
+
+
+    :param db: Legacy Catalog/database facade supplying metadata_sql and any row helpers used here.
+    :param book_id: Legacy title/book ID.
+    :param tags: Exact tag texts to resolve.
+    :return: Set returned unchanged by library_unapply_tags, including lookup misses.
     """
     return library_unapply_tags(db, book_id, tags)
 
 
 def library_set_tags(db: "CatalogAPI", title_id: int, tags: Iterable[str], append: bool = False) -> set[int]:
     """
-    Append or replace the given iterable of tag texts for the given book/title id.
+    Replace or append normalized tag links for one title.
 
-    Use the set_creator_tags to set tags for a creator of the work, and set_series_tags to set tags for the series
-    the title is in.
-    tags are matched on their exact text.
-    Use ensure_tags to create tags if needed.
-    :param db: The database to do the update on
-    :param title_id:
-    :param tags: list of strings
-    :param append: If True existing tags are not removed
-    :return:
+    Tags are lowercased and stripped; blank results are ignored. Reuse exact
+    stored values or create missing tags, then add only absent links. Set iteration
+    does not preserve caller order. Clearing occurs before iteration/validation,
+    so a bad tag may leave a partial replacement.
+
+    Example:
+        With append=False, even an empty tag iterable clears existing links.
+
+
+    :param db: Legacy Catalog/database facade supplying metadata_sql and any row helpers used here.
+    :param title_id: Legacy title ID.
+    :param tags: Iterable of tag strings; raw values are deduplicated before normalization.
+    :param append: True retains existing links; false clears them before consuming tags.
+    :return: Set of retained or created tag IDs.
     """
     # If not append - clear all the tags linked to the book/title out - then run the add as normal
     if not append:
@@ -417,13 +493,22 @@ def library_set_tags(db: "CatalogAPI", title_id: int, tags: Iterable[str], appen
 
 def library_set_creator_tags(db: "CatalogAPI", creator_id: int, tags: Iterable[str], append: bool = False) -> None:
     """
-    Set the given iterable of tag texts for the creator specified with the given id.
+    Replace or append normalized tag links for one Creator.
 
-    :param db: The database to do the update on
-    :param creator_id:
-    :param tags:
-    :param append:
-    :return:
+    Tags are lowercased and stripped; blank results are ignored. Reuse exact
+    stored values or create missing tags, then add only absent links. Set iteration
+    does not preserve caller order. Clearing occurs before iteration/validation,
+    so a bad tag may leave a partial replacement.
+
+    Example:
+        With append=False, even an empty tag iterable clears existing links.
+
+
+    :param db: Legacy Catalog/database facade supplying metadata_sql and any row helpers used here.
+    :param creator_id: Legacy Creator ID.
+    :param tags: Iterable of tag strings; raw values are deduplicated before normalization.
+    :param append: True retains existing links; false clears them before consuming tags.
+    :return: None; delegated return values are discarded and failures propagate.
     """
     if not append:
         db.metadata_sql.clear_creator_tag_links_for_creator(creator_id)
@@ -446,13 +531,22 @@ def library_set_creator_tags(db: "CatalogAPI", creator_id: int, tags: Iterable[s
 
 def library_set_series_tags(db: "CatalogAPI", series_id: int, tags: Iterable[str], append: bool = False) -> None:
     """
-    Set the given iterable of tag texts for the series specified with the given id.
+    Replace or append normalized tag links for one Series.
 
-    :param db: The database to do the updates on
-    :param series_id: The id of the series to update the tags for
-    :param tags: An iterable of tags to apply to the series
-    :param append:
-    :return:
+    Tags are lowercased and stripped; blank results are ignored. Reuse exact
+    stored values or create missing tags, then add only absent links. Set iteration
+    does not preserve caller order. Clearing occurs before iteration/validation,
+    so a bad tag may leave a partial replacement.
+
+    Example:
+        With append=False, even an empty tag iterable clears existing links.
+
+
+    :param db: Legacy Catalog/database facade supplying metadata_sql and any row helpers used here.
+    :param series_id: Legacy Series ID.
+    :param tags: Iterable of tag strings; raw values are deduplicated before normalization.
+    :param append: True retains existing links; false clears them before consuming tags.
+    :return: None; delegated return values are discarded and failures propagate.
     """
     if not append:
         db.metadata_sql.clear_series_tag_links_for_series(series_id)
@@ -475,13 +569,22 @@ def library_set_series_tags(db: "CatalogAPI", series_id: int, tags: Iterable[str
 
 def library_set_title_tags(db: "CatalogAPI", title_id: int, tags: Iterable[str], append: bool = False) -> set[int]:
     """
-    Sets the tags for a given title row - see the set_tags method.
+    Replace or append normalized tag links for one title.
 
-    :param db: The database to do the update on
-    :param title_id:
-    :param tags:
-    :param append:
-    :return:
+    Tags are lowercased and stripped; blank results are ignored. Reuse exact
+    stored values or create missing tags, then add only absent links. Set iteration
+    does not preserve caller order. Clearing occurs before iteration/validation,
+    so a bad tag may leave a partial replacement.
+
+    Example:
+        With append=False, even an empty tag iterable clears existing links.
+
+
+    :param db: Legacy Catalog/database facade supplying metadata_sql and any row helpers used here.
+    :param title_id: Legacy title ID.
+    :param tags: Iterable of tag strings; raw values are deduplicated before normalization.
+    :param append: True retains existing links; false clears them before consuming tags.
+    :return: Set of retained or created tag IDs.
     """
     return library_set_tags(db, title_id, tags, append=append)
 
@@ -493,13 +596,21 @@ def library_unset_series(
         series: Optional[Union[int, str]] = None,
         series_id: int = None) -> None:
     """
-    Used when you want to break a link between a series and a title.
+    Resolve an optional Series selector before delegating unlinking.
 
-    :param db:
-    :param title_id:
-    :param series:
-    :param series_id:
-    :return:
+    Integer selectors, including bool, pass through as IDs. A name lookup may
+    return None; the SQL helper determines the resulting unlink scope. No local
+    existence check is performed.
+
+    Example:
+        Conflicting resolved and explicit IDs raise ValueError before the unlink helper is called.
+
+
+    :param db: Legacy Catalog/database facade supplying metadata_sql and any row helpers used here.
+    :param title_id: Legacy title ID.
+    :param series: Series ID or exact name; None uses series_id directly.
+    :param series_id: Explicit Series ID, which must agree with a supplied series selector.
+    :return: None; delegated return values are discarded and failures propagate.
     """
     if series is not None:
         resolved_id = (
@@ -522,17 +633,27 @@ def library_set_series(
     update_cache_series_idx=None,
 ) -> tuple[None, None]:
     """
-    Sets the primary series for a book_title - updates the book_series_id as well.
+    Promote or create a legacy title-Series link while preserving its index.
 
-    Searches on the series name - no refinements are used - just the raw name.
-    :param db:
-    :param title_id: The id of the title to do the update for
-    :param series: The name of the series
-    :param series_id: The id of the entry on the series table. If this is provided it takes precedence over the series
-                      which will be ignored.
-    :param update_cache_series: Function to update the series field of any cache which is currently being maintained.
-    :param update_cache_series_idx:
-    :return:
+    Existing links gain a priority above the global maximum. New links inherit
+    the title's primary Series index; missing names are ensured without
+    standardization. Successful non-null selection removes the null Series link.
+    With neither selector, link the null Series while preserving the index.
+    Callbacks run after their associated writes and may fail after mutations;
+    the ID branch tests the index callback for truthiness, the name branch for
+    non-None. No enclosing transaction is opened.
+
+    Example:
+        When both a name and ID are given, the name branch replaces series_id with its lookup result.
+
+
+    :param db: Legacy Catalog/database facade supplying metadata_sql and any row helpers used here.
+    :param title_id: Legacy title ID.
+    :param series: Any non-None value is looked up as a Series name, even integers.
+    :param series_id: Used only when series is None; a supplied name takes precedence.
+    :param update_cache_series: Optional callback invoked last with title_id and the original series argument.
+    :param update_cache_series_idx: Optional callback for an existing link, receiving title_id and series_idx.
+    :return: Always (None, None) after successful writes and callbacks.
     """
     # If there is already a link between the title and the series then promote it to the highest priority
     # If there is no link then create it
@@ -647,17 +768,21 @@ def library_set_series_index(
         series_id = None,
         update_cache_series_idx = None) -> None:
     """
-    Sets the series index for the primary series.
+    Resolve a title's Series and update its link index.
 
-    (the series associated with the book_id, stored in the books table as book_series_id) to the given index.
-    Updates the database and the cache.
-    :param db: The database to do the update in
-    :param title_id: The id of the title/book to update (specifically book in this case, as it updates the books tables
-                     column book_series_id)
-    :param idx: Set the book to be this position in the series
-    :param series_id: Function to get the current series id for the given title
-    :param update_cache_series_idx: Function to update a cache entry of the series
-    :return:
+    If resolution yields None, create a null-Series link with the index instead.
+    A callback failure occurs after the SQL mutation and is not rolled back here.
+
+    Example:
+        A callable resolver receives ``(title_id, index_is_id=True)``.
+
+
+    :param db: Legacy Catalog/database facade supplying metadata_sql and any row helpers used here.
+    :param title_id: Legacy title ID.
+    :param idx: Replacement numeric index or None, passed unchanged.
+    :param series_id: Explicit Series ID, callable resolver, or None for primary-ID lookup.
+    :param update_cache_series_idx: Optional callback invoked positionally with title_id and idx after writing.
+    :return: None; delegated return values are discarded and failures propagate.
     """
     # Get the id of the series currently linked to the given book
     if callable(series_id):
@@ -681,12 +806,16 @@ def library_set_last_modified(
         book_id: int,
         last_modified) -> None:
     """
-    Set the last modified field in the books table.
+    Forward a legacy book last-modified value.
 
-    :param db:
-    :param book_id:
-    :param last_modified:
-    :return:
+    Example:
+        No clock is read here; the caller supplies the replacement timestamp.
+
+
+    :param db: Legacy Catalog/database facade supplying metadata_sql and any row helpers used here.
+    :param book_id: Legacy book ID.
+    :param last_modified: Timestamp value passed unchanged; validation belongs to metadata_sql.
+    :return: None; delegated return values are discarded and failures propagate.
     """
     db.metadata_sql.update_book_last_modified(book_id=book_id, last_modified=last_modified)
 
@@ -697,16 +826,22 @@ def library_set_authors_from_ids(
         author_ids: Union[list[int], tuple[int]],
         append: bool = False) -> None:
     """
-    Sets the authors for a work from a list of ids.
+    Replace or append ordered legacy author links for a title.
 
-    The authors will be set or appended in a priority order equal to the order of the list here.
-    :param db: The database to do the update on
-    :param title_id: The id of the title to set from
-    :param author_ids: A list of author ids - should be a list as the priority order of the authors will be
-                       respected when they're applied to the title.
-    :param append: Append the authors to the given title - if False then erase all the authors associated with the
-                   title and replace with the given list.
-    :return:
+    Append starts below the global minimum creator-title priority and decrements
+    for each supplied ID, including existing links. Replacement clears before
+    constructing/inserting rows; append may partially apply. Neither path validates
+    all authors upfront or opens an enclosing transaction.
+
+    Example:
+        Replacement assigns descending priorities from len(author_ids)+1.
+
+
+    :param db: Legacy Catalog/database facade supplying metadata_sql and any row helpers used here.
+    :param title_id: Legacy title ID.
+    :param author_ids: Sized ordered author-ID sequence; duplicates are retained.
+    :param append: False clears author links and bulk-inserts; true creates or reprioritizes each link.
+    :return: None; delegated return values are discarded and failures propagate.
     """
     # If not append then clear the author type creator links to the book and add the new set back in
     if not append:
@@ -755,12 +890,16 @@ def library_set_authors_from_ids(
 
 def library_set_language(db: "CatalogAPI", title_id: int, lang_string: str) -> None:
     """
-    Set the primary language of a work - preforms the set from a string value of the language.
+    Ensure a language from a name/code and set it as primary.
 
-    :param db: The database to preform the update for
-    :param title_id:
-    :param lang_string: The language as a string.
-    :return:
+    Example:
+        The ensured row's language_id is forwarded to set_title_primary_language.
+
+
+    :param db: Legacy Catalog/database facade supplying metadata_sql and any row helpers used here.
+    :param title_id: Legacy title ID.
+    :param lang_string: Language input accepted by ensure.language with lang_code="either".
+    :return: None; delegated return values are discarded and failures propagate.
     """
     lang_row = db.ensure.language(lang_string, lang_code="either")
     lang_id = lang_row["language_id"]

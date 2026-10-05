@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""Use catalog writer factories, link views, extras, and type guards."""
+"""
+Demonstrate catalogue writer factories and inspectable relationship updates.
+
+Write a same-table field, build/apply a Work-to-Expression link with schema-derived
+extras, observe lazy destination lookup, and create an author relationship. Attempt
+an invalid Agent role and print the rejection plus destination-absence observation.
+Use the common context for temporary or explicitly retained database lifetime.
+"""
 
 from __future__ import annotations
 
@@ -15,7 +22,18 @@ from LiuXin_alpha.databases.macro_types import LinkValue
 
 
 def parse_args() -> argparse.Namespace:
-    """Return command-line arguments for the writer example."""
+    """
+    Parse process arguments for the schema writers demonstration. The shared --database option
+    yields a Path when supplied and None otherwise. Directory expansion, refusal of an existing
+    retained path, temporary allocation, and template handling occur only when open_catalog_example
+    is entered.
+
+    Example:
+        >>> args = parse_args()  # doctest: +SKIP
+
+
+    :return: Namespace with the optional database path; help or invalid syntax raises SystemExit.
+    """
 
     parser = argparse.ArgumentParser(
         description="Catalog schema writer and inspectable link-update example"
@@ -25,7 +43,20 @@ def parse_args() -> argparse.Namespace:
 
 
 def _extra_column_ending(writer: object, ending: str) -> str:
-    """Return the schema-discovered link column with one semantic suffix."""
+    """
+    Return the first discovered extra-link column whose name ends with a suffix. Read
+    writer.link_spec.extra_link_columns in its provided order and use str.endswith. Do not require
+    uniqueness or validate the writer shape. An empty suffix accepts the first column; missing
+    matches raise StopIteration and attribute-access errors propagate.
+
+    Example:
+        >>> origin_column = _extra_column_ending(expression_writer, "_origin")  # doctest: +SKIP
+
+
+    :param writer: Writer exposing link_spec.extra_link_columns with named column objects.
+    :param ending: Literal, case-sensitive suffix used to select the first extra column.
+    :return: Matching column name; StopIteration if no column matches.
+    """
 
     link_spec = writer.link_spec
     return next(
@@ -36,7 +67,25 @@ def _extra_column_ending(writer: object, ending: str) -> str:
 
 
 def main() -> int:
-    """Run column, relationship, lazy-link, and guarded writer examples."""
+    """
+    Exercise column and relationship writers and print their update/guard observations. Create a
+    Work, obtain its sort-title writer, and set that field through write_one. Create an Expression,
+    obtain its relationship writer, and discover origin/primary extra columns by suffix. Build a
+    priority-one LinkValue update, inspect its first lazy link before/after resolving the
+    destination label, inspect mapping extras, and apply it.
+
+    Obtain the Agent relationship writer and write an author link. Catch ValueError from a second
+    write with an invalid role, recording its message and whether the rejected Agent exists. Print
+    writer types, update IDs/operations, lazy-view snapshots, write counts, a sample of allowed
+    roles, and guard observations within the shared context. A missing rejection or false
+    observation flag does not independently fail the command.
+
+    Example:
+        >>> exit_code = main()  # doctest: +SKIP
+
+
+    :return: Zero after reporting and context cleanup; uncaught parsing, catalogue, rendering, or cleanup failures propagate.
+    """
 
     args = parse_args()
     with open_catalog_example(args.database) as session:

@@ -1,3 +1,14 @@
+"""
+Verify metadata serialization round trips and user-metadata preservation.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test serialize through its owning regression module::
+
+        python -m pytest -q tests/metadata/book/test_serialize.py
+"""
 from __future__ import annotations
 
 import base64
@@ -22,6 +33,17 @@ PNG_BYTES = (
 
 
 def _custom_meta() -> dict[str, object]:
+    """
+    Perform the custom meta test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise custom meta through its owning regression module::
+
+            python -m pytest -q tests/metadata/book/test_serialize.py
+
+
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return {
         "name": "Custom",
         "datatype": "text",
@@ -36,6 +58,17 @@ def _custom_meta() -> dict[str, object]:
 
 
 def test_ensure_unicode_recurses_through_nested_values() -> None:
+    """
+    Verify ensure unicode recurses through nested values.
+
+    Example:
+        Exercise test ensure unicode recurses through nested values through its owning regression module::
+
+            python -m pytest -q tests/metadata/book/test_serialize.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     payload = {
         b"title": b"caf\xe9",
         "items": [b"one", {"nested": b"two"}],
@@ -50,6 +83,18 @@ def test_ensure_unicode_recurses_through_nested_values() -> None:
 
 
 def test_read_cover_loads_missing_cover_data(tmp_path: Path) -> None:
+    """
+    Verify read cover loads missing cover data.
+
+    Example:
+        Exercise test read cover loads missing cover data through its owning regression module::
+
+            python -m pytest -q tests/metadata/book/test_serialize.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     cover = tmp_path / "cover.png"
     cover.write_bytes(PNG_BYTES)
 
@@ -69,6 +114,17 @@ def test_read_cover_loads_missing_cover_data(tmp_path: Path) -> None:
 
 
 def test_metadata_as_dict_and_from_dict_roundtrip_serializable_fields() -> None:
+    """
+    Verify metadata as dict and from dict roundtrip serializable fields.
+
+    Example:
+        Exercise test metadata as dict and from dict roundtrip serializable fields through its owning regression module::
+
+            python -m pytest -q tests/metadata/book/test_serialize.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     metadata = calibreMetadata("Serialized", ["Author"])
     metadata.tags = ["One", "Two"]
     metadata.languages = ["eng"]
@@ -95,6 +151,17 @@ def test_metadata_as_dict_and_from_dict_roundtrip_serializable_fields() -> None:
 
 
 def test_metadata_dict_roundtrip_preserves_unicode_torture_values() -> None:
+    """
+    Verify metadata dict roundtrip preserves unicode torture values.
+
+    Example:
+        Exercise test metadata dict roundtrip preserves unicode torture values through its owning regression module::
+
+            python -m pytest -q tests/metadata/book/test_serialize.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     metadata = calibreMetadata(
         "ספר / كتاب / 本 / 普通话 / 简体中文 / 日本語 / Книга / पुस्तक 🚀",
         ["李 白", "王小明", "山田太郎", "أحمد", "Renée"],
@@ -152,11 +219,41 @@ def test_metadata_dict_roundtrip_preserves_unicode_torture_values() -> None:
 
 
 def test_metadata_as_dict_accepts_wrapper_objects_and_raw_cover_data() -> None:
+    """
+    Verify metadata as dict accepts wrapper objects and raw cover data.
+
+    Example:
+        Exercise test metadata as dict accepts wrapper objects and raw cover data through its owning regression module::
+
+            python -m pytest -q tests/metadata/book/test_serialize.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     metadata = calibreMetadata("Wrapped", ["Author"])
     metadata.cover_data = ("jpeg", b"raw")
 
     class Wrapper:
+        """
+        Provide the Wrapper test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test metadata as dict accepts wrapper objects and raw cover data.Wrapper through its owning regression module::
+
+                python -m pytest -q tests/metadata/book/test_serialize.py
+        """
         def to_book_metadata(self) -> calibreMetadata:
+            """
+            Perform the to book metadata test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test metadata as dict accepts wrapper objects and raw cover data.Wrapper.to book metadata through its owning regression module::
+
+                    python -m pytest -q tests/metadata/book/test_serialize.py
+
+
+            :return: The deterministic value, row, identity or collection described above.
+            """
             return metadata
 
     as_dict = metadata_as_dict(Wrapper(), encode_cover_data=False)

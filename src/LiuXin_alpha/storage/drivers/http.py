@@ -1,5 +1,11 @@
 """
-Read-only HTTP(S) storage driver with scoped opaque object addresses.
+Read HTTP(S) objects through scoped addresses, injected requests, and optional discovery.
+
+The driver translates request/stream failures, interprets metadata and range headers,
+and owns responses through stat cleanup or caller-owned readers. Inventory callbacks
+supply absolute URLs and advertise partial discovery. Helpers here normalize URL
+text and interpret HTTP evidence; neither header validation nor final-redirect checks
+provide content authentication or prevent traffic already sent by an opener.
 """
 
 from __future__ import annotations
@@ -66,7 +72,11 @@ from LiuXin_alpha.storage.drivers._validation import (
 @dataclasses.dataclass(slots=True, frozen=True)
 class HttpObjectAddress(DriverObjectAddress):
     """
-    Canonical relative URL reference within one configured HTTP root.
+    Carry a relative URL reference and the UUID of its HTTP address space.
+
+    Inherited construction checks UUID ownership metadata, nonempty text, and NULs; it does not
+    canonicalize URL syntax. Obtain validated references through the driver's text or URI parser.
+    The runtime checker verifies subtype and UUID only.
 
     Example:
         >>> HttpObjectAddress("books/novel.epub", UUID(int=1)).value
@@ -76,7 +86,11 @@ class HttpObjectAddress(DriverObjectAddress):
 
 class HttpResponseAPI(Protocol):
     """
-    The small response surface used by :class:`HttpStorageDriver`.
+    Describe the response stream, headers, status, and final URL an opener supplies.
+
+    The driver consumes this structural protocol without a runtime protocol check. Headers supply
+    length/range/version evidence; stream reads must return bytes. A successful open_read transfers
+    response ownership to its returned reader.
 
     Example:
         >>> response: HttpResponseAPI = opener(request, 30)  # doctest: +SKIP
@@ -87,42 +101,42 @@ class HttpResponseAPI(Protocol):
 
     def read(self, size: int = -1) -> bytes:
         """
-        Read up to ``size`` response-body bytes.
+        Read response-body bytes from the current stream position.
 
         Example:
             >>> response.read(4)  # doctest: +SKIP
             b'book'
 
 
-        :param size:
-        :return:
+        :param size: Maximum bytes to read, or -1 for the remaining body; bounded driver reads supply a nonnegative count.
+        :return: Bytes consumed, with empty bytes indicating end of stream for a positive request.
         """
 
         ...
 
     def close(self) -> None:
         """
-        Release the response and its underlying connection.
+        Release the response and its underlying transport resources.
 
         Example:
             >>> response.close()  # doctest: +SKIP
 
 
-        :return:
+        :return: None after the implementation closes its resources.
         """
 
         ...
 
     def geturl(self) -> str:
         """
-        Return the final URL after redirects.
+        Report the URL reached by the opener, including any followed redirects.
 
         Example:
             >>> response.geturl()  # doctest: +SKIP
             'https://example.test/books/a.epub'
 
 
-        :return:
+        :return: Final URL text for the driver to validate against its configured root.
         """
 
         ...
@@ -138,10 +152,18 @@ DEFAULT_MAX_HTTP_INVENTORY_ENTRIES = 100_000
 
 class _HttpResponseReader(io.RawIOBase):
     """
-    Own an HTTP response and optionally cap its readable byte count.
+    Adapt a response to buffered binary reads with optional declared-length accounting.
+
+    The adapter owns the response and translates ordinary read failures into storage errors. A known
+    remaining count detects premature EOF as bytes are consumed; reaching zero stops reads without
+    inspecting trailing response bytes. Unknown length relies on the response's EOF. This is not a
+    digest or snapshot check.
 
     Example:
-        >>> reader = _HttpResponseReader(response, remaining=4, target="https://example.test/a")  # doctest: +SKIP
+        >>> raw = _HttpResponseReader(io.BytesIO(b"book"), remaining=4, target="example")
+        >>> with io.BufferedReader(raw) as stream:
+        ...     stream.read()
+        b'book'
     """
 
     def __init__(
@@ -152,16 +174,17 @@ class _HttpResponseReader(io.RawIOBase):
         target: str,
     ) -> None:
         """
-        Bind an owned response, declared remaining length, and safe target.
+        Retain an owned response, optional byte budget, and diagnostic target without reading.
 
         Example:
-            >>> _HttpResponseReader(response, remaining=None, target="https://example.test/a")  # doctest: +SKIP
+            >>> raw = _HttpResponseReader(io.BytesIO(b"abc"), remaining=3, target="example")
+            >>> raw.close()
 
 
-        :param response:
-        :param remaining:
-        :param target:
-        :return:
+        :param response: Response whose read and close methods supply and release the body.
+        :param remaining: Expected unread body bytes, or None when no length evidence is available; not validated here.
+        :param target: Object URL or other target text used by shared diagnostic formatting.
+        :return: None after retaining the response and accounting state.
         """
 
         self._response = response
@@ -170,29 +193,40 @@ class _HttpResponseReader(io.RawIOBase):
 
     def readable(self) -> bool:
         """
-        Report that the wrapper implements raw binary reads.
+        Advertise read support without inspecting the response or the closed flag.
 
         Example:
-            >>> reader.readable()  # doctest: +SKIP
+            >>> raw = _HttpResponseReader(io.BytesIO(), remaining=0, target="example")
+            >>> raw.readable()
             True
+            >>> raw.close()
 
 
-        :return:
+        :return: True, including after close; this is a capability declaration.
         """
 
         return True
 
     def readinto(self, buffer: bytearray | memoryview) -> int:
         """
-        Fill a caller buffer while enforcing the declared response length.
+        Fill a caller buffer with at most the remaining declared body bytes.
+
+        Timeout failures become StorageTimeout; other ordinary read failures, non-byte chunks,
+        oversized chunks, and early EOF become StorageUnavailable. A known zero budget returns
+        immediately. With a positive budget, even an empty caller buffer invokes read(0), whose
+        empty result is treated as premature EOF. The count is decremented only after a valid
+        nonempty chunk has been copied.
 
         Example:
-            >>> reader.readinto(bytearray(4))  # doctest: +SKIP
-            4
+            >>> raw = _HttpResponseReader(io.BytesIO(b"abc"), remaining=3, target="example")
+            >>> buffer = bytearray(2)
+            >>> raw.readinto(buffer), bytes(buffer)
+            (2, b'ab')
+            >>> raw.close()
 
 
-        :param buffer:
-        :return:
+        :param buffer: Writable byte buffer receiving the next chunk; callers should supply positive capacity while bytes remain.
+        :return: Number of bytes copied, or zero once the known budget is exhausted or an unknown-length response ends.
         """
 
         if self._remaining == 0:
@@ -273,13 +307,19 @@ class _HttpResponseReader(io.RawIOBase):
 
     def close(self) -> None:
         """
-        Close the owned response without masking prior transfer failures.
+        Attempt response cleanup and always run the base stream close operation.
+
+        The shared helper suppresses Exception raised by calling response.close. Attribute lookup
+        failures and BaseException subclasses can still propagate.
 
         Example:
-            >>> reader.close()  # doctest: +SKIP
+            >>> raw = _HttpResponseReader(io.BytesIO(), remaining=0, target="example")
+            >>> raw.close()
+            >>> raw.closed
+            True
 
 
-        :return:
+        :return: None after cleanup when no unsuppressed close failure occurs.
         """
 
         try:
@@ -290,16 +330,23 @@ class _HttpResponseReader(io.RawIOBase):
 
 class HttpStorageDriver(StorageDriverAPI[HttpObjectAddress]):
     """
-    Reusable read-only driver for an HTTP tree or discovered URL set.
+    Read HTTP objects under a configured root with injectable transport and discovery.
 
-    Object keys are relative URL references. Absolute URLs enter only through
-    :meth:`object_address_from_uri`, which verifies scheme, authority, and root
-    path ownership before minting a scoped address.
+    Text parsing binds relative URL references to an address-space UUID. Existing typed addresses
+    receive only subtype/UUID checks. HTTP requests validate the returned status and final URL, then
+    stat/read apply their own header contracts. The default opener can follow redirects before
+    final-URL validation runs.
+
+    Optional inventory supplies absolute object URLs and is always advertised as partial discovery.
+    Construction and cached status access do not contact the endpoint; startup/probe and nonempty
+    object operations can perform network I/O.
 
     Example:
-        >>> driver = HttpStorageDriver("https://example.test/books/", address_space_uuid=UUID(int=1))
+        >>> driver = HttpStorageDriver("https://example.test/books", address_space_uuid=UUID(int=1))
         >>> driver.root_uri
         'https://example.test/books/'
+        >>> str(driver.parse_object_address("café.epub"))
+        'caf%C3%A9.epub'
     """
 
     def __init__(
@@ -316,23 +363,28 @@ class HttpStorageDriver(StorageDriverAPI[HttpObjectAddress]):
         max_inventory_entries: int | None = DEFAULT_MAX_HTTP_INVENTORY_ENTRIES,
     ) -> None:
         """
-        Configure one endpoint, optional inventory, headers, and rate limit.
+        Normalize the root, retain runtime dependencies, and initialize unavailable status.
+
+        Headers are copied; callbacks and timeout remain runtime values. An inventory bound below
+        one raises ValueError. Rate conversion disables None, nonpositive, and unparseable values;
+        it does not reject positive infinity. No probe runs.
 
         Example:
-            >>> HttpStorageDriver("https://example.test/books", address_space_uuid=UUID(int=1)).root_uri
-            'https://example.test/books/'
+            >>> driver = HttpStorageDriver("https://example.test/root/", address_space_uuid=UUID(int=1))
+            >>> driver.status().available
+            False
 
 
-        :param root_url:
-        :param address_space_uuid:
-        :param inventory_provider:
-        :param request_opener:
-        :param probe:
-        :param timeout_s:
-        :param headers:
-        :param max_requests_per_hour:
-        :param max_inventory_entries:
-        :return:
+        :param root_url: HTTP(S) root without credentials, query, or fragment, normalized to a trailing-slash URL.
+        :param address_space_uuid: UUID used by the address checker to identify this driver instance.
+        :param inventory_provider: Optional zero-argument callback yielding absolute object URLs under the configured root.
+        :param request_opener: Truthy callable accepting a Request and timeout; otherwise the urllib opener is selected.
+        :param probe: Optional zero-argument health callback used instead of the default root HEAD request.
+        :param timeout_s: Timeout in seconds forwarded to each opener call, or None; not a deadline for rate waits or enumeration.
+        :param headers: Optional base request headers copied into driver state; per-request headers update this mapping.
+        :param max_requests_per_hour: Positive convertible request rate per hour, or a value that disables local pacing.
+        :param max_inventory_entries: Maximum observed provider entries per enumeration, including duplicates and filtered entries, or None for no bound.
+        :return: None after retaining the canonical root, checker, callbacks, rate state, and initial status.
         """
 
         if max_inventory_entries is not None and max_inventory_entries < 1:
@@ -363,14 +415,13 @@ class HttpStorageDriver(StorageDriverAPI[HttpObjectAddress]):
         self,
     ) -> ScopedDriverObjectAddressChecker[HttpObjectAddress]:
         """
-        Return the checker that scopes references to this endpoint.
+        Return the retained subtype-and-UUID checker for this HTTP address space.
 
         Example:
             >>> driver.object_address_checker.address_space_uuid  # doctest: +SKIP
-            UUID('00000000-0000-0000-0000-000000000001')
 
 
-        :return:
+        :return: Shared checker; its ownership validation does not canonicalize stored URL text.
         """
 
         return self._checker
@@ -378,14 +429,14 @@ class HttpStorageDriver(StorageDriverAPI[HttpObjectAddress]):
     @property
     def root_uri(self) -> str:
         """
-        Return the canonical credential-free HTTP root URI.
+        Return the normalized HTTP root without making a request.
 
         Example:
-            >>> driver.root_uri  # doctest: +SKIP
-            'https://example.test/books/'
+            >>> HttpStorageDriver("HTTPS://EXAMPLE.TEST/root", address_space_uuid=UUID(int=1)).root_uri
+            'https://example.test/root/'
 
 
-        :return:
+        :return: Canonical root URL with a trailing slash, IDNA/lowercase authority, and quoted path.
         """
 
         return self._root_url
@@ -393,14 +444,20 @@ class HttpStorageDriver(StorageDriverAPI[HttpObjectAddress]):
     @property
     def capabilities(self) -> DriverCapabilities:
         """
-        Describe ranged conditional reads and optional partial inventory.
+        Describe implemented read, address, discovery, and concurrency operations.
+
+        Range and conditional-read support describe driver behavior, not verified server
+        cooperation. Inventory and prefix filtering are enabled only with a provider and remain
+        partial. The concurrency record advertises thread-safe concurrent reads and recommends four
+        parallel readers; injected dependencies must support their use.
 
         Example:
-            >>> driver.capabilities.range_reads  # doctest: +SKIP
+            >>> driver = HttpStorageDriver("https://example.test/", address_space_uuid=UUID(int=1))
+            >>> driver.capabilities.enumeration is EnumerationCompleteness.UNAVAILABLE
             True
 
 
-        :return:
+        :return: Fresh capability record without probing the endpoint or transport.
         """
 
         enumerable = self._inventory_provider is not None
@@ -425,14 +482,15 @@ class HttpStorageDriver(StorageDriverAPI[HttpObjectAddress]):
 
     @property
     def storage_characteristics(self) -> StorageCharacteristics:
-        """Advertise HTTP as a read-only remote source.
+        """
+        Describe read-only publication with no driver-managed temporary write space.
 
         Example:
-            >>> driver = HttpStorageDriver("https://example.test/books/", address_space_uuid=UUID(int=1))
-            >>> driver.storage_characteristics.publication_model
-            <StoragePublicationModel.READ_ONLY: 'read_only'>
+            >>> driver.storage_characteristics.publication_model is StoragePublicationModel.READ_ONLY  # doctest: +SKIP
+            True
 
-        :return: Read-only HTTP characteristics.
+
+        :return: Fresh characteristics declaring READ_ONLY, NONE temporary space, and NOT_APPLICABLE write usage.
         """
 
         return StorageCharacteristics(
@@ -443,28 +501,34 @@ class HttpStorageDriver(StorageDriverAPI[HttpObjectAddress]):
 
     def startup(self) -> DriverStatus:
         """
-        Probe the endpoint and retain the resulting status observation.
+        Run the active probe and return its newly recorded status.
 
         Example:
-            >>> driver.startup().available  # doctest: +SKIP
-            True
+            >>> status = driver.startup()  # doctest: +SKIP
 
 
-        :return:
+        :return: Probe result; custom health checks, HTTP requests, and provider enumeration may run.
         """
 
         return self.probe()
 
     def probe(self) -> DriverStatus:
         """
-        Run the configured probe or a HEAD request against the root.
+        Probe endpoint health and, if possible, count the supplied partial inventory.
+
+        A custom callback replaces the root HEAD request. StorageUnavailable and StorageTimeout from
+        that health step produce cached unavailable status; other failures propagate. After success,
+        ordinary inventory failures are suppressed and leave object_count unknown while available
+        remains True. Counting consumes the provider through the normal observation bound and
+        duplicate filtering.
 
         Example:
-            >>> driver.probe().writable  # doctest: +SKIP
-            False
+            >>> driver = HttpStorageDriver("https://example.test/", address_space_uuid=UUID(int=1), probe=lambda: None)
+            >>> driver.probe().available
+            True
 
 
-        :return:
+        :return: New cached read-only DriverStatus with a UTC check time and optional distinct inventory count.
         """
 
         try:
@@ -499,27 +563,32 @@ class HttpStorageDriver(StorageDriverAPI[HttpObjectAddress]):
 
     def status(self) -> DriverStatus:
         """
-        Return the most recently observed endpoint status.
+        Return the last startup/probe result without refreshing health or inventory.
 
         Example:
-            >>> driver.status().available  # doctest: +SKIP
-            True
+            >>> driver = HttpStorageDriver("https://example.test/", address_space_uuid=UUID(int=1))
+            >>> driver.status().available
+            False
 
 
-        :return:
+        :return: Retained status object, initially unavailable until a successful probe.
         """
 
         return self._last_status
 
     def close(self) -> None:
         """
-        Complete lifecycle cleanup; responses are owned per operation.
+        Complete the driver lifecycle hook without managing active response resources.
+
+        The hook does not close injected dependencies or outstanding readers, reset cached status,
+        or prevent subsequent operations. Callers close their read streams.
 
         Example:
-            >>> driver.close()  # doctest: +SKIP
+            >>> driver = HttpStorageDriver("https://example.test/", address_space_uuid=UUID(int=1))
+            >>> driver.close()
 
 
-        :return:
+        :return: None; no driver state changes.
         """
 
         return None
@@ -529,15 +598,22 @@ class HttpStorageDriver(StorageDriverAPI[HttpObjectAddress]):
         identifier: DriverObjectAddressInput[HttpObjectAddress],
     ) -> HttpObjectAddress:
         """
-        Validate a persisted relative URL reference within the root.
+        Bind a validated relative reference, or ownership-check an existing typed address.
+
+        Text inputs are stringified, checked for canonical path/query syntax, quoted, and checked
+        after joining to the root. Existing DriverObjectAddress values bypass text parsing and
+        receive only the driver's subtype/UUID validation. Parsing neither requests the object nor
+        establishes that it exists. Malformed URL splitting can propagate ValueError before explicit
+        storage-address checks.
 
         Example:
-            >>> str(driver.parse_object_address("authors/book.epub"))  # doctest: +SKIP
-            'authors/book.epub'
+            >>> driver = HttpStorageDriver("https://example.test/root/", address_space_uuid=UUID(int=1))
+            >>> str(driver.parse_object_address("download?id=42"))
+            'download?id=42'
 
 
-        :param identifier:
-        :return:
+        :param identifier: Relative URL reference to canonicalize, or an existing address that must belong to this HTTP driver.
+        :return: Scoped HttpObjectAddress after text or ownership checks.
         """
 
         if isinstance(identifier, DriverObjectAddress):
@@ -551,15 +627,16 @@ class HttpStorageDriver(StorageDriverAPI[HttpObjectAddress]):
 
     def join_object_address(self, *tokens: str) -> HttpObjectAddress:
         """
-        Join URL path tokens and validate the rendered reference.
+        Strip outer slashes from each token, join with slashes, and parse the resulting reference.
 
         Example:
-            >>> str(driver.join_object_address("authors", "book.epub"))  # doctest: +SKIP
-            'authors/book.epub'
+            >>> driver = HttpStorageDriver("https://example.test/root/", address_space_uuid=UUID(int=1))
+            >>> str(driver.join_object_address("/books/", "novel.epub"))
+            'books/novel.epub'
 
 
-        :param tokens:
-        :return:
+        :param tokens: One or more stringified path tokens; any token empty after stripping outer slashes is rejected.
+        :return: Parsed scoped address, with normal relative-reference validation applied after joining.
         """
 
         if not tokens:
@@ -574,30 +651,41 @@ class HttpStorageDriver(StorageDriverAPI[HttpObjectAddress]):
 
     def object_address_from_uri(self, uri: str) -> HttpObjectAddress:
         """
-        Convert one same-endpoint, in-root URI into a checked reference.
+        Convert an absolute URL within the exact configured endpoint and root into an address.
+
+        Authority comparison uses canonical host spelling and preserves explicit ports. Root-path
+        matching is lexical against its encoded spelling. The root itself, fragments, malformed
+        relative paths, and recognized credential query names are rejected. No network request or
+        existence check occurs.
 
         Example:
-            >>> str(driver.object_address_from_uri("https://example.test/books/a.epub"))  # doctest: +SKIP
-            'a.epub'
+            >>> driver = HttpStorageDriver("https://example.test/root/", address_space_uuid=UUID(int=1))
+            >>> str(driver.object_address_from_uri("https://example.test/root/book.epub"))
+            'book.epub'
 
 
-        :param uri:
-        :return:
+        :param uri: Absolute object URL whose scheme, canonical authority, and path prefix must match this root.
+        :return: Parsed relative HttpObjectAddress in this driver address space.
         """
 
         return self.parse_object_address(self._relative_key_from_uri(uri))
 
     def object_uri(self, object_address: HttpObjectAddress) -> str:
         """
-        Render one checked reference as its absolute endpoint URI.
+        Join an ownership-checked address to the configured root URL.
+
+        The checker does not revalidate address text. A manually constructed typed address
+        containing an absolute URL can therefore replace the root in urljoin; use the text/URI
+        parsers when validating external identifiers.
 
         Example:
-            >>> driver.object_uri(driver.parse_object_address("a.epub"))  # doctest: +SKIP
-            'https://example.test/books/a.epub'
+            >>> driver = HttpStorageDriver("https://example.test/root/", address_space_uuid=UUID(int=1))
+            >>> driver.object_uri(driver.parse_object_address("book.epub"))
+            'https://example.test/root/book.epub'
 
 
-        :param object_address:
-        :return:
+        :param object_address: HttpObjectAddress carrying this driver UUID; its stored value is passed to urljoin.
+        :return: Joined URL text without a request, existence check, or renewed text-scope validation.
         """
 
         checked = self.check_object_address(object_address)
@@ -608,15 +696,25 @@ class HttpStorageDriver(StorageDriverAPI[HttpObjectAddress]):
         object_address: HttpObjectAddress,
     ) -> DriverObjectInfo[HttpObjectAddress]:
         """
-        Inspect HTTP size, ETag, time, filename, and media-type evidence.
+        Read metadata with HEAD, falling back to a one-byte ranged GET when unsupported.
+
+        Size comes from a known Content-Range total or otherwise Content-Length; absent size
+        evidence raises StorageUnsupportedOperation. Stat does not apply the read range-consistency
+        checks, so an unknown range total can fall back to a partial body's length. Header sizes and
+        ETag are reported without verifying body bytes.
+
+        Last-Modified uses the mapping's exact-key get behavior, unlike the case-insensitive ETag
+        lookup. Filename and fallback MIME hints use the requested URL. Any response assigned to the
+        local variable is best-effort closed on exit.
 
         Example:
-            >>> driver.stat(address).version  # doctest: +SKIP
-            '"v1"'
+            >>> info = driver.stat(address)  # doctest: +SKIP
+            >>> info.size  # doctest: +SKIP
+            1024
 
 
-        :param object_address:
-        :return:
+        :param object_address: Owned HTTP address to query; the resulting URL is sent through the configured opener.
+        :return: DriverObjectInfo with header-derived size, optional UTC modification time/ETag, and filename/media hints.
         """
 
         checked = self.check_object_address(object_address)
@@ -659,19 +757,29 @@ class HttpStorageDriver(StorageDriverAPI[HttpObjectAddress]):
         if_version: str | None = None,
     ) -> BinaryIO:
         """
-        Open an owned full or ranged response with optional ETag protection.
+        Open an owned binary response reader after validating requested range and version evidence.
+
+        Negative offset/length raises StorageInvalidAddress. A zero length immediately returns an
+        empty BytesIO after ownership/range checks, without requesting the URL or validating
+        existence/version. Other bounded or offset reads require a 206 response with matching
+        Content-Range and consistent optional Content-Length.
+
+        An explicit version sends If-Match and requires the returned ETag to match; missing evidence
+        is unavailable and a changed token is a precondition failure. Known body lengths detect
+        early EOF during consumption, but do not prove digest integrity or inspect bytes beyond the
+        declared length. Full reads may have unknown length. The returned reader owns the response
+        and must be closed.
 
         Example:
-            >>> with driver.open_read(address, length=4) as source:  # doctest: +SKIP
-            ...     source.read()
-            b'book'
+            >>> with driver.open_read(address, offset=3, length=4) as stream:  # doctest: +SKIP
+            ...     payload = stream.read()
 
 
-        :param object_address:
-        :param offset:
-        :param length:
-        :param if_version:
-        :return:
+        :param object_address: Owned HTTP address to read; typed ownership checking does not repeat text canonicalization.
+        :param offset: Nonnegative starting byte offset; a nonzero value requests an HTTP range.
+        :param length: Maximum requested byte count, None through the object boundary, or zero for an immediate empty stream.
+        :param if_version: Exact ETag text required from the response, or None to omit the conditional-read check.
+        :return: Caller-owned BufferedReader over the response, or an empty BytesIO for length zero.
         """
 
         checked = self.check_object_address(object_address)
@@ -728,18 +836,24 @@ class HttpStorageDriver(StorageDriverAPI[HttpObjectAddress]):
         prefix: HttpObjectAddress | None = None,
     ) -> Iterator[DriverInventoryEntry[HttpObjectAddress]]:
         """
-        Yield unique in-scope references from the configured discovery source.
+        Yield distinct scoped addresses from a bounded, optionally filtered URL provider.
 
-        The inventory is partial discovery evidence; it does not imply that
-        every object beneath the HTTP root is listed.
+        The provider yields absolute URLs. Every observed entry counts toward the bound before scope
+        parsing, lexical startswith prefix filtering, and deduplication. Duplicates and
+        out-of-prefix URLs therefore consume the bound; out-of-scope URLs fail parsing. Address
+        equality retains percent-escape spelling, not server-side object equivalence. Entries have
+        filename/media hints but no stat evidence. Storage errors propagate and other ordinary
+        provider failures become contextual StorageError. The provider iterator is not explicitly
+        closed.
 
         Example:
-            >>> [str(item.object_address) for item in driver.iter_inventory()]  # doctest: +SKIP
-            ['authors/book.epub']
+            >>> driver = HttpStorageDriver("https://example.test/root/", address_space_uuid=UUID(int=1), inventory_provider=lambda: ["https://example.test/root/a.epub"])
+            >>> [str(entry.object_address) for entry in driver.iter_inventory()]
+            ['a.epub']
 
 
-        :param prefix:
-        :return:
+        :param prefix: Optional owned address whose text is used as a lexical key prefix, or None for all supplied entries.
+        :return: Lazy iterator of partial DriverInventoryEntry observations; iteration without a provider raises StorageUnsupportedOperation.
         """
 
         if self._inventory_provider is None:
@@ -796,15 +910,20 @@ class HttpStorageDriver(StorageDriverAPI[HttpObjectAddress]):
 
     def _relative_key_from_uri(self, uri: str) -> str:
         """
-        Extract a canonical relative reference from one owned absolute URI.
+        Validate endpoint/root membership and canonicalize the nonempty relative path/query.
+
+        Hostname spelling is canonicalized, but an explicit default port remains distinct from an
+        omitted port. Path membership compares encoded text against the root's trailing-slash path.
+        The configured root alone does not identify a file.
 
         Example:
-            >>> driver._relative_key_from_uri("https://example.test/books/a.epub")  # doctest: +SKIP
-            'a.epub'
+            >>> driver = HttpStorageDriver("https://example.test/root/", address_space_uuid=UUID(int=1))
+            >>> driver._relative_key_from_uri("https://EXAMPLE.TEST/root/a.epub?id=2")
+            'a.epub?id=2'
 
 
-        :param uri:
-        :return:
+        :param uri: Absolute URL text to stringify and validate against this driver root.
+        :return: Canonical relative reference without binding a UUID or checking remote existence.
         """
 
         candidate_text = str(uri)
@@ -842,16 +961,25 @@ class HttpStorageDriver(StorageDriverAPI[HttpObjectAddress]):
         headers: Mapping[str, str] | None = None,
     ) -> HttpResponseAPI:
         """
-        Issue one rate-limited request and translate transport/status failures.
+        Pace and issue one request, validating its returned response and translating failures.
+
+        Per-request headers update a copy of configured headers. The opener receives the retained
+        timeout; there is no retry. HEAD 405/501, missing objects, authentication/permission
+        failures, timeouts, preconditions, and bad ranges receive typed storage errors. Other
+        unsuccessful statuses are unavailable; remaining ordinary failures become contextual
+        StorageError. Rate waiting occurs outside this translation guard. URL scope is checked on
+        the returned response, after the opener may already have sent requests or followed
+        redirects.
 
         Example:
             >>> response = driver._request(driver.root_uri, method="HEAD")  # doctest: +SKIP
+            >>> response.close()  # doctest: +SKIP
 
 
-        :param url:
-        :param method:
-        :param headers:
-        :return:
+        :param url: URL supplied directly to urllib Request; it is not prevalidated against the root here.
+        :param method: HTTP method text; uppercase HEAD enables the unsupported-method fallback classification.
+        :param headers: Optional request-specific headers overriding matching keys in the copied base mapping.
+        :return: Open validated response owned by the caller; returned responses rejected during validation are best-effort closed.
         """
 
         request_headers = dict(self._headers)
@@ -974,16 +1102,23 @@ class HttpStorageDriver(StorageDriverAPI[HttpObjectAddress]):
         method: str,
     ) -> None:
         """
-        Reject unsuccessful or scope-escaping custom/redirected responses.
+        Check a returned status and final endpoint/root, closing the response on failure.
+
+        Any 2xx status passes this step; missing or falsey status is treated as 200. A falsey final
+        URL falls back to the requested URL. Redirects to another object within the same
+        endpoint/root are allowed. A final root path is accepted without object-query validation,
+        but fragments are rejected. Validation follows opener execution and cannot prevent earlier
+        redirect traffic. Cleanup uses the shared helper, whose attribute lookup and BaseException
+        failures may still propagate.
 
         Example:
-            >>> driver._validate_response(response, requested_url=driver.root_uri, method="HEAD")  # doctest: +SKIP
+            >>> driver._validate_response(response, requested_url=url, method="GET")  # doctest: +SKIP
 
 
-        :param response:
-        :param requested_url:
-        :param method:
-        :return:
+        :param response: Already returned response whose status and final URL are inspected; retained open on success.
+        :param requested_url: Original URL used for diagnostics and when geturl returns empty text.
+        :param method: Request method used when classifying an unsuccessful status.
+        :return: None when status and final URL pass these checks; length/range/version validation belongs to later steps.
         """
 
         try:
@@ -1039,13 +1174,18 @@ class HttpStorageDriver(StorageDriverAPI[HttpObjectAddress]):
 
     def _acquire_rate_limit_slot(self) -> None:
         """
-        Reserve the next request time using a thread-safe fixed interval.
+        Reserve a request-start slot under a lock and sleep outside the lock if needed.
+
+        Reservations use monotonic time and a 3600/rate interval. Failed requests still consume
+        their slots. Disabled pacing returns immediately; this is local request spacing, not a
+        response-duration limit, retry mechanism, or cancellation API.
 
         Example:
-            >>> driver._acquire_rate_limit_slot()  # doctest: +SKIP
+            >>> driver = HttpStorageDriver("https://example.test/", address_space_uuid=UUID(int=1), max_requests_per_hour=0)
+            >>> driver._acquire_rate_limit_slot()
 
 
-        :return:
+        :return: None after the reserved wait, or immediately when pacing is disabled.
         """
 
         if self._requests_per_hour is None:
@@ -1068,15 +1208,19 @@ def _default_request_opener(
     timeout_s: float | None,
 ) -> HttpResponseAPI:
     """
-    Open one standard-library HTTP request with the configured timeout.
+    Open a request with urllib's default transport and redirect handling.
+
+    This helper does not translate exceptions or enforce the driver's root; the surrounding request
+    method validates the response after urlopen returns.
 
     Example:
-        >>> response = _default_request_opener(request, 30)  # doctest: +SKIP
+        >>> response = _default_request_opener(request, 30.0)  # doctest: +SKIP
+        >>> response.close()  # doctest: +SKIP
 
 
-    :param request:
-    :param timeout_s:
-    :return:
+    :param request: Prepared urllib request containing method, URL, and headers.
+    :param timeout_s: Timeout in seconds or None, passed directly to urllib.request.urlopen.
+    :return: Open urllib response whose resources the caller must close.
     """
 
     return urllib.request.urlopen(request, timeout=timeout_s)  # type: ignore[return-value]
@@ -1084,18 +1228,18 @@ def _default_request_opener(
 
 def _http_error_message(method: str, url: str, status: int, reason: str) -> str:
     """
-    Render a safe one-line HTTP status failure.
+    Format an HTTP status failure through the shared selectively filtered diagnostic helper.
 
     Example:
-        >>> _http_error_message("GET", "https://example.test/a", 404, "object not found")
-        "HTTP GET failed for 'https://example.test/a': object not found (status 404)."
+        >>> "status 404" in _http_error_message("GET", "https://example.test/a", 404, "object not found")
+        True
 
 
-    :param method:
-    :param url:
-    :param status:
-    :param reason:
-    :return:
+    :param method: Operation label, normally the HTTP request method.
+    :param url: Request target processed by shared URL diagnostic formatting.
+    :param status: HTTP status code appended to the reason before shared filtering.
+    :param reason: Failure description; shared filtering is selective and is not an exhaustive secret scrubber.
+    :return: Contextual HTTP failure message including the supplied status unless shared detail truncation removes it.
     """
 
     return driver_failure_message(
@@ -1112,17 +1256,24 @@ def _http_status_failure(
     status: int,
 ) -> StorageError | None:
     """
-    Map a returned status even when an injected opener did not raise it.
+    Select the storage exception corresponding to a returned HTTP status.
+
+    Any 2xx code succeeds. HEAD 405/501 is unsupported; 404/410 is missing; 401/403 is
+    authentication/permission failure; 408 is timeout; 412 is a precondition failure; and 416 is an
+    invalid address/range. Every other unsuccessful status is unavailable. This helper constructs
+    but does not raise.
 
     Example:
-        >>> type(_http_status_failure("GET", "https://example.test/a", 404))
-        <class 'LiuXin_alpha.storage.api.errors.StorageNotFound'>
+        >>> isinstance(_http_status_failure("GET", "https://example.test/a", 404), StorageNotFound)
+        True
+        >>> _http_status_failure("GET", "https://example.test/a", 204) is None
+        True
 
 
-    :param method:
-    :param url:
-    :param status:
-    :return:
+    :param method: Request method; only uppercase HEAD receives unsupported-method classification.
+    :param url: Request target used in the contextual exception message.
+    :param status: Numeric HTTP status to classify.
+    :return: Typed StorageError instance for failure, or None for any 2xx status.
     """
 
     if 200 <= status < 300:
@@ -1182,15 +1333,19 @@ def _http_status_failure(
 
 def _canonical_root_url(value: str) -> str:
     """
-    Canonicalize a credential-free HTTP root and ensure its trailing slash.
+    Normalize an HTTP(S) root into an authority and quoted trailing-slash path.
+
+    Surrounding text whitespace is stripped. Embedded credentials, queries, fragments, malformed
+    percent escapes, and decoded path controls/backslashes are rejected. Existing percent escapes
+    and explicit ports are retained; dot segments and escape-case spelling are not normalized here.
 
     Example:
-        >>> _canonical_root_url("HTTPS://BÜCHER.example/books")
-        'https://xn--bcher-kva.example/books/'
+        >>> _canonical_root_url(" HTTPS://EXAMPLE.TEST/文库 ")
+        'https://example.test/%E6%96%87%E5%BA%93/'
 
 
-    :param value:
-    :return:
+    :param value: Root URL text to stringify, strip, parse, and validate.
+    :return: Lowercase-scheme URL with a canonical authority and trailing slash; invalid inputs raise StorageInvalidAddress.
     """
 
     text = str(value).strip()
@@ -1225,15 +1380,19 @@ def _canonical_root_url(value: str) -> str:
 
 def _canonical_http_authority(parsed: SplitResult) -> str:
     """
-    Render one credential-free authority with an ASCII DNS hostname.
+    Render a credential-free hostname and optional explicit port from parsed URL parts.
+
+    DNS names use lowercase IDNA ASCII; colon-containing hosts use lowercase bracket spelling. An
+    explicit default port is retained. Missing hosts, user information, or malformed Unicode are
+    rejected; parsed.port can raise ValueError for bad ports.
 
     Example:
-        >>> _canonical_http_authority(urlsplit("https://BÜCHER.example/books"))
-        'xn--bcher-kva.example'
+        >>> _canonical_http_authority(urlsplit("https://EXAMPLE.TEST:443/root/"))
+        'example.test:443'
 
 
-    :param parsed:
-    :return:
+    :param parsed: SplitResult supplying hostname, username/password, and port; scheme/path are not validated here.
+    :return: Normalized host text with an optional explicit port.
     """
 
     if parsed.username is not None or parsed.password is not None:
@@ -1255,15 +1414,23 @@ def _canonical_http_authority(parsed: SplitResult) -> str:
 
 def _canonical_relative_reference(value: str) -> str:
     """
-    Canonicalize one safe relative URL reference for durable storage.
+    Validate and quote a relative object path with an optional durable query.
+
+    Reject schemes/authorities/fragments, leading slashes, malformed escapes, decoded path
+    controls/backslashes, empty or dot path components, raw whitespace, and recognized credential
+    query names. Raw valid Unicode is UTF-8 quoted. Existing escapes retain spelling, including
+    opaque non-UTF-8 octets; decoded path validation uses replacement decoding. Encoded slashes are
+    permitted when their decoded components pass validation. No root or remote object is consulted.
 
     Example:
-        >>> _canonical_relative_reference("authors/Caf%C3%A9.epub")
-        'authors/Caf%C3%A9.epub'
+        >>> _canonical_relative_reference("café.epub?id=42")
+        'caf%C3%A9.epub?id=42'
+        >>> _canonical_relative_reference("legacy-%FF.epub")
+        'legacy-%FF.epub'
 
 
-    :param value:
-    :return:
+    :param value: Relative path/query text to stringify and validate; empty and absolute references are rejected.
+    :return: Quoted relative reference preserving accepted existing escapes and nonempty query text.
     """
 
     key = str(value)
@@ -1314,14 +1481,19 @@ def _canonical_relative_reference(value: str) -> str:
 
 def _reject_sensitive_query(query: str) -> None:
     """
-    Reject credentials and signed-request material from durable addresses.
+    Reject recognized credential/signature parameter names in a URL query.
+
+    Query names are form-decoded, stripped, lowercased, and hyphens become underscores. The denylist
+    includes token/key/password/signature labels and x_amz_, x_goog_, and x_ms_ prefixes. Values and
+    unrecognized names are not classified, so passing this check does not establish that a query is
+    secret-free.
 
     Example:
-        >>> _reject_sensitive_query("page=2&format=epub")
+        >>> _reject_sensitive_query("id=42&format=epub")
 
 
-    :param query:
-    :return:
+    :param query: Query text without a leading question mark, parsed with blank values retained.
+    :return: None when no recognized sensitive name occurs; otherwise raises StorageInvalidAddress.
     """
 
     sensitive_names = {
@@ -1354,16 +1526,19 @@ def _reject_sensitive_query(query: str) -> None:
 
 def _header(headers: Mapping[str, str], name: str) -> str | None:
     """
-    Look up one case-insensitive response header and strip empty values.
+    Find the first case-insensitive header name and strip its stringified value.
+
+    A blank first match returns None even if another differently cased key has a value. Duplicate
+    headers are neither combined nor checked for disagreement.
 
     Example:
-        >>> _header({"content-type": " application/epub+zip "}, "Content-Type")
-        'application/epub+zip'
+        >>> _header({"etag": '  "v7"  '}, "ETag")
+        '"v7"'
 
 
-    :param headers:
-    :param name:
-    :return:
+    :param headers: Mapping whose items are searched in iteration order.
+    :param name: Header name compared case-insensitively with stringified mapping keys.
+    :return: Stripped first matching value, or None for an absent or blank first match.
     """
 
     wanted = name.lower()
@@ -1376,15 +1551,20 @@ def _header(headers: Mapping[str, str], name: str) -> str | None:
 
 def _response_size(response: HttpResponseAPI) -> int | None:
     """
-    Derive total object size from Content-Range or Content-Length.
+    Prefer a parsed Content-Range total, then fall back to Content-Length.
+
+    A known range total wins without cross-checking Content-Length. An unknown range total falls
+    back to that length, which may describe only a partial body. This helper does not inspect
+    response status, request range, or body bytes.
 
     Example:
-        >>> _response_size(response)  # doctest: +SKIP
-        42
+        >>> from types import SimpleNamespace
+        >>> _response_size(SimpleNamespace(headers={"Content-Range": "bytes 0-0/12", "Content-Length": "1"}))
+        12
 
 
-    :param response:
-    :return:
+    :param response: Response supplying the header mapping used as size evidence.
+    :return: Header-derived size, or None without usable size headers; malformed supplied evidence raises StorageUnavailable.
     """
 
     content_range = _header(response.headers, "Content-Range")
@@ -1397,15 +1577,16 @@ def _response_size(response: HttpResponseAPI) -> int | None:
 
 def _response_content_length(response: HttpResponseAPI) -> int | None:
     """
-    Parse and validate a non-negative Content-Length header.
+    Parse an optional Content-Length as a nonnegative integer without reading the body.
 
     Example:
-        >>> _response_content_length(response)  # doctest: +SKIP
-        42
+        >>> from types import SimpleNamespace
+        >>> _response_content_length(SimpleNamespace(headers={"content-length": "12"}))
+        12
 
 
-    :param response:
-    :return:
+    :param response: Response whose headers are searched case-insensitively for Content-Length.
+    :return: Nonnegative length, or None for an absent/blank header; malformed or negative values raise StorageUnavailable.
     """
 
     content_length = _header(response.headers, "Content-Length")
@@ -1428,15 +1609,22 @@ _CONTENT_RANGE = re.compile(
 
 def _parse_content_range(value: str) -> tuple[int, int, int | None]:
     """
-    Parse and validate one HTTP bytes Content-Range value.
+    Parse one satisfied byte interval and validate its internal numeric bounds.
+
+    Accept bytes start-end/total or bytes start-end/*, ignoring unit case and surrounding
+    whitespace. End must be at least start and below a known positive total. Unsatisfied ranges and
+    multipart syntax are unsupported by this parser. Request matching and actual body-length checks
+    happen elsewhere.
 
     Example:
         >>> _parse_content_range("bytes 2-5/10")
         (2, 5, 10)
+        >>> _parse_content_range("bytes 2-5/*")
+        (2, 5, None)
 
 
-    :param value:
-    :return:
+    :param value: Content-Range header text for a single satisfied byte range.
+    :return: Inclusive start/end byte offsets and total size, or None for an unknown total; bad evidence raises StorageUnavailable.
     """
 
     matched = _CONTENT_RANGE.fullmatch(value.strip())
@@ -1462,17 +1650,25 @@ def _validated_response_length(
     length: int | None,
 ) -> int | None:
     """
-    Validate HTTP range evidence and return the declared body length.
+    Match response length/range evidence to an already validated read request.
+
+    Full reads reject 206 or any Content-Range, then accept optional Content-Length. Ranged reads
+    require 206, exact starting offset, the requested ending offset clipped to a known total, and
+    agreement with any Content-Length. Open-ended ranges must reach a known total's boundary;
+    unknown totals cannot establish that boundary. This helper reads headers only and does not close
+    the response.
 
     Example:
-        >>> _validated_response_length(response, offset=2, length=4)  # doctest: +SKIP
-        4
+        >>> from types import SimpleNamespace
+        >>> response = SimpleNamespace(status=206, headers={"Content-Range": "bytes 2-4/5"})
+        >>> _validated_response_length(response, offset=2, length=10)
+        3
 
 
-    :param response:
-    :param offset:
-    :param length:
-    :return:
+    :param response: Response whose status, Content-Range, and optional Content-Length are checked.
+    :param offset: Requested nonnegative starting byte offset, previously validated by open_read.
+    :param length: Requested positive byte count, or None for an open-ended/full read; zero-length reads bypass this helper.
+    :return: Expected response-body byte count, or None for a full response without Content-Length; inconsistent evidence raises a storage error.
     """
 
     ranged = offset != 0 or length is not None
@@ -1523,15 +1719,19 @@ def _validated_response_length(
 
 def _http_datetime(value: str | None) -> datetime | None:
     """
-    Parse an HTTP date and normalize it to UTC.
+    Parse an HTTP date and normalize it to timezone-aware UTC.
+
+    Empty input and TypeError, ValueError, or OverflowError from date parsing produce None. Parsed
+    naive dates are treated as UTC. Final timezone conversion occurs outside that parser exception
+    guard.
 
     Example:
-        >>> _http_datetime("Sat, 22 Aug 2026 12:30:45 GMT").isoformat()
-        '2026-08-22T12:30:45+00:00'
+        >>> _http_datetime("Sun, 16 Aug 2026 10:00:00 GMT").isoformat()
+        '2026-08-16T10:00:00+00:00'
 
 
-    :param value:
-    :return:
+    :param value: Optional HTTP date header text, usually Last-Modified.
+    :return: UTC datetime, or None for absent text or a caught parsing failure.
     """
 
     if not value:
@@ -1547,15 +1747,15 @@ def _http_datetime(value: str | None) -> datetime | None:
 
 def _suggested_filename(url: str) -> str | None:
     """
-    Decode the final URL path component as a filename hint.
+    Decode the last URL path component as an advisory filename, excluding query text.
 
     Example:
-        >>> _suggested_filename("https://example.test/books/Caf%C3%A9.epub")
-        'Café.epub'
+        >>> _suggested_filename("https://example.test/caf%C3%A9.epub?id=2")
+        'café.epub'
 
 
-    :param url:
-    :return:
+    :param url: URL whose final slash-separated path component is decoded with urllib replacement behavior.
+    :return: Decoded final path component, or None for an empty component; no Content-Disposition or filename safety check is applied.
     """
 
     name = unquote(urlsplit(url).path.rsplit("/", 1)[-1])
@@ -1564,16 +1764,20 @@ def _suggested_filename(url: str) -> str | None:
 
 def _media_type(headers: Mapping[str, str], url: str) -> str | None:
     """
-    Prefer the response media type and otherwise guess from the URL path.
+    Use the Content-Type media label or guess from the URL path when that header is absent.
+
+    Header parameters after the first semicolon are discarded. A nonblank header with an empty media
+    label returns None without trying the filename fallback. Neither the supplied label nor guessed
+    type is checked against body contents.
 
     Example:
-        >>> _media_type({}, "https://example.test/book.epub")
+        >>> _media_type({"Content-Type": "application/epub+zip; charset=utf-8"}, "https://example.test/book")
         'application/epub+zip'
 
 
-    :param headers:
-    :param url:
-    :return:
+    :param headers: Response header mapping searched case-insensitively for Content-Type.
+    :param url: Requested URL whose path is passed to mimetypes when no nonblank type header exists.
+    :return: Media label without parameters, a filename-based guess, or None when neither supplies one.
     """
 
     content_type = _header(headers, "Content-Type")
@@ -1584,17 +1788,20 @@ def _media_type(headers: Mapping[str, str], url: str) -> str | None:
 
 def _positive_rate(value: float | None) -> float | None:
     """
-    Normalize a positive request rate and disable invalid or zero values.
+    Convert a positive request rate to float, otherwise disable pacing.
+
+    None and float-conversion TypeError/ValueError produce None, as do nonpositive values and NaN.
+    Positive infinity is retained; no finiteness check is made.
 
     Example:
-        >>> _positive_rate("12")
+        >>> _positive_rate(12)
         12.0
         >>> _positive_rate(0) is None
         True
 
 
-    :param value:
-    :return:
+    :param value: Requests-per-hour value to convert, or None to disable pacing.
+    :return: Positive float rate, or None when disabled or not accepted by conversion/comparison.
     """
 
     if value is None:

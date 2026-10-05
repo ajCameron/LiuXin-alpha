@@ -8,8 +8,27 @@
 # Todo: Test then upgrade for Py3
 
 # Lookup object; later to be replaced by an implementation written in C
+"""
+Map Windows error values to stable names and messages.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise liuxin winerror through a consuming regression::
+
+        python -m pytest -q tests/utils/libraries/liuxin_winerror/test_liuxin_winerror.py
+"""
 class _WinError:
     # Code to name dictionary
+    """
+    Report the WinError Calibre compatibility failure.
+
+    Example:
+        Exercise  WinError through a consuming regression::
+
+            python -m pytest -q tests/utils/libraries/liuxin_winerror/test_liuxin_winerror.py
+    """
     code2name = {
         0: "ERROR_SUCCESS",
         1: "ERROR_INVALID_FUNCTION",
@@ -1521,11 +1540,35 @@ class _WinError:
 
     # Lookup code
     def __init__(self) -> None:
+        """
+        Initialize and validate the WinError state.
+
+        Example:
+            Exercise  WinError.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/libraries/liuxin_winerror/test_liuxin_winerror.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         namespace = self.__dict__
         for code, name in self.code2name.items():
             namespace[name] = code
 
     def get_name(self, code: int) -> str:
+        """
+        Return name under the documented compatibility and safety rules.
+
+        Example:
+            Exercise  WinError.get name through a consuming regression::
+
+                python -m pytest -q tests/utils/libraries/liuxin_winerror/test_liuxin_winerror.py
+
+
+        :param code: Value supplied for code under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.code2name[code]
 
 

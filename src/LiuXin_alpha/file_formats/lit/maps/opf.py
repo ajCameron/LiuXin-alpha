@@ -1,3 +1,14 @@
+"""
+Define LIT OPF metadata mappings used during package conversion.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise opf through a consuming regression::
+
+        python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
+"""
 from __future__ import annotations
 __license__ = "GPL v3"
 __copyright__ = "2008, Marshall T. Vandegrift <llasram@gmail.com>"

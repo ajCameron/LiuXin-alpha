@@ -1,9 +1,8 @@
 
 """
-Custom columns allow users to add custom data to the database.
+Compose the legacy custom-column facade, metadata loading and cache hooks.
 
-This might, on balance, be more trouble that it's worth. But it's also an expected feature.
-(might be worth being able to toggle it on and off)
+Constructing CustomColumns can delete marked/broken definitions, install temporary triggers and register custom fields. It does not populate the results cache required by value getters/setters. The first driver-wrapper base shadows the later CRUD wrapper methods.
 """
 
 from __future__ import annotations
@@ -81,9 +80,12 @@ class CustomColumns(
     CCDeleteMethodsMixin,
     CCCRUDColumnsMixin):
     """
-    Represents the custom_columns (specifically on the books table).
-    In calibre this class was originally intended to be a mixing for the LibraryDatabase2 object - some work has been
-    done to it so that it can be invoked independently - for easier testing.
+    Manage one attachment table’s legacy custom-column metadata and operations.
+
+    Share supplied cache, field-map and FieldMetadata objects. Initialization performs schema cleanup and metadata registration; standalone mode installs inert dirty/notify hooks. Default cache data is an empty dictionary, so cached value operations need additional host setup. MRO resolution selects driver-wrapper creation/metadata/deletion methods before CCCRUDColumnsMixin.
+
+    Example:
+        Given an open db, CustomColumns(db, table="works") loads and registers custom definitions attached to works, potentially performing cleanup.
     """
 
     CUSTOM_DATA_TYPES: frozenset[str] = CUSTOM_DATA_TYPES
@@ -91,17 +93,25 @@ class CustomColumns(
     @property
     def custom_tables(self) -> Iterable[str]:
         """
-        Return the custom table names defined oin the database.
+        Read the owning database’s global custom-table names through the wrapper.
 
-        :return:
+        Example:
+            For a configured facade cc, cc.custom_tables includes physical custom value/link tables across the database.
+
+
+        :return: Collection returned by get_custom_tables, not restricted to this facade’s attachment table.
         """
         return self.get_custom_tables()
 
     def get_custom_tables(self) -> set[str]:
         """
-        Return the custom table names defined on the owning database.
+        Delegate global custom-table discovery to the owning driver wrapper.
 
-        :return:
+        Example:
+            Given cc, cc.get_custom_tables() retrieves the physical names used during definition validation.
+
+
+        :return: Wrapper result, normally a set of custom value/link table names.
         """
         return self.db.driver_wrapper.get_custom_tables()
 
@@ -116,21 +126,23 @@ class CustomColumns(
         embed: bool = False,
     ):
         """
-        Represents the custom columns for a given table.
+        Attach host state, clean obsolete definitions and register custom metadata.
 
-        Defaults to books.
-        :param db: The database containing the custom columns
-        :param conn: Connection object to allow executing SQL on the database
-        :param table: Defaults to books.
-        :param field_metadata: This is an object which stores the field metadata for the books table - if you have a
-                               field_metadata object for the class your using this in already, then add it here.
-        :param field_map: Keyed with the name of the field in the row and valued with the position of that field in the
-                          row (which corresponds to the number of columns from the left in that table)
-        :param embed: Is this class to be used as part of multiple inheritance for another class?
-                      True for yes, False for No.
-                      If True then certain methods are not declared to stop them overwriting methods which it's
-                      presumed are present in the other class.
-        :return:
+        Delete marked columns, refresh definitions, remove orphan definitions and recreate the parent-delete TEMP trigger on the current connection when snippets exist. Adapter and FieldMetadata setup follows; normalized non-composite columns are categories only for literal books. Setup is not atomic or read-only. Reusing shared FieldMetadata can encounter existing registrations. The instance does not initialize custom_column_num_to_label_map or populate cache rows.
+
+        Example:
+            Given db, cc = CustomColumns(db, table="works", field_metadata=metadata) shares metadata and loads Work custom-column definitions.
+
+
+        :param db: Open database with custom-column wrapper/macros and schema metadata.
+        :param conn: Optional compatibility connection assigned through the live-connection property.
+        :param table: Attachment table; absent legacy books falls back to manifestations when available.
+        :param field_metadata: FieldMetadata object retained by reference, or a new one.
+        :param data: Results-cache host retained by reference; None becomes an empty dictionary.
+        :param field_map: Field-to-slot mapping retained by reference; None uses the legacy 22-slot layout.
+        :param embed: When False, install dummy notification/dirtying hooks; True expects host-provided hooks.
+        :return: None; metadata, adapters, temporary triggers and custom field registrations are configured.
+        :raises ValueError: CUSTOM_DATA_TYPES includes a type absent from FieldMetadata.VALID_DATA_TYPES.
         """
         self.embed = embed
 
@@ -283,9 +295,15 @@ class CustomColumns(
 
     def refresh_db_custom_columns_metadata(self) -> None:
         """
-        Re-read the data from the custom_columns table.
+        Rebuild per-table definition maps while collecting removals and trigger snippets.
 
-        :return:
+        Scan every custom_columns record before filtering to this attachment table. Parsing errors delete the definition immediately; missing backing tables queue removals even for other attachment tables. A parsed display=None becomes {}, but another nonmapping display can fail later outside the parsing guard. Shared metadata dictionaries populate both maps. Repeated calls do not clear remove/triggers, install the trigger, execute queued removals or rebuild FieldMetadata registrations.
+
+        Example:
+            After external schema changes, cc.refresh_db_custom_columns_metadata() refreshes its maps; recreating the facade is the separate path that applies queued cleanup and trigger installation.
+
+
+        :return: None; update metadata maps and append to existing remove/triggers lists.
         """
         custom_tables = self.custom_tables
         self.custom_column_label_map, self.custom_column_num_map = {}, {}
@@ -384,13 +402,22 @@ class CustomColumns(
             label: Optional[str] = None,
             num: Optional[int] = None) -> None:
         """
-        Rename an item in one of the custom tables
+        Rename or merge a stored normalized value and update legacy cache references.
 
-        :param old_id:
-        :param new_name:
-        :param label:
-        :param num:
-        :return:
+        If another value already has the requested spelling, repoint links and remove the old value, avoiding duplicate multiple links. Otherwise update the existing value. The adapted value is discarded; original new_name is used throughout. Dirty referencing owners, update cached values, and alter an enumeration’s in-memory allowed list when applicable. Lookup, SQL and host-hook failures can leave partial changes; no encompassing transaction is supplied.
+
+        Example:
+            On a fully configured facade, rename_custom_item(value_id, "Revised", num=column_id) updates that spelling or merges into an existing equal value.
+
+
+        :param old_id: Existing value-row ID; a false resolved ID is rejected.
+        :param new_name: Requested spelling used for lookup/storage even though an adapter is also called.
+        :param label: Optional custom-column label; takes precedence over num.
+        :param num: Numeric metadata key used when label is None.
+        :return: None; SQL/cache/enumeration updates are followed by self.conn.commit on success.
+        :raises NotImplementedError: Neither label nor num is supplied.
+        :raises KeyError: The selected metadata record is absent.
+        :raises InvalidUpdate: Old-value lookup raises IndexError or resolves a false ID.
         """
         if label is not None:
             data = self.custom_column_label_map[label]
@@ -458,12 +485,19 @@ class CustomColumns(
             book_ids: Union[Iterable[int], Iterable[str]],
             column_num: str, new_value: Any) -> None:
         """
-        Replace all the elements in data with the new value.
+        Replace a cache slot for each owner represented by an indexable row.
 
-        :param book_ids: The books ids to update the value for
-        :param column_num: THe CUSTOM COLUMN number
-        :param new_value: The new value to write out into the cache
-        :return:
+        No SQL, dirtying or notification occurs. Flat integer entries fail at element-zero lookup. This signature uses book_ids, so deletion code passing target_ids raises before entering the method.
+
+        Example:
+            Given a configured cache, cc.rename_custom_item_in_data([(1,), (2,)], column_id, None) clears the selected custom slot for both owner IDs.
+
+
+        :param book_ids: Iterable of row-like entries whose first element is the owner ID, despite the flat-ID annotation.
+        :param column_num: Custom-column key in FIELD_MAP.
+        :param new_value: Value written to the cache without adaptation.
+        :return: None; call data.set with row_is_id=True for each entry.
+        :raises TypeError: An owner entry cannot be indexed, or the caller uses the unsupported target_ids keyword.
         """
         for book_id_tuple in book_ids:
             self.data.set(
@@ -479,12 +513,18 @@ class CustomColumns(
             label: Optional[str] = None,
             num: Optional[int] = None) -> bool:
         """
-        Is the given item, in the custom column designated with its label or num, used with multiple books or not?
+        Check whether a case-insensitive value spelling exists in the column inventory.
 
-        :param item: The item to search for
-        :param label:
-        :param num:
-        :return:
+        Despite its name, this does not count references or require multiple storage. It checks existence only, using lower rather than casefold.
+
+        Example:
+            With "Travel" in cc.all_custom(num=column_id), cc.is_item_used_in_multiple("travel", num=column_id) is true even for a value used by only one owner.
+
+
+        :param item: Value supporting lower().
+        :param label: Optional custom-column label; takes precedence over num.
+        :param num: Numeric metadata key used when label is None.
+        :return: True if its lowercase spelling appears in all_custom.
         """
         existing_tags = self.all_custom(label=label, num=num)
         return item.lower() in {t.lower() for t in existing_tags}
@@ -495,19 +535,31 @@ class CustomColumns(
     def _get_next_series_num_for_list(
             series_indices: list[Union[int, float]]) -> Optional[float]:
         """
-        Takes a list of indices and tries to work out the "next" value for that list.
+        Delegate series numbering to the preference-driven legacy helper.
 
-        :param series_indices:
-        :return:
+        Default unwrapping remains enabled, so nonempty flat numeric sequences violate the actual input shape despite the annotation.
+
+        Example:
+            With the default next policy, CustomColumns._get_next_series_num_for_list([[3.5]]) returns 4.0.
+
+
+        :param series_indices: Ordered indexable rows containing the numeric index at element zero.
+        :return: Next/configured number from the shared helper.
         """
         return _get_next_series_num_for_list(series_indices)
 
 
     def clean_custom(self) -> None:
         """
-        Clean the custom_columns - removes entries which are no longer used.
+        Run custom-value cleanup using a newly opened driver connection.
 
-        :return:
+        Pass the metadata map and naming factory to the macro, which commits its work. This method does not close the supplied connection or refresh cache values afterward; errors can follow earlier column cleanup.
+
+        Example:
+            Given cc, cc.clean_custom() prunes values according to the legacy macro’s normalized-column rules.
+
+
+        :return: None; delegate each column’s cleanup to db.macros.clean_custom.
         """
         clean_conn = self.db.driver.get_connection()
 
@@ -520,15 +572,18 @@ class CustomColumns(
     # Todo: Not sure where this goes, but perhaps not here.
     def custom_columns_in_meta(self, update_field_map=True, field_metadata=None):
         """
-        Creates the lines needed to add each of these columns to the view created in meta2.
+        Generate legacy meta2 SQL projection strings for the current custom columns.
 
-        Returns lines based on each of the custom columns which will be added to the view.
-        Does the order of these lines matter?
-        :param update_field_map:
-        :param field_metadata: A field metadata object to update at the same time - contains metadata about the fields
-                               If None, will be ignored.
-        :return: A dictionary keyed with the cc num and valued with a list of the lines that form the view for that
-                 custom column in meta2
+        Use books.book_id and legacy book/value link columns, even for another attachment table. Multiple normalized values use sorted-concatenation functions; series adds a second index projection. No view is created and FIELD_MAP is not updated. max(FIELD_MAP.values()) is still evaluated, so an empty field map raises even though the calculated value is unused.
+
+        Example:
+            Given cc, fragments = cc.custom_columns_in_meta() produces SQL strings for a compatible books-based meta2 view.
+
+
+        :param update_field_map: Compatibility flag currently ignored.
+        :param field_metadata: Compatibility metadata argument currently ignored.
+        :return: Dictionary mapping custom-column numbers to SQL projection strings.
+        :raises ValueError: FIELD_MAP is empty.
         """
         lines = {}
 
@@ -598,20 +653,19 @@ class CustomColumns(
             lines: dict[int, str],
             update_field_metadata: bool = True) -> None:
         """
-        The field map exists to provide a mapping between the position of a column in meta2 and the name of that column.
+        Append custom value/index slots and optionally update FieldMetadata indices.
 
-        It is assumed that the lines here have been added to meta2 - thus the field map should also be updated with
-        them.
-        WARNING - Check that the field map is correct before updating it while calling this method - otherwise it might
-        no longer be valid. Check that the length of the field map is the same as a the length of a row retrieve from
-        the meta2 view after update - as the field map should have an entry for every column in the view.
-        :param lines: The output of custom_columns_in_meta - provides the information needed to update the FIELD_MAP
-                      with the new custom columns.
-                      Keyed with the number of the custom column (it's id in the custom_columns table). Values with the
-                      lines that have to be added to meta2 to represent the object.
-        :param update_field_metadata: If False, field_metadata IS NOT UPDATED. THIS SHOULD NEVER BE DONE.
-                                      Except for during testing. Maybe.
-        :return None: All changes are made internally
+        Start after the current maximum slot, add each custom value and an adjacent series index where required. Repeated calls append new positions rather than restoring original ones. The caller must ensure the actual view uses this order; failures can leave partial map updates.
+
+        Example:
+            After creating a compatible view in sorted custom-number order, cc.update_field_map_from_custom_columns_in_meta(fragments) appends its cache slots.
+
+
+        :param lines: Mapping whose sorted numeric keys determine custom-column slot order; SQL values are not inspected.
+        :param update_field_metadata: Whether to update FieldMetadata alongside FIELD_MAP, default True.
+        :return: None; mutate FIELD_MAP and possibly field metadata in place.
+        :raises ValueError: FIELD_MAP is empty.
+        :raises KeyError: A requested number is missing from custom_column_num_map.
         """
         custom_map = lines
 
@@ -642,19 +696,36 @@ class CustomColumns(
 
     # Todo: Probably the custom column metadata should be a dataclas
     def custom_field_metadata(self, label=None, num=None):
+        """
+        Return the metadata record selected by label first, otherwise number.
+
+        Example:
+            Given cc, cc.custom_field_metadata(num=column_id) exposes the record shared with its numeric/label maps.
+
+
+        :param label: Optional custom-column label; takes precedence over num.
+        :param num: Numeric metadata key used when label is None.
+        :return: Existing mutable metadata dictionary, not a copy.
+        :raises KeyError: The chosen key is absent, including num=None when neither selector is supplied.
+        """
+
         if label is not None:
             return self.custom_column_label_map[label]
         return self.custom_column_num_map[num]
 
     def _get_series_values(self, val: Any) -> tuple[str, Optional[float]]:
         """
-        Takes a calibre formated series string and returns the series name and the desired position.
+        Parse a series string or the last entry of a supplied list.
 
-        (of the form "series_name [series_number]" e.g. "Rama [1.0]")
+        Delegate parsing to the shared bracket-index helper. Earlier list elements are ignored; unsupported truthy types raise rather than being stringified.
 
-        Series names with spaces in them should be fine.
-        :param val:
-        :return:
+        Example:
+            For cc, cc._get_series_values(["ignored", "Dune [2]"]) returns ("Dune", 2.0).
+
+
+        :param val: False value, series string, or nonempty list whose last item can be parsed.
+        :return: Parsed (name, optional float index); false input becomes ("", None).
+        :raises NotImplementedError: A truthy value is neither a supported string nor a list.
         """
         if val is None or not val:
             return _get_series_values("")
@@ -671,22 +742,37 @@ class CustomColumns(
     @staticmethod
     def cleanup_tags(tags_list: list[str]) -> list[str]:
         """
-        Preform a clean of the given tags - ready for writing.
+        Delegate tag cleanup to the legacy utility, including its current failures.
 
-        :param tags_list:
-        :return:
+        The utility misclassifies str as bytes and calls decode; nonempty bytes fail earlier in replace. No facade-specific repair or exception translation is applied.
+
+        Example:
+            >>> CustomColumns.cleanup_tags([])
+            []
+
+
+        :param tags_list: Iterable of tag entries passed through unchanged.
+        :return: Empty list for empty/all-blank input; ordinary nonblank str or bytes entries currently raise.
+        :raises AttributeError: A nonblank ordinary string reaches .decode.
+        :raises TypeError: A nonempty bytes entry reaches string-argument replace.
         """
         return cleanup_tags(tags_list)
 
     # Todo: This is mostly not going to actually work. Need ... something better.
     def custom_dirty_books_referencing(self, field, id, commit: bool = True) -> Iterable[int]:
         """
-        Version of the dirty_books_referencing function specifically for custom books.
+        Query owners referencing a custom value and pass their IDs to dirtied.
 
-        :param field:
-        :param id:
-        :param commit:
-        :return:
+        Expect each result entry to unpack to exactly one owner ID. A one-shot result iterator can be exhausted when returned. Standalone dummy dirtied performs no persistence; embedded hosts determine actual dirtying/commit effects.
+
+        Example:
+            On a compatible facade, cc.custom_dirty_books_referencing("#shelf", value_id, commit=False) requests dirtying and returns the macro’s owner rows.
+
+
+        :param field: FieldMetadata key supplying table and link_column for the macro.
+        :param id: Value ID used to find referencing owners.
+        :param commit: Flag forwarded to the dirtied hook, default True.
+        :return: Original row-shaped macro result after iterating it to extract one-column owner IDs.
         """
         # Get the list of books to dirty -- all books that reference the item
         table = self.field_metadata[field]["table"]

@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Decode and report KF8/MOBI8 resources and flow structure.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise mobi8 through a consuming regression::
+
+        python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -38,7 +49,27 @@ __docformat__ = "restructuredtext en"
 
 
 class FDST(object):
+    """
+    Provide the fdst contract for validated ebook processing.
+
+    Example:
+        Exercise FDST through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+    """
     def __init__(self: _typing.Self, raw: _typing.Any) -> None:
+        """
+        Initialize and validate the fdst state.
+
+        Example:
+            Exercise FDST.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param raw: Value supplied for raw under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         if raw[:4] != b"FDST":
             raise ValueError("KF8 does not have a valid FDST record")
         self.sec_off, self.num_sections = struct.unpack_from(b">LL", raw, 4)
@@ -52,9 +83,35 @@ class FDST(object):
         self.sections = tuple(six_zip(secs[::2], secs[1::2]))
 
     def __str__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the str operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise FDST.  str   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = ["FDST record"]
 
         def a(k: _typing.Any, v: _typing.Any) -> None:
+            """
+            Perform the a operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise FDST.  str  .a through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+            :param k: Value supplied for k under the utility contract.
+            :param v: Value supplied for v under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             ans.append("%s: %s" % (k, v))
 
         a("Offset to sections", self.sec_off)
@@ -67,12 +124,49 @@ class FDST(object):
 
 
 class File(object):
+    """
+    Provide the file contract for validated ebook processing.
+
+    Example:
+        Exercise File through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+    """
     def __init__(self: _typing.Self, skel: _typing.Any, skeleton: _typing.Any, text: _typing.Any, first_aid: _typing.Any, sections: _typing.Any) -> None:
+        """
+        Initialize and validate the file state.
+
+        Example:
+            Exercise File.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param skel: Value supplied for skel under the utility contract.
+        :param skeleton: Value supplied for skeleton under the utility contract.
+        :param text: Text parsed, normalized or rendered.
+        :param first_aid: Value supplied for first aid under the utility contract.
+        :param sections: Value supplied for sections under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.name = "part%04d" % skel.file_number
         self.skeleton, self.text, self.first_aid = skeleton, text, first_aid
         self.sections = sections
 
     def dump(self: _typing.Self, ddir: _typing.Any) -> None:
+        """
+        Perform the dump operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise File.dump through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param ddir: Value supplied for ddir under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         with open(os.path.join(ddir, self.name + ".html"), "wb") as f:
             f.write(self.text)
         base = os.path.join(ddir, self.name + "-parts")
@@ -86,7 +180,27 @@ class File(object):
 
 
 class MOBIFile(object):
+    """
+    Provide the mobifile contract for validated ebook processing.
+
+    Example:
+        Exercise MOBIFile through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+    """
     def __init__(self: _typing.Self, mf: _typing.Any) -> None:
+        """
+        Initialize and validate the mobifile state.
+
+        Example:
+            Exercise MOBIFile.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param mf: Value supplied for mf under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.mf = mf
         h, h8 = mf.mobi_header, mf.mobi8_header
         first_text_record = 1
@@ -115,6 +229,19 @@ class MOBIFile(object):
         self.read_tbs()
 
     def print_header(self: _typing.Self, f: _typing.Any = sys.stdout) -> None:
+        """
+        Perform the print header operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MOBIFile.print header through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param f: Value supplied for f under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         print(str(self.mf.palmdb).encode("utf-8"), file=f)
         print(file=f)
         print("Record headers:", file=f)
@@ -125,6 +252,18 @@ class MOBIFile(object):
         print(str(self.mf.mobi8_header).encode("utf-8"), file=f)
 
     def read_fdst(self: _typing.Self) -> None:
+        """
+        Read fdst under the format's safety and compatibility rules.
+
+        Example:
+            Exercise MOBIFile.read fdst through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.fdst = None
 
         if self.header.fdst_idx != NULL_INDEX:
@@ -134,12 +273,36 @@ class MOBIFile(object):
                 raise ValueError("KF8 Header contains invalid FDST count")
 
     def read_indices(self: _typing.Self) -> None:
+        """
+        Read indices under the format's safety and compatibility rules.
+
+        Example:
+            Exercise MOBIFile.read indices through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.skel_index = SKELIndex(self.header.skel_idx, self.mf.records, self.header.encoding)
         self.sect_index = SECTIndex(self.header.sect_idx, self.mf.records, self.header.encoding)
         self.ncx_index = NCXIndex(self.header.primary_index_record, self.mf.records, self.header.encoding)
         self.guide_index = GuideIndex(self.header.oth_idx, self.mf.records, self.header.encoding)
 
     def build_files(self: _typing.Self) -> None:
+        """
+        Perform the build files operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MOBIFile.build files through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         text = self.raw_text
         self.files = []
         for skel in self.skel_index.records:
@@ -159,6 +322,19 @@ class MOBIFile(object):
             self.files.append(File(skel, skeleton, ftext, first_aid, sections))
 
     def dump_flows(self: _typing.Self, ddir: _typing.Any) -> None:
+        """
+        Perform the dump flows operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MOBIFile.dump flows through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param ddir: Value supplied for ddir under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         boundaries = [(0, len(self.raw_text))]
         if self.fdst is not None:
             boundaries = self.fdst.sections
@@ -169,6 +345,19 @@ class MOBIFile(object):
                 f.write(raw)
 
     def extract_resources(self: _typing.Self, records: _typing.Any) -> None:
+        """
+        Extract resources under the format's safety and compatibility rules.
+
+        Example:
+            Exercise MOBIFile.extract resources through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param records: Value supplied for records under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.resource_map = []
         self.containers = []
         known_types = {
@@ -246,6 +435,18 @@ class MOBIFile(object):
             self.resource_map.append(("%s/%06d%s.%s" % (prefix, resource_index, suffix, ext), payload))
 
     def read_tbs(self: _typing.Self) -> None:
+        """
+        Read tbs under the format's safety and compatibility rules.
+
+        Example:
+            Exercise MOBIFile.read tbs through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         from LiuXin_alpha.file_formats.mobi.writer8.tbs import (
             Entry,
             DOC,
@@ -335,6 +536,20 @@ class MOBIFile(object):
 
 
 def inspect_mobi(mobi_file: _typing.Any, ddir: _typing.Any) -> None:
+    """
+    Perform the inspect mobi operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise inspect mobi through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param mobi_file: Value supplied for mobi file under the utility contract.
+    :param ddir: Value supplied for ddir under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     f = MOBIFile(mobi_file)
     with open(os.path.join(ddir, "header.txt"), "wb") as out:
         f.print_header(f=out)

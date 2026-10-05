@@ -1,4 +1,14 @@
-"""Operator-contract coverage for profiles, diagnosis, recovery, and integrity."""
+"""
+Exercise operator-facing selection, storage setup, diagnosis, and recovery contracts.
+
+Tests requesting operator_core use a recording fake with canned service results;
+they establish CLI routing and presentation, not real S3, integrity, or repair
+behavior. Other cases initialize temporary SQLite systems, persist local profile
+pointers, discover files, or restore small SQLite fixtures. Wizard input and
+interactive detection are patched. Resume captures the reconstructed namespace
+after an actual first attempt; it does not execute a second ingest. Shell
+completion is checked as text, not installed or executed by a shell.
+"""
 
 from __future__ import annotations
 
@@ -6,7 +16,6 @@ import argparse
 import json
 import sqlite3
 import stat
-
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
@@ -16,9 +25,15 @@ import pytest
 from LiuXin_alpha.surfaces.cli import catalogue as catalogue_cli
 from LiuXin_alpha.surfaces.cli import diagnostics as diagnostics_cli
 from LiuXin_alpha.surfaces.cli import ingest_runs as ingest_runs_cli
-from LiuXin_alpha.surfaces.cli import storage as storage_cli
 from LiuXin_alpha.surfaces.cli import workflows as workflows_cli
 from LiuXin_alpha.surfaces.cli.app import main as cli_main
+from LiuXin_alpha.surfaces.cli.storage_commands import (
+    administration,
+    core_access,
+    integrity,
+    store_add,
+    store_wizard,
+)
 from LiuXin_alpha.surfaces.system_profile import (
     PROFILE_POINTER_FORMAT,
     apply_system_profile,
@@ -26,11 +41,60 @@ from LiuXin_alpha.surfaces.system_profile import (
 
 
 class _OperatorCore:
+    """
+    Record CLI requests and return fixed operator-oriented service projections.
+
+    Payload histories are shallow copies, not immutable snapshots. Responses
+    need not agree with each other: the Store list is empty while storage status
+    describes one folder Store. Commands do not mutate a backing catalogue or
+    influence later queries. The database-info fixture deliberately contains
+    a fake credential so diagnostic redaction can be asserted.
+
+    Example:
+        >>> core = _OperatorCore()
+        >>> core.query('health')
+        {'ok': True, 'shutdown': False}
+        >>> core.queries
+        [('health', {})]
+
+
+    :ivar queries: Ordered operation names and shallow query payload copies.
+    :ivar commands: Ordered operation names and shallow command payload copies.
+    """
+
     def __init__(self) -> None:
+        """
+        Start a fake session with independent empty request histories.
+
+        Example:
+            >>> (_OperatorCore().queries, _OperatorCore().commands)
+            ([], [])
+
+
+        :return: None; initialize mutable query and command lists.
+        """
         self.queries: list[tuple[str, dict[str, Any]]] = []
         self.commands: list[tuple[str, dict[str, Any]]] = []
 
     def query(self, name: str, payload: dict[str, Any] | None = None) -> Any:
+        """
+        Record a query before selecting its canned response or rejecting its name.
+
+        Falsey payloads become empty mappings. Recovery-list fields override
+        the canned fields when echoed; evacuation requires a store key. Backend
+        descriptors describe fixture capabilities, not installed provider checks.
+
+        Example:
+            >>> _OperatorCore().query('storage.recovery.list', {'state': 'failed'})
+            {'operations': [], 'total': 0, 'state': 'failed'}
+
+
+        :param name: Exact supported operation or a database.migrations. prefix.
+        :param payload: Optional request fields copied shallowly into the history.
+        :return: Branch-specific fixture mapping, with selected caller fields echoed.
+        :raises AssertionError: No supported query branch matches, after recording it.
+        :raises KeyError: A supported branch requires a missing payload field.
+        """
         values = dict(payload or {})
         self.queries.append((name, values))
         if name == "health":
@@ -145,6 +209,24 @@ class _OperatorCore:
         raise AssertionError("Unexpected query: {}".format(name))
 
     def command(self, name: str, payload: dict[str, Any] | None = None) -> Any:
+        """
+        Record a command and synthesize its receipt without executing a mutation.
+
+        Some branches require store; several merge caller fields after receipt
+        defaults, allowing those fields to override ok or operation. Reported
+        probe, verification, refresh, and migration success are canned values.
+
+        Example:
+            >>> _OperatorCore().command('storage.default.set', {'store': 'primary'})
+            {'selected': True, 'store_name': 'primary'}
+
+
+        :param name: Exact command or a supported recovery/custom-field prefix.
+        :param payload: Optional request fields shallow-copied before branch selection.
+        :return: Synthetic receipt, not proof of storage or catalogue changes.
+        :raises AssertionError: No command branch matches, after recording the call.
+        :raises KeyError: A selected branch requires a missing payload field.
+        """
         values = dict(payload or {})
         self.commands.append((name, values))
         if name == "storage.store.save":
@@ -184,14 +266,48 @@ class _OperatorCore:
 
 @contextmanager
 def _session(core: _OperatorCore, *_args: object, **_kwargs: object):
+    """
+    Yield the supplied fake through the CLI opener's context-manager shape.
+
+    No connection is opened, validated, or closed. Body exceptions propagate;
+    extra arguments are accepted only so the real opener can be replaced.
+
+    Example:
+        >>> core = _OperatorCore()
+        >>> with _session(core, storage=True) as opened:
+        ...     opened is core
+        True
+
+
+    :param core: Recording fake exposed as the session value.
+    :param _args: Ignored positional opener arguments.
+    :param _kwargs: Ignored keyword opener arguments.
+    :return: Context manager yielding the same fake without lifecycle effects.
+    """
     yield core
 
 
 @pytest.fixture
 def operator_core(monkeypatch: pytest.MonkeyPatch) -> _OperatorCore:
+    """
+    Share one recording fake among storage, catalogue, diagnostic, and workflow owners.
+
+    Patch the implementation modules' imported openers, not compatibility aliases.
+    Other CLI owners retain real sessions unless the test patches them separately.
+    pytest restores these replacements after the requesting test.
+
+    Example:
+        >>> operator_core.query('health')['ok']  # doctest: +SKIP
+        True
+
+
+    :param monkeypatch: Fixture managing scoped opener replacements.
+    :return: New fake whose histories capture calls through the patched owners.
+    """
     core = _OperatorCore()
     opener = lambda *args, **kwargs: _session(core, *args, **kwargs)
-    monkeypatch.setattr(storage_cli, "open_cli_core", opener)
+    for owner in (administration, core_access, integrity, store_add, store_wizard):
+        monkeypatch.setattr(owner, "open_cli_core", opener)
     monkeypatch.setattr(catalogue_cli, "open_cli_core", opener)
     monkeypatch.setattr(diagnostics_cli, "open_cli_core", opener)
     monkeypatch.setattr(workflows_cli, "open_cli_core", opener)
@@ -199,6 +315,21 @@ def operator_core(monkeypatch: pytest.MonkeyPatch) -> _OperatorCore:
 
 
 def _sqlite(path: Path, table: str = "sample") -> None:
+    """
+    Commit one integer-primary-key table in a minimal SQLite fixture database.
+
+    The table identifier is interpolated without quoting and must be controlled
+    fixture text. This is not a LiuXin schema or a parent-directory creator.
+    The connection closes even when table creation fails; a file may remain.
+
+    Example:
+        >>> _sqlite(tmp_path / 'backup.sqlite', 'restored_data')  # doctest: +SKIP
+
+
+    :param path: Target SQLite file whose parent already exists.
+    :param table: Trusted SQL identifier for the new fixture table.
+    :return: None after committing and closing the fixture connection.
+    """
     connection = sqlite3.connect(path)
     try:
         connection.execute("CREATE TABLE {} (id INTEGER PRIMARY KEY)".format(table))
@@ -208,6 +339,21 @@ def _sqlite(path: Path, table: str = "sample") -> None:
 
 
 def _manifest(root: Path, database: Path) -> Path:
+    """
+    Create a private SQLite system manifest and its empty ingest directories.
+
+    The root must not already exist. The database path is recorded as supplied,
+    without opening or validating it; store_root is None. Directory creation,
+    JSON publication, and chmod are separate effects with no rollback.
+
+    Example:
+        >>> _manifest(tmp_path / 'system', tmp_path / 'catalogue.sqlite')  # doctest: +SKIP
+
+
+    :param root: New system directory beneath an existing parent.
+    :param database: SQLite target to record without initializing a catalogue.
+    :return: Path to liuxin-system.json after setting its mode to 0600.
+    """
     root.mkdir()
     (root / "logs" / "ingest").mkdir(parents=True)
     (root / "ingest-materialized").mkdir()
@@ -235,6 +381,21 @@ def test_global_system_profile_show_validate_and_argument_resolution(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    """
+    Resolve explicit system profiles while redacting a displayed PostgreSQL URL.
+
+    SQLite validation uses a small real file. PostgreSQL coverage only resolves
+    manifest fields and checks display redaction; no PostgreSQL server is opened.
+    The operational namespace retains the fake password while display removes it.
+
+    Example:
+        >>> test_global_system_profile_show_validate_and_argument_resolution(tmp_path, capsys)  # doctest: +SKIP
+
+
+    :param tmp_path: Temporary location for SQLite and two system-manifest fixtures.
+    :param capsys: Capture of config output used to inspect resolution and redaction.
+    :return: None; assert selected paths, database type/metadata, and password filtering.
+    """
     database = tmp_path / "catalogue.sqlite"
     _sqlite(database)
     root = tmp_path / "system"
@@ -269,9 +430,7 @@ def test_global_system_profile_show_validate_and_argument_resolution(
             {
                 "format": "liuxin.system",
                 "version": 1,
-                "database": (
-                    "postgresql://reader:swordfish@example.invalid/catalogue"
-                ),
+                "database": ("postgresql://reader:swordfish@example.invalid/catalogue"),
                 "db_type": "PostgreSQL",
                 "database_metadata": {"schema": "liuxin"},
             }
@@ -302,6 +461,22 @@ def test_named_profiles_are_credential_free_selectors_and_can_be_removed(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    """
+    Persist a named manifest pointer and require confirmation before removing it.
+
+    Check exact pointer keys and private permissions, then resolve the named
+    profile into a database selection. Unconfirmed removal preserves the pointer;
+    confirmed removal reports that systems were not modified.
+
+    Example:
+        >>> test_named_profiles_are_credential_free_selectors_and_can_be_removed(tmp_path, monkeypatch, capsys)  # doctest: +SKIP
+
+
+    :param tmp_path: Isolated configuration, manifest, and minimal SQLite locations.
+    :param monkeypatch: Select temporary XDG configuration and clear ambient selectors.
+    :param capsys: Capture of profile receipts and confirmation diagnostics.
+    :return: None; assert pointer contents, selection, permissions, and deletion guard.
+    """
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
     monkeypatch.delenv("LIUXIN_SYSTEM_ROOT", raising=False)
     monkeypatch.delenv("LIUXIN_PROFILE", raising=False)
@@ -342,9 +517,7 @@ def test_named_profiles_are_credential_free_selectors_and_can_be_removed(
     assert cli_main(["config", "profiles", "remove", "reading"]) == 2
     assert "requires --yes" in capsys.readouterr().err
     assert pointer_path.is_file()
-    assert cli_main(
-        ["config", "profiles", "remove", "reading", "--yes"]
-    ) == 0
+    assert cli_main(["config", "profiles", "remove", "reading", "--yes"]) == 0
     assert json.loads(capsys.readouterr().out)["systems_modified"] is False
     assert not pointer_path.exists()
 
@@ -354,6 +527,21 @@ def test_status_projection_and_completion_scripts_are_operator_facing(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    """
+    Project canned Core status compactly and render all three completion dialects.
+
+    Completion assertions check shell-specific registration markers and the
+    storage token; they do not source the scripts or exercise shell completion.
+
+    Example:
+        >>> test_status_projection_and_completion_scripts_are_operator_facing(operator_core, tmp_path, capsys)  # doctest: +SKIP
+
+
+    :param operator_core: Recording fake supplying database and Store summaries.
+    :param tmp_path: Location for a real minimal database selected by the CLI.
+    :param capsys: Capture of status JSON and generated shell-script text.
+    :return: None; assert compact status shape and bash/zsh/fish registration markers.
+    """
     database = tmp_path / "catalogue.sqlite"
     _sqlite(database)
     assert cli_main(["status", "--database", str(database)]) == 0
@@ -384,18 +572,36 @@ def test_storage_status_prints_the_store_overview_and_can_refresh(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    """
+    Forward refresh intent to the storage-status query and retain its Store overview.
+
+    The returned replica counts and writable/available flags come from the fake;
+    this case does not refresh a real Store or inspect its bytes.
+
+    Example:
+        >>> test_storage_status_prints_the_store_overview_and_can_refresh(operator_core, tmp_path, capsys)  # doctest: +SKIP
+
+
+    :param operator_core: Fake recording the final storage.status query and payload.
+    :param tmp_path: Minimal SQLite fixture location used for CLI database selection.
+    :param capsys: Capture for parsing the displayed status receipt.
+    :return: None; assert Store projection, summary counts, and refresh_stores=True.
+    """
     database = tmp_path / "catalogue.sqlite"
     _sqlite(database)
 
-    assert cli_main(
-        [
-            "storage",
-            "status",
-            "--database",
-            str(database),
-            "--refresh",
-        ]
-    ) == 0
+    assert (
+        cli_main(
+            [
+                "storage",
+                "status",
+                "--database",
+                str(database),
+                "--refresh",
+            ]
+        )
+        == 0
+    )
     report = json.loads(capsys.readouterr().out)
 
     assert report["summary"]["folder_stores"] == 1
@@ -421,6 +627,20 @@ def test_storage_add_has_provider_discovery_and_rclone_style_automation(
     operator_core: _OperatorCore,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    """
+    Build an automated S3 Store declaration from descriptors and typed assignments.
+
+    Verify policy/tag serialization and save-refresh-probe-default command order.
+    The provider list, probe, and save are faked; no bucket or credentials are used.
+
+    Example:
+        >>> test_storage_add_has_provider_discovery_and_rclone_style_automation(operator_core, capsys)  # doctest: +SKIP
+
+
+    :param operator_core: Recording fake advertising filesystem and S3 providers.
+    :param capsys: Capture for parsing provider discovery and the final add receipt.
+    :return: None; assert descriptor-derived fields, typed options, and command sequence.
+    """
     connection = ["--database", "catalogue.sqlite"]
     assert cli_main(["storage", "backends", *connection]) == 0
     providers = json.loads(capsys.readouterr().out)
@@ -430,23 +650,26 @@ def test_storage_add_has_provider_discovery_and_rclone_style_automation(
         "s3",
     ]
 
-    assert cli_main(
-        [
-            "storage",
-            "add",
-            *connection,
-            "offsite-books",
-            "s3",
-            "s3://book-archive/library",
-            'region_name="eu-west-2"',
-            "multipart_threshold=16777216",
-            "--tag",
-            "offsite",
-            "--failure-domain",
-            "cloud-eu-west-2",
-            "--default",
-        ]
-    ) == 0
+    assert (
+        cli_main(
+            [
+                "storage",
+                "add",
+                *connection,
+                "offsite-books",
+                "s3",
+                "s3://book-archive/library",
+                'region_name="eu-west-2"',
+                "multipart_threshold=16777216",
+                "--tag",
+                "offsite",
+                "--failure-domain",
+                "cloud-eu-west-2",
+                "--default",
+            ]
+        )
+        == 0
+    )
     result = json.loads(capsys.readouterr().out)
     assert result["ok"] is True
     assert result["backend"]["kind"] == "s3"
@@ -481,32 +704,51 @@ def test_storage_add_wizard_confirms_a_registry_backed_folder_store(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    """
+    Drive the folder wizard through defaults, confirmation, probing, and selection.
+
+    Synthetic input and forced interactivity replace a real terminal. Assert
+    the generated name and final compact receipt after the textual plan; the
+    recording Core does not create the selected folder.
+
+    Example:
+        >>> test_storage_add_wizard_confirms_a_registry_backed_folder_store(operator_core, monkeypatch, capsys)  # doctest: +SKIP
+
+
+    :param operator_core: Fake provider registry and storage command recorder.
+    :param monkeypatch: Supply ordered answers and force the interactive-input branch.
+    :param capsys: Capture for plan headings and the last-line JSON receipt.
+    :return: None; assert folder defaults, provider query, probe, and default selection.
+    """
     answers = iter(
         [
-            "1",                 # filesystem backend
+            "1",  # filesystem backend
             "/srv/Library Books",
-            "",                  # generated name
-            "",                  # live role
-            "",                  # writable
-            "",                  # online
-            "",                  # no advanced configuration
-            "y",                 # default Store
-            "",                  # probe after save
-            "y",                 # final confirmation
+            "",  # generated name
+            "",  # live role
+            "",  # writable
+            "",  # online
+            "",  # no advanced configuration
+            "y",  # default Store
+            "",  # probe after save
+            "y",  # final confirmation
         ]
     )
-    monkeypatch.setattr(storage_cli, "_storage_stdin_is_interactive", lambda: True)
+    monkeypatch.setattr(store_wizard, "_storage_stdin_is_interactive", lambda: True)
     monkeypatch.setattr("builtins.input", lambda _prompt: next(answers))
 
-    assert cli_main(
-        [
-            "storage",
-            "add",
-            "--database",
-            "catalogue.sqlite",
-            "--compact",
-        ]
-    ) == 0
+    assert (
+        cli_main(
+            [
+                "storage",
+                "add",
+                "--database",
+                "catalogue.sqlite",
+                "--compact",
+            ]
+        )
+        == 0
+    )
     output = capsys.readouterr().out
     assert "LiuXin storage configuration" in output
     assert "Store configuration plan" in output
@@ -528,37 +770,55 @@ def test_storage_add_wizard_preserves_advanced_backend_configuration(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    """
+    Carry advanced wizard answers into an S3 Store declaration and typed policy.
+
+    Exercise failure domain, region, sorted tags, and a numeric multipart option
+    with canned save/probe/default receipts rather than a live S3 connection.
+
+    Example:
+        >>> test_storage_add_wizard_preserves_advanced_backend_configuration(operator_core, monkeypatch, capsys)  # doctest: +SKIP
+
+
+    :param operator_core: Fake registry exposing the policy-bearing S3 descriptor.
+    :param monkeypatch: Force interactive mode and provide the complete answer stream.
+    :param capsys: Capture for parsing the final compact JSON after wizard output.
+    :return: None; assert advanced declaration fields, numeric policy, and post-save receipts.
+    """
     answers = iter(
         [
-            "2",                         # S3 backend
+            "2",  # S3 backend
             "s3://archive/books",
-            "",                          # generated name
-            "",                          # live role
-            "",                          # writable
-            "",                          # online
-            "y",                         # advanced configuration
+            "",  # generated name
+            "",  # live role
+            "",  # writable
+            "",  # online
+            "y",  # advanced configuration
             "cloud-eu-west-2",
             "eu-west-2",
             "offsite, archive",
             "multipart_threshold=16777216",
-            "",                          # backend options complete
-            "y",                         # default Store
-            "",                          # probe after save
-            "y",                         # final confirmation
+            "",  # backend options complete
+            "y",  # default Store
+            "",  # probe after save
+            "y",  # final confirmation
         ]
     )
-    monkeypatch.setattr(storage_cli, "_storage_stdin_is_interactive", lambda: True)
+    monkeypatch.setattr(store_wizard, "_storage_stdin_is_interactive", lambda: True)
     monkeypatch.setattr("builtins.input", lambda _prompt: next(answers))
 
-    assert cli_main(
-        [
-            "storage",
-            "add",
-            "--database",
-            "catalogue.sqlite",
-            "--compact",
-        ]
-    ) == 0
+    assert (
+        cli_main(
+            [
+                "storage",
+                "add",
+                "--database",
+                "catalogue.sqlite",
+                "--compact",
+            ]
+        )
+        == 0
+    )
     result = json.loads(capsys.readouterr().out.splitlines()[-1])
     store = result["store"]
     assert store["store_name"] == "books"
@@ -579,19 +839,36 @@ def test_storage_add_rejects_persisted_credentials_before_writing(
     operator_core: _OperatorCore,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    """
+    Reject a secret-bearing option key before any storage command is dispatched.
+
+    This covers the access_key spelling, not exhaustive secret detection or
+    absence of provider queries before the refusal.
+
+    Example:
+        >>> test_storage_add_rejects_persisted_credentials_before_writing(operator_core, capsys)  # doctest: +SKIP
+
+
+    :param operator_core: Fake whose command-history length is checked around rejection.
+    :param capsys: Capture for the option-policy usage diagnostic.
+    :return: None; assert usage status, diagnostic text, and no added commands.
+    """
     before = len(operator_core.commands)
-    assert cli_main(
-        [
-            "storage",
-            "add",
-            "--database",
-            "catalogue.sqlite",
-            "private-bucket",
-            "s3",
-            "s3://private/books",
-            "access_key=do-not-store-this",
-        ]
-    ) == 2
+    assert (
+        cli_main(
+            [
+                "storage",
+                "add",
+                "--database",
+                "catalogue.sqlite",
+                "private-bucket",
+                "s3",
+                "s3://private/books",
+                "access_key=do-not-store-this",
+            ]
+        )
+        == 2
+    )
     assert len(operator_core.commands) == before
     assert "looks secret-bearing" in capsys.readouterr().err
 
@@ -600,6 +877,21 @@ def test_global_system_root_opens_a_real_initialized_core(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    """
+    Initialize an empty SQLite system, add its first folder Store, and inspect it.
+
+    Unlike recording-fake cases, use real local Core sessions and verify the
+    added directory exists, the Store count changes, and doctor reports success.
+    No remote service or external database is involved.
+
+    Example:
+        >>> test_global_system_root_opens_a_real_initialized_core(tmp_path, capsys)  # doctest: +SKIP
+
+
+    :param tmp_path: Parent for the initialized system and subsequently created Store.
+    :param capsys: Capture for initialization, health, storage, add, and doctor receipts.
+    :return: None; assert real local initialization and Store visibility through the profile.
+    """
     root = tmp_path / "real-system"
     assert cli_main(["init", str(root), "--no-store"]) == 0
     initialized = json.loads(capsys.readouterr().out)
@@ -617,18 +909,21 @@ def test_global_system_root_opens_a_real_initialized_core(
     assert storage_status["stores"] == []
 
     added_root = root / "added-store"
-    assert cli_main(
-        [
-            "storage",
-            "add",
-            "primary",
-            "filesystem",
-            str(added_root),
-            "--system-root",
-            str(root),
-            "--default",
-        ]
-    ) == 0
+    assert (
+        cli_main(
+            [
+                "storage",
+                "add",
+                "primary",
+                "filesystem",
+                str(added_root),
+                "--system-root",
+                str(root),
+                "--default",
+            ]
+        )
+        == 0
+    )
     added = json.loads(capsys.readouterr().out)
     assert added["ok"] is True
     assert added["probe"]["ok"] is True
@@ -652,6 +947,20 @@ def test_real_initialized_folder_store_has_an_operator_status_overview(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    """
+    Expose the default folder Store created by real local system initialization.
+
+    Check the single Store's identity, root, capabilities, availability,
+    writability, and default designation in the operator status projection.
+
+    Example:
+        >>> test_real_initialized_folder_store_has_an_operator_status_overview(tmp_path, capsys)  # doctest: +SKIP
+
+
+    :param tmp_path: Isolated parent for a SQLite system with its default local Store.
+    :param capsys: Capture for initialization output and the storage status receipt.
+    :return: None; assert healthy summary counts and the primary Store's projected facts.
+    """
     root = tmp_path / "folder-store-system"
     assert cli_main(["init", str(root)]) == 0
     _ = capsys.readouterr()
@@ -680,6 +989,23 @@ def test_persistent_connect_selects_later_commands_and_disconnects_safely(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    """
+    Persist a private active-system pointer, test selection precedence, and disconnect.
+
+    Use a real initialized system. Explicit and environment roots override the
+    saved pointer; disconnect removes it without removing the catalogue and
+    reports a remaining environment selection. Also exercise an explicit profile
+    and recovery from a malformed pointer before checking disconnected status.
+
+    Example:
+        >>> test_persistent_connect_selects_later_commands_and_disconnects_safely(tmp_path, monkeypatch, capsys)  # doctest: +SKIP
+
+
+    :param tmp_path: Isolated configuration directory and local system roots.
+    :param monkeypatch: Control XDG configuration and environment selector precedence.
+    :param capsys: Capture for pointer paths, status projections, and usage diagnostics.
+    :return: None; assert pointer-only persistence, precedence, and safe disconnection results.
+    """
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
     monkeypatch.delenv("LIUXIN_SYSTEM_ROOT", raising=False)
     monkeypatch.delenv("LIUXIN_PROFILE", raising=False)
@@ -720,16 +1046,12 @@ def test_persistent_connect_selects_later_commands_and_disconnects_safely(
     assert cli_main(["config", "path", "--system-root", str(environment_root)]) == 0
     explicit_selected = json.loads(capsys.readouterr().out)
     assert explicit_selected["source"] == "system-root"
-    assert explicit_selected["path"] == str(
-        environment_root / "liuxin-system.json"
-    )
+    assert explicit_selected["path"] == str(environment_root / "liuxin-system.json")
     monkeypatch.setenv("LIUXIN_SYSTEM_ROOT", str(environment_root))
     assert cli_main(["config", "path"]) == 0
     environment_selected = json.loads(capsys.readouterr().out)
     assert environment_selected["source"] == "LIUXIN_SYSTEM_ROOT"
-    assert environment_selected["path"] == str(
-        environment_root / "liuxin-system.json"
-    )
+    assert environment_selected["path"] == str(environment_root / "liuxin-system.json")
     assert cli_main(["connect", str(root), "--no-health-check"]) == 0
     overridden_connect = json.loads(capsys.readouterr().out)
     assert overridden_connect["effective_now"] is False
@@ -747,14 +1069,17 @@ def test_persistent_connect_selects_later_commands_and_disconnects_safely(
     assert cli_main(["core", "health"]) == 2
     assert "liuxin connect" in capsys.readouterr().err
 
-    assert cli_main(
-        [
-            "connect",
-            "--profile",
-            str(root / "liuxin-system.json"),
-            "--no-health-check",
-        ]
-    ) == 0
+    assert (
+        cli_main(
+            [
+                "connect",
+                "--profile",
+                str(root / "liuxin-system.json"),
+                "--no-health-check",
+            ]
+        )
+        == 0
+    )
     profile_connected = json.loads(capsys.readouterr().out)
     assert profile_connected["effective_now"] is True
     assert cli_main(["disconnect"]) == 0
@@ -775,6 +1100,22 @@ def test_doctor_and_diagnostics_are_aggregated_and_redacted(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    """
+    Aggregate canned Core diagnostics and remove the fixture password from output.
+
+    Assert both the explicit password field and embedded URL credential are
+    absent from serialized results. This is a known-fixture redaction contract,
+    not proof that arbitrary strings or future credential forms are scrubbed.
+
+    Example:
+        >>> test_doctor_and_diagnostics_are_aggregated_and_redacted(operator_core, tmp_path, capsys)  # doctest: +SKIP
+
+
+    :param operator_core: Recording fake supplying intentionally credential-bearing data.
+    :param tmp_path: Location for the selected minimal SQLite fixture.
+    :param capsys: Capture for doctor and diagnostics JSON projections.
+    :return: None; assert aggregate shape, redaction markers, and service-query activity.
+    """
     database = tmp_path / "catalogue.sqlite"
     _sqlite(database)
     connection = ["--database", str(database)]
@@ -799,41 +1140,64 @@ def test_typed_storage_setup_integrity_and_reconcile_commands(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    """
+    Route typed Store/source setup and guarded integrity/recovery operations to Core.
+
+    Verify selected payloads and require --yes for reconciliation, repair, and
+    retry. Evacuation without --yes remains a query preview with no command.
+    All operation outcomes are canned; no bytes are verified, repaired, moved,
+    or recovered by this test.
+
+    Example:
+        >>> test_typed_storage_setup_integrity_and_reconcile_commands(operator_core, tmp_path, capsys)  # doctest: +SKIP
+
+
+    :param operator_core: Fake recording queries and commands across the operation sequence.
+    :param tmp_path: Synthetic catalogue, Store, and incoming-source path values.
+    :param capsys: Capture for success receipts, previews, and confirmation errors.
+    :return: None; assert routing, selected semantic payloads, and confirmation boundaries.
+    """
     connection = ["--database", str(tmp_path / "catalogue.sqlite")]
     store_root = tmp_path / "store"
 
-    assert cli_main(
-        [
-            "storage",
-            "store",
-            "add",
-            *connection,
-            "filesystem",
-            str(store_root),
-            "--name",
-            "primary",
-            "--default",
-            "--tag",
-            "fast",
-        ]
-    ) == 0
+    assert (
+        cli_main(
+            [
+                "storage",
+                "store",
+                "add",
+                *connection,
+                "filesystem",
+                str(store_root),
+                "--name",
+                "primary",
+                "--default",
+                "--tag",
+                "fast",
+            ]
+        )
+        == 0
+    )
     saved = json.loads(capsys.readouterr().out)
     assert saved["store"]["store_name"] == "primary"
     assert operator_core.commands[-1][0] == "storage.default.set"
 
-    assert cli_main(
-        [
-            "storage",
-            "sources",
-            "add",
-            *connection,
-            "unmanaged-disk",
-            str(tmp_path / "incoming"),
-            "--name",
-            "drive-1",
-            "--no-hash",
-        ]
-    ) == 0
+    assert (
+        cli_main(
+            [
+                "storage",
+                "sources",
+                "add",
+                *connection,
+                "unmanaged-disk",
+                str(tmp_path / "incoming"),
+                "--name",
+                "drive-1",
+                "--no-hash",
+            ]
+        )
+        == 0
+    )
     _ = capsys.readouterr()
     name, payload = operator_core.commands[-1]
     assert name == "storage.source.register"
@@ -841,7 +1205,10 @@ def test_typed_storage_setup_integrity_and_reconcile_commands(
 
     assert cli_main(["storage", "replica", "verify", *connection, "4"]) == 0
     assert json.loads(capsys.readouterr().out)["healthy"] is True
-    assert cli_main(["storage", "asset", "verify", *connection, "8", "--all-replicas"]) == 0
+    assert (
+        cli_main(["storage", "asset", "verify", *connection, "8", "--all-replicas"])
+        == 0
+    )
     _ = capsys.readouterr()
     assert cli_main(["storage", "audit", *connection, "--limit", "1"]) == 0
     _ = capsys.readouterr()
@@ -850,18 +1217,21 @@ def test_typed_storage_setup_integrity_and_reconcile_commands(
     assert cli_main(["storage", "reconcile", "apply", *connection, "--yes"]) == 0
     assert json.loads(capsys.readouterr().out)["ok"] is True
 
-    assert cli_main(
-        [
-            "storage",
-            "store",
-            "update",
-            *connection,
-            "primary",
-            "--add-tag",
-            "offsite",
-            "--read-only",
-        ]
-    ) == 0
+    assert (
+        cli_main(
+            [
+                "storage",
+                "store",
+                "update",
+                *connection,
+                "primary",
+                "--add-tag",
+                "offsite",
+                "--read-only",
+            ]
+        )
+        == 0
+    )
     _ = capsys.readouterr()
     assert operator_core.commands[-1] == (
         "storage.store.update",
@@ -871,64 +1241,70 @@ def test_typed_storage_setup_integrity_and_reconcile_commands(
         },
     )
 
-    assert cli_main(
-        ["storage", "repair", "plan", *connection, "--asset-id", "8"]
-    ) == 0
+    assert cli_main(["storage", "repair", "plan", *connection, "--asset-id", "8"]) == 0
     assert json.loads(capsys.readouterr().out)["deletes_bytes"] is False
     assert cli_main(["storage", "repair", "apply", *connection]) == 2
     assert "requires --yes" in capsys.readouterr().err
-    assert cli_main(
-        ["storage", "repair", "apply", *connection, "--yes"]
-    ) == 0
+    assert cli_main(["storage", "repair", "apply", *connection, "--yes"]) == 0
     assert json.loads(capsys.readouterr().out)["ok"] is True
 
     before = len(operator_core.commands)
-    assert cli_main(
-        [
-            "storage",
-            "store",
-            "evacuate",
-            *connection,
-            "primary",
-            "--destination-store",
-            "archive",
-        ]
-    ) == 0
+    assert (
+        cli_main(
+            [
+                "storage",
+                "store",
+                "evacuate",
+                *connection,
+                "primary",
+                "--destination-store",
+                "archive",
+            ]
+        )
+        == 0
+    )
     assert json.loads(capsys.readouterr().out)["blocked"] is False
     assert len(operator_core.commands) == before
-    assert cli_main(
-        [
-            "storage",
-            "store",
-            "evacuate",
-            *connection,
-            "primary",
-            "--destination-store",
-            "archive",
-            "--yes",
-        ]
-    ) == 0
+    assert (
+        cli_main(
+            [
+                "storage",
+                "store",
+                "evacuate",
+                *connection,
+                "primary",
+                "--destination-store",
+                "archive",
+                "--yes",
+            ]
+        )
+        == 0
+    )
     assert json.loads(capsys.readouterr().out)["ok"] is True
 
-    assert cli_main(
-        ["storage", "recovery", "list", *connection, "--state", "failed"]
-    ) == 0
+    assert (
+        cli_main(["storage", "recovery", "list", *connection, "--state", "failed"]) == 0
+    )
     assert json.loads(capsys.readouterr().out)["state"] == "failed"
     operation_id = "12345678-1234-5678-9234-567812345678"
-    assert cli_main(
-        ["storage", "recovery", "retry-ingest", *connection, operation_id]
-    ) == 2
+    assert (
+        cli_main(["storage", "recovery", "retry-ingest", *connection, operation_id])
+        == 2
+    )
     assert "requires --yes" in capsys.readouterr().err
-    assert cli_main(
-        [
-            "storage",
-            "recovery",
-            "retry-ingest",
-            *connection,
-            operation_id,
-            "--yes",
-        ]
-    ) == 0
+    assert (
+        cli_main(
+            [
+                "storage",
+                "recovery",
+                "retry-ingest",
+                *connection,
+                operation_id,
+                "--yes",
+            ]
+        )
+        == 0
+    )
     recovered = json.loads(capsys.readouterr().out)
     assert recovered["operation"] == "storage.recovery.retry-ingest"
 
@@ -938,36 +1314,57 @@ def test_custom_fields_are_semantic_and_deletion_previews(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    """
+    Resolve a named custom field and preview deletion until confirmation is supplied.
+
+    A create request is routed to Core, but subsequent results are fixed fake
+    data. The preview must add no command; --yes dispatches the delete operation.
+
+    Example:
+        >>> test_custom_fields_are_semantic_and_deletion_previews(operator_core, tmp_path, capsys)  # doctest: +SKIP
+
+
+    :param operator_core: Fake exposing field seven and recording semantic commands.
+    :param tmp_path: Parent of the synthetic catalogue path passed to the CLI.
+    :param capsys: Capture for field selection, create output, and delete preview.
+    :return: None; assert field resolution, create routing, and preview-versus-delete behavior.
+    """
     connection = ["--database", str(tmp_path / "catalogue.sqlite")]
     assert cli_main(["catalog", "custom-fields", "show", *connection, "source"]) == 0
     assert json.loads(capsys.readouterr().out)["field"]["num"] == 7
 
-    assert cli_main(
-        [
-            "catalog",
-            "custom-fields",
-            "create",
-            *connection,
-            "Ingest source",
-            "--label",
-            "ingest_source",
-            "--datatype",
-            "text",
-        ]
-    ) == 0
+    assert (
+        cli_main(
+            [
+                "catalog",
+                "custom-fields",
+                "create",
+                *connection,
+                "Ingest source",
+                "--label",
+                "ingest_source",
+                "--datatype",
+                "text",
+            ]
+        )
+        == 0
+    )
     _ = capsys.readouterr()
     assert operator_core.commands[-1][0] == "custom-fields.create"
 
     before = len(operator_core.commands)
-    assert cli_main(
-        ["catalog", "custom-fields", "delete", *connection, "--num", "7"]
-    ) == 0
+    assert (
+        cli_main(["catalog", "custom-fields", "delete", *connection, "--num", "7"]) == 0
+    )
     preview = json.loads(capsys.readouterr().out)
     assert preview["preview"] is True
     assert len(operator_core.commands) == before
-    assert cli_main(
-        ["catalog", "custom-fields", "delete", *connection, "--num", "7", "--yes"]
-    ) == 0
+    assert (
+        cli_main(
+            ["catalog", "custom-fields", "delete", *connection, "--num", "7", "--yes"]
+        )
+        == 0
+    )
     _ = capsys.readouterr()
     assert operator_core.commands[-1][0] == "custom-fields.delete"
 
@@ -976,42 +1373,62 @@ def test_ingest_runs_list_show_issues_and_refuse_discovery_resume(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    """
+    Inspect a real discovery run's persisted history and reject its operational resume.
+
+    The .epub fixture contains arbitrary bytes; the discovery pass need not
+    parse a valid book. History is read from generated logs/reports, and the
+    empty issue projection must not turn discovery into a resumable ingest.
+
+    Example:
+        >>> test_ingest_runs_list_show_issues_and_refuse_discovery_resume(tmp_path, capsys)  # doctest: +SKIP
+
+
+    :param tmp_path: Parent for the source directory and generated run artifacts.
+    :param capsys: Capture for discovery, history-list/show/issues, and refusal output.
+    :return: None; assert retained run identity, discovery mode, no issues, and resume refusal.
+    """
     source = tmp_path / "source"
     source.mkdir()
     (source / "book.epub").write_bytes(b"book")
     logs = tmp_path / "logs"
     run_id = "12345678-1234-5678-9234-567812345678"
-    assert cli_main(
-        [
-            "storage",
-            "ingest",
-            "--source-root",
-            str(source),
-            "--discover-only",
-            "--log-directory",
-            str(logs),
-            "--run-id",
-            run_id,
-            "--no-console-progress",
-        ]
-    ) == 0
+    assert (
+        cli_main(
+            [
+                "storage",
+                "ingest",
+                "--source-root",
+                str(source),
+                "--discover-only",
+                "--log-directory",
+                str(logs),
+                "--run-id",
+                run_id,
+                "--no-console-progress",
+            ]
+        )
+        == 0
+    )
     _ = capsys.readouterr()
 
     assert cli_main(["ingest", "runs", "list", "--log-directory", str(logs)]) == 0
     listed = json.loads(capsys.readouterr().out)
     assert listed["runs"][0]["run_id"] == run_id
-    assert cli_main(
-        ["ingest", "runs", "show", "--log-directory", str(logs), run_id]
-    ) == 0
+    assert (
+        cli_main(["ingest", "runs", "show", "--log-directory", str(logs), run_id]) == 0
+    )
     shown = json.loads(capsys.readouterr().out)
     assert shown["report"]["mode"] == "discovery"
-    assert cli_main(
-        ["ingest", "runs", "issues", "--log-directory", str(logs), run_id]
-    ) == 0
+    assert (
+        cli_main(["ingest", "runs", "issues", "--log-directory", str(logs), run_id])
+        == 0
+    )
     assert json.loads(capsys.readouterr().out)["count"] == 0
-    assert cli_main(
-        ["ingest", "runs", "resume", "--log-directory", str(logs), run_id]
-    ) == 2
+    assert (
+        cli_main(["ingest", "runs", "resume", "--log-directory", str(logs), run_id])
+        == 2
+    )
     assert "Only real ingest attempts" in capsys.readouterr().err
 
 
@@ -1020,6 +1437,22 @@ def test_ingest_run_resume_reconstructs_an_operational_attempt(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    """
+    Reconstruct resume arguments from a real operational attempt and active profile.
+
+    The first ingest may finish cleanly or with issues; both statuses are accepted.
+    Patch only the subsequent resume dispatch to capture its namespace, so this
+    verifies reconstruction rather than a second ingest or successful recovery.
+
+    Example:
+        >>> test_ingest_run_resume_reconstructs_an_operational_attempt(tmp_path, monkeypatch, capsys)  # doctest: +SKIP
+
+
+    :param tmp_path: Isolated configuration, initialized system, and source file tree.
+    :param monkeypatch: Control profile environment and capture the later resume dispatch.
+    :param capsys: Capture used to drain first-run and profile command output.
+    :return: None; assert retained identity, effective paths, and non-preview resume flags.
+    """
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
     monkeypatch.delenv("LIUXIN_SYSTEM_ROOT", raising=False)
     monkeypatch.delenv("LIUXIN_PROFILE", raising=False)
@@ -1049,27 +1482,39 @@ def test_ingest_run_resume_reconstructs_an_operational_attempt(
     resumed: list[argparse.Namespace] = []
 
     def capture_resume(args: argparse.Namespace) -> int:
+        """
+        Retain the reconstructed namespace by reference without executing ingestion.
+
+        Example:
+            >>> capture_resume(parsed_resume_args)  # doctest: +SKIP
+            0
+
+
+        :param args: Effective resume settings supplied by the history command.
+        :return: Zero so the test can inspect a successful dispatch without a second run.
+        """
         resumed.append(args)
         return 0
 
     monkeypatch.setattr(ingest_runs_cli, "cmd_storage_ingest", capture_resume)
-    assert cli_main(
-        [
-            "ingest",
-            "runs",
-            "resume",
-            run_id,
-            "--yes",
-        ]
-    ) == 0
+    assert (
+        cli_main(
+            [
+                "ingest",
+                "runs",
+                "resume",
+                run_id,
+                "--yes",
+            ]
+        )
+        == 0
+    )
     assert resumed
     resumed_args = resumed[0]
     assert str(resumed_args.run_id) == run_id
     assert resumed_args.source_root == str(source.resolve())
     assert resumed_args.database == str(system_root / "catalogue.sqlite")
-    assert resumed_args.materialization_root == str(
-        system_root / "ingest-materialized"
-    )
+    assert resumed_args.materialization_root == str(system_root / "ingest-materialized")
     assert resumed_args.discover_only is False
     assert resumed_args.preflight_only is False
 
@@ -1078,6 +1523,21 @@ def test_database_backup_verification_and_atomic_offline_restore(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    """
+    Verify a SQLite backup and restore its schema through both command spellings.
+
+    Unicode paths, matching alias digests, a safety-backup file, and replacement
+    table contents are checked. Despite the test name, no crash or concurrent
+    reader is injected to establish atomicity under interruption.
+
+    Example:
+        >>> test_database_backup_verification_and_atomic_offline_restore(tmp_path, capsys)  # doctest: +SKIP
+
+
+    :param tmp_path: Parent of the independent source-backup and target SQLite files.
+    :param capsys: Capture for database/backup verification and restore receipts.
+    :return: None; assert digest parity, safety-copy existence, and restored schema visibility.
+    """
     target = tmp_path / "catalogue Ω.sqlite"
     backup = tmp_path / "backup # naïve.sqlite"
     _sqlite(target, "old_data")
@@ -1092,16 +1552,19 @@ def test_database_backup_verification_and_atomic_offline_restore(
     alias_verified = json.loads(capsys.readouterr().out)
     assert alias_verified["sha256"] == verified["sha256"]
 
-    assert cli_main(
-        [
-            "database",
-            "restore",
-            "--database",
-            str(target),
-            str(backup),
-            "--yes",
-        ]
-    ) == 0
+    assert (
+        cli_main(
+            [
+                "database",
+                "restore",
+                "--database",
+                str(target),
+                str(backup),
+                "--yes",
+            ]
+        )
+        == 0
+    )
     restored = json.loads(capsys.readouterr().out)
     assert restored["ok"] is True
     assert Path(restored["safety_backup"]).is_file()
@@ -1120,16 +1583,19 @@ def test_database_backup_verification_and_atomic_offline_restore(
 
     second_target = tmp_path / "second-catalogue.sqlite"
     _sqlite(second_target, "second_old_data")
-    assert cli_main(
-        [
-            "backup",
-            "restore",
-            "--database",
-            str(second_target),
-            str(backup),
-            "--yes",
-        ]
-    ) == 0
+    assert (
+        cli_main(
+            [
+                "backup",
+                "restore",
+                "--database",
+                str(second_target),
+                str(backup),
+                "--yes",
+            ]
+        )
+        == 0
+    )
     alias_restored = json.loads(capsys.readouterr().out)
     assert alias_restored["ok"] is True
 
@@ -1139,12 +1605,25 @@ def test_migration_apply_previews_until_confirmed(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    """
+    Distinguish a migration preview receipt from the confirmed apply projection.
+
+    The Core fake reports success without changing a schema. This case checks
+    displayed preview/applied flags, not real database migration or rollback.
+
+    Example:
+        >>> test_migration_apply_previews_until_confirmed(operator_core, tmp_path, capsys)  # doctest: +SKIP
+
+
+    :param operator_core: Fake serving migration-query and apply-command responses.
+    :param tmp_path: Parent for the synthetic CLI catalogue target.
+    :param capsys: Capture for the unconfirmed and confirmed migration receipts.
+    :return: None; assert preview without --yes and applied=True with confirmation.
+    """
     connection = ["--database", str(tmp_path / "catalogue.sqlite")]
     assert cli_main(["database", "migrations", "apply", *connection]) == 0
     preview = json.loads(capsys.readouterr().out)
     assert preview["preview"] is True
-    assert cli_main(
-        ["database", "migrations", "apply", *connection, "--yes"]
-    ) == 0
+    assert cli_main(["database", "migrations", "apply", *connection, "--yes"]) == 0
     applied = json.loads(capsys.readouterr().out)
     assert applied["applied"] is True

@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Decode and report MOBI index structures and entries.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise index through a consuming regression::
+
+        python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -46,15 +57,52 @@ INDEX_HEADER_FIELDS = (
 
 
 class InvalidFile(ValueError):
+    """
+    Provide the invalidfile contract for validated ebook processing.
+
+    Example:
+        Exercise InvalidFile through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+    """
     pass
 
 
 def _require_bytes(data: _typing.Any, length: _typing.Any, context: _typing.Any) -> None:
+    """
+    Perform the require bytes operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  require bytes through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :param length: Value supplied for length under the utility contract.
+    :param context: Value supplied for context under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if len(data) < length:
         raise InvalidFile("Truncated %s" % context)
 
 
 def _decode_index_int(data: _typing.Any, context: _typing.Any) -> tuple[_typing.Any, ...]:
+    """
+    Perform the decode index int operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  decode index int through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :param context: Value supplied for context under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     value, consumed = decint(data)
     if consumed <= 0:
         raise InvalidFile("Malformed variable-width integer in %s" % context)
@@ -62,6 +110,21 @@ def _decode_index_int(data: _typing.Any, context: _typing.Any) -> tuple[_typing.
 
 
 def _section_data(sections: _typing.Any, index: _typing.Any, context: _typing.Any) -> _typing.Any:
+    """
+    Perform the section data operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  section data through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param sections: Value supplied for sections under the utility contract.
+    :param index: Value supplied for index under the utility contract.
+    :param context: Value supplied for context under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if index < 0 or index >= len(sections):
         raise InvalidFile("%s index outside section table: %d" % (context, index))
     try:
@@ -71,25 +134,81 @@ def _section_data(sections: _typing.Any, index: _typing.Any, context: _typing.An
 
 
 def check_signature(data: _typing.Any, signature: _typing.Any) -> None:
+    """
+    Perform the check signature operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise check signature through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :param signature: Value supplied for signature under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if data[: len(signature)] != signature:
         raise InvalidFile("Not a valid %r section" % signature)
 
 
 class NotAnINDXRecord(InvalidFile):
+    """
+    Provide the notanindxrecord contract for validated ebook processing.
+
+    Example:
+        Exercise NotAnINDXRecord through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+    """
     pass
 
 
 class NotATAGXSection(InvalidFile):
+    """
+    Provide the notatagxsection contract for validated ebook processing.
+
+    Example:
+        Exercise NotATAGXSection through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+    """
     pass
 
 
 def format_bytes(byts: _typing.Any) -> _typing.Any:
+    """
+    Perform the format bytes operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise format bytes through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param byts: Value supplied for byts under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     byts = bytearray(byts)
     byts = [hex(b)[2:] for b in byts]
     return " ".join(byts)
 
 
 def parse_indx_header(data: _typing.Any) -> _typing.Any:
+    """
+    Parse indx header under the format's safety and compatibility rules.
+
+    Example:
+        Exercise parse indx header through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     check_signature(data, b"INDX")
     words = INDEX_HEADER_FIELDS
     num = len(words)
@@ -130,12 +249,28 @@ def parse_indx_header(data: _typing.Any) -> _typing.Any:
 class CNCX(object):  # {{{
 
     """
-    Parses the records that contain the compiled NCX (all strings from the
-    NCX). Presents a simple offset : string mapping interface to access the
-    data.
+    Parses the records that contain the compiled NCX (all strings from the NCX). Presents a simple offset : string mapping interface to access the data.
+
+    Example:
+        Exercise CNCX through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
     """
 
     def __init__(self: _typing.Self, records: _typing.Any, codec: _typing.Any) -> None:
+        """
+        Initialize and validate the cncx state.
+
+        Example:
+            Exercise CNCX.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param records: Value supplied for records under the utility contract.
+        :param codec: Value supplied for codec under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.records = OrderedDict()
         record_offset = 0
         for raw in records:
@@ -155,17 +290,67 @@ class CNCX(object):  # {{{
             record_offset += 0x10000
 
     def __getitem__(self: _typing.Self, offset: _typing.Any) -> _typing.Any:
+        """
+        Perform the getitem operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CNCX.  getitem   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param offset: Value supplied for offset under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.records.get(offset)
 
     def get(self: _typing.Self, offset: _typing.Any, default: _typing.Any = None) -> _typing.Any:
+        """
+        Perform the get operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CNCX.get through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param offset: Value supplied for offset under the utility contract.
+        :param default: Value supplied for default under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.records.get(offset, default)
 
     def __bool__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the bool operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CNCX.  bool   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :return: True when the documented condition holds; otherwise False.
+        """
         return bool(self.records)
 
     __nonzero__ = __bool__
 
     def iteritems(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the iteritems operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CNCX.iteritems through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return iteritems(self.records)
 
 
@@ -173,6 +358,19 @@ class CNCX(object):  # {{{
 
 
 def parse_tagx_section(data: _typing.Any) -> tuple[_typing.Any, ...]:
+    """
+    Parse tagx section under the format's safety and compatibility rules.
+
+    Example:
+        Exercise parse tagx section through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     check_signature(data, b"TAGX")
     _require_bytes(data, 12, "TAGX header")
 
@@ -191,6 +389,23 @@ def parse_tagx_section(data: _typing.Any) -> tuple[_typing.Any, ...]:
 
 
 def get_tag_map(control_byte_count: _typing.Any, tagx: _typing.Any, data: _typing.Any, strict: bool = False) -> _typing.Any:
+    """
+    Return tag map under the format's safety and compatibility rules.
+
+    Example:
+        Exercise get tag map through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param control_byte_count: Value supplied for control byte count under the utility
+        contract.
+    :param tagx: Value supplied for tagx under the utility contract.
+    :param data: Value supplied for data under the utility contract.
+    :param strict: Value supplied for strict under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     ptags = []
     ans = {}
     if control_byte_count > len(data):
@@ -270,6 +485,26 @@ def get_tag_map(control_byte_count: _typing.Any, tagx: _typing.Any, data: _typin
 
 
 def parse_index_record(table: _typing.Any, data: _typing.Any, control_byte_count: _typing.Any, tags: _typing.Any, codec: _typing.Any, ordt_map: _typing.Any, strict: bool = False) -> _typing.Any:
+    """
+    Parse index record under the format's safety and compatibility rules.
+
+    Example:
+        Exercise parse index record through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param table: Value supplied for table under the utility contract.
+    :param data: Value supplied for data under the utility contract.
+    :param control_byte_count: Value supplied for control byte count under the utility
+        contract.
+    :param tags: Value supplied for tags under the utility contract.
+    :param codec: Value supplied for codec under the utility contract.
+    :param ordt_map: Value supplied for ordt map under the utility contract.
+    :param strict: Value supplied for strict under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     header = parse_indx_header(data)
     idxt_pos = header["start"]
     _require_bytes(data, idxt_pos + 4, "INDX IDXT table")
@@ -314,6 +549,21 @@ def parse_index_record(table: _typing.Any, data: _typing.Any, control_byte_count
 
 
 def read_index(sections: _typing.Any, idx: _typing.Any, codec: _typing.Any) -> tuple[_typing.Any, ...]:
+    """
+    Read index under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read index through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param sections: Value supplied for sections under the utility contract.
+    :param idx: Value supplied for idx under the utility contract.
+    :param codec: Value supplied for codec under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     table, cncx = OrderedDict(), CNCX([], codec)
 
     data = _section_data(sections, idx, "INDX")

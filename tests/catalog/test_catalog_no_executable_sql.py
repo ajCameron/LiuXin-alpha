@@ -1,3 +1,14 @@
+"""
+Verify test catalog no executable sql behavior against the public catalog contracts.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test catalog no executable sql through its owning regression module::
+
+        python -m pytest -q tests/catalog/test_catalog_no_executable_sql.py
+"""
 from __future__ import annotations
 
 import ast
@@ -19,6 +30,18 @@ SQL_PATTERN = re.compile(
 
 
 def _docstring_nodes(tree: ast.AST) -> set[ast.AST]:
+    """
+    Perform the docstring nodes test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise docstring nodes through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_catalog_no_executable_sql.py
+
+
+    :param tree: Value supplied for tree under the catalog contract.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     nodes: set[ast.AST] = set()
     for node in ast.walk(tree):
         if not isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
@@ -31,6 +54,17 @@ def _docstring_nodes(tree: ast.AST) -> set[ast.AST]:
 
 
 def test_catalog_contains_no_executable_sql_literals() -> None:
+    """
+    Verify catalog contains no executable sql literals.
+
+    Example:
+        Exercise test catalog contains no executable sql literals through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_catalog_no_executable_sql.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     offenders: list[str] = []
     for path in sorted(CATALOG_ROOT.rglob("*.py")):
         tree = ast.parse(path.read_text(), filename=str(path))

@@ -1,3 +1,14 @@
+"""
+Copy local files into backup destinations with explicit overwrite and metadata policy.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise file backup through a consuming regression::
+
+        python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+"""
 from __future__ import division, absolute_import, print_function, unicode_literals
 
 import os
@@ -15,9 +26,16 @@ def backup_local_file(file_path, override_path=None):
     """
     Hash backed backup for a local file.
 
-    :param file_path: Path to the file to be backed up
-    :param override_path: An override path to back the file up to instead of the automatically generated one
-    :return False/new_file_path: False if backup failes, new_file_path if it goes through
+    Example:
+        Exercise backup local file through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param file_path: Value supplied for file path under the utility contract.
+    :param override_path: Value supplied for override path under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     file_path = deepcopy(file_path)
     default_log.info("Backup of file : {}".format(file_path))
@@ -73,9 +91,15 @@ def make_backup_path(filepath: str) -> str:
     """
     Name will have the form of [original_file_name] - [datestring]_[version].
 
-    Version starts at 0, and is not printed. Followed by 1 e.t.c.
-    :param filepath:
-    :return:
+    Example:
+        Exercise make backup path through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param filepath: Value supplied for filepath under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     file_name, file_ext = os.path.splitext(filepath)
     file_root = os.path.split(filepath)[0]

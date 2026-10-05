@@ -1,8 +1,13 @@
-"""Core jobs value objects.
+"""
+Model managed-job definitions, states, attempts and results.
 
-This module defines durable job definitions and individual job runs. A job
-*definition* describes what should run; a job *run* is one concrete execution
-attempt of that definition.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise models through a consuming regression::
+
+        python -m pytest -q tests/jobs/test_jobs_repository.py
 """
 
 from __future__ import annotations
@@ -15,7 +20,14 @@ from typing import Any
 
 
 class JobDefinitionState(StrEnum):
-    """Operator-controlled scheduling state of a durable job definition."""
+    """
+    Operator-controlled scheduling state of a durable job definition.
+
+    Example:
+        Exercise JobDefinitionState through a consuming regression::
+
+            python -m pytest -q tests/jobs/test_jobs_repository.py
+    """
 
     ENABLED = "enabled"
     PAUSED = "paused"
@@ -23,7 +35,14 @@ class JobDefinitionState(StrEnum):
 
 
 class JobRunState(StrEnum):
-    """Lifecycle state of one concrete job execution attempt."""
+    """
+    Lifecycle state of one concrete job execution attempt.
+
+    Example:
+        Exercise JobRunState through a consuming regression::
+
+            python -m pytest -q tests/jobs/test_jobs_repository.py
+    """
 
     QUEUED = "queued"
     LEASED = "leased"
@@ -36,7 +55,14 @@ class JobRunState(StrEnum):
 
 
 class JobTriggerKind(StrEnum):
-    """Reason a job run was placed on the execution queue."""
+    """
+    Reason a job run was placed on the execution queue.
+
+    Example:
+        Exercise JobTriggerKind through a consuming regression::
+
+            python -m pytest -q tests/jobs/test_jobs_repository.py
+    """
 
     MANUAL = "manual"
     SCHEDULED = "scheduled"
@@ -45,7 +71,14 @@ class JobTriggerKind(StrEnum):
 
 
 class JobConcurrencyPolicy(StrEnum):
-    """Resolve scheduling when the same definition already has a live run."""
+    """
+    Resolve scheduling when the same definition already has a live run.
+
+    Example:
+        Exercise JobConcurrencyPolicy through a consuming regression::
+
+            python -m pytest -q tests/jobs/test_jobs_repository.py
+    """
 
     ALLOW_PARALLEL = "allow_parallel"
     SKIP_IF_RUNNING = "skip_if_running"
@@ -54,7 +87,14 @@ class JobConcurrencyPolicy(StrEnum):
 
 
 class JobResultPolicy(StrEnum):
-    """Retention policy for completed job-run results."""
+    """
+    Retention policy for completed job-run results.
+
+    Example:
+        Exercise JobResultPolicy through a consuming regression::
+
+            python -m pytest -q tests/jobs/test_jobs_repository.py
+    """
 
     KEEP_ALL = "keep_all"
     KEEP_FAILURES = "keep_failures"
@@ -62,7 +102,14 @@ class JobResultPolicy(StrEnum):
 
 
 class JobEventKind(StrEnum):
-    """Kinds of append-only operational events emitted by a job run."""
+    """
+    Kinds of append-only operational events emitted by a job run.
+
+    Example:
+        Exercise JobEventKind through a consuming regression::
+
+            python -m pytest -q tests/jobs/test_jobs_repository.py
+    """
 
     CREATED = "created"
     QUEUED = "queued"
@@ -79,7 +126,14 @@ class JobEventKind(StrEnum):
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class JobDefinition:
-    """Durable configuration describing what, when, and how a job should run."""
+    """
+    Durable configuration describing what, when, and how a job should run.
+
+    Example:
+        Exercise JobDefinition through a consuming regression::
+
+            python -m pytest -q tests/jobs/test_jobs_repository.py
+    """
 
     job_kind: str
     job_name: str
@@ -103,7 +157,14 @@ class JobDefinition:
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class JobRun:
-    """Durable state for one leased or completed execution attempt."""
+    """
+    Durable state for one leased or completed execution attempt.
+
+    Example:
+        Exercise JobRun through a consuming regression::
+
+            python -m pytest -q tests/jobs/test_jobs_repository.py
+    """
 
     job_kind: str
     job_definition_id: int
@@ -130,7 +191,14 @@ class JobRun:
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class JobProgressUpdate:
-    """Partial progress observation supplied by a running job handler."""
+    """
+    Partial progress observation supplied by a running job handler.
+
+    Example:
+        Exercise JobProgressUpdate through a consuming regression::
+
+            python -m pytest -q tests/jobs/test_jobs_repository.py
+    """
 
     progress_current: int | None = None
     progress_total: int | None = None
@@ -140,7 +208,14 @@ class JobProgressUpdate:
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class JobRunEvent:
-    """Append-only event associated with one durable job run."""
+    """
+    Append-only event associated with one durable job run.
+
+    Example:
+        Exercise JobRunEvent through a consuming regression::
+
+            python -m pytest -q tests/jobs/test_jobs_repository.py
+    """
 
     job_run_id: int
     event_kind: JobEventKind
@@ -152,7 +227,14 @@ class JobRunEvent:
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class JobResult:
-    """Handler result payload normalized for jobs-engine persistence."""
+    """
+    Handler result payload normalized for jobs-engine persistence.
+
+    Example:
+        Exercise JobResult through a consuming regression::
+
+            python -m pytest -q tests/jobs/test_jobs_repository.py
+    """
 
     ok: bool
     result: dict[str, Any] | None = None
@@ -161,7 +243,18 @@ class JobResult:
 
 
 def now_ep_k() -> int:
-    """Return the current Unix timestamp in LiuXin's millisecond epoch form."""
+    """
+    Return the current Unix timestamp in LiuXin's millisecond epoch form.
+
+    Example:
+        Exercise now ep k through a consuming regression::
+
+            python -m pytest -q tests/jobs/test_jobs_repository.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
 
     return int(time.time() * 1000)
 

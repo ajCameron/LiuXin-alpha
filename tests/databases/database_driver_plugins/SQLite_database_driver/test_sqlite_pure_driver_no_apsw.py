@@ -1,9 +1,13 @@
-"""Tests that the stdlib-backed SQLite driver can run without APSW.
+"""
+Check pure SQLite driver import with APSW blocked and dump/restore preservation of row count and user_version.
 
-These tests are intentionally small and "contract"-focused:
+Import helpers mutate global import state temporarily; their restoration only covers
+the finder or module entries they explicitly saved.
 
-* Importing the driver must not require the optional APSW package.
-* `dump_and_restore()` must round-trip the on-disk DB while preserving data.
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
 """
 
 from __future__ import annotations
@@ -21,11 +25,48 @@ import pytest
 
 @contextlib.contextmanager
 def _block_import(module_prefix: str) -> Iterator[None]:
-    """Block imports of *module_prefix* (and its submodules) within the context."""
+    """
+    Install a first-priority finder that rejects a module prefix and its submodules until context exit.
+
+    Already cached modules can bypass finder lookup. Remove the finder in finally and
+    ignore ValueError if it was already removed.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+    :param module_prefix: Exact module name and dotted-prefix family to block.
+    :return: Context manager yielding None; surrounding code owns any cached-module
+        purge.
+    """
 
     # Meta path finder that refuses to resolve the blocked module.
     class _Blocker:
+        """
+        Reject matching module lookups while allowing other finders to resolve unrelated names.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+        """
         def find_spec(self, fullname, path=None, target=None):  # noqa: ANN001
+            """
+            Raise ImportError for the blocked name or its dotted children and return None otherwise.
+
+            Example:
+                Run the owning tests with pytest::
+
+                    python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+            :param fullname: Full import name being resolved.
+            :param path: Ignored package search path supplied by import machinery.
+            :param target: Ignored reload target supplied by import machinery.
+            :return: None for unrelated modules; matching lookups always raise.
+            """
             if fullname == module_prefix or fullname.startswith(module_prefix + "."):
                 raise ImportError(f"Blocked import: {fullname}")
             return None
@@ -43,7 +84,22 @@ def _block_import(module_prefix: str) -> Iterator[None]:
 
 @contextlib.contextmanager
 def _temporary_module_purge(prefixes: tuple[str, ...]) -> Iterator[None]:
-    """Temporarily remove matching modules from sys.modules (restored afterward)."""
+    """
+    Remove currently cached modules matching any prefix and restore those saved entries in finally.
+
+    Only names present in the initial snapshot are removed again before restoration.
+    Newly imported matching names absent from that snapshot can remain afterward.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+    :param prefixes: Exact module names and dotted-prefix families to snapshot and
+        purge.
+    :return: Context manager yielding None while saved modules are absent.
+    """
     snapshot: dict[str, Any] = {}
     to_remove: list[str] = []
     for k, v in list(sys.modules.items()):
@@ -64,7 +120,17 @@ def _temporary_module_purge(prefixes: tuple[str, ...]) -> Iterator[None]:
 
 
 def test_pure_driver_imports_without_apsw() -> None:
-    """Importing the stdlib driver must not touch APSW."""
+    """
+    Purge cached SQLite/APSW modules, block APSW lookup, and require pure-driver import with no apsw entry in sys.modules.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py::test_pure_driver_imports_without_apsw
+
+
+    :return: None; failed expectations raise AssertionError.
+    """
 
     mod = "LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver"
 
@@ -82,10 +148,37 @@ def test_pure_driver_imports_without_apsw() -> None:
 
 
 def _table_info(conn: sqlite3.Connection, table: str):
+    """
+    Fetch SQLite table_info rows using the trusted relation name in a quoted PRAGMA.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+    :param conn: Caller-owned SQLite connection; this helper does not close it.
+    :param table: Trusted test table name, interpolated into SQL where needed.
+    :return: Fetched metadata rows; the caller retains the connection.
+    """
     return conn.execute(f"PRAGMA table_info(`{table}`);").fetchall()
 
 
 def _detect_pk_column(conn: sqlite3.Connection, table: str) -> str | None:
+    """
+    Return the name whose table_info primary-key ordinal equals one.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+    :param conn: Caller-owned SQLite connection; this helper does not close it.
+    :param table: Trusted test table name, interpolated into SQL where needed.
+    :return: First primary-key component name, or None; composite keys are not returned
+        as a group.
+    """
     for _cid, name, _t, _notnull, _dflt, pk in _table_info(conn, table):
         if int(pk) == 1:
             return str(name)
@@ -93,6 +186,19 @@ def _detect_pk_column(conn: sqlite3.Connection, table: str) -> str | None:
 
 
 def _relation_type(conn: sqlite3.Connection, name: str) -> str | None:
+    """
+    Read sqlite_master for the exact bound table/view name.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+    :param conn: Caller-owned SQLite connection; this helper does not close it.
+    :param name: Exact table or view name passed as a bound query value.
+    :return: Relation type string, or None if absent; the caller retains the connection.
+    """
     row = conn.execute(
         "SELECT type FROM sqlite_master WHERE (type='table' OR type='view') AND name=? LIMIT 1;",
         (name,),
@@ -101,6 +207,23 @@ def _relation_type(conn: sqlite3.Connection, name: str) -> str | None:
 
 
 def _default_value_for_type(col_name: str, col_type: str) -> Any:
+    """
+    Choose UUID, numeric, blob, or empty-text placeholders by name/type heuristics.
+
+    The uppercase DATE/TIME checks run against a lowercased name and therefore do not
+    recognize date/time names. No schema-constraint validation occurs.
+
+    Example:
+        >>> _default_value_for_type('n', 'INTEGER')
+        0
+        >>> _default_value_for_type('created_date', 'TEXT')
+        ''
+
+
+    :param col_name: Column name used for UUID or preferred-text heuristics.
+    :param col_type: Declared type string inspected by substring.
+    :return: Placeholder scalar or empty string.
+    """
     n = col_name.lower()
     t = (col_type or "").upper()
 
@@ -119,7 +242,27 @@ def _default_value_for_type(col_name: str, col_type: str) -> Any:
 
 
 def _insert_minimal_row(conn: sqlite3.Connection, *, table: str, override: dict[str, Any] | None = None) -> int:
-    """Insert a single row into *table* satisfying NOT NULL constraints."""
+    """
+    Insert known non-key overrides and placeholders for required columns without defaults on the caller’s connection.
+
+    Ignore unknown override names and the first primary-key component. Use DEFAULT
+    VALUES when no columns are required; otherwise check key detection only after
+    inserting. The helper neither commits nor rolls back, and placeholders may violate
+    other constraints.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+    :param conn: Caller-owned SQLite connection; this helper does not close it.
+    :param table: Trusted test table name, interpolated into SQL where needed.
+    :param override: Optional values for known non-primary-key columns; unknown names
+        are ignored.
+    :return: Integer lastrowid; the explicit-column branch raises RuntimeError after
+        insertion when no key was detected.
+    """
 
     override = dict(override or {})
     pk_col = _detect_pk_column(conn, table)
@@ -153,10 +296,18 @@ def _insert_minimal_row(conn: sqlite3.Connection, *, table: str, override: dict[
 
 
 def _insert_minimal_title_row(conn: sqlite3.Connection, *, title: str) -> int:
-    """Insert a row that is visible through the `titles` relation.
+    """
+    Insert matching title and sort text into works when titles is a view, otherwise into titles.
 
-    In FRBR/WEMI schema variants, `titles` can be a read-only compatibility view.
-    In that case, we seed data via `works` instead.
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+    :param conn: Caller-owned SQLite connection; this helper does not close it.
+    :param title: Text assigned to the title column.
+    :return: Integer lastrowid from the insertion helper; does not commit or close.
     """
     if _relation_type(conn, "titles") == "view":
         return _insert_minimal_row(
@@ -180,12 +331,34 @@ def _insert_minimal_title_row(conn: sqlite3.Connection, *, title: str) -> int:
 
 @dataclass(frozen=True)
 class _DriverBundle:
+    """
+    Hold frozen driver and database-path references without managing their lifetime.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+    """
     driver: Any
     db_path: Path
 
 
 @pytest.fixture
 def sqlite_pure_driver_bundle(provision_test_database):
+    """
+    Provision test_db_13, construct the pure SQLite driver, and yield its bundle with best-effort driver cleanup.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py
+
+
+    :param provision_test_database: Fixture factory provisioning a named test database
+        into isolated storage.
+    :return: Iterator yielding one bundle; ordinary close errors are suppressed in
+        finally.
+    """
     from LiuXin_alpha.databases.database_driver_plugins.SQLite.databasedriver import DatabaseDriver
 
     provisioned = provision_test_database("test_db_13")
@@ -201,7 +374,23 @@ def sqlite_pure_driver_bundle(provision_test_database):
 
 
 def test_dump_and_restore_round_trips(sqlite_pure_driver_bundle) -> None:
-    """dump_and_restore should preserve user_version and user data."""
+    """
+    Set user_version to 123, insert a title, run dump/restore, and check the total title count and version are retained.
+
+    Create the configured scratch directory if needed. The temporary pre-restore count
+    connection is not explicitly closed, and the inserted title’s exact text is not
+    independently checked after restoration.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/SQLite_database_driver/test_sqlite_pure_driver_no_apsw.py::test_dump_and_restore_round_trips
+
+
+    :param sqlite_pure_driver_bundle: Fixture bundle containing the pure sqlite3 driver
+        and its isolated database path.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     drv = sqlite_pure_driver_bundle.driver
 

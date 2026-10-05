@@ -1,12 +1,5 @@
-"""Public entry point for LiuXin's operator command-line interface."""
+"""
+Operator command-line application. The application entry point lives in app.
 
-from __future__ import annotations
-
-def main(argv: list[str] | None = None) -> int:
-    """Load the packaged CLI lazily so subcommands can import independently."""
-
-    from LiuXin_alpha.surfaces.cli.app import main as application_main
-
-    return application_main(argv)
-
-__all__ = ["main"]
+Use ordinary submodule imports; importing this namespace loads no implementations.
+"""

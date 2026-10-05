@@ -1,3 +1,14 @@
+"""
+Provide test fadedpage wget discovery real export fixture utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test fadedpage wget discovery real export fixture through a consuming regression::
+
+        python -m pytest -q tests/utils/test_fadedpage_wget_discovery_real_export_fixture.py
+"""
 from __future__ import annotations
 
 import importlib.util
@@ -8,6 +19,18 @@ from pathlib import Path
 
 
 def _load_script():
+    """
+    Perform the load script utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  load script through a consuming regression::
+
+            python -m pytest -q tests/utils/test_fadedpage_wget_discovery_real_export_fixture.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     script_path = Path(__file__).resolve().parents[2] / "scripts" / "fadedpage_wget_discovery.py"
     spec = importlib.util.spec_from_file_location("fadedpage_wget_discovery", script_path)
     assert spec is not None
@@ -19,11 +42,35 @@ def _load_script():
 
 
 def _load_fixture() -> dict:
+    """
+    Perform the load fixture utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  load fixture through a consuming regression::
+
+            python -m pytest -q tests/utils/test_fadedpage_wget_discovery_real_export_fixture.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     fixture_path = Path(__file__).resolve().parents[1] / "fixtures" / "fadedpage_wget_discovery" / "real_export_snapshot.json"
     return json.loads(fixture_path.read_text(encoding="utf-8"))
 
 
 def test_real_export_snapshot_stats_and_profiles_are_stable() -> None:
+    """
+    Perform the test real export snapshot stats and profiles are stable utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test real export snapshot stats and profiles are stable through a consuming regression::
+
+            python -m pytest -q tests/utils/test_fadedpage_wget_discovery_real_export_fixture.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     payload = _load_fixture()
 
     assert payload["stats"] == {
@@ -58,6 +105,18 @@ def test_real_export_snapshot_stats_and_profiles_are_stable() -> None:
 
 
 def test_real_export_snapshot_collapses_known_fadedpage_suffix_families() -> None:
+    """
+    Perform the test real export snapshot collapses known fadedpage suffix families utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test real export snapshot collapses known fadedpage suffix families through a consuming regression::
+
+            python -m pytest -q tests/utils/test_fadedpage_wget_discovery_real_export_fixture.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     payload = _load_fixture()
     books = {book["stem"]: book for book in payload["books"]}
 
@@ -72,6 +131,18 @@ def test_real_export_snapshot_collapses_known_fadedpage_suffix_families() -> Non
 
 
 def test_real_export_snapshot_text_report_stays_clean_and_informative() -> None:
+    """
+    Perform the test real export snapshot text report stays clean and informative utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test real export snapshot text report stays clean and informative through a consuming regression::
+
+            python -m pytest -q tests/utils/test_fadedpage_wget_discovery_real_export_fixture.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     script = _load_script()
     payload = _load_fixture()
 

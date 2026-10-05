@@ -1,6 +1,17 @@
 # -*- coding: utf-8 -*-
 
 # Probably used as part of the reader system
+"""
+Normalize PDF page size, margin and orientation options.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise pageoptions through a consuming regression::
+
+        python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -8,6 +19,14 @@ try:
     from PyQt5.Qt import QPrinter
 except Exception:
     class _QPrinterFallback:
+        """
+        Provide the qprinterfallback contract for validated ebook processing.
+
+        Example:
+            Exercise  QPrinterFallback through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+        """
         Millimeter = 0
         Point = 1
         Inch = 2
@@ -68,6 +87,19 @@ UNITS = {
 
 
 def unit(unit: _typing.Any) -> _typing.Any:
+    """
+    Perform the unit operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise unit through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+    :param unit: Value supplied for unit under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return UNITS.get(unit, QPrinter.Inch)
 
 
@@ -107,6 +139,19 @@ PAPER_SIZES = {
 
 
 def paper_size(size: _typing.Any) -> _typing.Any:
+    """
+    Perform the paper size operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise paper size through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+    :param size: Value supplied for size under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return PAPER_SIZES.get(size, QPrinter.Letter)
 
 
@@ -117,10 +162,36 @@ ORIENTATIONS = {
 
 
 def orientation(orientation: _typing.Any) -> _typing.Any:
+    """
+    Perform the orientation operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise orientation through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+    :param orientation: Value supplied for orientation under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return ORIENTATIONS.get(orientation, QPrinter.Portrait)
 
 
 def size(size: _typing.Any) -> _typing.Any:
+    """
+    Perform the size operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise size through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+    :param size: Value supplied for size under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         return int(size)
     except:

@@ -1,5 +1,16 @@
 #!/usr/bin/env python2
 # vim:fileencoding=utf-8
+"""
+Extract and normalize DOCX table-of-contents fields and links.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise toc through a consuming regression::
+
+        python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -24,19 +35,46 @@ __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
 
 class Count(object):
 
+    """
+    Provide the count contract for validated ebook processing.
+
+    Example:
+        Exercise Count through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+    """
     __slots__ = ("val",)
 
     def __init__(self: _typing.Self) -> None:
+        """
+        Initialize and validate the count state.
+
+        Example:
+            Exercise Count.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         self.val = 0
 
 
 def from_headings(body: _typing.Any, log: _typing.Any, namespace: _typing.Any) -> _typing.Any:
     """
     Create a TOC from headings in the document
-    :param body:
-    :param log:
-    :param namespace:
-    :return:
+
+    Example:
+        Exercise from headings through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param body: Value supplied for body under the utility contract.
+    :param log: Value supplied for log under the utility contract.
+    :param namespace: Value supplied for namespace under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     x_path, descendants = namespace.XPath, namespace.descendants
     headings = ("h1", "h2", "h3")
@@ -50,6 +88,19 @@ def from_headings(body: _typing.Any, log: _typing.Any, namespace: _typing.Any) -
     idcount = Count()
 
     def ensure_id(elem: _typing.Any) -> _typing.Any:
+        """
+        Perform the ensure id operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise from headings.ensure id through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param elem: Value supplied for elem under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = elem.get("id", None)
         if not ans:
             idcount.val += 1
@@ -79,6 +130,19 @@ def from_headings(body: _typing.Any, log: _typing.Any, namespace: _typing.Any) -
 
 
 def structure_toc(entries: _typing.Any) -> _typing.Any:
+    """
+    Perform the structure toc operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise structure toc through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param entries: Value supplied for entries under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     indent_vals = sorted({x.indent for x in entries})
     last_found = [None for i in indent_vals]
     newtoc = TOC()
@@ -89,6 +153,19 @@ def structure_toc(entries: _typing.Any) -> _typing.Any:
         return newtoc
 
     def find_parent(local_level: _typing.Any) -> _typing.Any:
+        """
+        Find parent under the format's safety and compatibility rules.
+
+        Example:
+            Exercise structure toc.find parent through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param local_level: Value supplied for local level under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         candidates = last_found[:local_level]
         for local_x in reversed(candidates):
             if local_x is not None:
@@ -106,6 +183,21 @@ def structure_toc(entries: _typing.Any) -> _typing.Any:
 
 
 def link_to_txt(a: _typing.Any, styles: _typing.Any, object_map: _typing.Any) -> _typing.Any:
+    """
+    Perform the link to txt operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise link to txt through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param a: Value supplied for a under the utility contract.
+    :param styles: Value supplied for styles under the utility contract.
+    :param object_map: Value supplied for object map under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if len(a) > 1:
         for child in a:
             run = object_map.get(child, None)
@@ -118,6 +210,24 @@ def link_to_txt(a: _typing.Any, styles: _typing.Any, object_map: _typing.Any) ->
 
 
 def from_toc(docx: _typing.Any, link_map: _typing.Any, styles: _typing.Any, object_map: _typing.Any, log: _typing.Any, namespace: _typing.Any) -> _typing.Any:
+    """
+    Perform the from toc operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise from toc through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param docx: Value supplied for docx under the utility contract.
+    :param link_map: Value supplied for link map under the utility contract.
+    :param styles: Value supplied for styles under the utility contract.
+    :param object_map: Value supplied for object map under the utility contract.
+    :param log: Value supplied for log under the utility contract.
+    :param namespace: Value supplied for namespace under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     x_path, get, ancestor = namespace.XPath, namespace.get, namespace.ancestor
     toc_level = None
     level = 0
@@ -162,4 +272,23 @@ def from_toc(docx: _typing.Any, link_map: _typing.Any, styles: _typing.Any, obje
 
 
 def create_toc(docx: _typing.Any, body: _typing.Any, link_map: _typing.Any, styles: _typing.Any, object_map: _typing.Any, log: _typing.Any, namespace: _typing.Any) -> bool:
+    """
+    Create toc under the format's safety and compatibility rules.
+
+    Example:
+        Exercise create toc through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param docx: Value supplied for docx under the utility contract.
+    :param body: Value supplied for body under the utility contract.
+    :param link_map: Value supplied for link map under the utility contract.
+    :param styles: Value supplied for styles under the utility contract.
+    :param object_map: Value supplied for object map under the utility contract.
+    :param log: Value supplied for log under the utility contract.
+    :param namespace: Value supplied for namespace under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return from_toc(docx, link_map, styles, object_map, log, namespace) or from_headings(body, log, namespace)

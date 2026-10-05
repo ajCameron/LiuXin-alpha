@@ -1,27 +1,52 @@
-"""Metadata SQL helpers for updating scalar title values."""
+"""
+Provide metadata SQL operations for title values.
+
+These helpers target the stored schema named in their SQL. The host supplies db
+and/or execution methods. Per-method notes distinguish explicit live-connection
+commits from delegated transaction handling; filesystem assets are never moved by
+these helpers.
+"""
 
 from LiuXin_alpha.errors import DatabaseIntegrityError
 
 
 class TileMacrosMixin:
-    """Implement scalar title-value update macros."""
+    """
+    Implement the title values operations used by MetadataSQL.
+
+    Requires a compatible owner database or host query methods. Backend/schema errors
+    propagate except where a method explicitly documents suppression.
+
+    Example:
+        >>> metadata_sql.set_title_identifier(1, "isbn", "9780306406157")  # doctest: +SKIP
+    """
 
 
     def set_title_identifier(self, title_id, id_type, id_val):
-        """Set the primary identifier of one scheme for a title.
+        """
+        Set a primary Work identifier through portable macros in a transaction.
 
-        This compatibility operation writes the normalized FRBR ownership
-        table through the portable database macro contract. It deliberately
-        performs no value normalization; catalog-facing callers should use
-        :class:`IdentifierRepository` for policy-aware writes. The legacy
-        umbrella scheme ``isbn`` is translated to the concrete ISBN-10 or
-        ISBN-13 storage scheme.
+        Requires a nonempty string scheme and a string or false value. For the umbrella isbn
+        scheme, strips separators only to count 10/13 digit-or-X characters and select
+        isbn10/isbn13 storage; the original value is stored without normalization or
+        checksum validation. False isbn clears both concrete and underscore alias schemes.
 
-        :param title_id: Work ID exposed by the compatibility ``titles`` view.
-        :param id_type: Non-empty identifier scheme, such as ``isbn``.
-        :param id_val: Identifier value, or a false value to clear the scheme.
-        :raises DatabaseIntegrityError: If ``title_id`` does not identify a
-            Work.
+        Requires the Work to exist, otherwise DatabaseIntegrityError. False values delete
+        matching rows; nonempty values demote all matches and promote the first exact-value
+        match by ascending ID, or insert a new primary row. Other values remain as
+        nonprimary identifiers. Catalog policy-aware callers should use
+        IdentifierRepository.
+
+        Example:
+            >>> metadata_sql.set_title_identifier(1, "isbn", "9780306406157")  # doctest: +SKIP
+
+
+        :param title_id: Work ID exposed through the compatibility titles surface.
+        :param id_type: Nonempty scheme string; casefolded/compacted isbn selects
+            compatibility handling, other spelling is stored unchanged.
+        :param id_val: Unnormalized identifier string, or a false value to clear matching
+            schemes.
+        :return: None.
         """
 
         if not isinstance(id_type, str) or not id_type.strip():
@@ -111,25 +136,39 @@ class TileMacrosMixin:
 
     def set_title_isbn(self, title_id, isbn):
         """
-        Set a isbn in the identifiers table for a particular title.
-        :param title_id: The id of the book to update.
-        :param isbn: The isbn of the book to update.
-        :return:
+        Delegate ISBN setting or clearing to set_title_identifier().
+
+        Retains its scheme selection, transaction, exact-value matching and validation
+        behavior.
+
+        Example:
+            >>> metadata_sql.set_title_isbn(1, "9780306406157")  # doctest: +SKIP
+
+
+        :param title_id: Title identifier bound to the operation; batch handling, where
+            supported, is described above.
+        :param isbn: ISBN text or a false value to clear both ISBN schemes.
+        :return: None.
         """
         self.set_title_identifier(title_id=title_id, id_type="isbn", id_val=isbn)
 
     def set_title_rating(self, title_id, rating):
         """
-        Sets the user_rating for the given id - which is the one used in the meta view.
-        The rating table should have already been set up by this point - just calculating the appropriate row_id and
-        writing it into the ratings table.
-        Updates the database - does not update the cache.
-        :param db: The database to do the update on
-        :param title_id: The id of the book to set the rating for
-        :param rating: An integer in the range 0-10.
-                       If the integer is 0 - or if the rating evaluates to 0, the rating will be set Null.
-        :type rating: int
-        :return:
+        Replace user-type rating links using rating-row ID int(rating)+1.
+
+        Deletes existing user links first. A false rating returns before committing; truthy
+        values are converted without checking a 0–10 range, inserted and committed.
+        Conversion/insertion errors can leave the deletion pending.
+
+        Example:
+            >>> metadata_sql.set_title_rating(1, 4)  # doctest: +SKIP
+
+
+        :param title_id: Title identifier bound to the operation; batch handling, where
+            supported, is described above.
+        :param rating: False value to clear user links; otherwise int(rating)+1 selects the
+            rating row, without range validation.
+        :return: None.
         """
         # Clear the ratings table of any current user_ratings for the title
         self.db.driver.conn.execute(
@@ -154,10 +193,16 @@ class TileMacrosMixin:
 
     def set_author_sort(self, title_id, sort):
         """
-        Set the author sort for a given title id.
-        :param title_id:
-        :param sort:
-        :return:
+        Write title_creator_sort directly on the live connection and commit.
+
+        Example:
+            >>> metadata_sql.set_author_sort(1, "Doe, Jane")  # doctest: +SKIP
+
+
+        :param title_id: Title identifier bound to the operation; batch handling, where
+            supported, is described above.
+        :param sort: Replacement title_creator_sort value.
+        :return: None.
         """
         self.db.driver.conn.execute("UPDATE titles SET title_creator_sort=? WHERE title_id=?;", (sort, title_id))
         self.db.driver.conn.commit()

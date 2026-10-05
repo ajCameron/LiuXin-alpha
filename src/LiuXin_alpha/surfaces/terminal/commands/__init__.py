@@ -1,4 +1,11 @@
-"""Terminal command extensions for the text browser."""
+"""
+Collect built-in terminal commands and construct their ordered default instances.
+
+Imports eagerly load the command implementations. At import time, classes in
+``MUTATING_COMMAND_CLASSES`` are marked for the browser's post-command refresh;
+this changes class metadata, not database contents. The factory returns command
+objects but leaves registration and execution to the caller.
+"""
 
 from __future__ import annotations
 
@@ -18,7 +25,13 @@ from .core import (
 )
 from .db import DbUnlockCommand
 from .ingest import IngestDiskCommand
-from .jobs import JobsCancelCommand, JobsListCommand, JobsPanelCommand, JobsShowCommand, JobsTailCommand
+from .jobs import (
+    JobsCancelCommand,
+    JobsListCommand,
+    JobsPanelCommand,
+    JobsShowCommand,
+    JobsTailCommand,
+)
 from .link import LinkCommand, LinksCommand, UnlinkCommand
 from .mutate import DeleteCommand, EditCommand, SetCommand
 from .new_creator import NewCreatorWizardCommand
@@ -181,7 +194,23 @@ for _command_class in MUTATING_COMMAND_CLASSES:
 
 
 def build_default_commands() -> list[TerminalCommandAPI]:
-    """Create one instance of each default terminal command class."""
+    """
+    Instantiate each configured default command once, preserving declaration order.
+
+    Each call returns a new list of fresh instances. No browser is supplied and
+    no command is registered or executed. Constructor failures propagate rather
+    than returning a partial list.
+
+    Example:
+        >>> commands = build_default_commands()
+        >>> [command.name for command in commands[:3]]
+        ['clear', 'help', 'tables']
+        >>> commands[0] is build_default_commands()[0]
+        False
+
+
+    :return: Command instances in ``DEFAULT_COMMAND_CLASSES`` order, ready for registration.
+    """
     return [command_class() for command_class in DEFAULT_COMMAND_CLASSES]
 
 

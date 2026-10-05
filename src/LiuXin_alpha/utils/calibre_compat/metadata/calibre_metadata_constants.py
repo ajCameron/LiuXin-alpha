@@ -3,6 +3,17 @@
 
 # Todo: Tranfer all to metadata.book, in keeping with the calibre code base
 
+"""
+Expose canonical Calibre metadata field and type constants.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise calibre metadata constants through a consuming regression::
+
+        python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+"""
 from LiuXin_alpha.metadata.constants import EXTERNAL_EBOOK_REKEY_SCHEME
 
 # METADATA CONSTANTS NEEDED FOR THE calibreMetadata class (ported directly from calibre)

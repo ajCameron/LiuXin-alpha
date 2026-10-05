@@ -1,3 +1,14 @@
+"""
+Verify blank optional metadata profiles across registered database profiles.
+
+The module keeps generated data, ordering and failure modes explicit so consumers
+can assert stable behavior.
+
+Example:
+    Exercise test property blank optional metadata profiles through a consuming regression::
+
+        python -m pytest -q tests/support/test_databases/test_db_properties/test_property_blank_optional_metadata_profiles.py
+"""
 from __future__ import annotations
 
 import sqlite3
@@ -25,6 +36,20 @@ BLANK_OPTIONAL_METADATA_DB_NAMES = (
 @pytest.mark.catalog
 @pytest.mark.parametrize("db_name", BLANK_OPTIONAL_METADATA_DB_NAMES)
 def test_blank_optional_metadata_profiles_are_stable(provision_test_database, db_name: str) -> None:
+    """
+    Verify blank optional metadata profiles are stable.
+
+    Example:
+        Exercise test blank optional metadata profiles are stable through a consuming regression::
+
+            python -m pytest -q tests/support/test_databases/test_db_properties/test_property_blank_optional_metadata_profiles.py
+
+
+    :param provision_test_database: Value supplied for provision test database under the
+        deterministic fixture contract.
+    :param db_name: Registered test-database profile name.
+    :return: None; completion is expressed through state changes or assertions.
+    """
     provisioned = provision_test_database(db_name)
     conn = sqlite3.connect(str(provisioned.db_path))
     try:

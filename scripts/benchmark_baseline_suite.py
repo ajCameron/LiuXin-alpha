@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
-"""Run and consolidate LiuXin's representative performance baselines."""
+"""
+Run the baseline benchmark suite.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise benchmark baseline suite through a consuming regression::
+
+        python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+"""
 
 from __future__ import annotations
 
@@ -15,6 +25,18 @@ from benchmark_read_paths import run_read_path_benchmarks
 
 
 def parse_args() -> argparse.Namespace:
+    """
+    Parse args under the format's safety and compatibility rules.
+
+    Example:
+        Exercise parse args through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     parser = argparse.ArgumentParser(description="Run the default LiuXin benchmark baseline suite.")
     parser.add_argument("--cache-dir", default=str(DEFAULT_CACHE_DIR), help="Cache directory for named DB provisioning.")
     parser.add_argument("--regenerate", action="store_true", help="Force regeneration of named DB templates.")
@@ -37,6 +59,19 @@ def parse_args() -> argparse.Namespace:
 
 
 def main(argv: Optional[list[str]] = None) -> int:
+    """
+    Perform the main operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise main through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param argv: Value supplied for argv under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     args = parse_args()
     quiet = bool(args.quiet)
 

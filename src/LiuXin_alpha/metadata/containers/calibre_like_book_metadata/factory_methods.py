@@ -1,4 +1,16 @@
 
+"""
+Hydrate legacy book storage directly from title-row links.
+
+This older factory mutates an existing container and depends on the legacy database
+linked-row/display-column APIs. It preserves historical plural-key and
+identifier-container assumptions.
+
+Example:
+    Exercise the owning behavior with pytest::
+
+        python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_factory_methods_from_title_row.py
+"""
 from __future__ import division, absolute_import, print_function, annotations
 
 from typing import Optional, Union
@@ -49,19 +61,33 @@ from LiuXin_alpha.errors import InputIntegrityError, DatabaseIntegrityError, Log
 # Todo: This is - probably - staggeringly broken
 class FactoryMethodsMixin:
     """
-    Mixin for the factory methods.
+    Provide in-place title-row hydration for metadata owners exposing _data.
+
+    Example:
+        Exercise the owning behavior with pytest::
+
+            python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_factory_methods_from_title_row.py
     """
     def from_title_row(self, title_row):
         """
-        Takes a title row from the databases. Uses it to populate all the metadata associated with that row.
+        Populate legacy storage from the first linked title and its relation rows.
 
-        All data is deleted before the new data is copied in.
-        Some fields are not populated.
-        All comments are just stored in notes.
-        All imprints are just stored as publishers (though an attempt is made after to work out which is which).
-        Some fields are flat out ignored.
-        :param title_row: A Row
-        :return:
+        Read linked genres, notes, publishers, series, synopses, subjects, tags, creators,
+        identifiers and languages. Store relation rows directly under several plural
+        table-name keys; the first series replaces series_index with its priority scalar.
+        Identifier buckets must support add, although ordinary initialized buckets are
+        mappings. Unknown/ambiguous schemes produce integrity errors, and malformed links
+        can leave partial updates. No database ownership or transaction is taken.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_factory_methods_from_title_row.py
+
+
+        :param title_row: Legacy row with db.get_linked_rows and
+            db.driver_wrapper.get_display_column available.
+        :return: None.
         """
         _data = object.__getattribute__(self, "_data")
 

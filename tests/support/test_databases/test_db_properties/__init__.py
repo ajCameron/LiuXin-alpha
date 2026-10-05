@@ -1,3 +1,14 @@
+"""
+Declare expected capabilities and contents for init.
+
+The module keeps generated data, ordering and failure modes explicit so consumers
+can assert stable behavior.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/databases/test_test_resources_manager.py
+"""
 import datetime
 from copy import deepcopy
 

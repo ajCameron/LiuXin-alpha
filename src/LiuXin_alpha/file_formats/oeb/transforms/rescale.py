@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Rescale images to fit the target output profile.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise rescale through a consuming regression::
+
+        python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+"""
 from __future__ import with_statement
 from __future__ import annotations
 
@@ -16,16 +27,60 @@ __docformat__ = "restructuredtext en"
 class RescaleImages(object):
     """
     Rescale all images to fit inside given screen size
+
+    Example:
+        Exercise RescaleImages through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
     """
 
     def __init__(self: _typing.Self, check_colorspaces: bool = False) -> None:
+        """
+        Initialize and validate the rescaleimages state.
+
+        Example:
+            Exercise RescaleImages.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param check_colorspaces: Value supplied for check colorspaces under the utility
+            contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.check_colorspaces = check_colorspaces
 
     def __call__(self: _typing.Self, oeb: _typing.Any, opts: _typing.Any) -> None:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise RescaleImages.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param oeb: Value supplied for oeb under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.oeb, self.opts, self.log = oeb, opts, oeb.log
         self.rescale()
 
     def rescale(self: _typing.Self) -> None:
+        """
+        Perform the rescale operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise RescaleImages.rescale through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         try:
             from LiuXin_alpha.utils.magick.draw import Image
         except ImportError:

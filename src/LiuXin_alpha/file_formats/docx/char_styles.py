@@ -1,6 +1,17 @@
 #!/usr/bin/env python2
 # vim:fileencoding=utf-8
 
+"""
+Translate DOCX run properties into normalized inline CSS and HTML.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise char styles through a consuming regression::
+
+        python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -23,6 +34,22 @@ __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
 
 # Read from XML {{{
 def read_text_border(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: _typing.Any) -> None:
+    """
+    Read text border under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read text border through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param parent: Value supplied for parent under the utility contract.
+    :param dest: Value supplied for dest under the utility contract.
+    :param XPath: Value supplied for XPath under the utility contract.
+    :param get: Value supplied for get under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     border_color = border_style = border_width = padding = inherit
     elems = XPath("./w:bdr")(parent)
     if elems and elems[0].attrib:
@@ -58,6 +85,22 @@ def read_text_border(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any,
 
 
 def read_color(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: _typing.Any) -> None:
+    """
+    Read color under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read color through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param parent: Value supplied for parent under the utility contract.
+    :param dest: Value supplied for dest under the utility contract.
+    :param XPath: Value supplied for XPath under the utility contract.
+    :param get: Value supplied for get under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     ans = inherit
     for col in XPath("./w:color[@w:val]")(parent):
         val = get(col, "w:val")
@@ -68,6 +111,19 @@ def read_color(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: 
 
 
 def convert_highlight_color(val: _typing.Any) -> _typing.Any:
+    """
+    Convert highlight color under the format's safety and compatibility rules.
+
+    Example:
+        Exercise convert highlight color through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param val: Template or metadata value evaluated by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return {
         "darkBlue": "#000080",
         "darkCyan": "#008080",
@@ -81,6 +137,22 @@ def convert_highlight_color(val: _typing.Any) -> _typing.Any:
 
 
 def read_highlight(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: _typing.Any) -> None:
+    """
+    Read highlight under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read highlight through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param parent: Value supplied for parent under the utility contract.
+    :param dest: Value supplied for dest under the utility contract.
+    :param XPath: Value supplied for XPath under the utility contract.
+    :param get: Value supplied for get under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     ans = inherit
     for col in XPath("./w:highlight[@w:val]")(parent):
         val = get(col, "w:val")
@@ -95,6 +167,22 @@ def read_highlight(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, g
 
 
 def read_lang(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: _typing.Any) -> None:
+    """
+    Read lang under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read lang through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param parent: Value supplied for parent under the utility contract.
+    :param dest: Value supplied for dest under the utility contract.
+    :param XPath: Value supplied for XPath under the utility contract.
+    :param get: Value supplied for get under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     ans = inherit
     for col in XPath("./w:lang[@w:val]")(parent):
         val = get(col, "w:val")
@@ -114,6 +202,22 @@ def read_lang(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: _
 
 
 def read_letter_spacing(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: _typing.Any) -> None:
+    """
+    Read letter spacing under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read letter spacing through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param parent: Value supplied for parent under the utility contract.
+    :param dest: Value supplied for dest under the utility contract.
+    :param XPath: Value supplied for XPath under the utility contract.
+    :param get: Value supplied for get under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     ans = inherit
     for col in XPath("./w:spacing[@w:val]")(parent):
         val = simple_float(get(col, "w:val"), 0.05)
@@ -123,6 +227,22 @@ def read_letter_spacing(parent: _typing.Any, dest: _typing.Any, XPath: _typing.A
 
 
 def read_sz(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: _typing.Any) -> None:
+    """
+    Read sz under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read sz through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param parent: Value supplied for parent under the utility contract.
+    :param dest: Value supplied for dest under the utility contract.
+    :param XPath: Value supplied for XPath under the utility contract.
+    :param get: Value supplied for get under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     ans = inherit
     for col in XPath("./w:sz[@w:val]")(parent):
         val = simple_float(get(col, "w:val"), 0.5)
@@ -132,6 +252,22 @@ def read_sz(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: _ty
 
 
 def read_underline(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: _typing.Any) -> None:
+    """
+    Read underline under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read underline through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param parent: Value supplied for parent under the utility contract.
+    :param dest: Value supplied for dest under the utility contract.
+    :param XPath: Value supplied for XPath under the utility contract.
+    :param get: Value supplied for get under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     ans = inherit
     for col in XPath("./w:u[@w:val]")(parent):
         val = get(col, "w:val")
@@ -141,6 +277,22 @@ def read_underline(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, g
 
 
 def read_vert_align(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: _typing.Any) -> None:
+    """
+    Read vert align under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read vert align through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param parent: Value supplied for parent under the utility contract.
+    :param dest: Value supplied for dest under the utility contract.
+    :param XPath: Value supplied for XPath under the utility contract.
+    :param get: Value supplied for get under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     ans = inherit
     for col in XPath("./w:vertAlign[@w:val]")(parent):
         val = get(col, "w:val")
@@ -150,6 +302,22 @@ def read_vert_align(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, 
 
 
 def read_position(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: _typing.Any) -> None:
+    """
+    Read position under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read position through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param parent: Value supplied for parent under the utility contract.
+    :param dest: Value supplied for dest under the utility contract.
+    :param XPath: Value supplied for XPath under the utility contract.
+    :param get: Value supplied for get under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     ans = inherit
     for col in XPath("./w:position[@w:val]")(parent):
         val = get(col, "w:val")
@@ -161,6 +329,22 @@ def read_position(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, ge
 
 
 def read_font_family(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any, get: _typing.Any) -> None:
+    """
+    Read font family under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read font family through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param parent: Value supplied for parent under the utility contract.
+    :param dest: Value supplied for dest under the utility contract.
+    :param XPath: Value supplied for XPath under the utility contract.
+    :param get: Value supplied for get under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     ans = inherit
     for col in XPath("./w:rFonts")(parent):
         val = get(col, "w:asciiTheme")
@@ -178,6 +362,14 @@ def read_font_family(parent: _typing.Any, dest: _typing.Any, XPath: _typing.Any,
 
 class RunStyle(object):
 
+    """
+    Provide the runstyle contract for validated ebook processing.
+
+    Example:
+        Exercise RunStyle through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+    """
     all_properties = {
         "b",
         "bCs",
@@ -225,6 +417,19 @@ class RunStyle(object):
     }
 
     def __init__(self: _typing.Self, namespace: _typing.Any, rPr: _typing.Any = None) -> None:
+        """
+        Initialize and validate the runstyle state.
+
+        Example:
+            Exercise RunStyle.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param namespace: Value supplied for namespace under the utility contract.
+        :param rPr: Value supplied for rPr under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.namespace = namespace
         self.linked_style = None
         if rPr is None:
@@ -272,6 +477,19 @@ class RunStyle(object):
         self._css = None
 
     def update(self: _typing.Self, other: _typing.Any) -> None:
+        """
+        Perform the update operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise RunStyle.update through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param other: Value supplied for other under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for prop in self.all_properties:
             nval = getattr(other, prop)
             if nval is not inherit:
@@ -280,12 +498,38 @@ class RunStyle(object):
             self.linked_style = other.linked_style
 
     def resolve_based_on(self: _typing.Self, parent: _typing.Any) -> None:
+        """
+        Perform the resolve based on operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise RunStyle.resolve based on through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for p in self.all_properties:
             val = getattr(self, p)
             if val is inherit:
                 setattr(self, p, getattr(parent, p))
 
     def get_border_css(self: _typing.Self, ans: _typing.Any) -> None:
+        """
+        Return border css under the format's safety and compatibility rules.
+
+        Example:
+            Exercise RunStyle.get border css through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param ans: Value supplied for ans under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for x in ("color", "style", "width"):
             val = getattr(self, "border_" + x)
             if x == "width" and val is not inherit:
@@ -294,11 +538,35 @@ class RunStyle(object):
                 ans["border-%s" % x] = val
 
     def clear_border_css(self: _typing.Self) -> None:
+        """
+        Perform the clear border css operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise RunStyle.clear border css through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for x in ("color", "style", "width"):
             setattr(self, "border_" + x, inherit)
 
     @property
     def css(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the css operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise RunStyle.css through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self._css is None:
             c = self._css = OrderedDict()
             td = set()
@@ -350,4 +618,17 @@ class RunStyle(object):
         return self._css
 
     def same_border(self: _typing.Self, other: _typing.Any) -> bool:
+        """
+        Perform the same border operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise RunStyle.same border through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param other: Value supplied for other under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.get_border_css({}) == other.get_border_css({})

@@ -1,3 +1,15 @@
+"""
+Provide test core program api utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test core program api through a consuming regression::
+
+        python -m pytest -q tests/core/test_core_program_api.py
+"""
+
 from __future__ import annotations
 
 import base64
@@ -15,14 +27,50 @@ from LiuXin_alpha.utils.jobs import JobRequest
 
 @dataclass
 class _CapturingJobManager:
+    """
+    Provide the capturingjobmanager contract for validated ebook processing.
+
+    Example:
+        Exercise  CapturingJobManager through a consuming regression::
+
+            python -m pytest -q tests/core/test_core_program_api.py
+    """
+
     requests: list[JobRequest] = field(default_factory=list)
 
     def submit(self, request: JobRequest, **_kwargs: Any) -> str:
+        """
+        Perform the submit operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  CapturingJobManager.submit through a consuming regression::
+
+                python -m pytest -q tests/core/test_core_program_api.py
+
+
+        :param request: Value supplied for request under the utility contract.
+        :param _kwargs: Value supplied for kwargs under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.requests.append(request)
         return "captured-job-{}".format(len(self.requests))
 
 
 def test_managed_storage_graph_local_and_rpc_round_trip(db) -> None:
+    """
+    Perform the test managed storage graph local and rpc round trip operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test managed storage graph local and rpc round trip through a consuming regression::
+
+            python -m pytest -q tests/core/test_core_program_api.py
+
+
+    :param db: Value supplied for db under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     runtime = CoreRuntime(
         library=Library(
             database=db,
@@ -121,8 +169,7 @@ def test_managed_storage_graph_local_and_rpc_round_trip(db) -> None:
             "core-asset-{}".format(token)
         )
         assert {
-            replica["values"]["mode"]
-            for replica in complete_asset["replicas"]
+            replica["values"]["mode"] for replica in complete_asset["replicas"]
         } == {"active", "backup"}
 
         updated = runtime.command(
@@ -167,6 +214,21 @@ def test_storage_integrity_reconcile_and_migration_operations_are_real(
     tmp_path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """
+    Perform the test storage integrity reconcile and migration operations are real operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test storage integrity reconcile and migration operations are real through a consuming regression::
+
+            python -m pytest -q tests/core/test_core_program_api.py
+
+
+    :param db: Value supplied for db under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     runtime = CoreRuntime(
         library=Library(database=db, close_database_on_close=False),
     )
@@ -278,9 +340,7 @@ def test_storage_integrity_reconcile_and_migration_operations_are_real(
         assert backup_plan["count"] == 1
         assert backup_plan["packs"][0]["source_count"] == 1
 
-        replica = runtime.command(
-            "storage.replica.verify", {"replica_id": replica_id}
-        )
+        replica = runtime.command("storage.replica.verify", {"replica_id": replica_id})
         assert replica["healthy"] is True
         asset = runtime.command(
             "storage.asset.verify",
@@ -289,10 +349,7 @@ def test_storage_integrity_reconcile_and_migration_operations_are_real(
         assert asset["healthy"] is True
         audit = runtime.command("storage.audit", {"limit": 10000})
         assert audit["checked"] >= 1
-        assert any(
-            int(value["replica_id"]) == replica_id
-            for value in audit["results"]
-        )
+        assert any(int(value["replica_id"]) == replica_id for value in audit["results"])
 
         status = runtime.query("storage.status")
         assert "healthy" in status
@@ -301,9 +358,7 @@ def test_storage_integrity_reconcile_and_migration_operations_are_real(
         assert status["summary"]["digital_assets"] >= 1
         assert status["summary"]["live_replicas"] >= 1
         primary_overview = next(
-            store
-            for store in status["stores"]
-            if store["name"] == store_name
+            store for store in status["stores"] if store["name"] == store_name
         )
         assert primary_overview["root"] == str(root)
         assert primary_overview["role"] == "live"
@@ -317,9 +372,7 @@ def test_storage_integrity_reconcile_and_migration_operations_are_real(
         assert primary_overview["replica_bytes"] == len(b"integrity-test")
         assert primary_overview["replica_states"] == {"verified": 1}
         offline_overview = next(
-            store
-            for store in status["stores"]
-            if store["name"] == offline_store_name
+            store for store in status["stores"] if store["name"] == offline_store_name
         )
         assert offline_overview["root"] == str(offline_root)
         assert offline_overview["online_status"] == "offline"
@@ -340,12 +393,8 @@ def test_storage_integrity_reconcile_and_migration_operations_are_real(
                 "changes": {"add_tags": ["durable-only"]},
             },
         )
-        assert durable_only_update["configuration"]["store_tags"] == [
-            "durable-only"
-        ]
-        offline_store_ref = uuid.UUID(
-            str(durable_only_update["store_uuid"])
-        )
+        assert durable_only_update["configuration"]["store_tags"] == ["durable-only"]
+        offline_store_ref = uuid.UUID(str(durable_only_update["store_uuid"]))
         assert runtime.library.storage.remove_store(
             offline_store_ref,
             forget_configuration=False,
@@ -364,9 +413,7 @@ def test_storage_integrity_reconcile_and_migration_operations_are_real(
         )
         plan = runtime.query("storage.reconcile.plan")
         assert "safe_apply_scope" in plan
-        reconciled = runtime.command(
-            "storage.reconcile.apply", {"max_actions": 10}
-        )
+        reconciled = runtime.command("storage.reconcile.apply", {"max_actions": 10})
         assert "actions" in reconciled
 
         updated = runtime.command(
@@ -396,9 +443,7 @@ def test_storage_integrity_reconcile_and_migration_operations_are_real(
                 "max_transfer_bytes": 1024 * 1024,
             },
         )
-        assert all(action["ok"] for action in repaired["actions"]), repaired[
-            "actions"
-        ]
+        assert all(action["ok"] for action in repaired["actions"]), repaired["actions"]
         assert repaired["ok"] is True, repaired
         assert repaired["deletes_bytes"] is False
         assert repaired["after"]["action_count"] == 0
@@ -418,6 +463,20 @@ def test_storage_integrity_reconcile_and_migration_operations_are_real(
         original_replicate = manager.replicate_digital_asset
 
         def _fail_replacement(*_args: Any, **_kwargs: Any) -> None:
+            """
+            Perform the fail replacement operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise test storage integrity reconcile and migration operations are real. fail replacement through a consuming regression::
+
+                    python -m pytest -q tests/core/test_core_program_api.py
+
+
+            :param _args: Value supplied for args under the utility contract.
+            :param _kwargs: Value supplied for kwargs under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             raise RuntimeError("simulated replacement failure")
 
         monkeypatch.setattr(manager, "replicate_digital_asset", _fail_replacement)
@@ -438,13 +497,10 @@ def test_storage_integrity_reconcile_and_migration_operations_are_real(
             for action in refused["actions"]
         )
         assert not any(
-            action["action"] == "remove_source_replica"
-            for action in refused["actions"]
+            action["action"] == "remove_source_replica" for action in refused["actions"]
         )
         assert any(path.is_file() for path in root.rglob("*"))
-        monkeypatch.setattr(
-            manager, "replicate_digital_asset", original_replicate
-        )
+        monkeypatch.setattr(manager, "replicate_digital_asset", original_replicate)
         evacuated = runtime.command(
             "storage.store.evacuate.apply",
             {
@@ -510,6 +566,20 @@ def test_browse_projection_covers_work_list_detail_and_acquisition(
     db,
     tmp_path,
 ) -> None:
+    """
+    Perform the test browse projection covers work list detail and acquisition operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test browse projection covers work list detail and acquisition through a consuming regression::
+
+            python -m pytest -q tests/core/test_core_program_api.py
+
+
+    :param db: Value supplied for db under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     runtime = CoreRuntime(
         library=Library(
             database=db,
@@ -546,11 +616,7 @@ def test_browse_projection_covers_work_list_detail_and_acquisition(
         person = runtime.command(
             "catalog.agent.create-person",
             {
-                "data": {
-                    "name": "Core Browse Author {}".format(
-                        uuid.uuid4().hex
-                    )
-                },
+                "data": {"name": "Core Browse Author {}".format(uuid.uuid4().hex)},
                 "details": {},
             },
         )
@@ -573,9 +639,7 @@ def test_browse_projection_covers_work_list_detail_and_acquisition(
                 "role": "author",
             },
         )
-        assert agent_id in {
-            int(agent["agent_id"]) for agent in agents["agents"]
-        }
+        assert agent_id in {int(agent["agent_id"]) for agent in agents["agents"]}
         hierarchy = runtime.query(
             "catalog.hierarchy.list",
             {
@@ -584,8 +648,8 @@ def test_browse_projection_covers_work_list_detail_and_acquisition(
                 "direction": "children",
             },
         )
-        assert int(hierarchy["entities"][0]["expression_id"]) == (
-            stack["expression_id"]
+        assert (
+            int(hierarchy["entities"][0]["expression_id"]) == (stack["expression_id"])
         )
         global_search = runtime.query(
             "search.global",
@@ -602,9 +666,7 @@ def test_browse_projection_covers_work_list_detail_and_acquisition(
             "storage.store.save",
             {
                 "store": {
-                    "store_name": "core-managed-{}".format(
-                        uuid.uuid4().hex
-                    ),
+                    "store_name": "core-managed-{}".format(uuid.uuid4().hex),
                     "store_kind": "on_disk_existing_managed_drive",
                     "store_access_protocol": "file",
                     "store_root_uri": str(store_root),
@@ -683,10 +745,13 @@ def test_browse_projection_covers_work_list_detail_and_acquisition(
         )
 
         categories = runtime.query("browse.categories")
-        assert {
-            category["category"]
-            for category in categories["categories"]
-        } == {"all", "newest", "authors", "tags", "series"}
+        assert {category["category"] for category in categories["categories"]} == {
+            "all",
+            "newest",
+            "authors",
+            "tags",
+            "series",
+        }
 
         page = runtime.query(
             "browse.works",
@@ -720,14 +785,25 @@ def test_browse_projection_covers_work_list_detail_and_acquisition(
             "acquisition.read",
             {"kind": "replica", "id": replica_id},
         )
-        assert base64.b64decode(acquired["content"]["base64"]) == (
-            managed_content
-        )
+        assert base64.b64decode(acquired["content"]["base64"]) == (managed_content)
     finally:
         runtime.shutdown()
 
 
 def test_database_identity_and_tree_semantics_are_core_operations(db) -> None:
+    """
+    Perform the test database identity and tree semantics are core operations operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test database identity and tree semantics are core operations through a consuming regression::
+
+            python -m pytest -q tests/core/test_core_program_api.py
+
+
+    :param db: Value supplied for db under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     runtime = CoreRuntime(
         library=Library(
             database=db,
@@ -758,10 +834,10 @@ def test_database_identity_and_tree_semantics_are_core_operations(db) -> None:
             result = runtime.command(
                 "admin.row.create",
                 {
-                        "table": "series",
-                        "values": {
-                            "series": "{}{}".format(name, token),
-                        },
+                    "table": "series",
+                    "values": {
+                        "series": "{}{}".format(name, token),
+                    },
                 },
             )
             created.append(int(result["record"]["row_id"]))
@@ -775,10 +851,13 @@ def test_database_identity_and_tree_semantics_are_core_operations(db) -> None:
             },
         )
         assert nested["nested"] is True
-        assert runtime.query(
-            "tree.root",
-            {"table": "series", "row_id": child_id},
-        )["root"]["row_id"] == parent_id
+        assert (
+            runtime.query(
+                "tree.root",
+                {"table": "series", "row_id": child_id},
+            )["root"]["row_id"]
+            == parent_id
+        )
         assert [
             record["row_id"]
             for record in runtime.query(
@@ -808,6 +887,19 @@ def test_database_identity_and_tree_semantics_are_core_operations(db) -> None:
 def test_backup_workflow_persistence_is_available_directly_and_over_rpc(
     db,
 ) -> None:
+    """
+    Perform the test backup workflow persistence is available directly and over rpc operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test backup workflow persistence is available directly and over rpc through a consuming regression::
+
+            python -m pytest -q tests/core/test_core_program_api.py
+
+
+    :param db: Value supplied for db under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     runtime = CoreRuntime(
         library=Library(
             database=db,
@@ -823,15 +915,11 @@ def test_backup_workflow_persistence_is_available_directly_and_over_rpc(
                 "workflow_spec": {
                     "workflow_name": "core-backup-{}".format(token),
                     "workflow_kind": "squashfs_pack",
-                    "output_url": "/tmp/core-backup-{}.squashfs".format(
-                        token
-                    ),
+                    "output_url": "/tmp/core-backup-{}.squashfs".format(token),
                     "sources": [
                         {
                             "source_kind": "local_path",
-                            "source_identifier": "/tmp/source-{}".format(
-                                token
-                            ),
+                            "source_identifier": "/tmp/source-{}".format(token),
                             "archive_path": "books/source.epub",
                         }
                     ],
@@ -846,18 +934,13 @@ def test_backup_workflow_persistence_is_available_directly_and_over_rpc(
             "backup.workflow.get",
             {"workflow_id": workflow_id},
         )
-        assert detail["spec"]["workflow_name"] == (
-            "core-backup-{}".format(token)
-        )
+        assert detail["spec"]["workflow_name"] == ("core-backup-{}".format(token))
         assert detail["state"]["status"] == "draft"
-        assert detail["spec"]["sources"][0]["archive_path"] == (
-            "books/source.epub"
-        )
+        assert detail["spec"]["sources"][0]["archive_path"] == ("books/source.epub")
 
         listing = runtime.query("backup.workflows.list")
         assert workflow_id in {
-            int(record["workflow_id"])
-            for record in listing["records"]
+            int(record["workflow_id"]) for record in listing["records"]
         }
 
         daemon = CoreHttpDaemon(
@@ -866,10 +949,13 @@ def test_backup_workflow_persistence_is_available_directly_and_over_rpc(
         )
         daemon.start()
         remote = RemoteCoreClient(endpoint=daemon.base_url)
-        assert remote.query(
-            "backup.workflow.get",
-            {"workflow_id": workflow_id},
-        ) == detail
+        assert (
+            remote.query(
+                "backup.workflow.get",
+                {"workflow_id": workflow_id},
+            )
+            == detail
+        )
     finally:
         if daemon is not None:
             daemon.stop()
@@ -879,6 +965,19 @@ def test_backup_workflow_persistence_is_available_directly_and_over_rpc(
 def test_program_discovery_and_local_support_cover_every_capability_family(
     db,
 ) -> None:
+    """
+    Perform the test program discovery and local support cover every capability family operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test program discovery and local support cover every capability family through a consuming regression::
+
+            python -m pytest -q tests/core/test_core_program_api.py
+
+
+    :param db: Value supplied for db under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     runtime = CoreRuntime(
         library=Library(
             database=db,
@@ -910,12 +1009,11 @@ def test_program_discovery_and_local_support_cover_every_capability_family(
             "backup",
             "maintenance",
         }
-        assert capabilities["operations"]["conversion.start"][
-            "availability"
-        ] == "conditional"
-        assert capabilities["operations"]["browse.works"][
-            "availability"
-        ] == "available"
+        assert (
+            capabilities["operations"]["conversion.start"]["availability"]
+            == "conditional"
+        )
+        assert capabilities["operations"]["browse.works"]["availability"] == "available"
 
         assert runtime.query("database.info")["type"] in {
             "SQLite",
@@ -986,6 +1084,19 @@ def test_program_discovery_and_local_support_cover_every_capability_family(
 
 
 def test_named_workflows_submit_only_serializable_core_job_requests(db) -> None:
+    """
+    Perform the test named workflows submit only serializable core job requests operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test named workflows submit only serializable core job requests through a consuming regression::
+
+            python -m pytest -q tests/core/test_core_program_api.py
+
+
+    :param db: Value supplied for db under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     manager = _CapturingJobManager()
     runtime = CoreRuntime(
         library=Library(
@@ -1029,9 +1140,7 @@ def test_named_workflows_submit_only_serializable_core_job_requests(db) -> None:
                 "workflow_spec": {
                     "workflow_name": "core-job-{}".format(token),
                     "workflow_kind": "squashfs_pack",
-                    "output_url": "/tmp/core-job-{}.squashfs".format(
-                        token
-                    ),
+                    "output_url": "/tmp/core-job-{}.squashfs".format(token),
                     "sources": [],
                 }
             },
@@ -1041,9 +1150,7 @@ def test_named_workflows_submit_only_serializable_core_job_requests(db) -> None:
             {"workflow_id": saved["workflow_id"]},
         )
 
-        assert [
-            request.function_name for request in manager.requests
-        ] == [
+        assert [request.function_name for request in manager.requests] == [
             "run_ingest_disk_job",
             "run_ingest_remote_html_job",
             "run_conversion_job",
@@ -1055,14 +1162,26 @@ def test_named_workflows_submit_only_serializable_core_job_requests(db) -> None:
             request.module_name == "LiuXin_alpha.core.workflow_jobs"
             for request in manager.requests
         )
-        assert manager.requests[-1].kwargs["workflow_id"] == (
-            saved["workflow_id"]
-        )
+        assert manager.requests[-1].kwargs["workflow_id"] == (saved["workflow_id"])
     finally:
         runtime.shutdown()
 
 
 def test_metadata_file_read_and_write_stay_inside_core(db, tmp_path) -> None:
+    """
+    Perform the test metadata file read and write stay inside core operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test metadata file read and write stay inside core through a consuming regression::
+
+            python -m pytest -q tests/core/test_core_program_api.py
+
+
+    :param db: Value supplied for db under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     book_path = tmp_path / "core-metadata.epub"
     container_xml = b"""<?xml version="1.0"?>
 <container version="1.0"
@@ -1134,6 +1253,19 @@ def test_metadata_file_read_and_write_stay_inside_core(db, tmp_path) -> None:
 
 
 def test_schema_policy_and_custom_fields_round_trip_through_core(db) -> None:
+    """
+    Perform the test schema policy and custom fields round trip through core operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test schema policy and custom fields round trip through core through a consuming regression::
+
+            python -m pytest -q tests/core/test_core_program_api.py
+
+
+    :param db: Value supplied for db under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     runtime = CoreRuntime(
         library=Library(
             database=db,

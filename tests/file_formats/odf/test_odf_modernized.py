@@ -1,3 +1,14 @@
+"""
+Provide test odf modernized utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test odf modernized through a consuming regression::
+
+        python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+"""
 from __future__ import annotations
 
 import importlib
@@ -5,6 +16,18 @@ import pkgutil
 
 
 def test_odf_modules_import_smoke() -> None:
+    """
+    Perform the test odf modules import smoke operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test odf modules import smoke through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     import LiuXin_alpha.file_formats.odf as odf_pkg
 
     for mod in pkgutil.iter_modules(odf_pkg.__path__):
@@ -12,6 +35,19 @@ def test_odf_modules_import_smoke() -> None:
 
 
 def test_odf_text_roundtrip_via_odt_container(tmp_path) -> None:
+    """
+    Perform the test odf text roundtrip via odt container operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test odf text roundtrip via odt container through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.odf.opendocument import OpenDocumentText, load
     from LiuXin_alpha.file_formats.odf.teletype import addTextToElement, extractText
     from LiuXin_alpha.file_formats.odf.text import P
@@ -32,6 +68,19 @@ def test_odf_text_roundtrip_via_odt_container(tmp_path) -> None:
 
 
 def test_odf2xhtml_smoke_with_unicode(tmp_path) -> None:
+    """
+    Perform the test odf2xhtml smoke with unicode operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test odf2xhtml smoke with unicode through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.odf.odf2xhtml import ODF2XHTML
     from LiuXin_alpha.file_formats.odf.opendocument import OpenDocumentText
     from LiuXin_alpha.file_formats.odf.teletype import addTextToElement
@@ -49,6 +98,18 @@ def test_odf2xhtml_smoke_with_unicode(tmp_path) -> None:
 
 
 def test_manifestlist_accepts_bytes_and_str() -> None:
+    """
+    Perform the test manifestlist accepts bytes and str operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test manifestlist accepts bytes and str through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.odf.odfmanifest import manifestlist
 
     manifest_xml = """<?xml version="1.0" encoding="utf-8"?>

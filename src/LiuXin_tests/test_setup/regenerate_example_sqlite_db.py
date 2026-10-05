@@ -1,7 +1,15 @@
 
 
 """
-Build the most basic database.
+Regenerate the example SQLite fixture.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise regenerate example sqlite db through a consuming regression::
+
+        python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
 """
 
 
@@ -16,9 +24,14 @@ def regenerate_base_sqlite_db():
     """
     An example sqlite database is included at the root of the LiuXin directory.
 
-    This is used as a data source for automatic sql completion in PyCharm.
-    Generate a blank sqlite database and move it to that location
-    :return:
+    Example:
+        Exercise regenerate base sqlite db through a consuming regression::
+
+            python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     example_db_path = os.path.join(LiuXin_base_folder, "LiuXin_alpha", "example_sqlite_db.db")
 

@@ -1,3 +1,14 @@
+"""
+Verify work metadata construction, aliases, relations and projections.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test work metadata container api through its owning regression module::
+
+        python -m pytest -q tests/metadata/api/test_work_metadata_container_api.py
+"""
 from __future__ import annotations
 
 import dataclasses
@@ -33,38 +44,154 @@ from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.projec
 
 
 class _DummyWorkMetadata(WorkMetadataAPI):
+    """
+    Provide the DummyWorkMetadata test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise DummyWorkMetadata through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_work_metadata_container_api.py
+    """
     def __init__(self, work: MetadataRecord | None = None) -> None:
+        """
+        Initialize the DummyWorkMetadata test double.
+
+        Example:
+            Exercise DummyWorkMetadata.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/api/test_work_metadata_container_api.py
+
+
+        :param work: Value supplied for work in the focused test operation.
+        :return: None; the function records state or raises through its assertions.
+        """
         self._work = work
         self._links = {name: [] for name in self.relation_names()}
 
     @property
     def work(self) -> MetadataRecord | None:
+        """
+        Perform the work test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise DummyWorkMetadata.work through its owning regression module::
+
+                python -m pytest -q tests/metadata/api/test_work_metadata_container_api.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return self._work
 
     @work.setter
     def work(self, value: MetadataRecord | None) -> None:
+        """
+        Perform the work test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise DummyWorkMetadata.work through its owning regression module::
+
+                python -m pytest -q tests/metadata/api/test_work_metadata_container_api.py
+
+
+        :param value: Value stored, compared or projected by the operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self._work = value
 
     @property
     def values(self):
+        """
+        Perform the values test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise DummyWorkMetadata.values through its owning regression module::
+
+                python -m pytest -q tests/metadata/api/test_work_metadata_container_api.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return MetadataValuesView(self)
 
     @property
     def text(self):
+        """
+        Perform the text test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise DummyWorkMetadata.text through its owning regression module::
+
+                python -m pytest -q tests/metadata/api/test_work_metadata_container_api.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return MetadataTextView(self.values)
 
     def get_relation_links(self, relation_key: str) -> list[WorkRelationLink]:
+        """
+        Return relation links from deterministic test state.
+
+        Example:
+            Exercise DummyWorkMetadata.get relation links through its owning regression module::
+
+                python -m pytest -q tests/metadata/api/test_work_metadata_container_api.py
+
+
+        :param relation_key: Value supplied for relation key in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         relation_key = self.validate_relation_name(relation_key)
         return self._links[relation_key]
 
     def set_relation_links(self, relation_key: str, links) -> None:
+        """
+        Perform the set relation links test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise DummyWorkMetadata.set relation links through its owning regression module::
+
+                python -m pytest -q tests/metadata/api/test_work_metadata_container_api.py
+
+
+        :param relation_key: Value supplied for relation key in the focused test operation.
+        :param links: Value supplied for links in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         relation_key = self.validate_relation_name(relation_key)
         self._links[relation_key] = list(links)
 
     def write_to_database(self, *args, **kwargs):
+        """
+        Perform the write to database test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise DummyWorkMetadata.write to database through its owning regression module::
+
+                python -m pytest -q tests/metadata/api/test_work_metadata_container_api.py
+
+
+        :param args: Positional values forwarded by the test double.
+        :param kwargs: Keyword values forwarded by the test double.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return None
 
     def to_mapping(self, include_related: bool = True) -> MutableMetadataRecord:
+        """
+        Perform the to mapping test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise DummyWorkMetadata.to mapping through its owning regression module::
+
+                python -m pytest -q tests/metadata/api/test_work_metadata_container_api.py
+
+
+        :param include_related: Value supplied for include related in the focused test
+            operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         payload: MutableMetadataRecord = {"work": self.work}
         if include_related:
             payload["relations"] = {
@@ -76,6 +203,18 @@ class _DummyWorkMetadata(WorkMetadataAPI):
 
     @classmethod
     def from_mapping(cls, payload: MetadataRecord) -> "_DummyWorkMetadata":
+        """
+        Perform the from mapping test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise DummyWorkMetadata.from mapping through its owning regression module::
+
+                python -m pytest -q tests/metadata/api/test_work_metadata_container_api.py
+
+
+        :param payload: Value supplied for payload in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         instance = cls(work=payload.get("work"))
         raw_relations = payload.get("relations", {})
         if isinstance(raw_relations, Mapping):
@@ -105,12 +244,34 @@ class _DummyWorkMetadata(WorkMetadataAPI):
 
 
 def test_work_metadata_api_is_exported_from_top_level() -> None:
+    """
+    Verify work metadata api remains exported from top level.
+
+    Example:
+        Exercise test work metadata api is exported from top level through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_work_metadata_container_api.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.api.containers_api.wemi_containers_api import WorkMetadataAPI as WorkMetadataAPIFromPackage
 
     assert WorkMetadataAPI is WorkMetadataAPIFromPackage
 
 
 def test_metadata_api_does_not_export_storage_owned_contracts() -> None:
+    """
+    Verify metadata api does not export storage owned contracts.
+
+    Example:
+        Exercise test metadata api does not export storage owned contracts through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_work_metadata_container_api.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     for name in (
         "AssetReplicaIdentityAPI",
         "AssetReplicaMetadataAPI",
@@ -126,6 +287,17 @@ def test_metadata_api_does_not_export_storage_owned_contracts() -> None:
 
 
 def test_relation_name_validation_supports_aliases() -> None:
+    """
+    Verify relation name validation supports aliases.
+
+    Example:
+        Exercise test relation name validation supports aliases through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_work_metadata_container_api.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     assert WorkMetadataAPI.validate_relation_name("creator") == "agents"
     assert WorkMetadataAPI.validate_relation_name("cover") == "images"
     assert WorkMetadataAPI.validate_relation_name("title") == "titles"
@@ -135,6 +307,17 @@ def test_relation_name_validation_supports_aliases() -> None:
 
 
 def test_relation_helpers_round_trip_targets_and_links() -> None:
+    """
+    Verify relation helpers round trip targets and links.
+
+    Example:
+        Exercise test relation helpers round trip targets and links through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_work_metadata_container_api.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     container = _DummyWorkMetadata()
     genre_target: RelationTarget = "Science Fiction"
     genre_link = WorkRelationLink(
@@ -166,6 +349,17 @@ def test_relation_helpers_round_trip_targets_and_links() -> None:
 
 
 def test_primary_relation_selection_is_deterministic() -> None:
+    """
+    Verify primary relation selection remains deterministic.
+
+    Example:
+        Exercise test primary relation selection is deterministic through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_work_metadata_container_api.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     links = [
         WorkRelationLink(target="first", priority=1),
         WorkRelationLink(target="primary-lower-priority", primary=True, priority=2),
@@ -180,6 +374,17 @@ def test_primary_relation_selection_is_deterministic() -> None:
 
 
 def test_set_primary_relation_link_preserves_plural_graph() -> None:
+    """
+    Verify set primary relation link preserves plural graph.
+
+    Example:
+        Exercise test set primary relation link preserves plural graph through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_work_metadata_container_api.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     container = _DummyWorkMetadata()
     first = WorkRelationLink(target="first", primary=True)
     second = WorkRelationLink(target="second")
@@ -194,6 +399,17 @@ def test_set_primary_relation_link_preserves_plural_graph() -> None:
 
 
 def test_relation_links_carry_identity_cardinality_and_source() -> None:
+    """
+    Verify relation links carry identity cardinality and source.
+
+    Example:
+        Exercise test relation links carry identity cardinality and source through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_work_metadata_container_api.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     container = _DummyWorkMetadata()
     link = WorkRelationLink(
         target="Permutation City",
@@ -231,6 +447,17 @@ def test_relation_links_carry_identity_cardinality_and_source() -> None:
 
 
 def test_cardinality_specific_relation_link_api_names_are_explicit() -> None:
+    """
+    Verify cardinality specific relation link api names remain explicit.
+
+    Example:
+        Exercise test cardinality specific relation link api names are explicit through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_work_metadata_container_api.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     expected = {
         OneOneRelationLinkAPI: "Literal[RelationCardinality.ONE_TO_ONE]",
         OneManyRelationLinkAPI: "Literal[RelationCardinality.ONE_TO_MANY]",
@@ -243,6 +470,17 @@ def test_cardinality_specific_relation_link_api_names_are_explicit() -> None:
 
 
 def test_wemi_graph_relations_accept_multiple_targets() -> None:
+    """
+    Verify wemi graph relations accept multiple targets.
+
+    Example:
+        Exercise test wemi graph relations accept multiple targets through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_work_metadata_container_api.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     cases = (
         (WorkMetadataAPI, "expressions", WorkRelationLink),
         (ExpressionMetadataAPI, "works", ExpressionRelationLink),
@@ -262,6 +500,17 @@ def test_wemi_graph_relations_accept_multiple_targets() -> None:
 
 
 def test_relation_properties_cover_all_supported_relations() -> None:
+    """
+    Verify relation properties cover all supported relations.
+
+    Example:
+        Exercise test relation properties cover all supported relations through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_work_metadata_container_api.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     container = _DummyWorkMetadata()
 
     for relation_name in WorkMetadataAPI.relation_names():
@@ -271,6 +520,17 @@ def test_relation_properties_cover_all_supported_relations() -> None:
 
 
 def test_work_mapping_round_trip() -> None:
+    """
+    Verify work mapping round trip.
+
+    Example:
+        Exercise test work mapping round trip through its owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_work_metadata_container_api.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     container = _DummyWorkMetadata(work={"work_id": 5, "title": "Permutation City"})
     container.agents = ["Greg Egan"]
     container.languages = ["en"]

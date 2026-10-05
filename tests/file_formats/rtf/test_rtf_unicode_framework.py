@@ -1,3 +1,14 @@
+"""
+Provide test rtf unicode framework utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test rtf unicode framework through a consuming regression::
+
+        python -m pytest -q tests/file_formats/rtf/test_rtf_unicode_framework.py
+"""
 from __future__ import annotations
 
 import importlib
@@ -18,11 +29,38 @@ from tests.support.file_format_unicode import (
 
 
 def _assert_ascii_rtf(rendered: str) -> None:
+    """
+    Perform the assert ascii rtf operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  assert ascii rtf through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_unicode_framework.py
+
+
+    :param rendered: Value supplied for rendered under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     rendered.encode("ascii", "strict")
     assert "\ufffd" not in rendered
 
 
 def _assert_rtf_escaped_fragments(rendered: str, fragments=COMMON_TEXT_FRAGMENTS) -> None:
+    """
+    Perform the assert rtf escaped fragments operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  assert rtf escaped fragments through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_unicode_framework.py
+
+
+    :param rendered: Value supplied for rendered under the utility contract.
+    :param fragments: Value supplied for fragments under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     rtfml = importlib.import_module("LiuXin_alpha.file_formats.rtf.rtfml")
     missing = [fragment for fragment in fragments if rtfml.txt2rtf(fragment) not in rendered]
     if missing:
@@ -30,12 +68,37 @@ def _assert_rtf_escaped_fragments(rendered: str, fragments=COMMON_TEXT_FRAGMENTS
 
 
 def _install_deterministic_image_backend(monkeypatch) -> None:
+    """
+    Perform the install deterministic image backend operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  install deterministic image backend through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_unicode_framework.py
+
+
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     rtfml = importlib.import_module("LiuXin_alpha.file_formats.rtf.rtfml")
     monkeypatch.setattr(rtfml, "_convert_image_to_jpeg_bytes", lambda data: b"\x01\xab\xfe\x10")
     monkeypatch.setattr(rtfml, "_identify_data", lambda data: (320, 240, "jpeg"))
 
 
 def test_txt2rtf_preserves_shared_unicode_corpus_as_ascii_escapes() -> None:
+    """
+    Perform the test txt2rtf preserves shared unicode corpus as ascii escapes operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test txt2rtf preserves shared unicode corpus as ascii escapes through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_unicode_framework.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     rtfml = importlib.import_module("LiuXin_alpha.file_formats.rtf.rtfml")
 
     rendered = assert_output_deterministic(
@@ -50,6 +113,19 @@ def test_txt2rtf_preserves_shared_unicode_corpus_as_ascii_escapes() -> None:
 
 
 def test_rtfmlizer_serializes_shared_unicode_oeb_as_ascii_rtf(monkeypatch) -> None:
+    """
+    Perform the test rtfmlizer serializes shared unicode oeb as ascii rtf operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test rtfmlizer serializes shared unicode oeb as ascii rtf through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_unicode_framework.py
+
+
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     install_minimal_stylizers(monkeypatch)
     _install_deterministic_image_backend(monkeypatch)
     rtfml = importlib.import_module("LiuXin_alpha.file_formats.rtf.rtfml")
@@ -71,12 +147,38 @@ def test_rtfmlizer_serializes_shared_unicode_oeb_as_ascii_rtf(monkeypatch) -> No
 
 
 def test_rtf_output_uses_real_serializer_for_shared_unicode_oeb(monkeypatch) -> None:
+    """
+    Perform the test rtf output uses real serializer for shared unicode oeb operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test rtf output uses real serializer for shared unicode oeb through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_unicode_framework.py
+
+
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     install_minimal_stylizers(monkeypatch)
     _install_deterministic_image_backend(monkeypatch)
     rtf_output = importlib.import_module("LiuXin_alpha.file_formats.conversion.plugins.rtf_output")
     options = text_output_options()
 
     def render_once(_run_name: str) -> bytes:
+        """
+        Perform the render once operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise test rtf output uses real serializer for shared unicode oeb.render once through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_unicode_framework.py
+
+
+        :param _run_name: Value supplied for run name under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         out = io.BytesIO()
         rtf_output.RTFOutput(None).convert(build_text_output_book(), out, None, options, null_log())
         return out.getvalue()

@@ -1,3 +1,11 @@
+"""
+Exercise named Core job inspection, waiting, cancellation, retry, and result/log access with a serial backend.
+
+Lightweight library facades avoid opening a database. Each test owns and shuts
+down its in-memory job manager; worker execution and log capture remain real.
+Embedded source strings are deliberate job inputs, not imported project modules.
+"""
+
 from __future__ import annotations
 
 import time
@@ -14,27 +22,80 @@ from LiuXin_alpha.utils.jobs.manager import InMemoryJobManager
 
 @dataclass
 class _FakeDatabase:
-    metadata: dict[str, str] = field(default_factory=lambda: {"database_path": "/tmp/jobs_phase2.sqlite"})
+    """
+    Advertise SQLite identity and a database-path hint without opening or implementing a database.
+
+    Each instance receives its own metadata dictionary, used for Core composition
+    and worker payload context rather than filesystem access in these tests.
+
+    Example:
+        >>> _FakeDatabase().type
+        'SQLite'
+    """
+
+    metadata: dict[str, str] = field(
+        default_factory=lambda: {"database_path": "/tmp/jobs_phase2.sqlite"}
+    )
     type: str = "SQLite"
 
 
 @dataclass
 class _FakeStorage:
+    """
+    Supply an empty storage target so generic Core service discovery can find one.
+
+    No storage operations are implemented or needed by this job-endpoint suite.
+
+    Example:
+        >>> _FakeStorage()
+        _FakeStorage()
+    """
+
     pass
 
 
 @dataclass
 class _FakeLibrary:
+    """
+    Group fake database/storage targets for runtime construction without resource ownership.
+
+    Example:
+        >>> _FakeLibrary(_FakeDatabase(), _FakeStorage()).database.type
+        'SQLite'
+    """
+
     database: _FakeDatabase
     storage: _FakeStorage
 
 
 def _build_runtime_with_manager(manager: InMemoryJobManager) -> CoreRuntime:
+    """
+    Construct a phase-2 runtime around lightweight targets and the caller's job manager.
+
+    The supplied manager remains caller-owned; tests shut it down explicitly in
+    finally blocks. The fake database path is descriptive metadata, not opened here.
+
+    Example:
+        >>> runtime = _build_runtime_with_manager(manager)  # doctest: +SKIP
+
+
+    :param manager: Existing in-memory manager to expose through the runtime's named job endpoints.
+    :return: Runtime with the fake library and phase-2 implementation-version label.
+    """
     library = _FakeLibrary(database=_FakeDatabase(), storage=_FakeStorage())
     return CoreRuntime(library=library, core_version="test-phase2", job_manager=manager)
 
 
 def test_core_runtime_jobs_list_get_wait_queries() -> None:
+    """
+    Run a serial square-root job and check list/get/wait envelopes, labels, success state, and result preview.
+
+    Example:
+        >>> test_core_runtime_jobs_list_get_wait_queries()  # doctest: +SKIP
+
+
+    :return: None after assertions pass and the owned manager is shut down with pending work cancelled.
+    """
     manager = InMemoryJobManager(max_workers=1, default_backend="serial")
     try:
         runtime = _build_runtime_with_manager(manager)
@@ -78,6 +139,18 @@ def test_core_runtime_jobs_list_get_wait_queries() -> None:
 
 
 def test_core_runtime_jobs_cancel_command() -> None:
+    """
+    Queue work behind a blocker, request cancellation through Core, and poll briefly for a nonrunning state.
+
+    The final assertion permits cancelled, aborted, succeeded, or failed, reflecting
+    cancellation races rather than requiring that the target never executed.
+
+    Example:
+        >>> test_core_runtime_jobs_cancel_command()  # doctest: +SKIP
+
+
+    :return: None if cancellation is acknowledged and the observed state settles within the allowed outcomes.
+    """
     manager = InMemoryJobManager(max_workers=1, default_backend="serial")
     try:
         runtime = _build_runtime_with_manager(manager)
@@ -89,12 +162,22 @@ def run(seconds):
     return seconds
 """
         _first = manager.submit(
-            JobRequest(module_name=source, function_name="run", args=(0.4,), module_is_source_code=True),
+            JobRequest(
+                module_name=source,
+                function_name="run",
+                args=(0.4,),
+                module_is_source_code=True,
+            ),
             no_output=True,
             label="blocker",
         )
         second = manager.submit(
-            JobRequest(module_name=source, function_name="run", args=(0.05,), module_is_source_code=True),
+            JobRequest(
+                module_name=source,
+                function_name="run",
+                args=(0.05,),
+                module_is_source_code=True,
+            ),
             no_output=True,
             label="to-cancel",
         )
@@ -112,7 +195,9 @@ def run(seconds):
         deadline = time.time() + 2.0
         state = str(cancelled.get("state", "") or "")
         while state in {"pending", "running"} and time.time() < deadline:
-            state = runtime.execute_query(CoreQuery(name="jobs.get", payload={"job_id": second})).result["job"]["state"]
+            state = runtime.execute_query(
+                CoreQuery(name="jobs.get", payload={"job_id": second})
+            ).result["job"]["state"]
             if state in {"pending", "running"}:
                 time.sleep(0.05)
         assert state in {"cancelled", "aborted", "succeeded", "failed"}
@@ -121,6 +206,18 @@ def run(seconds):
 
 
 def test_core_runtime_jobs_retry_creates_a_linked_run() -> None:
+    """
+    Retry a finished successful job with explicit permission and verify its new label and original-job linkage.
+
+    The assertions check linkage and labeling, not the retried calculation's value
+    or an explicit success-state assertion after the second wait.
+
+    Example:
+        >>> test_core_runtime_jobs_retry_creates_a_linked_run()  # doctest: +SKIP
+
+
+    :return: None if manager snapshots and Core serialization retain the requested retry metadata.
+    """
     manager = InMemoryJobManager(max_workers=1, default_backend="serial")
     try:
         runtime = _build_runtime_with_manager(manager)
@@ -152,6 +249,18 @@ def test_core_runtime_jobs_retry_creates_a_linked_run() -> None:
 
 
 def test_core_runtime_jobs_expose_result_and_bounded_log_content() -> None:
+    """
+    Execute a printing job, retrieve its full result, and read its short captured log through a 1,024-byte request.
+
+    The log is shorter than the requested cap, so this verifies content and EOF,
+    not truncation behavior for oversized output.
+
+    Example:
+        >>> test_core_runtime_jobs_expose_result_and_bounded_log_content()  # doctest: +SKIP
+
+
+    :return: None if result content, log availability, EOF, and printed text match the assertions.
+    """
     manager = InMemoryJobManager(max_workers=1, default_backend="serial")
     try:
         runtime = _build_runtime_with_manager(manager)
@@ -188,16 +297,39 @@ def run():
 
 
 def test_core_runtime_jobs_get_unknown_job_raises_dispatch_error() -> None:
+    """
+    Require the outer CoreHandlerError when the jobs.get handler cannot find the requested job.
+
+    The test does not inspect the nested dispatch exception or its code despite
+    the historical test-name wording.
+
+    Example:
+        >>> test_core_runtime_jobs_get_unknown_job_raises_dispatch_error()  # doctest: +SKIP
+
+
+    :return: None if execution raises the expected handler-boundary exception and manager cleanup completes.
+    """
     manager = InMemoryJobManager(max_workers=1, default_backend="serial")
     try:
         runtime = _build_runtime_with_manager(manager)
         with pytest.raises(CoreHandlerError):
-            runtime.execute_query(CoreQuery(name="jobs.get", payload={"job_id": "does-not-exist"}))
+            runtime.execute_query(
+                CoreQuery(name="jobs.get", payload={"job_id": "does-not-exist"})
+            )
     finally:
         manager.shutdown(wait=True, cancel_pending=True)
 
 
 def test_core_runtime_jobs_list_rejects_unknown_state() -> None:
+    """
+    Reject an unknown state token while preserving dispatch_error classification through the handler wrapper.
+
+    Example:
+        >>> test_core_runtime_jobs_list_rejects_unknown_state()  # doctest: +SKIP
+
+
+    :return: None if the wrapped error retains its stable code and identifies the invalid state token.
+    """
     manager = InMemoryJobManager(max_workers=1, default_backend="serial")
     try:
         runtime = _build_runtime_with_manager(manager)

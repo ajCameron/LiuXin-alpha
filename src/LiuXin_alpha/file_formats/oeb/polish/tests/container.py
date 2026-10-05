@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=utf-8
 
+"""
+Exercise editable OEB container behavior and resource mutations.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise container through a consuming regression::
+
+        python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -34,15 +45,45 @@ __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
 def get_container(*args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
+    """
+    Return container under the format's safety and compatibility rules.
+
+    Example:
+        Exercise get container through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param args: Positional values forwarded to the compatibility implementation.
+    :param kwargs: Keyword values forwarded to the compatibility implementation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     kwargs["tweak_mode"] = True
     return _gc(*args, **kwargs)
 
 
 class ContainerTests(BaseTest):
+    """
+    Provide the containertests contract for validated ebook processing.
+
+    Example:
+        Exercise ContainerTests through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+    """
     def test_clone(self: _typing.Self) -> None:
         """
         Test cloning of containers
-        :return:
+
+        Example:
+            Exercise ContainerTests.test clone through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         for fmt in ("epub", "azw3"):
             if fmt == "azw3":
@@ -97,7 +138,15 @@ class ContainerTests(BaseTest):
     def test_file_removal(self: _typing.Self) -> None:
         """
         Test removal of files from the container
-        :return:
+
+        Example:
+            Exercise ContainerTests.test file removal through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         book = get_simple_book()
         c = get_container(book, tdir=self.tdir)
@@ -114,6 +163,21 @@ class ContainerTests(BaseTest):
             self.assertNotIn(x, raw)
 
     def run_external_tools(self: _typing.Self, container: _typing.Any, gvim: bool = False, epubcheck: bool = True) -> None:
+        """
+        Perform the run external tools operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ContainerTests.run external tools through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param container: Value supplied for container under the utility contract.
+        :param gvim: Value supplied for gvim under the utility contract.
+        :param epubcheck: Value supplied for epubcheck under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         with TemporaryFile(suffix=".epub", dir=self.tdir) as f:
             container.commit(outpath=f)
             if gvim:
@@ -124,12 +188,32 @@ class ContainerTests(BaseTest):
     def test_file_rename(self: _typing.Self) -> None:
         """
         Test renaming of files
-        :return:
+
+        Example:
+            Exercise ContainerTests.test file rename through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         book = get_simple_book()
         count = [0]
 
         def new_container() -> _typing.Any:
+            """
+            Perform the new container operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise ContainerTests.test file rename.new container through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             count[0] += 1
             tdir = os.mkdir(os.path.join(self.tdir, str(count[0])))
             return get_container(book, tdir=tdir)
@@ -196,9 +280,12 @@ class ContainerTests(BaseTest):
 
         # Test renaming of font files
         c = new_container()
-        fname = "LiberationMono-Regular.ttf"
-        if fname not in c.name_path_map:
-            fname = fname.lower()  # On OS X the font file name is lowercased for some reason (maybe on windows too)
+        fname = next(
+            name
+            for name, media_type in iteritems(c.mime_map)
+            if media_type in {"application/font-sfnt", "application/x-font-ttf"}
+            or name.lower().endswith(".ttf")
+        )
         rename_files(c, {fname: "fonts/LiberationMono Regular.ttf"})
         self.check_links(c)
 
@@ -223,7 +310,15 @@ class ContainerTests(BaseTest):
     def test_file_add(self: _typing.Self) -> None:
         """
         Test adding of files
-        :return:
+
+        Example:
+            Exercise ContainerTests.test file add through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         book = get_simple_book()
         c = get_container(book)
@@ -244,7 +339,15 @@ class ContainerTests(BaseTest):
     def test_actual_case(self: _typing.Self) -> None:
         """
         Test getting the actual case for files from names on case insensitive filesystems
-        :return:
+
+        Example:
+            Exercise ContainerTests.test actual case through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         from LiuXin_alpha.file_formats.oeb.polish.utils import (
             actual_case_for_name,
@@ -273,7 +376,15 @@ class ContainerTests(BaseTest):
     def test_split_file(self: _typing.Self) -> None:
         """
         Test splitting of files
-        :return:
+
+        Example:
+            Exercise ContainerTests.test split file through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         book = get_split_book()
         c = get_container(book)
@@ -288,7 +399,15 @@ class ContainerTests(BaseTest):
     def test_merge_file(self: _typing.Self) -> None:
         """
         Test merging of files
-        :return:
+
+        Example:
+            Exercise ContainerTests.test merge file through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         book = get_simple_book()
         c = get_container(book)

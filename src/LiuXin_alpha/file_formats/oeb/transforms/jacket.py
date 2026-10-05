@@ -1,35 +1,45 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
-from __future__ import with_statement
-from __future__ import annotations
+"""
+Generate metadata-jacket content for transformed books.
 
-import typing as _typing
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise jacket through a consuming regression::
+
+        python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+"""
+from __future__ import annotations, with_statement
 
 import os
 import re
 import sys
-from xml.sax.saxutils import escape
+import typing as _typing
 from string import Formatter
+from xml.sax.saxutils import escape
 
 from lxml import etree
 
 from LiuXin_alpha.constants import iswindows
-
-from LiuXin_alpha.utils.libraries.BeautifulSoup import BeautifulSoup
-from LiuXin_alpha.file_formats.chardet import strip_encoding_declarations
-from LiuXin_alpha.file_formats.oeb.base import XPath, XHTML_NS, XHTML, xml2text, urldefrag
-
+from LiuXin_alpha.file_formats.oeb.base import (
+    XHTML,
+    XHTML_NS,
+    XPath,
+    urldefrag,
+    xml2text,
+)
 from LiuXin_alpha.library.comments import comments_to_html
-
 from LiuXin_alpha.metadata import fmt_sidx
-
-from LiuXin_alpha.utils.mine_types import guess_type
-from LiuXin_alpha.utils.date import strftime
-from LiuXin_alpha.utils.date import is_date_undefined
+from LiuXin_alpha.utils.date import is_date_undefined, strftime
 from LiuXin_alpha.utils.language_tools.icu import sort_key
+from LiuXin_alpha.utils.libraries.BeautifulSoup import BeautifulSoup
+from LiuXin_alpha.utils.libraries.calibre_chardet import strip_encoding_declarations
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.mine_types import guess_type
 from LiuXin_alpha.utils.resources import P
 
 unicode = str
@@ -42,7 +52,29 @@ JACKET_XPATH = '//h:meta[@name="calibre-content" and @content="jacket"]'
 
 
 class SafeFormatter(Formatter):
+    """
+    Provide the safeformatter contract for validated ebook processing.
+
+    Example:
+        Exercise SafeFormatter through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+    """
     def get_value(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
+        """
+        Return value under the format's safety and compatibility rules.
+
+        Example:
+            Exercise SafeFormatter.get value through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             return Formatter.get_value(self, *args, **kwargs)
         except KeyError:
@@ -52,9 +84,28 @@ class SafeFormatter(Formatter):
 class Jacket(object):
     """
     Book jacket manipulation. Remove first image and insert comments at start of book.
+
+    Example:
+        Exercise Jacket through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
     """
 
     def remove_images(self: _typing.Self, item: _typing.Any, limit: int = 1) -> _typing.Any:
+        """
+        Perform the remove images operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Jacket.remove images through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param item: Value supplied for item under the utility contract.
+        :param limit: Value supplied for limit under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         path = XPath("//h:img[@src]")
         removed = 0
         for img in path(item.data):
@@ -69,6 +120,18 @@ class Jacket(object):
         return removed
 
     def remove_first_image(self: _typing.Self) -> None:
+        """
+        Perform the remove first image operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Jacket.remove first image through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         deleted_item = None
         for item in self.oeb.spine:
             removed = self.remove_images(item)
@@ -90,6 +153,19 @@ class Jacket(object):
                     self.oeb.toc.remove(item)
 
     def insert_metadata(self: _typing.Self, mi: _typing.Any) -> None:
+        """
+        Perform the insert metadata operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Jacket.insert metadata through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param mi: Metadata object exposed to the template function.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.log("Inserting metadata into book...")
 
         try:
@@ -130,6 +206,18 @@ class Jacket(object):
             img.set("src", jacket.relhref(item.href))
 
     def remove_existing_jacket(self: _typing.Self) -> None:
+        """
+        Perform the remove existing jacket operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Jacket.remove existing jacket through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for x in self.oeb.spine[:4]:
             if XPath(JACKET_XPATH)(x.data):
                 self.remove_images(x, limit=sys.maxsize)
@@ -139,8 +227,19 @@ class Jacket(object):
 
     def __call__(self: _typing.Self, oeb: _typing.Any, opts: _typing.Any, metadata: _typing.Any) -> None:
         """
-        Add metadata in jacket.xhtml if specified in opts.
-        If not specified, remove previous jacket instance
+        Add metadata in jacket.xhtml if specified in opts. If not specified, remove previous jacket instance
+
+        Example:
+            Exercise Jacket.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param oeb: Value supplied for oeb under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :param metadata: Value supplied for metadata under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.oeb, self.opts, self.log = oeb, opts, oeb.log
         self.remove_existing_jacket()
@@ -154,6 +253,21 @@ class Jacket(object):
 
 
 def get_rating(rating: _typing.Any, rchar: _typing.Any, e_rchar: _typing.Any) -> _typing.Any:
+    """
+    Return rating under the format's safety and compatibility rules.
+
+    Example:
+        Exercise get rating through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param rating: Value supplied for rating under the utility contract.
+    :param rchar: Value supplied for rchar under the utility contract.
+    :param e_rchar: Value supplied for e rchar under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     ans = ""
     try:
         num = float(rating) / 2
@@ -169,7 +283,29 @@ def get_rating(rating: _typing.Any, rchar: _typing.Any, e_rchar: _typing.Any) ->
 
 
 class Series(unicode):
+    """
+    Provide the series contract for validated ebook processing.
+
+    Example:
+        Exercise Series through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+    """
     def __new__(cls: type[_typing.Self], series: _typing.Any, series_index: _typing.Any) -> _typing.Any:
+        """
+        Perform the new operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Series.  new   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param series: Value supplied for series under the utility contract.
+        :param series_index: Value supplied for series index under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if series and series_index is not None:
             roman = _("Number {1} of <em>{0}</em>").format(
                 escape(series), escape(fmt_sidx(series_index, use_roman=True))
@@ -183,7 +319,29 @@ class Series(unicode):
 
 
 class Tags(unicode):
+    """
+    Provide the tags contract for validated ebook processing.
+
+    Example:
+        Exercise Tags through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+    """
     def __new__(cls: type[_typing.Self], tags: _typing.Any, output_profile: _typing.Any) -> _typing.Any:
+        """
+        Perform the new operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Tags.  new   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param tags: Value supplied for tags under the utility contract.
+        :param output_profile: Value supplied for output profile under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         tags = [escape(x) for x in tags or ()]
         t = unicode.__new__(cls, ", ".join(tags))
         t.alphabetical = ", ".join(sorted(tags, key=sort_key))
@@ -200,6 +358,25 @@ def render_jacket(
     alt_publisher: str = "",
     rescale_fonts: bool = False,
 ) -> _typing.Any:
+    """
+    Perform the render jacket operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise render jacket through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param mi: Metadata object exposed to the template function.
+    :param output_profile: Value supplied for output profile under the utility contract.
+    :param alt_title: Value supplied for alt title under the utility contract.
+    :param alt_tags: Value supplied for alt tags under the utility contract.
+    :param alt_comments: Value supplied for alt comments under the utility contract.
+    :param alt_publisher: Value supplied for alt publisher under the utility contract.
+    :param rescale_fonts: Value supplied for rescale fonts under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if alt_tags is None:
         alt_tags = []
 
@@ -248,6 +425,19 @@ def render_jacket(
     author = escape(author)
 
     def generate_html(local_comments: _typing.Any) -> _typing.Any:
+        """
+        Perform the generate html operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise render jacket.generate html through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param local_comments: Value supplied for local comments under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         args = dict(
             xmlns=XHTML_NS,
             title_str=title_str,
@@ -353,6 +543,19 @@ def render_jacket(
 
 
 def linearize_jacket(oeb: _typing.Any) -> None:
+    """
+    Perform the linearize jacket operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise linearize jacket through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param oeb: Value supplied for oeb under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     for x in oeb.spine[:4]:
         if XPath(JACKET_XPATH)(x.data):
             for e in XPath("//h:table|//h:tr|//h:th")(x.data):
@@ -363,6 +566,18 @@ def linearize_jacket(oeb: _typing.Any) -> None:
 
 
 def referenced_images(root: _typing.Any) -> _typing.Iterator[_typing.Any]:
+    """
+    Perform the referenced images operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise referenced images through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :return: An iterator yielding the normalized values described above.
+    """
     for img in XPath("//h:img[@src]")(root):
         src = img.get("src")
         if src.startswith("file://"):

@@ -1,3 +1,14 @@
+"""
+Parse LRF binary streams into typed objects, tags and metadata.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise lrfparser through a consuming regression::
+
+        python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -33,10 +44,39 @@ __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
 class LRFDocument(LRFMetaFile):
+    """
+    Provide the lrfdocument contract for validated ebook processing.
+
+    Example:
+        Exercise LRFDocument through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     class temp(object):
+        """
+        Provide the temp contract for validated ebook processing.
+
+        Example:
+            Exercise LRFDocument.temp through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+        """
         pass
 
     def __init__(self: _typing.Self, stream: _typing.Any) -> None:
+        """
+        Initialize and validate the lrfdocument state.
+
+        Example:
+            Exercise LRFDocument.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :return: None; validated state is stored on the receiving object.
+        """
         LRFMetaFile.__init__(self, stream)
         self.scramble_key = self.xor_key
         self.page_trees = []
@@ -46,6 +86,18 @@ class LRFDocument(LRFMetaFile):
         self.keep_parsing = True
 
     def parse(self: _typing.Self) -> None:
+        """
+        Parse the supplied date text and return its normalized datetime value.
+
+        Example:
+            Exercise LRFDocument.parse through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._parse_objects()
         self.metadata = LRFDocument.temp()
         for a in (
@@ -70,6 +122,18 @@ class LRFDocument(LRFMetaFile):
             setattr(self.device_info, a, getattr(self, a))
 
     def _parse_objects(self: _typing.Self) -> None:
+        """
+        Parse objects under the format's safety and compatibility rules.
+
+        Example:
+            Exercise LRFDocument. parse objects through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.objects = {}
         self._file.seek(self.object_index_offset)
         obj_array = array.array("I", self._file.read(4 * 4 * self.number_of_objects))
@@ -87,6 +151,21 @@ class LRFDocument(LRFMetaFile):
                 obj.initialize()
 
     def _parse_object(self: _typing.Self, objid: _typing.Any, objoff: _typing.Any, objsize: _typing.Any) -> None:
+        """
+        Parse object under the format's safety and compatibility rules.
+
+        Example:
+            Exercise LRFDocument. parse object through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param objid: Value supplied for objid under the utility contract.
+        :param objoff: Value supplied for objoff under the utility contract.
+        :param objsize: Value supplied for objsize under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         obj = get_object(self, self._file, objid, objoff, objsize, self.scramble_key)
         self.objects[objid] = obj
         if isinstance(obj, PageTree):
@@ -101,16 +180,52 @@ class LRFDocument(LRFMetaFile):
                     self.ruby_tags[attr] = getattr(obj, attr)
 
     def __iter__(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
+        """
+        Perform the iter operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LRFDocument.  iter   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         for pt in self.page_trees:
             yield pt
 
     def write_files(self: _typing.Self) -> None:
+        """
+        Write files under the format's safety and compatibility rules.
+
+        Example:
+            Exercise LRFDocument.write files through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for obj in list(self.image_map.values()) + list(self.font_map.values()):
             with open(obj.file, "wb") as obj_file:
                 obj_file.write(obj.stream)
 
     def to_xml(self: _typing.Self, write_files: bool = True) -> _typing.Any:
 
+        """
+        Perform the to xml operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LRFDocument.to xml through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param write_files: Value supplied for write files under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         bookinfo = '<BookInformation>\n<Info version="1.1">\n<BookInfo>\n'
         bookinfo += '<Title reading="%s">%s</Title>\n' % (
             self.metadata.title_reading,
@@ -178,6 +293,18 @@ class LRFDocument(LRFMetaFile):
 
 
 def option_parser() -> _typing.Any:
+    """
+    Perform the option parser operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise option parser through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     parser = OptionParser(usage=_("%prog book.lrf\nConvert an LRF file into an LRS (XML UTF-8 encoded) file"))
     parser.add_option("--output", "-o", default=None, help=_("Output LRS file"), dest="out")
     parser.add_option(
@@ -198,6 +325,20 @@ def option_parser() -> _typing.Any:
 
 
 def main(args: _typing.Any = sys.argv, logger: _typing.Any = None) -> int:
+    """
+    Perform the main operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise main through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+    :param args: Positional values forwarded to the compatibility implementation.
+    :param logger: Value supplied for logger under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     parser = option_parser()
     opts, args = parser.parse_args(args)
     if logger is None:

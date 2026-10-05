@@ -1,8 +1,12 @@
-"""Transport-safe managed-storage graph operations for Core.
+"""
+Expose managed-storage database resources and row-based policy assessments through named Core routes.
 
-The database schema is intentionally hidden behind a closed resource registry.
-This gives program clients complete asset/replica/policy/workflow persistence
-without exposing arbitrary table access as part of the stable Core contract.
+A closed resource registry selects tables and public field prefixes instead of
+accepting arbitrary table names. These are portable macro-backed row operations,
+not the storage manager's byte-transfer, verified-observation, or placement-policy
+workflows. Mutation receipts are reconciled after database calls; no transaction,
+rollback, or authorization layer is added here. Outer Core dispatch performs wire
+encoding for result values that remain backend-native at this boundary.
 """
 
 # pyright: reportImportCycles=false
@@ -24,6 +28,19 @@ if TYPE_CHECKING:
 
 @dataclasses.dataclass(frozen=True, slots=True)
 class _ResourceSpec:
+    """
+    Map one public storage-resource name to its table, identity column, field prefix, and mutability category.
+
+    The frozen record validates none of its fields. writable is enforced by the
+    generic create/update/delete handlers, not a database permission or global
+    prohibition on writes to workflow-owned tables.
+
+    Example:
+        >>> spec = _ResourceSpec("asset", "digital_assets", "digital_asset_id", "digital_asset_", "asset")
+        >>> spec.writable, spec.id_column
+        (True, 'digital_asset_id')
+    """
+
     name: str
     table: str
     id_column: str
@@ -150,6 +167,19 @@ def _field(
     required: bool = False,
     field_type: str | None = None,
 ) -> CorePayloadFieldDescription:
+    """
+    Declare a public request field for endpoint introspection without checking request values.
+
+    Example:
+        >>> _field("resource", required=True, field_type="string").name
+        'resource'
+
+
+    :param name: Public payload key described by this declaration.
+    :param required: Whether the advertised contract marks the field mandatory.
+    :param field_type: Optional type label for clients, not an executable validator.
+    :return: New field-description record retaining the supplied values.
+    """
     return CorePayloadFieldDescription(
         name=name,
         required=required,
@@ -158,6 +188,19 @@ def _field(
 
 
 def _payload(envelope: Any) -> dict[str, Any]:
+    """
+    Copy a Mapping payload shallowly, treating missing or None payload as an empty request.
+
+    Example:
+        >>> from types import SimpleNamespace
+        >>> _payload(SimpleNamespace(payload={"resource": "asset"}))
+        {'resource': 'asset'}
+
+
+    :param envelope: Object whose optional payload attribute carries request data.
+    :return: New dictionary retaining nested value references and original keys.
+    :raises CoreDispatchError: If a non-None payload is not a Mapping.
+    """
     raw = getattr(envelope, "payload", None)
     if raw is None:
         return {}
@@ -167,6 +210,21 @@ def _payload(envelope: Any) -> dict[str, Any]:
 
 
 def _required_text(payload: Mapping[str, Any], name: str) -> str:
+    """
+    Stringify and strip a required field, rejecting empty text but not non-string values.
+
+    Explicit None becomes "None"; it is not treated as a missing field here.
+
+    Example:
+        >>> _required_text({"resource": " asset "}, "resource")
+        'asset'
+
+
+    :param payload: Request mapping containing the required key.
+    :param name: Exact field name to retrieve and include in a missing-value error.
+    :return: Nonempty stripped text, without validating resource membership.
+    :raises CoreDispatchError: If the field is absent or converts to empty/whitespace-only text.
+    """
     value = str(payload.get(name, "")).strip()
     if not value:
         raise CoreDispatchError("`{}` is required.".format(name))
@@ -174,18 +232,45 @@ def _required_text(payload: Mapping[str, Any], name: str) -> str:
 
 
 def _required_int(payload: Mapping[str, Any], name: str) -> int:
+    """
+    Convert a required non-None, non-boolean field using int, without enforcing a positive range.
+
+    Numeric fractions may truncate. Only TypeError/ValueError from conversion are
+    wrapped; overflow and other custom conversion failures remain visible.
+
+    Example:
+        >>> _required_int({"id": "7"}, "id")
+        7
+
+
+    :param payload: Request mapping containing the integer-convertible field.
+    :param name: Required key also used in the validation message.
+    :return: Converted integer, including zero or negative values if supplied.
+    :raises CoreDispatchError: For missing/None/bool values or conversion TypeError/ValueError.
+    """
     value = payload.get(name)
     if value is None or isinstance(value, bool):
         raise CoreDispatchError("`{}` must be an integer.".format(name))
     try:
         return int(value)
     except (TypeError, ValueError) as exc:
-        raise CoreDispatchError(
-            "`{}` must be an integer.".format(name)
-        ) from exc
+        raise CoreDispatchError("`{}` must be an integer.".format(name)) from exc
 
 
 def _mapping(payload: Mapping[str, Any], name: str) -> dict[str, Any]:
+    """
+    Require a Mapping field and return a shallow dictionary copy without key/value normalization.
+
+    Example:
+        >>> _mapping({"values": {"size_bytes": 4}}, "values")
+        {'size_bytes': 4}
+
+
+    :param payload: Request mapping carrying the nested object.
+    :param name: Required object-valued field name.
+    :return: New dictionary retaining references to nested values.
+    :raises CoreDispatchError: If the field is absent, None, or not a Mapping.
+    """
     value = payload.get(name)
     if not isinstance(value, Mapping):
         raise CoreDispatchError("`{}` must be an object.".format(name))
@@ -193,6 +278,21 @@ def _mapping(payload: Mapping[str, Any], name: str) -> dict[str, Any]:
 
 
 def _spec(payload: Mapping[str, Any]) -> _ResourceSpec:
+    """
+    Resolve a stripped, lowercased public resource name in the closed registry.
+
+    Hyphens remain significant; underscore aliases and arbitrary table names are
+    not inferred. The returned specification is shared with the registry.
+
+    Example:
+        >>> _spec({"resource": " BACKUP-POLICY "}).table
+        'backup_policies'
+
+
+    :param payload: Request mapping with required resource text.
+    :return: Registered immutable resource specification.
+    :raises CoreDispatchError: For missing resource text or an unknown token, with available names in the latter's details.
+    """
     resource = _required_text(payload, "resource").lower()
     try:
         return _RESOURCES[resource]
@@ -205,11 +305,28 @@ def _spec(payload: Mapping[str, Any]) -> _ResourceSpec:
 
 
 def _macros(runtime: "CoreRuntime") -> Any:
+    """
+    Require the full five-method portable persistence surface, including writers even for read handlers.
+
+    Checks get_row, get_rows, insert_row, update_row, and delete_row for callability;
+    no signatures or table capabilities are validated and no method runs here.
+
+    Example:
+        >>> from types import SimpleNamespace
+        >>> from unittest.mock import Mock
+        >>> macros = Mock()
+        >>> _macros(SimpleNamespace(database=SimpleNamespace(macros=macros))) is macros
+        True
+
+
+    :param runtime: Runtime whose database may expose the portable macro owner.
+    :return: Existing macro owner after all required callable checks pass.
+    :raises CoreDispatchError: With capability_unavailable if the owner or any required method is absent/noncallable.
+    """
     macros = getattr(runtime.database, "macros", None)
     required = ("get_row", "get_rows", "insert_row", "update_row", "delete_row")
     if macros is None or any(
-        not callable(getattr(macros, name, None))
-        for name in required
+        not callable(getattr(macros, name, None)) for name in required
     ):
         raise CoreDispatchError(
             "The local database does not provide portable storage persistence.",
@@ -220,6 +337,25 @@ def _macros(runtime: "CoreRuntime") -> Any:
 
 
 def _headings(runtime: "CoreRuntime", spec: _ResourceSpec) -> set[str]:
+    """
+    Try database then driver-wrapper headings, returning an empty set if neither call yields a result.
+
+    Call/iteration/text-conversion Exceptions trigger fallback; attribute access is
+    outside that catch and may propagate. An empty successful result stops fallback.
+    Empty headings disable field-membership checks in the normalizer.
+
+    Example:
+        >>> from types import SimpleNamespace
+        >>> from unittest.mock import Mock
+        >>> database = SimpleNamespace(get_column_headings=Mock(side_effect=OSError("unavailable")))
+        >>> _headings(SimpleNamespace(database=database), _RESOURCES["asset"])
+        set()
+
+
+    :param runtime: Runtime exposing database and optional driver-wrapper schema introspection.
+    :param spec: Resource specification whose physical table name is queried.
+    :return: Set of stringified headings from the first successful method, or an empty set after fallback.
+    """
     for target in (runtime.database, getattr(runtime.database, "driver_wrapper", None)):
         method = getattr(target, "get_column_headings", None)
         if callable(method):
@@ -237,6 +373,24 @@ def _column_name(
     *,
     headings: set[str],
 ) -> str:
+    """
+    Translate public id or field text to a resource column, optionally enforcing known schema headings.
+
+    The literal id alias returns immediately without a heading-membership check.
+    Other tokens preserve an existing resource prefix or receive one; empty
+    headings permit any such candidate, including fields absent from the schema.
+
+    Example:
+        >>> _column_name(_RESOURCES["asset"], "size_bytes", headings={"digital_asset_size_bytes"})
+        'digital_asset_size_bytes'
+
+
+    :param spec: Resource prefix and physical identity-column mapping.
+    :param key: Public or physical field name, converted to stripped text.
+    :param headings: Known physical headings; an empty set disables candidate-membership checks.
+    :return: Physical column name; this helper does not validate writability or value type.
+    :raises CoreDispatchError: For empty names or candidates absent from a nonempty headings set.
+    """
     token = str(key).strip()
     if not token:
         raise CoreDispatchError("Storage resource field names may not be empty.")
@@ -262,23 +416,55 @@ def _normalise_values(
     *,
     allow_id: bool = False,
 ) -> dict[str, Any]:
+    """
+    Normalize field names and reject managed IDs/timestamps while leaving supplied values unchanged.
+
+    Converted-key collisions overwrite earlier entries. Timestamp suffixes are
+    rejected even for list filters with allow_id=True. If heading introspection
+    fails or returns empty, other candidate names are not checked against schema.
+
+    Example:
+        >>> from types import SimpleNamespace
+        >>> runtime = SimpleNamespace(database=SimpleNamespace())
+        >>> _normalise_values(runtime, _RESOURCES["asset"], {"size_bytes": 4})
+        {'digital_asset_size_bytes': 4}
+
+
+    :param runtime: Runtime used to obtain resource-table headings when available.
+    :param spec: Resource-specific field prefix and managed identity column.
+    :param values: Mapping whose keys are translated and whose values are preserved by reference.
+    :param allow_id: Permit identity-column entries, as used by read filters; timestamps remain forbidden.
+    :return: New dictionary keyed by physical column names, without value coercion or deep copying.
+    :raises CoreDispatchError: For unknown/empty fields, prohibited IDs, or managed timestamp suffixes.
+    """
     headings = _headings(runtime, spec)
     normalised: dict[str, Any] = {}
     for key, value in values.items():
         column = _column_name(spec, str(key), headings=headings)
         if column == spec.id_column and not allow_id:
-            raise CoreDispatchError(
-                "`id` is managed by Core and may not be written."
-            )
+            raise CoreDispatchError("`id` is managed by Core and may not be written.")
         if column.endswith(("_created_timestamp_ep_k", "_modified_timestamp_ep_k")):
-            raise CoreDispatchError(
-                "Core manages storage resource timestamps."
-            )
+            raise CoreDispatchError("Core manages storage resource timestamps.")
         normalised[column] = value
     return normalised
 
 
 def _record(spec: _ResourceSpec, row: Mapping[str, Any]) -> dict[str, Any]:
+    """
+    Expose a row as resource/id/values, removing the physical identity and resource prefix from values keys.
+
+    Unprefixed fields remain unchanged. Colliding public keys overwrite earlier
+    entries in row iteration order; nested values retain backend-native objects.
+
+    Example:
+        >>> _record(_RESOURCES["asset"], {"digital_asset_id": 7, "digital_asset_size_bytes": 4})
+        {'resource': 'asset', 'id': 7, 'values': {'size_bytes': 4}}
+
+
+    :param spec: Resource label, physical ID column, and removable field prefix.
+    :param row: Row mapping with string keys; it is copied shallowly before projection.
+    :return: New resource record with id=None if the physical identity key was absent.
+    """
     raw = dict(row)
     values: dict[str, Any] = {}
     for key, value in raw.items():
@@ -296,6 +482,20 @@ def _record(spec: _ResourceSpec, row: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _healthy_replica(row: Mapping[str, Any]) -> bool:
+    """
+    Exclude a small set of bad presence/integrity strings without independently verifying Replica bytes.
+
+    Status text is casefolded but not stripped. Missing, blank, or unrecognized
+    statuses pass; this is a permissive row-label filter, not a VERIFIED-state check.
+
+    Example:
+        >>> _healthy_replica({}), _healthy_replica({"asset_replica_presence_status": "OFFLINE"})
+        (True, False)
+
+
+    :param row: Replica row carrying optional asset_replica_presence_status and asset_replica_integrity_status fields.
+    :return: False for missing/offline/deleted presence or bad/corrupt/failed integrity; True otherwise.
+    """
     presence = str(row.get("asset_replica_presence_status") or "").casefold()
     integrity = str(row.get("asset_replica_integrity_status") or "").casefold()
     return presence not in {"missing", "offline", "deleted"} and integrity not in {
@@ -306,9 +506,34 @@ def _healthy_replica(row: Mapping[str, Any]) -> bool:
 
 
 class CoreStorageGraphAPI:
-    """Install the storage resource and policy API facets."""
+    """
+    Register closed resource CRUD and row-based Asset/policy handlers without owning storage resources.
+
+    Workflow-owned resources are read-only through generic mutation handlers.
+    Policy assessment/planning here uses persisted row labels and copy counts,
+    not the storage manager's live availability or separation-aware planner.
+    Direct handler calls bypass runtime locking, events, and final wire conversion.
+
+    Example:
+        >>> adapter = CoreStorageGraphAPI()
+        >>> adapter.install(runtime)  # doctest: +SKIP
+    """
 
     def install(self, runtime: "CoreRuntime") -> None:
+        """
+        Register seven graph/policy queries followed by four mutation commands with explicit metadata.
+
+        Registration invokes no storage operation and probes no capabilities.
+        Earlier bindings remain if a later registration raises; duplicate-name
+        handling belongs to the supplied runtime.
+
+        Example:
+            >>> CoreStorageGraphAPI().install(runtime)  # doctest: +SKIP
+
+
+        :param runtime: Registrar receiving handlers, summaries, payload declarations, and tags.
+        :return: None after all route registrations complete.
+        """
         query = runtime.register_query_handler
         command = runtime.register_command_handler
 
@@ -420,6 +645,23 @@ class CoreStorageGraphAPI:
         runtime: "CoreRuntime",
         query: "CoreQuery",
     ) -> dict[str, Any]:
+        """
+        Describe every registered resource and report whether the database has a non-None macros attribute.
+
+        available does not check macro callability, table existence, or backend
+        reachability. Resource order follows the static registry even when unavailable.
+
+        Example:
+            >>> from types import SimpleNamespace
+            >>> runtime = SimpleNamespace(database=SimpleNamespace(macros=object()))
+            >>> CoreStorageGraphAPI.resources_describe(runtime, None)["available"]
+            True
+
+
+        :param runtime: Runtime whose database is inspected for the macros attribute only.
+        :param query: Query envelope, ignored; no payload options are read.
+        :return: available flag and ordered name/kind/writable declarations for all thirteen resource types.
+        """
         del query
         available = getattr(runtime.database, "macros", None) is not None
         return {
@@ -439,6 +681,22 @@ class CoreStorageGraphAPI:
         runtime: "CoreRuntime",
         query: "CoreQuery",
     ) -> dict[str, Any]:
+        """
+        Read all matching resource rows in ID order, then slice an offset/limit window in memory.
+
+        limit defaults to 100 and is int-converted/clamped to 0..10,000; offset
+        defaults to zero and is clamped nonnegative. Booleans/fractions follow int
+        conversion, while explicit None raises. Filters allow IDs but still reject
+        managed timestamp fields. Pagination does not bound the database read.
+
+        Example:
+            >>> result = CoreStorageGraphAPI.resource_list(runtime, query)  # doctest: +SKIP
+
+
+        :param runtime: Runtime providing macro reads and optional schema headings for field validation.
+        :param query: Query with resource, optional Mapping where, and optional limit/offset; where=None is invalid.
+        :return: Resource name, projected records, normalized pagination, and complete based on the full matching row count.
+        """
         payload = _payload(query)
         spec = _spec(payload)
         where_raw = payload.get("where", {})
@@ -466,6 +724,17 @@ class CoreStorageGraphAPI:
         runtime: "CoreRuntime",
         query: "CoreQuery",
     ) -> dict[str, Any]:
+        """
+        Read one resource row by integer-converted ID, representing absence with record=None.
+
+        Example:
+            >>> result = CoreStorageGraphAPI.resource_get(runtime, query)  # doctest: +SKIP
+
+
+        :param runtime: Runtime providing the complete portable persistence macro surface.
+        :param query: Query with a registered resource name and required non-None/non-boolean id.
+        :return: Resource label and projected record, or None when the macro reports no row.
+        """
         payload = _payload(query)
         spec = _spec(payload)
         resource_id = _required_int(payload, "id")
@@ -484,6 +753,22 @@ class CoreStorageGraphAPI:
         runtime: "CoreRuntime",
         query: "CoreQuery",
     ) -> dict[str, Any]:
+        """
+        Read an Asset, all its Replica/item-link rows, and a separate row-based policy assessment.
+
+        A missing Asset returns an empty-shaped result instead of raising. For a
+        present Asset, assessment rereads the Asset and Replicas, so concurrent
+        changes can produce inconsistent components or a later not-found error.
+        Replica output is not filtered to healthy or available copies.
+
+        Example:
+            >>> result = CoreStorageGraphAPI().asset_get(runtime, query)  # doctest: +SKIP
+
+
+        :param runtime: Runtime supplying portable managed-storage table access.
+        :param query: Query with required integer-convertible asset_id, excluding None/bool.
+        :return: asset, replicas, item_links, and policy components; absent Asset gives None/empty lists/None.
+        """
         payload = _payload(query)
         asset_id = _required_int(payload, "asset_id")
         macros = _macros(runtime)
@@ -516,6 +801,24 @@ class CoreStorageGraphAPI:
 
     @staticmethod
     def _assess(runtime: "CoreRuntime", asset_id: int) -> dict[str, Any]:
+        """
+        Compare row-label-filtered Replica counts with the Asset's explicit replication/backup policy rows.
+
+        Missing policy rows default replication minimum to one and backup minimum
+        to zero. Falsey targets, including zero, fall back to the selected minimum.
+        Missing/falsey Replica mode counts as active; mode comparisons are otherwise
+        case-sensitive. Counts include multiple claims on one Store and do not
+        check byte verification, availability, separation, tags, or inherited policies.
+
+        Example:
+            >>> state = CoreStorageGraphAPI._assess(runtime, 7)  # doctest: +SKIP
+
+
+        :param runtime: Runtime providing macro reads of the Asset, Replicas, and explicit policy IDs.
+        :param asset_id: Asset ID passed directly to row lookups; no conversion is performed here.
+        :return: Replication/backup counts and minimum/target comparisons plus total and permissively healthy Replica counts.
+        :raises CoreDispatchError: With storage_asset_not_found if the Asset row is absent.
+        """
         macros = _macros(runtime)
         asset = macros.get_row(
             "digital_assets",
@@ -605,6 +908,20 @@ class CoreStorageGraphAPI:
         runtime: "CoreRuntime",
         query: "CoreQuery",
     ) -> dict[str, Any]:
+        """
+        Validate the requested Asset ID and return the row-based count assessment.
+
+        This does not invoke the storage manager's effective-policy or verified
+        placement assessment; see _assess for its persisted-label/default rules.
+
+        Example:
+            >>> state = CoreStorageGraphAPI().policy_assess(runtime, query)  # doctest: +SKIP
+
+
+        :param runtime: Runtime providing portable Asset/Replica/policy table reads.
+        :param query: Query with required integer-convertible asset_id, excluding None/bool.
+        :return: Assessment dictionary with explicit policy IDs, counts, and minimum/target comparisons.
+        """
         return self._assess(runtime, _required_int(_payload(query), "asset_id"))
 
     def policy_plan(
@@ -612,6 +929,24 @@ class CoreStorageGraphAPI:
         runtime: "CoreRuntime",
         query: "CoreQuery",
     ) -> dict[str, Any]:
+        """
+        Suggest unoccupied, non-read-only Store rows for active and backup copies using row-based target counts.
+
+        Any existing Replica row occupies its Store, regardless of health/state.
+        Candidates are read in Store-ID order and filtered only by read_only and
+        the relevant mode flag, not availability, tags, separation, capacity, or
+        backend feasibility. Each family independently reuses the same candidates.
+        Selection checks its count after appending, so an already met target can
+        still suggest one placement. No bytes are copied or capacity reserved.
+
+        Example:
+            >>> plan = CoreStorageGraphAPI().policy_plan(runtime, query)  # doctest: +SKIP
+
+
+        :param runtime: Runtime providing portable Asset, Replica, policy, and Store row reads.
+        :param query: Query with required integer-convertible asset_id.
+        :return: Assessment, active-then-backup placement suggestions, and nonnegative per-family shortfalls.
+        """
         payload = _payload(query)
         asset_id = _required_int(payload, "asset_id")
         assessment = self._assess(runtime, asset_id)
@@ -635,6 +970,22 @@ class CoreStorageGraphAPI:
         ]
 
         def placements(family: str, mode: str) -> list[dict[str, Any]]:
+            """
+            Select candidate Store rows for one assessed family, checking the requested count after each append.
+
+            Missing capability flags default to supported; only values equal to
+            False or zero are excluded. Candidates are not consumed or marked
+            occupied, so another family can select the same Store. A zero shortfall
+            still permits one eligible selection under the post-append count check.
+
+            Example:
+                >>> suggestions = placements("replication", "active")  # doctest: +SKIP
+
+
+            :param family: Assessment key, replication or backup, supplying target and healthy_copies.
+            :param mode: Mode token used in the Store capability-column name and emitted suggestion.
+            :return: Ordered store_id/store_name/mode dictionaries, possibly fewer than required or one when none are needed.
+            """
             state = assessment[family]
             count = max(0, int(state["target"]) - int(state["healthy_copies"]))
             selected: list[dict[str, Any]] = []
@@ -678,6 +1029,22 @@ class CoreStorageGraphAPI:
         runtime: "CoreRuntime",
         query: "CoreQuery",
     ) -> dict[str, Any]:
+        """
+        Assess every Asset and page those below replication or backup minimums, not merely below targets.
+
+        The historical route summary mentions targets; selection actually uses
+        meets_minimum. All Asset/Replica/policy reads precede pagination. limit is
+        int-converted/clamped to 0..10,000 and offset to nonnegative; defaults are
+        100/0. Concurrent disappearance or malformed row data can abort the scan.
+
+        Example:
+            >>> result = CoreStorageGraphAPI().policy_violations(runtime, query)  # doctest: +SKIP
+
+
+        :param runtime: Runtime providing full Asset enumeration and row-based policy assessment.
+        :param query: Query with optional integer-convertible limit/offset; explicit None is not accepted.
+        :return: records window in Asset-ID order, normalized pagination, and completeness relative to the violating subset.
+        """
         payload = _payload(query)
         limit = max(0, min(int(payload.get("limit", 100)), 10_000))
         offset = max(0, int(payload.get("offset", 0)))
@@ -707,6 +1074,23 @@ class CoreStorageGraphAPI:
         runtime: "CoreRuntime",
         command: "CoreCommand",
     ) -> dict[str, Any]:
+        """
+        Insert a writable resource row, read it back, and reconcile the service cache.
+
+        Core-managed ID/timestamp fields are rejected, but values and relationships
+        otherwise rely on database validation. created=True means insertion returned;
+        a missing readback becomes record=None. Readback/projection/reconciliation
+        can fail after insertion without compensating deletion.
+
+        Example:
+            >>> receipt = CoreStorageGraphAPI.resource_create(runtime, command)  # doctest: +SKIP
+
+
+        :param runtime: Runtime providing macro insertion/readback, optional headings, and cache reconciliation.
+        :param command: Command with writable resource name and required Mapping values; empty mappings are passed through.
+        :return: Reconciled resource/id/record receipt with created=True after insertion and readback finish.
+        :raises CoreDispatchError: If the resource is workflow-owned/read-only or payload/field validation fails.
+        """
         payload = _payload(command)
         spec = _spec(payload)
         if not spec.writable:
@@ -739,6 +1123,22 @@ class CoreStorageGraphAPI:
         runtime: "CoreRuntime",
         command: "CoreCommand",
     ) -> dict[str, Any]:
+        """
+        Require an existing writable resource row, normalize edits, update it, read it back, and reconcile.
+
+        Update return values are ignored; updated does not establish a changed row
+        count. Empty edits are forwarded. No atomicity is added around the existence
+        check/write/readback, and later failures do not roll back earlier effects.
+
+        Example:
+            >>> receipt = CoreStorageGraphAPI.resource_update(runtime, command)  # doctest: +SKIP
+
+
+        :param runtime: Runtime providing portable macro persistence and post-write service reconciliation.
+        :param command: Command with writable resource, required integer-convertible id, and Mapping values.
+        :return: Reconciled updated=True receipt with the readback record, possibly None after concurrent removal.
+        :raises CoreDispatchError: For read-only/unknown resources, missing rows, or invalid payload/field names.
+        """
         payload = _payload(command)
         spec = _spec(payload)
         if not spec.writable:
@@ -748,11 +1148,14 @@ class CoreStorageGraphAPI:
             )
         resource_id = _required_int(payload, "id")
         macros = _macros(runtime)
-        if macros.get_row(
-            spec.table,
-            resource_id,
-            id_column=spec.id_column,
-        ) is None:
+        if (
+            macros.get_row(
+                spec.table,
+                resource_id,
+                id_column=spec.id_column,
+            )
+            is None
+        ):
             raise CoreDispatchError(
                 "Unknown {} {}.".format(spec.name, resource_id),
                 code="storage_resource_not_found",
@@ -783,6 +1186,23 @@ class CoreStorageGraphAPI:
         runtime: "CoreRuntime",
         command: "CoreCommand",
     ) -> dict[str, Any]:
+        """
+        Delete a writable resource row if present, reconciling only when deletion was attempted.
+
+        Missing rows return deleted=False immediately without reconciliation.
+        delete_row's return value is ignored, and the returned record describes
+        pre-delete state. No extra confirmation, byte deletion, or rollback is
+        implemented here; database constraints/cascades determine row effects.
+
+        Example:
+            >>> receipt = CoreStorageGraphAPI.resource_delete(runtime, command)  # doctest: +SKIP
+
+
+        :param runtime: Runtime providing macro get/delete and service reconciliation.
+        :param command: Command with writable resource and required integer-convertible id.
+        :return: Plain deleted=False receipt for absence, or reconciled deleted=True receipt with the former record.
+        :raises CoreDispatchError: For read-only/unknown resources or invalid request fields.
+        """
         payload = _payload(command)
         spec = _spec(payload)
         if not spec.writable:
@@ -822,6 +1242,24 @@ class CoreStorageGraphAPI:
         runtime: "CoreRuntime",
         command: "CoreCommand",
     ) -> dict[str, Any]:
+        """
+        Assign or clear one or both explicit Asset policy references after checking supplied non-null policy IDs.
+
+        Omitted fields remain unchanged; None clears a reference. Non-null values
+        reject booleans but otherwise use int coercion. Every supplied policy is
+        checked before the single update, with no transaction across those reads
+        and the write. No copies are created, removed, or reconciled by a storage
+        policy executor; services.reconcile refreshes the post-write cache receipt.
+
+        Example:
+            >>> receipt = CoreStorageGraphAPI.asset_policies_set(runtime, command)  # doctest: +SKIP
+
+
+        :param runtime: Runtime providing Asset/policy row lookup, macro update, and cache reconciliation.
+        :param command: Command with asset_id and at least one of replication_policy_id or backup_policy_id, each integer-convertible/null.
+        :return: Reconciled updated=True receipt with only the supplied normalized policy assignments; no readback is performed.
+        :raises CoreDispatchError: If the Asset/policy is missing, no assignments are supplied, or required-value validation fails.
+        """
         payload = _payload(command)
         asset_id = _required_int(payload, "asset_id")
         macros = _macros(runtime)
@@ -849,13 +1287,18 @@ class CoreStorageGraphAPI:
             policy_id = payload.get(name)
             if policy_id is not None:
                 if isinstance(policy_id, bool):
-                    raise CoreDispatchError("`{}` must be an integer or null.".format(name))
+                    raise CoreDispatchError(
+                        "`{}` must be an integer or null.".format(name)
+                    )
                 policy_id = int(policy_id)
-                if macros.get_row(
-                    table,
-                    policy_id,
-                    id_column=id_column,
-                ) is None:
+                if (
+                    macros.get_row(
+                        table,
+                        policy_id,
+                        id_column=id_column,
+                    )
+                    is None
+                ):
                     raise CoreDispatchError(
                         "Unknown {} {}.".format(name, policy_id),
                         code="storage_policy_not_found",
@@ -884,7 +1327,23 @@ class CoreStorageGraphAPI:
 
 
 def install_storage_graph_api(runtime: "CoreRuntime") -> CoreStorageGraphAPI:
-    """Register managed-storage graph operations on ``runtime``."""
+    """
+    Construct a stateless storage-graph adapter, register all its routes, and return it.
+
+    Partial registration is not rolled back if a later binding raises.
+
+    Example:
+        >>> from unittest.mock import Mock
+        >>> runtime = Mock()
+        >>> isinstance(install_storage_graph_api(runtime), CoreStorageGraphAPI)
+        True
+        >>> runtime.register_query_handler.call_count, runtime.register_command_handler.call_count
+        (7, 4)
+
+
+    :param runtime: Registrar receiving managed-resource and row-based policy handlers.
+    :return: New adapter after every query/command registration succeeds.
+    """
 
     api = CoreStorageGraphAPI()
     api.install(runtime)

@@ -2,7 +2,15 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 """
-Performance cache for data from the library database.
+Coordinate cached library reads, writes and invalidation.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise cache through a consuming regression::
+
+        python -m pytest -q tests/library/test_unified_library.py
 """
 
 
@@ -37,6 +45,19 @@ try:
 except ImportError:
 
     def run_plugins_on_import(file):
+        """
+        Perform the run plugins on import operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise run plugins on import through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param file: Value supplied for file under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return file
 
 
@@ -45,6 +66,19 @@ try:
 except ImportError:
 
     def run_plugins_on_postimport(file):
+        """
+        Perform the run plugins on postimport operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise run plugins on postimport through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param file: Value supplied for file under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return file
 
 
@@ -53,6 +87,21 @@ try:
 except ImportError:
 
     def run_plugins_on_postadd(file, *args, **kwargs):
+        """
+        Perform the run plugins on postadd operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise run plugins on postadd through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param file: Value supplied for file under the utility contract.
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return file
 
 
@@ -135,6 +184,11 @@ T = TypeVar("T")
 class BaseCalibreCache(BaseCache):
     """
     Base class for caches descending from the original calibre cache.
+
+    Example:
+        Exercise BaseCalibreCache through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
 
     dynamic_category_preferences: frozenset[str] = frozenset(
@@ -145,8 +199,14 @@ class BaseCalibreCache(BaseCache):
         """
         Initialize the cache - further action needs to be taken to actually load the data from the backend.
 
-        The backend is the actual database connection.
-        :param backend:
+        Example:
+            Exercise BaseCalibreCache.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param backend: Value supplied for backend under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
 
         super().__init__(backend=backend)
@@ -193,10 +253,14 @@ class BaseCalibreCache(BaseCache):
         """
         Initialize dynamic quantities which are stored in the cache.
 
-        Dynamic quantities are a mixed bag of things which might change a lot.
-        Read the dirtied books out of the database, add the user defined tag categories, add the grouped search terms
-        e.t.c.
-        :return:
+        Example:
+            Exercise BaseCalibreCache.initialize dynamic through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.dirtied_cache = self.backend.macros.get_dirtied_cache()
         if self.dirtied_cache:
@@ -210,8 +274,14 @@ class BaseCalibreCache(BaseCache):
         """
         Returns the field metadata object stored in the backend.
 
-        This defines metadata for the individual fields.
-        :return:
+        Example:
+            Exercise BaseCalibreCache.field metadata through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.backend.field_metadata
 
@@ -219,7 +289,14 @@ class BaseCalibreCache(BaseCache):
         """
         Read data out of the database into the specialized internal stores for it.
 
-        :return:
+        Example:
+            Exercise BaseCalibreCache. backend read data through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # Initialize_prefs must be called before initialize_custom_columns because icc can set a pref.
         self._do_backend_prefs_startup()
@@ -231,7 +308,15 @@ class BaseCalibreCache(BaseCache):
     def _do_backend_prefs_startup(self) -> None:
         """
         Preform startup on the backend data preferences.
-        :return:
+
+        Example:
+            Exercise BaseCalibreCache. do backend prefs startup through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # Initialize_prefs must be called before initialize_custom_columns because icc can set a pref.
         self.backend.initialize_prefs(
@@ -248,9 +333,16 @@ class BaseCalibreCache(BaseCache):
         """
         Return the value for the specified preference or ``default`` if the preference is not set.
 
-        :param name: The name of the preference to get
-        :param default: The default value for the preference - or None
-        :return:
+        Example:
+            Exercise BaseCalibreCache.pref through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param default: Value supplied for default under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.backend.prefs.get(name, default)
 
@@ -259,9 +351,16 @@ class BaseCalibreCache(BaseCache):
         """
         Set the specified preference to the specified value. See also :meth:`pref`.
 
-        :param name:
-        :param val:
-        :return:
+        Example:
+            Exercise BaseCalibreCache.set pref through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.backend.prefs.set(name, val)
         if name == "grouped_search_terms":
@@ -272,16 +371,27 @@ class BaseCalibreCache(BaseCache):
 
 class CalibreCache(BaseCalibreCache):
     """
-    An in-memory cache of the metadata.db file from a calibre library.
-    This class also serves as a threadsafe API for accessing the database.
-    The in-memory cache is maintained in normal form for maximum performance.
+    An in-memory cache of the metadata.db file from a calibre library. This class also serves as a threadsafe API for accessing the database. The in-memory cache is maintained in normal form for maximum performance.
 
-    SQLITE is simply used as a way to read and write from metadata.db robustly.
-    All table reading/sorting/searching/caching logic is re-implemented. This was necessary for maximum performance and
-    flexibility.
+    Example:
+        Exercise CalibreCache through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
 
     def __init__(self, backend) -> None:
+        """
+        Initialize and validate the calibrecache state.
+
+        Example:
+            Exercise CalibreCache.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param backend: Value supplied for backend under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         super(CalibreCache, self).__init__(backend=backend)
 
     @api
@@ -289,7 +399,14 @@ class CalibreCache(BaseCalibreCache):
         """
         Initialize this cache with data from the backend.
 
-        :return:
+        Example:
+            Exercise CalibreCache.init through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # Read information describing the database into internal caches
         # Loads the database preferences, the custom column data and the declared table data into their stores
@@ -351,11 +468,14 @@ class CalibreCache(BaseCalibreCache):
         """
         Initialize Tables from databases.tables - store them internally.
 
-        Called as part of the __init__ method in cache.
-        This just sets up the tables - the actual read is preformed elsewhere - again in the cache.
-        Loads both the builtins tables and the custom column tables.
+        Example:
+            Exercise CalibreCache.initialize tables through a consuming regression::
 
-        :return: None - all changes are made internally.
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         tables = self.tables = {}
 
@@ -495,8 +615,14 @@ class CalibreCache(BaseCalibreCache):
         """
         Initialize the custom columns from the database.
 
-        Needs to read and parse the custom columns defined in the database.
-        :return None: All changes are made internally
+        Example:
+            Exercise CalibreCache.initialize custom columns through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.backend.custom_columns_deleted = False
         all_tables = self.backend.all_tables
@@ -701,10 +827,31 @@ class CalibreCache(BaseCalibreCache):
         """
         Used to convert data stored in custom columns to usable values on the way back into the program from the db.
 
-        :return None: All changes are made internally.
+        Example:
+            Exercise CalibreCache. setup custom data adaptors through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # Setup data adapters
         def adapt_text(x, d):
+            """
+            Perform the adapt text operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise CalibreCache. setup custom data adaptors.adapt text through a consuming regression::
+
+                    python -m pytest -q tests/library/test_unified_library.py
+
+
+            :param x: Value supplied for x under the utility contract.
+            :param d: Value supplied for d under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             if d["is_multiple"]:
                 if x is None:
                     return []
@@ -717,11 +864,39 @@ class CalibreCache(BaseCalibreCache):
                 return x if x is None or isinstance(x, unicode) else x.decode(preferred_encoding, "replace")
 
         def adapt_datetime(x, d):
+            """
+            Perform the adapt datetime operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise CalibreCache. setup custom data adaptors.adapt datetime through a consuming regression::
+
+                    python -m pytest -q tests/library/test_unified_library.py
+
+
+            :param x: Value supplied for x under the utility contract.
+            :param d: Value supplied for d under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             if isinstance(x, (str, unicode, bytes)):
                 x = parse_date(x, assume_utc=False, as_utc=False)
             return x
 
         def adapt_bool(x, d):
+            """
+            Perform the adapt bool operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise CalibreCache. setup custom data adaptors.adapt bool through a consuming regression::
+
+                    python -m pytest -q tests/library/test_unified_library.py
+
+
+            :param x: Value supplied for x under the utility contract.
+            :param d: Value supplied for d under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             if isinstance(x, (str, unicode, bytes)):
                 x = x.lower()
                 if x == "true":
@@ -735,12 +910,40 @@ class CalibreCache(BaseCalibreCache):
             return x
 
         def adapt_enum(x, d):
+            """
+            Perform the adapt enum operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise CalibreCache. setup custom data adaptors.adapt enum through a consuming regression::
+
+                    python -m pytest -q tests/library/test_unified_library.py
+
+
+            :param x: Value supplied for x under the utility contract.
+            :param d: Value supplied for d under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             cand = adapt_text(x, d)
             if not cand:
                 cand = None
             return cand
 
         def adapt_number(x, d):
+            """
+            Perform the adapt number operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise CalibreCache. setup custom data adaptors.adapt number through a consuming regression::
+
+                    python -m pytest -q tests/library/test_unified_library.py
+
+
+            :param x: Value supplied for x under the utility contract.
+            :param d: Value supplied for d under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             if x is None:
                 return None
             if isinstance(x, (str, unicode, bytes)):
@@ -767,8 +970,14 @@ class CalibreCache(BaseCalibreCache):
         """
         Read all data from the db into the python in-memory tables.
 
-        Data is read from the backend and stored in the in-memory cache.
-        :return:
+        Example:
+            Exercise CalibreCache.read tables through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # Use a single transaction, to ensure nothing modifies the db while we are reading
         with self.backend.lock:
@@ -784,8 +993,14 @@ class CalibreCache(BaseCalibreCache):
         """
         Prepare the categories, including the user set categories.
 
-        Reconstruct the user categories, putting them into field_metadata and add grouped search term user categories.
-        :return:
+        Example:
+            Exercise CalibreCache. initialize dynamic categories through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # Reconstruct the user tag categories, putting them into field_metadata (which stores md about all currently
         # existing fields, real and virtual)
@@ -823,7 +1038,14 @@ class CalibreCache(BaseCalibreCache):
         """
         Setup the formatter template cache and start it as an empty set.
 
-        :return:
+        Example:
+            Exercise CalibreCache.initialize template cache through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.formatter_template_cache = {}
 
@@ -832,8 +1054,16 @@ class CalibreCache(BaseCalibreCache):
         """
         Set the formatter function - which controls display functions.
 
-        :param user_template_functions:
-        :return:
+        Example:
+            Exercise CalibreCache.set user template functions through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param user_template_functions: Value supplied for user template functions under the
+            utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.backend.set_user_template_functions(user_template_functions)
 
@@ -842,8 +1072,15 @@ class CalibreCache(BaseCalibreCache):
         """
         Clear caches for the composite tables - tables whose values are composed of more than one field.
 
-        :param book_ids: If None, then delete all entries in the composite table.
-        :return:
+        Example:
+            Exercise CalibreCache.clear composite caches through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_ids: Book identities included in the batched read operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         for field in itervalues(self.composites):
             field.clear_caches(book_ids=book_ids)
@@ -853,8 +1090,15 @@ class CalibreCache(BaseCalibreCache):
         """
         Clear the search cache of all stored search results.
 
-        :param book_ids:
-        :return:
+        Example:
+            Exercise CalibreCache.clear search caches through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_ids: Book identities included in the batched read operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.clear_search_cache_count += 1
         self._search_api.update_or_clear(self, book_ids)
@@ -864,7 +1108,14 @@ class CalibreCache(BaseCalibreCache):
         """
         When was the last change made to the database?
 
-        :return:
+        Example:
+            Exercise CalibreCache.last modified through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.backend.last_modified()
 
@@ -876,10 +1127,17 @@ class CalibreCache(BaseCalibreCache):
         """
         Clear all the sub caches for the cache.
 
-        :param book_ids: Clear the format metadata cache for the given book ids.
-        :param template_cache: Clear the template cache?
-        :param search_cache: Clear the search_cache
-        :return:
+        Example:
+            Exercise CalibreCache.clear caches through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_ids: Book identities included in the batched read operation.
+        :param template_cache: Value supplied for template cache under the utility contract.
+        :param search_cache: Value supplied for search cache under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if template_cache:
             self.unlock.initialize_template_cache()  # Clear the formatter template cache
@@ -902,10 +1160,15 @@ class CalibreCache(BaseCalibreCache):
         """
         Reload the internally stored cache data from the database.
 
-        This is not enough to account for the presence of custom columns - you need to reload the LibraryDatabase
-        (effectively doing a restart) before they will show up.
-        :param clear_caches:
-        :return:
+        Example:
+            Exercise CalibreCache.reload from db through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param clear_caches: Value supplied for clear caches under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if clear_caches:
             self.unlock.clear_caches()
@@ -922,9 +1185,17 @@ class CalibreCache(BaseCalibreCache):
         """
         Return a calibre metadata object for the given book id.
 
-        :param book_id:
-        :param get_user_categories:
-        :return:
+        Example:
+            Exercise CalibreCache. get metadata through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param get_user_categories: Value supplied for get user categories under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         mi = Metadata(None, template_cache=self.formatter_template_cache)
 
@@ -1023,21 +1294,17 @@ class CalibreCache(BaseCalibreCache):
         """
         Return the value of the field ``name`` for the book identified by ``book_id``.
 
-        If no such book exists or it has no defined value for the field ``name`` or no such field exists,
-        then ``default_value`` is returned.
-        ``default_value`` is not used for title, title_sort, authors, author_sort and series_index.
-        This is because these always have values in the db.
-        ``default_value`` is used for all custom columns.
-        The returned value for is_multiple fields are always tuples, even when no values are found (in other words,
-        default_value is ignored).
-        The exception is identifiers for which the returned value is always a dict.
-        The returned tuples are always in link order, that is, the order in which they were created.
+        Example:
+            Exercise CalibreCache.field for through a consuming regression::
 
-        Will KeyError if the name doesn't correspond to one of the known fields.
-        :param name:
-        :param book_id:
-        :param default_value:
-        :return:
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param book_id: Value supplied for book id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if self.composites and name in self.composites:
             return self.composite_for(name, book_id, default_value=default_value)
@@ -1072,12 +1339,17 @@ class CalibreCache(BaseCalibreCache):
         """
         Same as field_for, except that it avoids the extra lookup to get the field object.
 
-        You have to have the field object in hand before you can use this method - you can get it from the fields
-        property.
-        :param field_obj: The field object representing that database field
-        :param book_id: The id of the book to look up the field value for
-        :param default_value: Return this if the lookup fails
-        :return:
+        Example:
+            Exercise CalibreCache.fast field for through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param field_obj: Value supplied for field obj under the utility contract.
+        :param book_id: Value supplied for book id under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if field_obj.is_composite:
             return field_obj.get_value_with_cache(book_id, self.unlock.get_proxy_metadata)
@@ -1093,10 +1365,17 @@ class CalibreCache(BaseCalibreCache):
         """
         Same as field_for, except that it operates on multiple books at once.
 
-        :param field:
-        :param book_ids:
-        :param default_value: This value will be added to the map if there isn't another value to record.
-        :return book_id_val_map:
+        Example:
+            Exercise CalibreCache.all field for through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param field: Metadata or template field addressed by the operation.
+        :param book_ids: Book identities included in the batched read operation.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         field_obj = self.fields[field]
         return {
@@ -1110,12 +1389,18 @@ class CalibreCache(BaseCalibreCache):
         """
         Return the value for a composite field for the specified book id.
 
-        The function which does the work of creating a composite cache.
-        :param name:
-        :param book_id:
-        :param mi:
-        :param default_value:
-        :return:
+        Example:
+            Exercise CalibreCache.composite for through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param book_id: Value supplied for book id under the utility contract.
+        :param mi: Metadata object exposed to the template function.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         try:
             f = self.fields[name]
@@ -1132,10 +1417,16 @@ class CalibreCache(BaseCalibreCache):
         """
         Return the ids (as a tuple) for the values that the field ``name`` has on the book identified by ``book_id``.
 
-        If there are no values, or no such book, or no such field, an empty tuple is returned.
-        :param name: The name of the field to return for
-        :param book_id: The id of the book to return the value for
-        :return field_ids_tuple: A tuple ids in the linked field
+        Example:
+            Exercise CalibreCache.field ids for through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         field_obj = self.fields[name]
         try:
@@ -1148,10 +1439,16 @@ class CalibreCache(BaseCalibreCache):
         """
         Return all the books associated with an itemw with ``item_id``, the items from the field ``name``.
 
-        Returned value is a set of book ids, or the empty set if the item or the field does not exist.
-        :param name:
-        :param item_id:
-        :return:
+        Example:
+            Exercise CalibreCache.books for field through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param item_id: Value supplied for item id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         field_obj = self.fields[name]
         # Todo: Errors should be thrown - not silently lost
@@ -1165,8 +1462,15 @@ class CalibreCache(BaseCalibreCache):
         """
         Returns all the book_ids known to the database
 
-        :param type: e.g. frozenset
-        :return:
+        Example:
+            Exercise CalibreCache.all book ids through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param type: Value supplied for type under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return type(self.fields["uuid"].table.book_col_map)
 
@@ -1175,8 +1479,15 @@ class CalibreCache(BaseCalibreCache):
         """
         Frozen set of ids for all values in the field ``name``.
 
-        :param name: The name of the field to return
-        :return:
+        Example:
+            Exercise CalibreCache.all field ids through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return frozenset(iter(self.fields[name]))
 
@@ -1185,10 +1496,15 @@ class CalibreCache(BaseCalibreCache):
         """
         Frozen set of all names of the fields.
 
-        (should only be used for many-one and many-many fields) - i.e. all the values of
-        those fields.
-        :param field:
-        :return:
+        Example:
+            Exercise CalibreCache.all field names through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param field: Metadata or template field addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if field == "formats":
             return frozenset(self.fields[field].table.col_book_map)
@@ -1204,9 +1520,15 @@ class CalibreCache(BaseCalibreCache):
         """
         Return a mapping of id to usage count for all values of the field
 
-        Must be a many-one or many-many field.
-        :param field: The name of the field to return the count for
-        :return field_val_usage_count_map: Keyed with the id of the resource and valued with how often it's been used.
+        Example:
+            Exercise CalibreCache.get usage count by id through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param field: Metadata or template field addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         try:
             return {k: len(v) for k, v in iteritems(self.fields[field].table.col_book_map)}
@@ -1218,9 +1540,15 @@ class CalibreCache(BaseCalibreCache):
         """
         Return a mapping of ids to values for the specified field.
 
-        The field must be a many-one or many-many field (or title), otherwise a ValueError is raised.
-        :param field:
-        :return item_id_to_val_map:
+        Example:
+            Exercise CalibreCache.get id map through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param field: Metadata or template field addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         try:
             return self.fields[field].table.id_map.copy()
@@ -1234,13 +1562,16 @@ class CalibreCache(BaseCalibreCache):
         """
         Return the item name for the item with the item_id in the field.
 
-        See also :meth:`get_id_map`.
-        The field must be a many-one or many-many field, otherwise a ValueError is raised.
-        Note - in calibre, this would raise a AttributeError - this has been changed to Value to be consistent with
-        the get_id_map function.
-        :param field:
-        :param item_id:
-        :return:
+        Example:
+            Exercise CalibreCache.get item name through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param field: Metadata or template field addressed by the operation.
+        :param item_id: Value supplied for item id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         try:
             return self.fields[field].table.id_map[item_id]
@@ -1254,9 +1585,16 @@ class CalibreCache(BaseCalibreCache):
         """
         Return the item id for item_name (case-insensitive).
 
-        :param field:
-        :param item_name:
-        :return:
+        Example:
+            Exercise CalibreCache.get item id through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param field: Metadata or template field addressed by the operation.
+        :param item_name: Value supplied for item name under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         rmap = {icu_lower(v) if isinstance(v, unicode) else v: k for k, v in iteritems(self.fields[field].table.id_map)}
         return rmap.get(icu_lower(item_name) if isinstance(item_name, unicode) else item_name, None)
@@ -1265,9 +1603,17 @@ class CalibreCache(BaseCalibreCache):
     def get_item_ids(self, field: str, item_names: Iterable[str]) -> dict[str, Iterable[str]]:
         """
         Return the item ids for the item names.
-        :param field: Search in this field
-        :param item_names: Iterable of names to look for
-        :return item_name_id_map: Keyed with the item name and valued with the id found for the item
+
+        Example:
+            Exercise CalibreCache.get item ids through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param field: Metadata or template field addressed by the operation.
+        :param item_names: Value supplied for item names under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         rmap = {icu_lower(v) if isinstance(v, unicode) else v: k for k, v in iteritems(self.fields[field].table.id_map)}
         return {name: rmap.get(icu_lower(name) if isinstance(name, unicode) else name, None) for name in item_names}
@@ -1277,9 +1623,15 @@ class CalibreCache(BaseCalibreCache):
         """
         Return author data as a dictionary keyed with the author id and valued with a tuple of name, sort, link.
 
-        Defaults to returning data for all authors.
-        :param author_ids:
-        :return:
+        Example:
+            Exercise CalibreCache.author data through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param author_ids: Value supplied for author ids under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         af = self.fields["authors"]
         if author_ids is None:
@@ -1289,11 +1641,19 @@ class CalibreCache(BaseCalibreCache):
     @write_api
     def update_path(self, book_ids, mark_as_dirtied=True):
         """
-        Run update on the given books to take into account any metadata changes which might affect their position.
-        Does the update for book formats and covers.
-        :param book_ids:
-        :param mark_as_dirtied:
-        :return:
+        Run update on the given books to take into account any metadata changes which might affect their position. Does the update for book formats and covers.
+
+        Example:
+            Exercise CalibreCache.update path through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_ids: Book identities included in the batched read operation.
+        :param mark_as_dirtied: Value supplied for mark as dirtied under the utility
+            contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         for book_id in book_ids:
             title = self.unlock.field_for("title", book_id, default_value=_("Unknown"))
@@ -1311,11 +1671,18 @@ class CalibreCache(BaseCalibreCache):
     @read_api
     def formats(self, book_id, verify_formats=True):
         """
-        Return tuple of all formats for the specified book. If verify_formats is True, verifies that the files exist on
-        disk.
-        :param book_id: The book to return the formats list for
-        :param verify_formats:
-        :return:
+        Return tuple of all formats for the specified book. If verify_formats is True, verifies that the files exist on disk.
+
+        Example:
+            Exercise CalibreCache.formats through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param verify_formats: Value supplied for verify formats under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         ans = self.field_for("formats", book_id)
         if verify_formats and ans:
@@ -1323,6 +1690,19 @@ class CalibreCache(BaseCalibreCache):
             fmts_field = self.fields["formats"]
 
             def verify(fmt):
+                """
+                Perform the verify operation under explicit file-format and conversion rules.
+
+                Example:
+                    Exercise CalibreCache.formats.verify through a consuming regression::
+
+                        python -m pytest -q tests/library/test_unified_library.py
+
+
+                :param fmt: Date, number or template format specification.
+                :return: The normalized value, metadata record, path, stream result or collection
+                    described above.
+                """
                 try:
                     loc = loc_from_formats_field(fmts_field, book_id, fmt)
                 except Exception as e:
@@ -1337,18 +1717,22 @@ class CalibreCache(BaseCalibreCache):
     @api
     def format(self, book_id, fmt, as_file=False, as_path=False, preserve_filename=False):
         """
-        Return the ebook format as a bytestring or `None` if the format doesn't exist, or we don't have read permission
-        to the file.
-        :param book_id:
-        :param fmt:
-        :param as_file: If True the ebook format is returned as a file object. Note that the file object is a
-                        SpooledTemporaryFile, so if what you want to do is copy the format to another file, use
-                        :meth:`copy_format_to` instead for performance.
-        :param as_path: Copies the format file to a temp file and returns the path to the temp file
-        :param preserve_filename: If True and returning a path the filename is the same as that used in the library.
-                                  Note that using this means that repeated calls yield the same temp file
-                                  (which is re-created each time)
-        :return:
+        Return the ebook format as a bytestring or `None` if the format doesn't exist, or we don't have read permission to the file.
+
+        Example:
+            Exercise CalibreCache.format through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :param as_file: Value supplied for as file under the utility contract.
+        :param as_path: Value supplied for as path under the utility contract.
+        :param preserve_filename: Value supplied for preserve filename under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         fmt = (fmt or "").upper()
         fmt = normalize_fmt(fmt)
@@ -1428,12 +1812,18 @@ class CalibreCache(BaseCalibreCache):
     @read_api
     def format_hash(self, book_id, fmt):
         """
-        Return the hash of the specified format for the specified book. The kind of hash is backend dependent, but is
-        usually SHA-256.
-        The hash should be LiuXin's custom hash - (SHA-512 + length of file in bytes)
-        :param book_id:
-        :param fmt:
-        :return:
+        Return the hash of the specified format for the specified book. The kind of hash is backend dependent, but is usually SHA-256. The hash should be LiuXin's custom hash - (SHA-512 + length of file in bytes)
+
+        Example:
+            Exercise CalibreCache.format hash through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         loc = loc_from_formats_field(self.fields["formats"], book_id, fmt)
 
@@ -1444,18 +1834,20 @@ class CalibreCache(BaseCalibreCache):
     @api
     def format_metadata(self, book_id, fmt, allow_cache=True, update_db=False):
         """
-        Return the path, size and mtime for the specified format for the specified book.
-        The path is a LiuXin Location object - which should contain all the information needed to actually get the file.
-        You should not use path unless you absolutely have to, since accessing it directly breaks the threadsafe
-        guarantees of this API. Instead use the :meth:`copy_format_to` method - this also ensures that there is a local
-        copy of the file - as, by default, the FolderStore in question might not offer local file access.
-        :param book_id: The book_id to search in
-        :param fmt: The format to look for
-        :param allow_cache: If ``True`` cached values are used, otherwise a
-            slow filesystem access is done. The cache values could be out of date
-            if access was performed to the filesystem outside of this API.
-        :param update_db: If ``True`` The max_size field of the database is updated for this book.
-        :return:
+        Return the path, size and mtime for the specified format for the specified book. The path is a LiuXin Location object - which should contain all the information needed to actually get the file. You should not use path unless you absolutely have to, since accessing it directly breaks the threadsafe guarantees of this API. Instead use the :meth:`copy_format_to` method - this also ensures that there is a local copy of the file - as, by default, the FolderStore in question might not offer local file access.
+
+        Example:
+            Exercise CalibreCache.format metadata through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :param allow_cache: Value supplied for allow cache under the utility contract.
+        :param update_db: Value supplied for update db under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if not fmt:
             return {}
@@ -1493,10 +1885,17 @@ class CalibreCache(BaseCalibreCache):
     @read_api
     def book_formats(self, book_id):
         """
-        Return the fmt_priorities available for a given book.
-        Returns then as a tuple, ordered by priority.
-        :param book_id:
-        :return:
+        Return the fmt_priorities available for a given book. Returns then as a tuple, ordered by priority.
+
+        Example:
+            Exercise CalibreCache.book formats through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         field = self.fields["formats"]
         return field.table.book_col_map.get(book_id, ())
@@ -1504,11 +1903,17 @@ class CalibreCache(BaseCalibreCache):
     @read_api
     def format_files(self, book_id):
         """
-        Returns a map keyed with the format name and valued with the file names.
-        Keys will be the fmt_priority - value will be the name of that format file.
-        :param book_id: Retrieve the formats for this book
-        :type book_id: int
-        :return:
+        Returns a map keyed with the format name and valued with the file names. Keys will be the fmt_priority - value will be the name of that format file.
+
+        Example:
+            Exercise CalibreCache.format files through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         field = self.fields["formats"]
         fmts = field.table.book_col_map.get(book_id, ())
@@ -1518,19 +1923,18 @@ class CalibreCache(BaseCalibreCache):
     @read_api
     def format_abspath(self, book_id, fmt):
         """
-        Return a path to the ebook file of format `format`. You should almost never use this, as it breaks the
-        threadsafe promise of this API.
-        Instead use, :meth:`copy_format_to`.
-        Currently used only in calibredb list, the viewer, edit book, compare_format to original format, open with and
-        the catalogs (via get_data_as_dict()).
-        Apart from the viewer, open with and edit book, I don't believe any of the others do any file write I/O with the
-        results of this call.
-        WARNING! In calibre, this function will return a path to the actual book. This method returns a copy in a
-        scratch folder - you will need to upload the book back to the folder store after you've finished IO with it.
-        There was no elegant way to expose books across different types of folder stores.
-        :param book_id:
-        :param fmt:
-        :return:
+        Return a path to the ebook file of format `format`. You should almost never use this, as it breaks the threadsafe promise of this API. Instead use, :meth:`copy_format_to`. Currently used only in calibredb list, the viewer, edit book, compare_format to original format, open with and the catalogs (via get_data_as_dict()). Apart from the viewer, open with and edit book, I don't believe any of the others do any file write I/O with the results of this call. WARNING! In calibre, this function will return a path to the actual book. This method returns a copy in a scratch folder - you will need to upload the book back to the folder store after you've finished IO with it. There was no elegant way to expose books across different types of folder stores.
+
+        Example:
+            Exercise CalibreCache.format abspath through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         fmt = (fmt or "").upper()
         if fmt == "__COVER_INTERNAL__":
@@ -1553,9 +1957,16 @@ class CalibreCache(BaseCalibreCache):
     def has_format(self, book_id, fmt):
         """
         Return True iff the format exists on disk.
-        :param book_id:
-        :param fmt:
-        :return:
+
+        Example:
+            Exercise CalibreCache.has format through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :return: True when the documented condition holds; otherwise False.
         """
         fmt = (fmt or "").upper()
         if fmt.startswith("."):
@@ -1570,12 +1981,18 @@ class CalibreCache(BaseCalibreCache):
     @api
     def save_original_format(self, book_id, fmt):
         """
-        Save a copy of the specified format as ORIGINAL_FORMAT, overwriting any existing ORIGINAL_FORMAT.
-        ORIGINAL_FMT is added to the cache - as the format that was originally backed up - EPUB_1 would be backed up as
-        ORIGINAL_EPUB_1.
-        :param book_id:
-        :param fmt:
-        :return:
+        Save a copy of the specified format as ORIGINAL_FORMAT, overwriting any existing ORIGINAL_FORMAT. ORIGINAL_FMT is added to the cache - as the format that was originally backed up - EPUB_1 would be backed up as ORIGINAL_EPUB_1.
+
+        Example:
+            Exercise CalibreCache.save original format through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         fmt = fmt.upper()
         if "ORIGINAL" in fmt:
@@ -1602,12 +2019,18 @@ class CalibreCache(BaseCalibreCache):
     @api
     def restore_original_format(self, book_id, original_fmt):
         """
-        Restore the specified format from the previously saved ORIGINAL_FORMAT, if any. Return True on success.
-        The ORIGINAL_FORMAT is deleted after a successful restore.
-        ORIGINAL_FMT should be an ORIGINAL_FMT string - e.g. something of the form ORIGINAL_EPUB_1 e.t.c
-        :param book_id:
-        :param original_fmt:
-        :return:
+        Restore the specified format from the previously saved ORIGINAL_FORMAT, if any. Return True on success. The ORIGINAL_FORMAT is deleted after a successful restore. ORIGINAL_FMT should be an ORIGINAL_FMT string - e.g. something of the form ORIGINAL_EPUB_1 e.t.c
+
+        Example:
+            Exercise CalibreCache.restore original format through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param original_fmt: Value supplied for original fmt under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         original_fmt = original_fmt.upper()
 
@@ -1639,15 +2062,21 @@ class CalibreCache(BaseCalibreCache):
     def copy_format_to(self, book_id, fmt, dest, use_hardlink=False, report_file_size=None):
         """
         Copy the format ``fmt`` to the file like object ``dest``. If the specified format does not exist, raises
-        :class:`NoSuchFormat` error.
-        dest can also be a path, in which case the format is copied to it, iff the path is different from the current
-        path (taking case sensitivity into account).
-        :param book_id:
-        :param fmt:
-        :param dest:
-        :param use_hardlink:
-        :param report_file_size:
-        :return:
+
+        Example:
+            Exercise CalibreCache.copy format to through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :param dest: Value supplied for dest under the utility contract.
+        :param use_hardlink: Value supplied for use hardlink under the utility contract.
+        :param report_file_size: Value supplied for report file size under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         fmt = (fmt or "").upper()
         try:
@@ -1670,19 +2099,22 @@ class CalibreCache(BaseCalibreCache):
     @api
     def add_format(self, book_id, fmt, stream_or_path, replace=False, run_hooks=True, dbapi=None):
         """
-        Add a format to the specified book. Return True of the format was added successfully.
-        Format will be added to the book with the highest priority - all other formats will be relegated.
-        If the fmt is given in the form of a priority fmt (e.g EPUB_1) then, if replace is True, that fmt will be
-        replaced. If not returns False.
-        :param replace: If True replace the existing highest priority fmt
-        :param run_hooks: If True, file type plugins are run on the format before and after being added.
-        :param book_id:
-        :param fmt:
-        :param stream_or_path:
-        :param replace:
-        :param run_hooks:
-        :param dbapi: Internal use only.
-        :return:
+        Add a format to the specified book. Return True of the format was added successfully. Format will be added to the book with the highest priority - all other formats will be relegated. If the fmt is given in the form of a priority fmt (e.g EPUB_1) then, if replace is True, that fmt will be replaced. If not returns False.
+
+        Example:
+            Exercise CalibreCache.add format through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :param stream_or_path: Value supplied for stream or path under the utility contract.
+        :param replace: Value supplied for replace under the utility contract.
+        :param run_hooks: Value supplied for run hooks under the utility contract.
+        :param dbapi: Value supplied for dbapi under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if run_hooks:
             # Run import plugins, the write lock is not held to cater for broken plugins that might spin the event loop
@@ -1722,11 +2154,19 @@ class CalibreCache(BaseCalibreCache):
     def __do_actual_add_format(self, book_id, fmt, stream_or_path, replace=False):
         """
         Actually add a book to the folder store.
-        :param book_id:
-        :param fmt:
-        :param stream_or_path:
-        :param replace:
-        :return:
+
+        Example:
+            Exercise CalibreCache.  do actual add format through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :param stream_or_path: Value supplied for stream or path under the utility contract.
+        :param replace: Value supplied for replace under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         formats_field = self.fields["formats"]
 
@@ -1775,10 +2215,17 @@ class CalibreCache(BaseCalibreCache):
     def remove_formats(self, formats_map, db_only=False):
         """
         Remove the specified formats from the specified books.
-        :param formats_map: A mapping of book_id to a list of formats to be removed from the book.
-        :param db_only: If True, only remove the record for the format from the db, do not delete the actual format file
-                        from the filesystem.
-        :return:
+
+        Example:
+            Exercise CalibreCache.remove formats through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param formats_map: Value supplied for formats map under the utility contract.
+        :param db_only: Value supplied for db only under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         formats_map = self._formats_map_preflight(formats_map)
 
@@ -1811,10 +2258,17 @@ class CalibreCache(BaseCalibreCache):
 
     def _formats_map_preflight(self, formats_map):
         """
-        Takes the formats map - expands any base fmt out into a full priority_fmt.
-        Thus {1: ['EPUB']} would become something like {1:['EPUB_1', 'EPUB_2']}.
-        :param formats_map:
-        :return:
+        Takes the formats map - expands any base fmt out into a full priority_fmt. Thus {1: ['EPUB']} would become something like {1:['EPUB_1', 'EPUB_2']}.
+
+        Example:
+            Exercise CalibreCache. formats map preflight through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param formats_map: Value supplied for formats map under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         formats_map = {book_id: frozenset((f or "").upper() for f in fmts) for book_id, fmts in iteritems(formats_map)}
 
@@ -1843,9 +2297,17 @@ class CalibreCache(BaseCalibreCache):
     def update_last_modified(self, book_ids, now=None):
         """
         Updates the last modified date for the given book_ids - if :param now: is None, will default to utcnow()
-        :param book_ids:
-        :param now:
-        :return:
+
+        Example:
+            Exercise CalibreCache.update last modified through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_ids: Book identities included in the batched read operation.
+        :param now: Value supplied for now under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if book_ids:
             if now is None:
@@ -1862,15 +2324,21 @@ class CalibreCache(BaseCalibreCache):
     @api
     def get_metadata(self, book_id, get_cover=False, get_user_categories=True, cover_as_data=False):
         """
-        Return metadata for the book identified by book_id as a :class:`calibre.ebooks.metadata.book.base.Metadata`
-        object.
-        Note that the list of formats is not verified. If get_cover is True, the cover is returned, either a path to
-        temp file as mi.cover or if cover_as_data is True then as mi.cover_data.
-        :param book_id: The id of the book to retrieve the cover for
-        :param get_cover: If True then tries to read the cover - else ignored the cover
-        :param get_user_categories: If True then tries to retrieve the user categories
-        :param cover_as_data: If True returns the cover as a stream - else returns the cover as a path
-        :return:
+        Return metadata for the book identified by book_id as a :class:`calibre.ebooks.metadata.book.base.Metadata` object. Note that the list of formats is not verified. If get_cover is True, the cover is returned, either a path to temp file as mi.cover or if cover_as_data is True then as mi.cover_data.
+
+        Example:
+            Exercise CalibreCache.get metadata through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param get_cover: Value supplied for get cover under the utility contract.
+        :param get_user_categories: Value supplied for get user categories under the utility
+            contract.
+        :param cover_as_data: Value supplied for cover as data under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         with self.safe_read_lock:
             mi = self._get_metadata(book_id, get_user_categories=get_user_categories)
@@ -1888,11 +2356,17 @@ class CalibreCache(BaseCalibreCache):
     @read_api
     def get_proxy_metadata(self, book_id):
         """
-        Like :meth:`get_metadata` except that it returns a ProxyMetadata object that only reads values from the database
-        on demand. This is much faster than get_metadata when only a small number of fields need to be accessed from the
-        returned metadata object.
-        :param book_id:
-        :return:
+        Like :meth:`get_metadata` except that it returns a ProxyMetadata object that only reads values from the database on demand. This is much faster than get_metadata when only a small number of fields need to be accessed from the returned metadata object.
+
+        Example:
+            Exercise CalibreCache.get proxy metadata through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return ProxyMetadata(self, book_id)
 
@@ -1908,21 +2382,24 @@ class CalibreCache(BaseCalibreCache):
         allow_case_change=False,
     ):
         """
-        Set metadata for the book `id` from the `Metadata` object `mi`
-        Setting force_changes=True will force set_metadata to update fields even if mi contains empty values. In this
-        case, 'None' is distinguished from 'empty'. If mi.XXX is None, the XXX is not replaced, otherwise it is.
-        The tags, identifiers, and cover attributes are special cases. Tags and identifiers cannot be set to None so
-        then will always be replaced if force_changes is true. You must ensure that mi contains the values you want the
-        book to have. Covers are always changed if a new cover is provided, but are never deleted. Also note that
-        force_changes has no effect on setting title or authors.
-        :param book_id:
-        :param mi:
-        :param ignore_errors:
-        :param force_changes:
-        :param set_title:
-        :param set_authors:
-        :param allow_case_change:
-        :return:
+        Set metadata for the book `id` from the `Metadata` object `mi` Setting force_changes=True will force set_metadata to update fields even if mi contains empty values. In this case, 'None' is distinguished from 'empty'. If mi.XXX is None, the XXX is not replaced, otherwise it is. The tags, identifiers, and cover attributes are special cases. Tags and identifiers cannot be set to None so then will always be replaced if force_changes is true. You must ensure that mi contains the values you want the book to have. Covers are always changed if a new cover is provided, but are never deleted. Also note that force_changes has no effect on setting title or authors.
+
+        Example:
+            Exercise CalibreCache.set metadata through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param mi: Metadata object exposed to the template function.
+        :param ignore_errors: Value supplied for ignore errors under the utility contract.
+        :param force_changes: Value supplied for force changes under the utility contract.
+        :param set_title: Value supplied for set title under the utility contract.
+        :param set_authors: Value supplied for set authors under the utility contract.
+        :param allow_case_change: Value supplied for allow case change under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         dirtied = set()
 
@@ -1933,6 +2410,20 @@ class CalibreCache(BaseCalibreCache):
             pass
 
         def set_field(name, local_val):
+            """
+            Set field under the format's safety and compatibility rules.
+
+            Example:
+                Exercise CalibreCache.set metadata.set field through a consuming regression::
+
+                    python -m pytest -q tests/library/test_unified_library.py
+
+
+            :param name: Field, file, function or resource name addressed by the operation.
+            :param local_val: Value supplied for local val under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             dirtied.update(
                 self.unlock.set_field(
                     name,
@@ -1959,6 +2450,20 @@ class CalibreCache(BaseCalibreCache):
             self.unlock.update_path({book_id})
 
         def protected_set_field(name, local_val):
+            """
+            Perform the protected set field operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise CalibreCache.set metadata.protected set field through a consuming regression::
+
+                    python -m pytest -q tests/library/test_unified_library.py
+
+
+            :param name: Field, file, function or resource name addressed by the operation.
+            :param local_val: Value supplied for local val under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             try:
                 set_field(name, local_val)
             except Exception as local_e:
@@ -2052,14 +2557,20 @@ class CalibreCache(BaseCalibreCache):
     @api
     def cover(self, book_id, as_file=False, as_image=False, as_path=False):
         """
-        Return the cover image or None. By default, returns the cover as a bytestring.
-        WARNING: Using as_path will copy the cover to a temp file and return the path to the temp file. You should
-        delete the temp file when you are done with it.
-        :param book_id:
-        :param as_file: If True return the image as an open file object (a SpooledTemporaryFile)
-        :param as_image: If True return the image as a QImage object
-        :param as_path: If True return the image as a path pointing to a temporary file
-        :return:
+        Return the cover image or None. By default, returns the cover as a bytestring. WARNING: Using as_path will copy the cover to a temp file and return the path to the temp file. You should delete the temp file when you are done with it.
+
+        Example:
+            Exercise CalibreCache.cover through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param as_file: Value supplied for as file under the utility contract.
+        :param as_image: Value supplied for as image under the utility contract.
+        :param as_path: Value supplied for as path under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if as_file:
             ret = SpooledTemporaryFile(SPOOL_SIZE)
@@ -2088,11 +2599,18 @@ class CalibreCache(BaseCalibreCache):
     @read_api
     def cover_or_cache(self, book_id, timestamp):
         """
-        Provides a tuple of information as to whether to read from the cache or read from the on_disk cover.
-        See backend.cover_or_cache method.
-        :param book_id:
-        :param timestamp:
-        :return (read_status, cover_data, new_timestamp):
+        Provides a tuple of information as to whether to read from the cache or read from the on_disk cover. See backend.cover_or_cache method.
+
+        Example:
+            Exercise CalibreCache.cover or cache through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param timestamp: Value supplied for timestamp under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         try:
             covers_field = self.fields["cover"]
@@ -2105,8 +2623,16 @@ class CalibreCache(BaseCalibreCache):
     def cover_last_modified(self, book_id):
         """
         When was the primary cover for a given book last modified.
-        :param book_id:
-        :return:
+
+        Example:
+            Exercise CalibreCache.cover last modified through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         try:
             path = self.unlock.field_for("path", book_id).replace("/", os.sep)
@@ -2117,15 +2643,21 @@ class CalibreCache(BaseCalibreCache):
     @read_api
     def copy_cover_to(self, book_id, dest, use_hardlink=False, report_file_size=None):
         """
-        Copy the cover to the file like object ``dest``. Returns False if no cover exists or dest is the same file as
-        the current cover.
-        dest can also be a path in which case the cover is copied to it if and only if the path is different from the
-        current path (taking case sensitivity into account).
-        :param book_id:
-        :param dest:
-        :param use_hardlink:
-        :param report_file_size:
-        :return:
+        Copy the cover to the file like object ``dest``. Returns False if no cover exists or dest is the same file as the current cover. dest can also be a path in which case the cover is copied to it if and only if the path is different from the current path (taking case sensitivity into account).
+
+        Example:
+            Exercise CalibreCache.copy cover to through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param dest: Value supplied for dest under the utility contract.
+        :param use_hardlink: Value supplied for use hardlink under the utility contract.
+        :param report_file_size: Value supplied for report file size under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         try:
             covers_field = self.fields["cover"]
@@ -2143,10 +2675,18 @@ class CalibreCache(BaseCalibreCache):
     @write_api
     def set_cover(self, book_id_data_map):
         """
-        Set the cover for this book.  data can be either a QImage, QPixmap, file object or bytestring. It can also be
-        None, in which case any existing cover is removed.
-        :param book_id_data_map:
-        :return:
+        Set the cover for this book. data can be either a QImage, QPixmap, file object or bytestring. It can also be None, in which case any existing cover is removed.
+
+        Example:
+            Exercise CalibreCache.set cover through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_data_map: Value supplied for book id data map under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         for book_id, data in iteritems(book_id_data_map):
             try:
@@ -2172,13 +2712,19 @@ class CalibreCache(BaseCalibreCache):
     @read_api
     def multisort(self, fields, ids_to_sort=None, virtual_fields=None):
         """
-        Return a list of sorted book ids. If ids_to_sort is None, all book ids are returned.
-        fields must be a list of 2-tuples of the form (field_name, ascending=True or False). The most significant field
-        is the first 2-tuple.
-        :param fields:
-        :param ids_to_sort:
-        :param virtual_fields:
-        :return:
+        Return a list of sorted book ids. If ids_to_sort is None, all book ids are returned. fields must be a list of 2-tuples of the form (field_name, ascending=True or False). The most significant field is the first 2-tuple.
+
+        Example:
+            Exercise CalibreCache.multisort through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param fields: Value supplied for fields under the utility contract.
+        :param ids_to_sort: Value supplied for ids to sort under the utility contract.
+        :param virtual_fields: Value supplied for virtual fields under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         ids_to_sort = self.unlock.all_book_ids() if ids_to_sort is None else ids_to_sort
         get_metadata = self.unlock.get_proxy_metadata
@@ -2190,8 +2736,16 @@ class CalibreCache(BaseCalibreCache):
         def sort_key_func(field):
             """
             Handle series type fields, virtual fields and the id field
-            :param field:
-            :return:
+
+            Example:
+                Exercise CalibreCache.multisort.sort key func through a consuming regression::
+
+                    python -m pytest -q tests/library/test_unified_library.py
+
+
+            :param field: Metadata or template field addressed by the operation.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
             """
             idx = field + "_index"
             is_series = idx in self.fields
@@ -2206,6 +2760,19 @@ class CalibreCache(BaseCalibreCache):
                 idx_func = self.fields[idx].sort_keys_for_books(get_metadata, lang_map)
 
                 def skf(book_id):
+                    """
+                    Perform the skf operation under explicit file-format and conversion rules.
+
+                    Example:
+                        Exercise CalibreCache.multisort.sort key func.skf through a consuming regression::
+
+                            python -m pytest -q tests/library/test_unified_library.py
+
+
+                    :param book_id: Value supplied for book id under the utility contract.
+                    :return: The normalized value, metadata record, path, stream result or collection
+                        described above.
+                    """
                     return func(book_id), idx_func(book_id)
 
                 return skf
@@ -2222,14 +2789,47 @@ class CalibreCache(BaseCalibreCache):
 
         class SortKey(object):
 
+            """
+            Provide the sortkey contract for validated ebook processing.
+
+            Example:
+                Exercise CalibreCache.multisort.SortKey through a consuming regression::
+
+                    python -m pytest -q tests/library/test_unified_library.py
+            """
             __slots__ = ("book_id", "sort_key")
 
             def __init__(self, book_id):
+                """
+                Initialize and validate the sortkey state.
+
+                Example:
+                    Exercise CalibreCache.multisort.SortKey.  init   through a consuming regression::
+
+                        python -m pytest -q tests/library/test_unified_library.py
+
+
+                :param book_id: Value supplied for book id under the utility contract.
+                :return: None; validated state is stored on the receiving object.
+                """
                 self.book_id = book_id
                 # Calculate only the first sub-sort key since that will always be used
                 self.sort_key = [key(book_id) if i == 0 else lazy_obj for i, key in enumerate(sort_key_funcs)]
 
             def __cmp__(self, other):
+                """
+                Perform the cmp operation under explicit file-format and conversion rules.
+
+                Example:
+                    Exercise CalibreCache.multisort.SortKey.  cmp   through a consuming regression::
+
+                        python -m pytest -q tests/library/test_unified_library.py
+
+
+                :param other: Value supplied for other under the utility contract.
+                :return: The normalized value, metadata record, path, stream result or collection
+                    described above.
+                """
                 for i, (order, self_key, other_key) in enumerate(zip(orders, self.sort_key, other.sort_key)):
                     if self_key is lazy_obj:
                         self_key = self.sort_key[i] = sort_key_funcs[i](self.book_id)
@@ -2246,13 +2846,19 @@ class CalibreCache(BaseCalibreCache):
     def search(self, query, restriction="", virtual_fields=None, book_ids=None):
         """
         Search the database for the specified query, returning a set of matched book ids.
-        :param restriction: A restriction that is ANDed to the specified query. Note that
-            restrictions are cached, therefore the search for a AND b will be slower than a with restriction b.
-        :param virtual_fields: Used internally (virtual fields such as on_device to search over).
-        :param book_ids: If not None, a set of book ids for which books will be searched instead of searching all books.
-        :param query:
-        :param restriction:
-        :return:
+
+        Example:
+            Exercise CalibreCache.search through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param query: Search expression parsed or evaluated by the utility.
+        :param restriction: Value supplied for restriction under the utility contract.
+        :param virtual_fields: Value supplied for virtual fields under the utility contract.
+        :param book_ids: Book identities included in the batched read operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self._search_api(self, query, restriction, virtual_fields=virtual_fields, book_ids=book_ids)
 
@@ -2260,9 +2866,18 @@ class CalibreCache(BaseCalibreCache):
     def books_in_virtual_library(self, vl, search_restriction=None):
         """
         Return the set of books in the specified virtual library
-        :param vl:
-        :param search_restriction:
-        :return:
+
+        Example:
+            Exercise CalibreCache.books in virtual library through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param vl: Value supplied for vl under the utility contract.
+        :param search_restriction: Value supplied for search restriction under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         vl = self.unlock.pref("virtual_libraries", {}).get(vl) if vl else None
         if not vl and not search_restriction:
@@ -2278,11 +2893,20 @@ class CalibreCache(BaseCalibreCache):
     def get_categories(self, sort="name", book_ids=None, already_fixed=None, first_letter_sort=False):
         """
         Used internally to implement the Tag Browser.
-        :param sort:
-        :param book_ids:
-        :param already_fixed:
-        :param first_letter_sort:
-        :return:
+
+        Example:
+            Exercise CalibreCache.get categories through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param sort: Value supplied for sort under the utility contract.
+        :param book_ids: Book identities included in the batched read operation.
+        :param already_fixed: Value supplied for already fixed under the utility contract.
+        :param first_letter_sort: Value supplied for first letter sort under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         try:
             with self.safe_read_lock:
@@ -2310,8 +2934,16 @@ class CalibreCache(BaseCalibreCache):
     def mark_as_dirty(self, book_ids):
         """
         Note that the following books are dirtied on the database.
-        :param book_ids:
-        :return:
+
+        Example:
+            Exercise CalibreCache.mark as dirty through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_ids: Book identities included in the batched read operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # Regardless of weather the book needs to be marked as dirty the last modification time does need to be updated
         self.unlock.update_last_modified(book_ids)
@@ -2346,7 +2978,15 @@ class CalibreCache(BaseCalibreCache):
     def commit_dirty_cache(self):
         """
         Write the current dirtied cache out of the database.
-        :return:
+
+        Example:
+            Exercise CalibreCache.commit dirty cache through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         book_ids = [(x,) for x in self.dirtied_cache]
         if book_ids:
@@ -2361,17 +3001,22 @@ class CalibreCache(BaseCalibreCache):
     @write_api
     def set_field(self, name, book_id_to_val_map, allow_case_change=True, do_path_update=True):
         """
-        Set the values of the field specified by ``name``. Returns the set of all book ids that were affected by the
-        change.
-        :param name:
-        :param book_id_to_val_map: Mapping of book_ids to values that should be applied.
-        :param allow_case_change: If True, the case of many-one or many-many fields will be changed.
-            For example, if a  book has the tag ``tag1`` and you set the tag for another book to ``Tag1``
-            then the both books will have the tag ``Tag1`` if allow_case_change is True, otherwise they will
-            both have the tag ``tag1``.
-        :param do_path_update: Used internally, you should never change it.
-                               Should the db path be updated as a consequence of this change.
-        :return:
+        Set the values of the field specified by ``name``. Returns the set of all book ids that were affected by the change.
+
+        Example:
+            Exercise CalibreCache.set field through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param book_id_to_val_map: Value supplied for book id to val map under the utility
+            contract.
+        :param allow_case_change: Value supplied for allow case change under the utility
+            contract.
+        :param do_path_update: Value supplied for do path update under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         f = self.fields[name]
 
@@ -2427,7 +3072,15 @@ class CalibreCache(BaseCalibreCache):
     def get_a_dirtied_book(self):
         """
         Return a dirty book randomly selected from the dirtied_cache.
-        :return:
+
+        Example:
+            Exercise CalibreCache.get a dirtied book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if self.dirtied_cache:
             return random.choice(tuple(iterkeys(self.dirtied_cache)))
@@ -2437,8 +3090,16 @@ class CalibreCache(BaseCalibreCache):
     def get_metadata_for_dump(self, book_id):
         """
         Return metadata for one of the dirtied books - so the updated form can be written out of the cache
-        :param book_id:
-        :return:
+
+        Example:
+            Exercise CalibreCache.get metadata for dump through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         mi = None
         # get the current sequence number for this book to pass back to the backup thread. This will avoid double
@@ -2466,12 +3127,18 @@ class CalibreCache(BaseCalibreCache):
     @write_api
     def clear_dirtied(self, book_id, sequence):
         """
-        Clear the dirtied indicator for the given book.
-        This is used when fetching metadata, creating an OPF, and writing a file are separated into steps.
-        The last step is clearing the indicator
-        :param book_id:
-        :param sequence:
-        :return:
+        Clear the dirtied indicator for the given book. This is used when fetching metadata, creating an OPF, and writing a file are separated into steps. The last step is clearing the indicator
+
+        Example:
+            Exercise CalibreCache.clear dirtied through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param sequence: Value supplied for sequence under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         dc_sequence = self.dirtied_cache.get(book_id, None)
         if dc_sequence is None or sequence is None or dc_sequence == sequence:
@@ -2485,9 +3152,17 @@ class CalibreCache(BaseCalibreCache):
     def write_backup(self, book_id, raw):
         """
         Write backup metadata into the book's file.
-        :param book_id:
-        :param raw:
-        :return:
+
+        Example:
+            Exercise CalibreCache.write backup through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param raw: Value supplied for raw under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         try:
             path = self.unlock.field_for("path", book_id).replace("/", os.sep)
@@ -2502,7 +3177,15 @@ class CalibreCache(BaseCalibreCache):
     def dirty_queue_length(self):
         """
         The current size of the dirtied cache.
-        :return:
+
+        Example:
+            Exercise CalibreCache.dirty queue length through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return len(self.dirtied_cache)
 
@@ -2510,8 +3193,16 @@ class CalibreCache(BaseCalibreCache):
     def read_backup(self, book_id):
         """
         Return the OPF metadata backup for the book as a bytestring or None if no such backup exists.
-        :param book_id:
-        :return:
+
+        Example:
+            Exercise CalibreCache.read backup through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         try:
             path = self.unlock.field_for("path", book_id).replace("/", os.sep)
@@ -2528,12 +3219,20 @@ class CalibreCache(BaseCalibreCache):
     @write_api
     def dump_metadata(self, book_ids=None, remove_from_dirtied=True, callback=None):
         """
-        Write metadata for each record to an individual OPF file. If callback is not None, it is called once at the
-        start with the number of book_ids being processed. And once for every book_id, with arguments (book_id, mi, ok).
-        :param book_ids:
-        :param remove_from_dirtied:
-        :param callback:
-        :return:
+        Write metadata for each record to an individual OPF file. If callback is not None, it is called once at the start with the number of book_ids being processed. And once for every book_id, with arguments (book_id, mi, ok).
+
+        Example:
+            Exercise CalibreCache.dump metadata through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_ids: Book identities included in the batched read operation.
+        :param remove_from_dirtied: Value supplied for remove from dirtied under the utility
+            contract.
+        :param callback: Value supplied for callback under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if book_ids is None:
             book_ids = set(self.dirtied_cache)
@@ -2569,10 +3268,17 @@ class CalibreCache(BaseCalibreCache):
     @write_api
     def add_cover_cache(self, cover_cache):
         """
-        Adds a cover_cache object to the set of internal cover caches.
-        Allows multiple cover caches to be used at the same time. Which ... could be useful. I guess?
-        :param cover_cache:
-        :return:
+        Adds a cover_cache object to the set of internal cover caches. Allows multiple cover caches to be used at the same time. Which ... could be useful. I guess?
+
+        Example:
+            Exercise CalibreCache.add cover cache through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param cover_cache: Value supplied for cover cache under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if not callable(cover_cache.invalidate):
             raise ValueError("Cover caches must have an invalidate method")
@@ -2582,20 +3288,36 @@ class CalibreCache(BaseCalibreCache):
     def remove_cover_cache(self, cover_cache):
         """
         Remove a registered cover cache from the system.
-        :param cover_cache:
-        :return:
+
+        Example:
+            Exercise CalibreCache.remove cover cache through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param cover_cache: Value supplied for cover cache under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.cover_caches.discard(cover_cache)
 
     @read_api
     def get_next_series_num_for(self, series, field="series", current_indices=False):
         """
-        Return the next series index for the specified series, taking into account the various preferences that
-        control next series number generation.
-        :param series:
-        :param field: The series-like field (defaults to the builtin series column)
-        :param current_indices: If True, returns a mapping of book_id to current series_index value instead.
-        :return:
+        Return the next series index for the specified series, taking into account the various preferences that control next series number generation.
+
+        Example:
+            Exercise CalibreCache.get next series num for through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param series: Value supplied for series under the utility contract.
+        :param field: Metadata or template field addressed by the operation.
+        :param current_indices: Value supplied for current indices under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         books = ()
         sf = self.fields[field]
@@ -2617,11 +3339,18 @@ class CalibreCache(BaseCalibreCache):
     @read_api
     def author_sort_from_authors(self, authors, key_func=icu_lower):
         """
-        Given a list of authors, return the author_sort string for the authors, preferring the author sort associated
-        with the author over the computed string.
-        :param authors:
-        :param key_func:
-        :return:
+        Given a list of authors, return the author_sort string for the authors, preferring the author sort associated with the author over the computed string.
+
+        Example:
+            Exercise CalibreCache.author sort from authors through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param authors: Value supplied for authors under the utility contract.
+        :param key_func: Value supplied for key func under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         table = self.fields["authors"].table
         result = []
@@ -2634,9 +3363,16 @@ class CalibreCache(BaseCalibreCache):
     @read_api
     def data_for_has_book(self):
         """
-        Return data suitable for use in :meth:`has_book`. This can be used for an implementation of :meth:`has_book` in
-        a worker process without access to the db.
-        :return:
+        Return data suitable for use in :meth:`has_book`. This can be used for an implementation of :meth:`has_book` in a worker process without access to the db.
+
+        Example:
+            Exercise CalibreCache.data for has book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         try:
             return {icu_lower(title) for title in itervalues(self.fields["title"].table.book_col_map)}
@@ -2647,11 +3383,16 @@ class CalibreCache(BaseCalibreCache):
     @read_api
     def has_book(self, mi):
         """
-        Return True iff the database contains an entry with the same title as the passed in Metadata object.
-        The comparison is case-insensitive.
-        See also :meth:`data_for_has_book`.
-        :param mi:
-        :return:
+        Return True iff the database contains an entry with the same title as the passed in Metadata object. The comparison is case-insensitive. See also :meth:`data_for_has_book`.
+
+        Example:
+            Exercise CalibreCache.has book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param mi: Metadata object exposed to the template function.
+        :return: True when the documented condition holds; otherwise False.
         """
         title = mi.title
         if title:
@@ -2667,8 +3408,15 @@ class CalibreCache(BaseCalibreCache):
     def has_id(self, book_id):
         """
         Return True iff the specified book_id exists in the db
-        :param book_id:
-        :return:
+
+        Example:
+            Exercise CalibreCache.has id through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: True when the documented condition holds; otherwise False.
         """
         return book_id in self.fields["title"].table.book_col_map
 
@@ -2684,13 +3432,22 @@ class CalibreCache(BaseCalibreCache):
     ):
         """
         Create a new entry in the books table - accepts as input either a LiuXin or calibre metadata object.
-        :param mi: The metadata for the new book
-        :param cover: The cover for the new book
-        :param add_duplicates: Should the book add even if duplicate detection trips?
-        :param force_id: If an int then the book is garanteed to have this id
-        :param apply_import_tags: Should i,port tags be applied to the book before it's added
-        :param preserve_uuid: Use the uuid from the metadata instead of coming up with a new one.
-        :return:
+
+        Example:
+            Exercise CalibreCache.create book entry through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param mi: Metadata object exposed to the template function.
+        :param cover: Value supplied for cover under the utility contract.
+        :param add_duplicates: Value supplied for add duplicates under the utility contract.
+        :param force_id: Value supplied for force id under the utility contract.
+        :param apply_import_tags: Value supplied for apply import tags under the utility
+            contract.
+        :param preserve_uuid: Value supplied for preserve uuid under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if isinstance(mi, Metadata):
             liuxin_mi = LiuXinMetadata.from_calibre(mi)
@@ -2725,13 +3482,22 @@ class CalibreCache(BaseCalibreCache):
     ):
         """
         Create an entry on the database from a LiuXin metadata object.
-        :param mi:
-        :param cover:
-        :param add_duplicates:
-        :param force_id:
-        :param apply_import_tags:
-        :param preserve_uuid:
-        :return:
+
+        Example:
+            Exercise CalibreCache.  liuxin create book entry through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param mi: Metadata object exposed to the template function.
+        :param cover: Value supplied for cover under the utility contract.
+        :param add_duplicates: Value supplied for add duplicates under the utility contract.
+        :param force_id: Value supplied for force id under the utility contract.
+        :param apply_import_tags: Value supplied for apply import tags under the utility
+            contract.
+        :param preserve_uuid: Value supplied for preserve uuid under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # Todo: Implement
         if preserve_uuid:
@@ -2795,28 +3561,22 @@ class CalibreCache(BaseCalibreCache):
     ):
         """
         Add the specified books to the library. Books should be an iterable of 2-tuples, each 2-tuple of the form
-        :code:`(mi, format_map)` where mi is a Metadata object and format_map is a dictionary of the form
-        :code:`{fmt: path_or_stream}`,
-        for example: :code:`{'EPUB': '/path/to/file.epub'}`.
 
-        If you want to add multiple examples of the same fmt to the book at the same time you can pass an iterable
-        of paths as the value for the fmt map.
-        for example :code:`{'EPUB': ['/path/to/file.epub', 'another/path/to/another_file.epub']}`.
+        Example:
+            Exercise CalibreCache.add books through a consuming regression::
 
-        Returns a pair of lists: :code:`ids, duplicates`. ``ids`` contains the book ids for all newly created books in
-        the database. ``duplicates`` contains the :code:`(mi, format_map)` for all books that already exist in the
-        database as per the simple duplicate detection heuristic used by :meth:`has_book`
+                python -m pytest -q tests/library/test_unified_library.py
 
-        Modifies the given fmt map as it goes.
-        As entries are processed adds new entries keyed with the lower case fmt that's being added and valued with the
-        either the name of the resource that was copied in or <stream> if the resource was a stream.
-        :param books:
-        :param add_duplicates: If True, then no effort will be made to find duplicates in the added books
-        :param apply_import_tags: Apply the new book tags (stored in preferences)
-        :param preserve_uuid: Keep the UUID stored in the metadata object
-        :param run_hooks: Run the import and post import hooks
-        :param dbapi: For internal use
-        :return:
+
+        :param books: Value supplied for books under the utility contract.
+        :param add_duplicates: Value supplied for add duplicates under the utility contract.
+        :param apply_import_tags: Value supplied for apply import tags under the utility
+            contract.
+        :param preserve_uuid: Value supplied for preserve uuid under the utility contract.
+        :param run_hooks: Value supplied for run hooks under the utility contract.
+        :param dbapi: Value supplied for dbapi under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         duplicates, ids = [], []
         fmt_map = {}
@@ -2871,11 +3631,18 @@ class CalibreCache(BaseCalibreCache):
     @write_api
     def remove_books(self, book_ids, permanent=False):
         """
-        Remove the books specified by the book_ids from the database and delete their format files. If ``permanent`` is
-        False, then the format files are not deleted.
-        :param book_ids:
-        :param permanent:
-        :return:
+        Remove the books specified by the book_ids from the database and delete their format files. If ``permanent`` is False, then the format files are not deleted.
+
+        Example:
+            Exercise CalibreCache.remove books through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_ids: Book identities included in the batched read operation.
+        :param permanent: Value supplied for permanent under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.backend.remove_books(book_ids, permanent=permanent)
 
@@ -2895,10 +3662,17 @@ class CalibreCache(BaseCalibreCache):
     @read_api
     def author_sort_strings_for_books(self, book_ids):
         """
-        Return a map keyed with the book_id and valued with a tuple of the author sorts for all the given books.
-        Author sort strings will be in the priority order of the authors.
-        :param book_ids:
-        :return:
+        Return a map keyed with the book_id and valued with a tuple of the author sorts for all the given books. Author sort strings will be in the priority order of the authors.
+
+        Example:
+            Exercise CalibreCache.author sort strings for books through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_ids: Book identities included in the batched read operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         val_map = {}
         for book_id in book_ids:
@@ -2918,18 +3692,22 @@ class CalibreCache(BaseCalibreCache):
         restrict_to_book_ids=None,
     ):
         """
-        Rename items in one-to-many and many-to-one tables e.g. series and tags.
-        Cannot handle one-to-one fields - such as titles.
-        :param field: The field to update the items for
-        :type field: str
-        :param item_id_to_new_name_map: Keyed with the id of the item (as an int) and valued with the new name that
-                                        the field should be changed to.
-                                        Thus - if you where updating the names of a tag - would be keyed with the id of
-                                        the tag your updating and valued with the new name for the tag.
-        :param change_index: When renaming in a series-like field also change the series_index values.
-        :param restrict_to_book_ids: An optional set of book ids for which the rename is to be performed, defaults to
-                                     all books. Used when there's an active virtual library.
-        :return:
+        Rename items in one-to-many and many-to-one tables e.g. series and tags. Cannot handle one-to-one fields - such as titles.
+
+        Example:
+            Exercise CalibreCache.rename items through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param field: Metadata or template field addressed by the operation.
+        :param item_id_to_new_name_map: Value supplied for item id to new name map under the
+            utility contract.
+        :param change_index: Value supplied for change index under the utility contract.
+        :param restrict_to_book_ids: Value supplied for restrict to book ids under the
+            utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         f = self.fields[field]
         affected_books = set()
@@ -3056,15 +3834,20 @@ class CalibreCache(BaseCalibreCache):
     @write_api
     def remove_items(self, field, item_ids, restrict_to_book_ids=None):
         """
-        Delete all items in the specified field with the specified ids.
-        Returns the set of affected book ids. ``restrict_to_book_ids`` is an optional set of books ids. If specified the
-        items will only be removed from those books.
-        This is intended to be used with a virtual library - the entries will only be removed from the books in the
-        virtual library.
-        :param field:
-        :param item_ids:
-        :param restrict_to_book_ids:
-        :return:
+        Delete all items in the specified field with the specified ids. Returns the set of affected book ids. ``restrict_to_book_ids`` is an optional set of books ids. If specified the items will only be removed from those books. This is intended to be used with a virtual library - the entries will only be removed from the books in the virtual library.
+
+        Example:
+            Exercise CalibreCache.remove items through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param field: Metadata or template field addressed by the operation.
+        :param item_ids: Value supplied for item ids under the utility contract.
+        :param restrict_to_book_ids: Value supplied for restrict to book ids under the
+            utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         field = self.fields[field]
 
@@ -3086,13 +3869,19 @@ class CalibreCache(BaseCalibreCache):
     @write_api
     def add_custom_book_data(self, name, val_map, delete_first=False):
         """
-        Records data in the books_plugin_data table.
-        Add data for name where val_map is a map of book_ids to values. If delete_first is True, all previously stored
-        data for name will be removed.
-        :param name:
-        :param val_map:
-        :param delete_first:
-        :return:
+        Records data in the books_plugin_data table. Add data for name where val_map is a map of book_ids to values. If delete_first is True, all previously stored data for name will be removed.
+
+        Example:
+            Exercise CalibreCache.add custom book data through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param val_map: Value supplied for val map under the utility contract.
+        :param delete_first: Value supplied for delete first under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # Validate that the given books actually exist on the database
         missing = frozenset(val_map) - self.unlock.all_book_ids()
@@ -3103,23 +3892,37 @@ class CalibreCache(BaseCalibreCache):
     @read_api
     def get_custom_book_data(self, name, book_ids=(), default=None):
         """
-        Get data for name. By default returns data for all book_ids, pass in a list of book ids if you only want some
-        data. Returns a map of book_id to values. If a particular value could not be decoded, uses default for it.
-        :param name:
-        :param book_ids:
-        :param default:
-        :return:
+        Get data for name. By default returns data for all book_ids, pass in a list of book ids if you only want some data. Returns a map of book_id to values. If a particular value could not be decoded, uses default for it.
+
+        Example:
+            Exercise CalibreCache.get custom book data through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param book_ids: Book identities included in the batched read operation.
+        :param default: Value supplied for default under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.backend.get_custom_book_data(name, book_ids, default)
 
     @write_api
     def delete_custom_book_data(self, name, book_ids=()):
         """
-        Delete data for name. By default deletes all data, if you only want to delete data for some book ids, pass in a
-        list of book ids.
-        :param name:
-        :param book_ids:
-        :return:
+        Delete data for name. By default deletes all data, if you only want to delete data for some book ids, pass in a list of book ids.
+
+        Example:
+            Exercise CalibreCache.delete custom book data through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param book_ids: Book identities included in the batched read operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.backend.delete_custom_book_data(name, book_ids)
 
@@ -3127,8 +3930,16 @@ class CalibreCache(BaseCalibreCache):
     def get_ids_for_custom_book_data(self, name):
         """
         Return the set of book ids for which name has data.
-        :param name:
-        :return:
+
+        Example:
+            Exercise CalibreCache.get ids for custom book data through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.backend.get_ids_for_custom_book_data(name)
 
@@ -3140,23 +3951,52 @@ class CalibreCache(BaseCalibreCache):
     def conversion_options(self, book_id, fmt="PIPE"):
         """
         Return the conversion options for a given book_id of a given format - default to fmt='PIPE'
-        :param book_id:
-        :param fmt:
-        :return:
+
+        Example:
+            Exercise CalibreCache.conversion options through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.backend.conversion_options(book_id, fmt)
 
     @read_api
     def has_conversion_options(self, ids, fmt="PIPE"):
+        """
+        Return whether has conversion options holds for the supplied ebook data.
+
+        Example:
+            Exercise CalibreCache.has conversion options through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param ids: Value supplied for ids under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :return: True when the documented condition holds; otherwise False.
+        """
         return self.backend.has_conversion_options(ids, fmt)
 
     @write_api
     def delete_conversion_options(self, book_ids, fmt="PIPE"):
         """
         Remove the conversion options for the given book ids.
-        :param book_ids:
-        :param fmt:
-        :return:
+
+        Example:
+            Exercise CalibreCache.delete conversion options through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_ids: Book identities included in the batched read operation.
+        :param fmt: Date, number or template format specification.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.backend.delete_conversion_options(book_ids, fmt)
 
@@ -3164,19 +4004,51 @@ class CalibreCache(BaseCalibreCache):
     def set_conversion_options(self, options, fmt="PIPE"):
         """
         options must be a map of the form {book_id:conversion_options}
-        :param options:
-        :param fmt:
-        :return:
+
+        Example:
+            Exercise CalibreCache.set conversion options through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param options: Value supplied for options under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.backend.set_conversion_options(options, fmt)
 
     @write_api
     def refresh_format_cache(self):
+        """
+        Perform the refresh format cache operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreCache.refresh format cache through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.fields["formats"].table.read(self.backend)
         self.format_metadata_cache.clear()
 
     @write_api
     def refresh_ondevice(self):
+        """
+        Perform the refresh ondevice operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreCache.refresh ondevice through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.fields["ondevice"].clear_caches()
         self.clear_search_caches()
         self.clear_composite_caches()
@@ -3184,15 +4056,21 @@ class CalibreCache(BaseCalibreCache):
     @read_api
     def tags_older_than(self, tag, delta=None, must_have_tag=None, must_have_authors=None):
         """
-        Return the ids of all books having the tag ``tag`` that are older than the specified time.
-        tag comparison is case insensitive.
-        Used extensively internally with the tag browser.
-        :param tag:
-        :param delta: A timedelta object or None. If None, then all ids with the tag are returned.
-        :param must_have_tag: If not None the list of matches will be restricted to books that have this tag
-        :param must_have_authors: A list of authors. If not None the list of matches will be restricted to books that
-                                  have these authors (case insensitive).
-        :return:
+        Return the ids of all books having the tag ``tag`` that are older than the specified time. tag comparison is case insensitive. Used extensively internally with the tag browser.
+
+        Example:
+            Exercise CalibreCache.tags older than through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :param delta: Value supplied for delta under the utility contract.
+        :param must_have_tag: Value supplied for must have tag under the utility contract.
+        :param must_have_authors: Value supplied for must have authors under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         tag_map = {icu_lower(v): k for k, v in iteritems(self.unlock.get_id_map("tags"))}
         tag = icu_lower(tag.strip())
@@ -3229,9 +4107,18 @@ class CalibreCache(BaseCalibreCache):
     def set_sort_for_authors(self, author_id_to_sort_map, update_books=True):
         """
         Sets the sort field for any referenced authors.
-        :param author_id_to_sort_map: Keyed with the author id, valued with the new sort string
-        :param update_books:
-        :return:
+
+        Example:
+            Exercise CalibreCache.set sort for authors through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param author_id_to_sort_map: Value supplied for author id to sort map under the
+            utility contract.
+        :param update_books: Value supplied for update books under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         sort_map = self.fields["authors"].table.set_sort_names(author_id_to_sort_map, self.backend)
         changed_books = set()
@@ -3255,8 +4142,17 @@ class CalibreCache(BaseCalibreCache):
     def set_link_for_authors(self, author_id_to_link_map):
         """
         Update the link field for the given authors.
-        :param author_id_to_link_map:
-        :return:
+
+        Example:
+            Exercise CalibreCache.set link for authors through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param author_id_to_link_map: Value supplied for author id to link map under the
+            utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         link_map = self.fields["authors"].table.set_links(author_id_to_link_map, self.backend)
         changed_books = set()
@@ -3269,10 +4165,17 @@ class CalibreCache(BaseCalibreCache):
     @read_api
     def lookup_by_uuid(self, uuid):
         """
-        UUID -> book_id
-        The UUID for the given book is stored in the books table.
-        :param uuid:
-        :return:
+        UUID -> book_id The UUID for the given book is stored in the books table.
+
+        Example:
+            Exercise CalibreCache.lookup by uuid through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param uuid: Value supplied for uuid under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.fields["uuid"].table.lookup_by_uuid(uuid)
 
@@ -3283,13 +4186,21 @@ class CalibreCache(BaseCalibreCache):
     def create_custom_column(self, label, name, datatype, is_multiple, editable=True, display=None):
         """
         Make a custom column for the books table.
-        :param label:
-        :param name:
-        :param datatype:
-        :param is_multiple:
-        :param editable:
-        :param display:
-        :return:
+
+        Example:
+            Exercise CalibreCache.create custom column through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param label: Value supplied for label under the utility contract.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param datatype: Value supplied for datatype under the utility contract.
+        :param is_multiple: Value supplied for is multiple under the utility contract.
+        :param editable: Value supplied for editable under the utility contract.
+        :param display: Value supplied for display under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if display is None:
             display = {}
@@ -3314,13 +4225,22 @@ class CalibreCache(BaseCalibreCache):
     ):
         """
         Update the changeable metadata for a custom column.
-        :param num:
-        :param name:
-        :param label:
-        :param is_editable:
-        :param display:
-        :param update_last_modified:
-        :return:
+
+        Example:
+            Exercise CalibreCache.set custom column metadata through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param num: Value supplied for num under the utility contract.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param label: Value supplied for label under the utility contract.
+        :param is_editable: Value supplied for is editable under the utility contract.
+        :param display: Value supplied for display under the utility contract.
+        :param update_last_modified: Value supplied for update last modified under the
+            utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         changed = self.backend.set_custom_column_metadata(
             num, name=name, label=label, is_editable=is_editable, display=display
@@ -3338,9 +4258,18 @@ class CalibreCache(BaseCalibreCache):
     def get_books_for_category(self, category, item_id_or_composite_value):
         """
         Category is an alternative term for field.
-        :param category:
-        :param item_id_or_composite_value:
-        :return:
+
+        Example:
+            Exercise CalibreCache.get books for category through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param category: Value supplied for category under the utility contract.
+        :param item_id_or_composite_value: Value supplied for item id or composite value
+            under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         f = self.fields[category]
         # If the field has a specialized method for retrieving values, then use it
@@ -3357,9 +4286,17 @@ class CalibreCache(BaseCalibreCache):
     def delete_custom_column(self, label=None, num=None):
         """
         Remove a custom column set for the books table.
-        :param label:
-        :param num:
-        :return:
+
+        Example:
+            Exercise CalibreCache.delete custom column through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param label: Value supplied for label under the utility contract.
+        :param num: Value supplied for num under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.backend.delete_custom_column(label, num)
 
@@ -3371,9 +4308,16 @@ class CalibreCache(BaseCalibreCache):
     @read_api
     def data_for_find_identical_books(self):
         """
-        Return data that can be used to implement :meth:`find_identical_books` in a worker process without access to the
-        db. See databases.utils for an implementation.
-        :return author_map, authors_table, title_book_col_map:
+        Return data that can be used to implement :meth:`find_identical_books` in a worker process without access to the db. See databases.utils for an implementation.
+
+        Example:
+            Exercise CalibreCache.data for find identical books through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         at = self.fields["authors"].table
         author_map = defaultdict(set)
@@ -3389,9 +4333,17 @@ class CalibreCache(BaseCalibreCache):
     def update_data_for_find_identical_books(self, book_id, data):
         """
         Update the data for find identicle books.
-        :param book_id:
-        :param data:
-        :return:
+
+        Example:
+            Exercise CalibreCache.update data for find identical books through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param data: Value supplied for data under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         author_map, author_book_map, title_map = data
         title_map[book_id] = self.unlock.field_for("title", book_id)
@@ -3408,11 +4360,18 @@ class CalibreCache(BaseCalibreCache):
         """
         Finds books that have a superset of the authors in mi and the same title (title is fuzzy matched).
 
-        See also :meth:`data_for_find_identical_books`.
-        :param mi:
-        :param search_restriction:
-        :param book_ids:
-        :return:
+        Example:
+            Exercise CalibreCache.find identical books through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param mi: Metadata object exposed to the template function.
+        :param search_restriction: Value supplied for search restriction under the utility
+            contract.
+        :param book_ids: Book identities included in the batched read operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         from LiuXin_alpha.databases.utils import fuzzy_title
 
@@ -3460,12 +4419,17 @@ class CalibreCache(BaseCalibreCache):
         """
         Move the database file that we're currently running off to a different location.
 
-        Moving the library as a whole would also requires moving a bunch of the folder stores around.
-        Which needs to be done individually.
-        :param newloc:
-        :param progress:
-        :param abort:
-        :return:
+        Example:
+            Exercise CalibreCache.move db to through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param newloc: Value supplied for newloc under the utility contract.
+        :param progress: Value supplied for progress under the utility contract.
+        :param abort: Value supplied for abort under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
@@ -3475,37 +4439,141 @@ class CalibreCache(BaseCalibreCache):
 
     @read_api
     def saved_search_names(self):
+        """
+        Perform the saved search names operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreCache.saved search names through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._search_api.saved_searches.names()
 
     @read_api
     def saved_search_lookup(self, name):
+        """
+        Perform the saved search lookup operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreCache.saved search lookup through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._search_api.saved_searches.lookup(name)
 
     @write_api
     def saved_search_set_all(self, smap):
+        """
+        Perform the saved search set all operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreCache.saved search set all through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param smap: Value supplied for smap under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._search_api.saved_searches.set_all(smap)
         self.unlock.clear_search_caches()
 
     @write_api
     def saved_search_delete(self, name):
+        """
+        Perform the saved search delete operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreCache.saved search delete through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._search_api.saved_searches.delete(name)
         self.unlock.clear_search_caches()
 
     @write_api
     def saved_search_add(self, name, val):
+        """
+        Perform the saved search add operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreCache.saved search add through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._search_api.saved_searches.add(name, val)
 
     @write_api
     def saved_search_rename(self, old_name, new_name):
+        """
+        Perform the saved search rename operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreCache.saved search rename through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param old_name: Value supplied for old name under the utility contract.
+        :param new_name: Value supplied for new name under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._search_api.saved_searches.rename(old_name, new_name)
         self.unlock.clear_search_caches()
 
     @write_api
     def change_search_locations(self, newlocs):
+        """
+        Perform the change search locations operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreCache.change search locations through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param newlocs: Value supplied for newlocs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._search_api.change_locations(newlocs)
 
     @write_api
     def refresh_search_locations(self):
+        """
+        Perform the refresh search locations operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreCache.refresh search locations through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._search_api.change_locations(self.field_metadata.get_search_terms())
 
     # ------------------------------------------------------------------------------------------------------------------
@@ -3516,21 +4584,49 @@ class CalibreCache(BaseCalibreCache):
     def dump_and_restore(self, callback=None, sql=None):
         """
         Dump the database to disk and restore it. Can fix consistency problems.
-        :param callback:
-        :param sql:
-        :return:
+
+        Example:
+            Exercise CalibreCache.dump and restore through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param callback: Value supplied for callback under the utility contract.
+        :param sql: Value supplied for sql under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.backend.dump_and_restore(callback=callback, sql=sql)
 
     @write_api
     def vacuum(self):
+        """
+        Perform the vacuum operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreCache.vacuum through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.backend.vacuum()
 
     @write_api
     def close(self):
         """
+        Perform the close operation under explicit file-format and conversion rules.
 
-        :return:
+        Example:
+            Exercise CalibreCache.close through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         from LiuXin_alpha.customize.ui import available_library_closed_plugins
 
@@ -3546,12 +4642,21 @@ class CalibreCache(BaseCalibreCache):
     def restore_book(self, book_id, mi, last_modified, path, formats):
         """
         Restore the book entry in the database for a book that already exists on the filesystem
-        :param book_id:
-        :param mi:
-        :param last_modified:
-        :param path:
-        :param formats:
-        :return:
+
+        Example:
+            Exercise CalibreCache.restore book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param mi: Metadata object exposed to the template function.
+        :param last_modified: Value supplied for last modified under the utility contract.
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :param formats: Value supplied for formats under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         cover = mi.cover
         mi.cover = None
@@ -3572,8 +4677,16 @@ class CalibreCache(BaseCalibreCache):
     def virtual_libraries_for_books(self, book_ids):
         """
         Return all the virtual libraries that the given books are in.
-        :param book_ids:
-        :return:
+
+        Example:
+            Exercise CalibreCache.virtual libraries for books through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_ids: Book identities included in the batched read operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         libraries = self.unlock.pref("virtual_libraries", {})
         ans = {book_id: [] for book_id in book_ids}
@@ -3587,12 +4700,19 @@ class CalibreCache(BaseCalibreCache):
     @read_api
     def user_categories_for_books(self, book_ids, proxy_metadata_map=None):
         """
-        Return the user categories for the specified books. proxy_metadata_map is optional and is useful for a
-        performance boost, in contexts where a ProxyMetadata object for the books already exists.
-        It should be a mapping of book_ids to their corresponding ProxyMetadata objects.
-        :param book_ids:
-        :param proxy_metadata_map:
-        :return:
+        Return the user categories for the specified books. proxy_metadata_map is optional and is useful for a performance boost, in contexts where a ProxyMetadata object for the books already exists. It should be a mapping of book_ids to their corresponding ProxyMetadata objects.
+
+        Example:
+            Exercise CalibreCache.user categories for books through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_ids: Book identities included in the batched read operation.
+        :param proxy_metadata_map: Value supplied for proxy metadata map under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         user_cats = self.backend.prefs["user_categories"]
         pmm = proxy_metadata_map or {}
@@ -3629,11 +4749,20 @@ class CalibreCache(BaseCalibreCache):
     def embed_metadata(self, book_ids, only_fmts=None, report_error=None, report_progress=None):
         """
         Update metadata in all formats of the specified book_ids to current metadata in the database.
-        :param book_ids: The books to update with the new metadata
-        :param only_fmts: Only ujpdate specific formats within those books
-        :param report_error: A callback system to report if something goes wrong
-        :param report_progress: A callback to report progress
-        :return:
+
+        Example:
+            Exercise CalibreCache.embed metadata through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_ids: Book identities included in the batched read operation.
+        :param only_fmts: Value supplied for only fmts under the utility contract.
+        :param report_error: Value supplied for report error under the utility contract.
+        :param report_progress: Value supplied for report progress under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         field = self.fields["formats"]
         from LiuXin_alpha.file_formats.opf.opf2 import pretty_print
@@ -3644,6 +4773,22 @@ class CalibreCache(BaseCalibreCache):
             only_fmts = {f.lower() for f in only_fmts}
 
         def doit(fmt, mi, stream):
+            """
+            Perform the doit operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise CalibreCache.embed metadata.doit through a consuming regression::
+
+                    python -m pytest -q tests/library/test_unified_library.py
+
+
+            :param fmt: Date, number or template format specification.
+            :param mi: Metadata object exposed to the template function.
+            :param stream: Input or output stream wrapped by the terminal or compatibility
+                layer.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             with apply_null_metadata, pretty_print:
                 set_metadata(stream, mi, stream_type=fmt, report_error=report_error)
             stream.seek(0, os.SEEK_END)
@@ -3677,12 +4822,19 @@ class CalibreCache(BaseCalibreCache):
     @read_api
     def get_last_read_positions(self, book_id, fmt, user):
         """
-        Lats read position records the users position within a document (used in the viewer). Record the data needed to
-        reload that.
-        :param book_id:
-        :param fmt:
-        :param user:
-        :return:
+        Lats read position records the users position within a document (used in the viewer). Record the data needed to reload that.
+
+        Example:
+            Exercise CalibreCache.get last read positions through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :param user: Value supplied for user under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         fmt = fmt.upper()
         ans = []
@@ -3697,14 +4849,22 @@ class CalibreCache(BaseCalibreCache):
     def set_last_read_position(self, book_id, fmt, user="_", device="_", cfi=None, epoch=None, pos_frac=0):
         """
         Store data needed to retrieve a last read position for the user.
-        :param book_id:
-        :param fmt:
-        :param user:
-        :param device:
-        :param cfi:
-        :param epoch:
-        :param pos_frac:
-        :return:
+
+        Example:
+            Exercise CalibreCache.set last read position through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :param user: Value supplied for user under the utility contract.
+        :param device: Value supplied for device under the utility contract.
+        :param cfi: Value supplied for cfi under the utility contract.
+        :param epoch: Value supplied for epoch under the utility contract.
+        :param pos_frac: Value supplied for pos frac under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         fmt = fmt.upper()
         device = device or "_"
@@ -3722,6 +4882,22 @@ class CalibreCache(BaseCalibreCache):
 
     @read_api
     def export_library(self, library_key, exporter, progress=None, abort=None):
+        """
+        Perform the export library operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CalibreCache.export library through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param library_key: Value supplied for library key under the utility contract.
+        :param exporter: Value supplied for exporter under the utility contract.
+        :param progress: Value supplied for progress under the utility contract.
+        :param abort: Value supplied for abort under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         from binascii import hexlify
 
         key_prefix = hexlify(library_key)
@@ -3767,13 +4943,17 @@ class CalibreCache(BaseCalibreCache):
 
 def normalize_fmt(fmt):
     """
-    Takes a fmt, in the form of a string - normalizes it.
-    Upper case is ensured.
-    If there is a leading '.', remove it.
-    If there is not a priority number at the end of the string then assume that you want the highest priority file
-    associated with the book - so add '_1' to the fmt and return it.
-    :param fmt:
-    :return:
+    Takes a fmt, in the form of a string - normalizes it. Upper case is ensured. If there is a leading '.', remove it. If there is not a priority number at the end of the string then assume that you want the highest priority file associated with the book - so add '_1' to the fmt and return it.
+
+    Example:
+        Exercise normalize fmt through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+
+
+    :param fmt: Date, number or template format specification.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     fmt = fmt.upper()
     if fmt.startswith("."):
@@ -3785,16 +4965,19 @@ def normalize_fmt(fmt):
 
 def loc_from_formats_field(formats_field, book_id, fmt):
     """
-    Preforms the standardized search for the desired format (checks it for a dot, checks it for a trailing number).
-    Tries to match the format with a corresponding priority fmt - something of the form fmt_number - which tells you the
-    format and it's position in the formats stack for that particular book.
-    Records the final fmt_priority used to find the format as an atribute of the returned loc.
-    Thus, if you use this function to find the location of an object, be aware that you should use the fmt_priority
-    returned with it from then on - as that's the effective format of the book.
-    :param formats_field:
-    :param book_id:
-    :param fmt:
-    :return:
+    Preforms the standardized search for the desired format (checks it for a dot, checks it for a trailing number). Tries to match the format with a corresponding priority fmt - something of the form fmt_number - which tells you the format and it's position in the formats stack for that particular book. Records the final fmt_priority used to find the format as an atribute of the returned loc. Thus, if you use this function to find the location of an object, be aware that you should use the fmt_priority returned with it from then on - as that's the effective format of the book.
+
+    Example:
+        Exercise loc from formats field through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+
+
+    :param formats_field: Value supplied for formats field under the utility contract.
+    :param book_id: Value supplied for book id under the utility contract.
+    :param fmt: Date, number or template format specification.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     try:
         loc = formats_field.format_floc(book_id=book_id, fmt=fmt)
@@ -3826,6 +5009,23 @@ def loc_from_formats_field(formats_field, book_id, fmt):
 
 # Todo: This needs to actually be written and tested for a calibre library
 def import_library(library_key, importer, library_path, progress=None, abort=None):
+    """
+    Perform the import library operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise import library through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+
+
+    :param library_key: Value supplied for library key under the utility contract.
+    :param importer: Value supplied for importer under the utility contract.
+    :param library_path: Value supplied for library path under the utility contract.
+    :param progress: Value supplied for progress under the utility contract.
+    :param abort: Value supplied for abort under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     from LiuXin_alpha.library.backend import DB
 
     metadata = importer.metadata[library_key]

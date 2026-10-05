@@ -1,4 +1,12 @@
-"""First-run catalogue and local storage initialisation."""
+"""
+Initialize local catalogue layouts or guide an operator through backend setup.
+
+Path-backed initialization composes SQLite/APSW Core, registers an optional Store,
+and replaces a mode-0600 manifest after closing the session. Existing database
+files use the open path, not schema recreation. Interactive PostgreSQL setup
+delegates to its separate initializer. These workflows are not all-or-nothing:
+directories, database/Store changes, and manifests can survive later failures.
+"""
 
 from __future__ import annotations
 
@@ -36,14 +44,49 @@ from LiuXin_alpha.surfaces.system_profile import (
 
 
 class _WizardCancelled(Exception):
-    """The operator deliberately left the interactive initializer."""
+    """
+    Signal declined confirmation or interrupted input to the wizard's outer handler.
+
+    The marker carries no rollback behavior; only the outer wizard translates it
+    into a cancellation message and status one.
+
+    Example:
+        >>> isinstance(_WizardCancelled(), Exception)
+        True
+    """
 
 
 def _resolved(path: str | Path) -> Path:
+    """
+    Expand a user path and resolve it absolutely without requiring existence.
+
+    Existing symlinks and parent traversals are followed; no root confinement or
+    file/directory validation is performed.
+
+    Example:
+        >>> _resolved(Path.cwd()) == Path.cwd().resolve()
+        True
+
+
+    :param path: String or Path naming a prospective CLI-host location.
+    :return: Expanded, resolved absolute Path, possibly not yet present.
+    """
     return Path(path).expanduser().resolve(strict=False)
 
 
 def _stdin_is_interactive() -> bool:
+    """
+    Test standard input's TTY status, treating ordinary inspection errors as false.
+
+    Example:
+        >>> from unittest.mock import patch
+        >>> with patch.object(sys, "stdin", object()):
+        ...     _stdin_is_interactive()
+        False
+
+
+    :return: Truthiness of stdin.isatty(), or False when that call raises Exception.
+    """
     try:
         return bool(sys.stdin.isatty())
     except Exception:
@@ -56,7 +99,27 @@ def _prompt_text(
     default: str | None = None,
     display_default: str | None = None,
 ) -> str:
-    """Read one non-empty wizard value without ever displaying hidden defaults."""
+    """
+    Prompt until a nonempty stripped answer or usable default is available.
+
+    display_default replaces only the displayed suffix; the actual default is
+    returned unchanged as text on blank input. An empty display_default hides
+    the suffix, while None displays the actual default. This uses ordinary input,
+    not password masking, and print/input errors other than EOF/interrupt escape.
+
+    Example:
+        >>> from unittest.mock import patch
+        >>> with patch("builtins.input", return_value="  chosen  "):
+        ...     _prompt_text("Location", default="fallback")
+        'chosen'
+
+
+    :param label: Prompt text before the optional default suffix and colon.
+    :param default: Value returned on blank input unless None or the empty string.
+    :param display_default: Alternate suffix text, or None to display default itself.
+    :return: Stripped nonempty answer, or stringified default without stripping it.
+    :raises _WizardCancelled: Input reaches EOF or the operator interrupts it.
+    """
 
     shown = display_default if display_default is not None else default
     suffix = "" if shown in (None, "") else " [{}]".format(shown)
@@ -78,6 +141,30 @@ def _prompt_choice(
     *,
     default: int = 1,
 ) -> str:
+    """
+    Display a numbered menu and accept an in-range number or casefolded alias.
+
+    Both labels and values are aliases; later dictionary entries overwrite
+    collisions. Integer-looking input uses only numeric selection, not alias
+    fallback. The default is displayed as recommended but is not range-validated.
+
+    Example:
+        >>> from unittest.mock import patch
+        >>> with patch("builtins.input", return_value="alpha"):
+        ...     selected = _prompt_choice("Backend", (("Alpha", "a"), ("Beta", "b")))
+        Backend
+          1) Alpha (recommended)
+          2) Beta
+        >>> selected
+        'a'
+
+
+    :param label: Heading printed before the numbered choices.
+    :param choices: Ordered (display label, returned value) string pairs.
+    :param default: One-based choice number proposed on blank input.
+    :return: The value associated with an accepted number, label, or value alias.
+    :raises _WizardCancelled: The delegated text prompt reaches EOF or interrupt.
+    """
     print(label)
     for index, (choice_label, _value) in enumerate(choices, start=1):
         marker = " (recommended)" if index == default else ""
@@ -102,6 +189,21 @@ def _prompt_choice(
 
 
 def _prompt_yes_no(label: str, *, default: bool) -> bool:
+    """
+    Ask for case-insensitive yes/no, repeating invalid answers and honoring blank input.
+
+    Example:
+        >>> from unittest.mock import patch
+        >>> with patch("builtins.input", return_value=" YES "):
+        ...     _prompt_yes_no("Apply?", default=False)
+        True
+
+
+    :param label: Question printed with its Y/n or y/N default hint.
+    :param default: Boolean returned unchanged for an empty stripped answer.
+    :return: True for y/yes, False for n/no, or default for blank input.
+    :raises _WizardCancelled: Input reaches EOF or is interrupted.
+    """
     default_text = "Y/n" if default else "y/N"
     while True:
         try:
@@ -118,12 +220,45 @@ def _prompt_yes_no(label: str, *, default: bool) -> bool:
 
 
 def _print_plan(title: str, entries: tuple[tuple[str, object], ...]) -> None:
+    """
+    Print a heading and ordered label/value plan without redacting its values.
+
+    Callers must prepare safe display values before passing credential-bearing data.
+
+    Example:
+        >>> _print_plan("Plan", (("backend", "SQLite"),))
+        <BLANKLINE>
+        Plan
+          backend: SQLite
+
+
+    :param title: Heading preceded by a blank line.
+    :param entries: Ordered labels and values interpolated through normal formatting.
+    :return: None after printing the plan to stdout; output errors propagate.
+    """
     print("\n{}".format(title))
     for label, value in entries:
         print("  {}: {}".format(label, value))
 
 
 def _run_path_wizard(args: argparse.Namespace, backend: str) -> int:
+    """
+    Confirm a system-root layout and hand it to the noninteractive initializer.
+
+    Prompt for root and whether to configure a primary filesystem Store, then show
+    the plan. Only after confirmation mutate args to disable the wizard, select
+    the resolved root/backend, and reset database/store-root choices. Other options
+    remain in args and may still cause later initialization validation failures.
+
+    Example:
+        >>> _run_path_wizard(parsed_init_args, "SQLite")  # doctest: +SKIP
+
+
+    :param args: Mutable init namespace reused by cmd_init after confirmation.
+    :param backend: Chosen path-backed driver spelling, normally SQLite or APSW.
+    :return: The delegated initializer's exit status.
+    :raises _WizardCancelled: Input is interrupted or the operator declines the plan.
+    """
     system_root_text = _prompt_text(
         "LiuXin system root",
         default="./liuxin-system",
@@ -159,6 +294,31 @@ def _run_path_wizard(args: argparse.Namespace, backend: str) -> int:
 
 
 def _run_postgres_wizard(args: argparse.Namespace) -> int:
+    """
+    Collect PostgreSQL connection choices and delegate confirmed schema initialization.
+
+    Require an installed driver, prompt for URL/service and schema, then select
+    system root and an optional environment-file path. Configured URL defaults and
+    the plan use redacted displays, but typed input uses ordinary visible input.
+    The database/login role must already exist; this does not provision the server.
+
+    Confirmation constructs a separate PostgreSQL namespace with full readiness
+    checks enabled and no explicit password. Only a zero initializer result permits
+    writing the optional environment file, requesting include_password=False.
+    Environment-file output or later stderr failures do not undo initialization.
+    This helper itself does not create a layout before confirmation.
+
+    Example:
+        >>> _run_postgres_wizard(parsed_init_args)  # doctest: +SKIP
+
+
+    :param args: Caller init namespace accepted for the wizard interface; its fields
+        are not read or modified by this backend-specific path.
+    :return: Nonzero initializer result converted to int, or zero after optional
+        environment-file publication.
+    :raises ValueError: The PostgreSQL driver is unavailable or delegated validation fails.
+    :raises _WizardCancelled: Input is interrupted or the final plan is declined.
+    """
     if not postgres_driver_is_available():
         raise ValueError(POSTGRES_DRIVER_INSTALL_HINT)
     configured_target = configured_postgres_target()
@@ -304,7 +464,22 @@ def _run_postgres_wizard(args: argparse.Namespace) -> int:
 
 
 def cmd_init_wizard(args: argparse.Namespace) -> int:
-    """Guide one interactive operator through a safe first initialization."""
+    """
+    Choose a backend interactively and translate deliberate wizard cancellation.
+
+    Refuse explicit root/database selectors and non-TTY input before prompting.
+    Dispatch PostgreSQL separately from path-backed backends. Catch only the
+    wizard's cancellation marker; other initialization failures propagate. The
+    cancellation message is not a promise to roll back work already delegated.
+
+    Example:
+        >>> cmd_init_wizard(parsed_empty_init_args)  # doctest: +SKIP
+
+
+    :param args: Init namespace with no explicit system_root/database selection.
+    :return: Delegated backend status, or one after cancellation is reported.
+    :raises ValueError: An explicit location conflicts or stdin is not interactive.
+    """
 
     if args.system_root or args.database:
         raise ValueError("Do not combine --wizard with SYSTEM_ROOT or --database.")
@@ -341,6 +516,26 @@ def _ensure_directory(
     create: bool,
     created: list[str],
 ) -> None:
+    """
+    Accept an existing directory or create it and record only the requested path.
+
+    Parent creation is recursive, but newly made ancestors are not listed separately.
+    Existing permissions are not adjusted, and filesystem races/errors propagate.
+
+    Example:
+        >>> created = []
+        >>> _ensure_directory(Path.cwd(), create=False, created=created)
+        >>> created
+        []
+
+
+    :param path: CLI-host directory required by the planned layout.
+    :param create: Permit mkdir for a path not observed to exist.
+    :param created: Mutable receipt list extended with str(path) only after mkdir succeeds.
+    :return: None when a directory already exists or creation succeeds.
+    :raises ValueError: An existing path is not a directory.
+    :raises FileNotFoundError: The directory is absent and creation is disabled.
+    """
     if path.exists():
         if not path.is_dir():
             raise ValueError("Expected a directory: {!s}".format(path))
@@ -355,6 +550,32 @@ def _ensure_directory(
 
 
 def _layout(args: argparse.Namespace) -> dict[str, Any]:
+    """
+    Resolve a local initialization layout and reject conflicting/unsafe path choices.
+
+    Require exactly one root/database and SQLite/APSW, rejecting no-store/store-root
+    and no-manifest/manifest conflicts. A system root supplies catalogue.sqlite,
+    optional store, materialization, log, and default manifest paths. An explicit
+    database supplies no auxiliary paths unless a Store or manifest is requested.
+
+    Reject directory-valued databases, manifest/database equality, JSON-output
+    equality with either, and databases lexically beneath the resolved Store root.
+    These checks do not cover all hard-link aliases or concurrent path changes.
+    A root's manifest path is still computed/checked when no_manifest suppresses
+    later publication. Nothing is created here.
+
+    Example:
+        >>> layout = _layout(parsed_path_init_args)  # doctest: +SKIP
+        >>> layout["database"].name  # doctest: +SKIP
+        'catalogue.sqlite'
+
+
+    :param args: Init location, driver, Store, manifest, and JSON output selections.
+    :return: Dictionary of system_root/database/store_root/materialization_root/
+        log_directory/manifest Paths, with None for unselected optional locations.
+    :raises ValueError: Selectors conflict, the driver is unsupported, or protected
+        path relationships would place the database at risk.
+    """
     if args.system_root and args.database:
         raise ValueError("Provide SYSTEM_ROOT or --database, not both.")
     if not args.system_root and not args.database:
@@ -420,11 +641,34 @@ def _layout(args: argparse.Namespace) -> dict[str, Any]:
 
 def cmd_init(args: argparse.Namespace) -> int:
     """
-    Execute the `init` CLI command.
+    Initialize a path-backed catalogue/layout, or dispatch interactive backend setup.
+
+    Use the wizard when requested, or when no location is given and stdin is a TTY.
+    Otherwise resolve layout and create required directories first. Mutate args to
+    select the concrete database, clear Core endpoint/root/profile selectors, and
+    compose storage-enabled Core. create is false for an observed existing file,
+    avoiding the database schema-creation path on repeat initialization.
+
+    Query health, optionally save/refresh/select a primary Store, and list Stores.
+    After session exit, replace the selected manifest with mode-0600 output unless
+    disabled, then publish the command report. No transaction spans these steps:
+    directory/database/Store effects and manifest writes remain after later failure.
+    Existing manifests are replaced, not merged with unknown fields.
+
+    Result ok is always true if execution reaches publication; receipts are not
+    generally inspected for failures. Health summary tests shutdown, not receipt.ok,
+    and non-mapping health counts as ok. database_created reflects the earlier file
+    check, and store.saved only tests that a receipt was non-None. Next-action
+    tokens are suggestions, not executed commands.
+
+    Example:
+        >>> cmd_init(parsed_path_init_args)  # doctest: +SKIP
 
 
-    :param args:
-    :return:
+    :param args: Mutable init namespace containing layout, driver, wizard, creation,
+        Store, manifest, and JSON publication controls.
+    :return: Delegated wizard status, or zero after path-backed initialization/output;
+        validation, Core, file, cleanup, and output failures otherwise propagate.
     """
     wants_wizard = bool(args.wizard) or (
         not args.system_root and not args.database and _stdin_is_interactive()
@@ -627,11 +871,22 @@ def build_init_parser(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
     """
-    Build the `init` command-line parser.
+    Register first-run root/database, optional Store, manifest, and wizard options.
+
+    Location is syntactically optional for interactive routing. Backend/path
+    conflicts and suitability are validated by handlers, not during construction;
+    default driver is SQLite and primary Store kind is filesystem.
+
+    Example:
+        >>> parser = argparse.ArgumentParser()
+        >>> build_init_parser(parser.add_subparsers())
+        >>> args = parser.parse_args(["init", "--database", "catalogue.sqlite", "--no-store"])
+        >>> args.db_type, args.no_store
+        ('SQLite', True)
 
 
-    :param subparsers:
-    :return:
+    :param subparsers: Root CLI collection receiving the init leaf and handler.
+    :return: None; all initialization options are declared without filesystem writes.
     """
     parser = subparsers.add_parser(
         "init",

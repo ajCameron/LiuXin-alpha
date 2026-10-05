@@ -1,9 +1,13 @@
 
 """
-Fields are fields in a table (or multiple tables in composite or link form).
+Export canonical scalar and relation field contracts for storage backends.
+
+The package exposes the common field hierarchy, cardinality-specific APIs,
+unique-value specializations and the one-to-one relation update record.
+Constructing caches and performing field writes remain backend operations.
 """
 
-from LiuXin_alpha.caches.api.storage_cache_api.storage_fields_api.base_field import (
+from LiuXin_alpha.caches.api.storage_cache_api.storage_fields_api.base_field_api import (
     FieldBasicInterfaceAPI,
     RelationFieldBasicInterfaceAPI,
     ScalarFieldBasicInterfaceAPI,

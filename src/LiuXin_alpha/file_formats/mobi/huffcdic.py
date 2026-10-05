@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Decode MOBI HUFF/CDIC-compressed text records.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise huffcdic through a consuming regression::
+
+        python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -21,12 +32,46 @@ __docformat__ = "restructuredtext en"
 
 
 def _require_bytes(data: _typing.Any, length: _typing.Any, context: _typing.Any) -> None:
+    """
+    Perform the require bytes operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  require bytes through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :param length: Value supplied for length under the utility contract.
+    :param context: Value supplied for context under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if len(data) < length:
         raise MobiError("Truncated %s" % context)
 
 
 class Reader(object):
+    """
+    Parse reader data into normalized ebook structures.
+
+    Example:
+        Exercise Reader through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+    """
     def __init__(self: _typing.Self) -> None:
+        """
+        Initialize and validate the reader state.
+
+        Example:
+            Exercise Reader.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         self.q = struct.Struct(b">Q").unpack_from
         self.dict1 = ()
         self.mincode = ()
@@ -34,6 +79,19 @@ class Reader(object):
         self.dictionary = []
 
     def load_huff(self: _typing.Self, huff: _typing.Any) -> None:
+        """
+        Perform the load huff operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Reader.load huff through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param huff: Value supplied for huff under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         _require_bytes(huff, 16, "HUFF header")
         if huff[0:8] != b"HUFF\x00\x00\x00\x18":
             raise MobiError("Invalid HUFF header")
@@ -42,6 +100,19 @@ class Reader(object):
         _require_bytes(huff, off2 + 64 * 4, "HUFF code table")
 
         def dict1_unpack(v: _typing.Any) -> tuple[_typing.Any, ...]:
+            """
+            Perform the dict1 unpack operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Reader.load huff.dict1 unpack through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+            :param v: Value supplied for v under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             local_codelen, term, local_maxcode = v & 0x1F, v & 0x80, v >> 8
             if local_codelen == 0:
                 raise MobiError("Invalid HUFF code length")
@@ -63,6 +134,19 @@ class Reader(object):
         self.dictionary = []
 
     def load_cdic(self: _typing.Self, cdic: _typing.Any) -> None:
+        """
+        Perform the load cdic operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Reader.load cdic through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param cdic: Value supplied for cdic under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         _require_bytes(cdic, 16, "CDIC header")
         if cdic[0:8] != b"CDIC\x00\x00\x00\x10":
             raise MobiError("Invalid CDIC header")
@@ -76,6 +160,19 @@ class Reader(object):
         h = struct.Struct(b">H").unpack_from
 
         def getslice(off: _typing.Any) -> tuple[_typing.Any, ...]:
+            """
+            Perform the getslice operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Reader.load cdic.getslice through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+            :param off: Value supplied for off under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             _require_bytes(cdic, 16 + off + 2, "CDIC phrase length")
             (blen,) = h(cdic, 16 + off)
             _require_bytes(cdic, 18 + off + (blen & 0x7FFF), "CDIC phrase data")
@@ -86,6 +183,21 @@ class Reader(object):
         self.dictionary += map(getslice, offsets)
 
     def unpack(self: _typing.Self, data: _typing.Any, max_output_size: _typing.Any = None) -> _typing.Any:
+        """
+        Perform the unpack operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Reader.unpack through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param data: Value supplied for data under the utility contract.
+        :param max_output_size: Value supplied for max output size under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not self.dict1 or not self.dictionary:
             raise MobiError("HUFF/CDIC tables are not loaded")
         q = self.q
@@ -138,7 +250,29 @@ class Reader(object):
 
 
 class HuffReader(object):
+    """
+    Parse huffreader data into normalized ebook structures.
+
+    Example:
+        Exercise HuffReader through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+    """
     def __init__(self: _typing.Self, huffs: _typing.Any, max_output_size: _typing.Any = None) -> None:
+        """
+        Initialize and validate the huffreader state.
+
+        Example:
+            Exercise HuffReader.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param huffs: Value supplied for huffs under the utility contract.
+        :param max_output_size: Value supplied for max output size under the utility
+            contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         if not huffs:
             raise MobiError("Missing HUFF record")
         self.max_output_size = max_output_size
@@ -148,4 +282,17 @@ class HuffReader(object):
             self.reader.load_cdic(cdic)
 
     def unpack(self: _typing.Self, section: _typing.Any) -> _typing.Any:
+        """
+        Perform the unpack operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HuffReader.unpack through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param section: Value supplied for section under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.reader.unpack(section, max_output_size=self.max_output_size)

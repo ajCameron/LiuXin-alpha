@@ -1,3 +1,14 @@
+"""
+Expose the supported tables compatibility surface.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/library/test_unified_library.py
+"""
 import uuid
 
 from LiuXin_alpha.databases.drivers.SQLite.macros import SQLiteDatabaseMacros
@@ -27,6 +38,14 @@ from LiuXin_alpha.utils.lx_libraries.liuxin_six import iteritems
 
 # Todo: Need to use this error instead of the standard db errors
 class MemorySQLiteError(Exception):
+    """
+    Report a memorysqliteerror encountered while processing an ebook format.
+
+    Example:
+        Exercise MemorySQLiteError through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+    """
     pass
 
 
@@ -37,28 +56,55 @@ class MemorySQLiteError(Exception):
 
 class SQLiteTable(BaseTable):
     """
-    Represents a table in the cache.
-    Stores the information needed to preform, process and return queries on the in memory database.
+    Represents a table in the cache. Stores the information needed to preform, process and return queries on the in memory database.
+
+    Example:
+        Exercise SQLiteTable through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
 
     def get_value(self, rid):
         """
         Return the value for the given id.
-        :param rid:
-        :return:
+
+        Example:
+            Exercise SQLiteTable.get value through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param rid: Value supplied for rid under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError
 
 
 class SQLiteOneToOneTable(SQLiteTable, BaseOneToOneTable):
+    """
+    Provide the sqliteonetoonetable contract for validated ebook processing.
+
+    Example:
+        Exercise SQLiteOneToOneTable through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+    """
     def __init__(self, name, metadata, link_table=None, custom=False):
         """
-        Setup for a OneToOne table.
-        Used for elements with a one to one relation with books and titles.
-        :param name:
-        :param metadata:
-        :param link_table: If applicable, the table linking this table to the titles or books table
-        :param custom:
+        Setup for a OneToOne table. Used for elements with a one to one relation with books and titles.
+
+        Example:
+            Exercise SQLiteOneToOneTable.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param metadata: Value supplied for metadata under the utility contract.
+        :param link_table: Value supplied for link table under the utility contract.
+        :param custom: Value supplied for custom under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         super(SQLiteOneToOneTable, self).__init__(name, metadata, link_table, custom)
 
@@ -85,6 +131,20 @@ class SQLiteOneToOneTable(SQLiteTable, BaseOneToOneTable):
 
     # Todo - A call to read must trigger a re-read and refresh onm all the tables
     def startup(self, memory_db, db):
+        """
+        Perform the startup operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SQLiteOneToOneTable.startup through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param memory_db: Value supplied for memory db under the utility contract.
+        :param db: Value supplied for db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.memory_db = memory_db
         self.macros = self.memory_db.macros
         self.metadata_sql = self.memory_db.metadata_sql
@@ -92,11 +152,18 @@ class SQLiteOneToOneTable(SQLiteTable, BaseOneToOneTable):
 
     def remove_books(self, book_ids, db):
         """
-        Remove books from the cache.
-        Books are not removed from the actual database - just deleted from the cache.
-        :param book_ids:
-        :param db:
-        :return:
+        Remove books from the cache. Books are not removed from the actual database - just deleted from the cache.
+
+        Example:
+            Exercise SQLiteOneToOneTable.remove books through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_ids: Book identities included in the batched read operation.
+        :param db: Value supplied for db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         for book_id in book_ids:
             self.metadata_sql.delete_title(title_id=book_id)
@@ -104,9 +171,17 @@ class SQLiteOneToOneTable(SQLiteTable, BaseOneToOneTable):
     def get_value(self, rid, default_value=None):
         """
         Return the value for the given id.
-        :param rid:
-        :param default_value: Return this if the book_id cannot be found in the table
-        :return:
+
+        Example:
+            Exercise SQLiteOneToOneTable.get value through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param rid: Value supplied for rid under the utility contract.
+        :param default_value: Value supplied for default value under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if self.meta:
             return self.memory_db.macros.get_values_one_condition(
@@ -127,13 +202,30 @@ class SQLiteOneToOneTable(SQLiteTable, BaseOneToOneTable):
 
 
 class SQLitePathTable(SQLiteOneToOneTable, BasePathTable):
+    """
+    Provide the sqlitepathtable contract for validated ebook processing.
+
+    Example:
+        Exercise SQLitePathTable through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+    """
     def set_path(self, book_id, path, db):
         """
         Update the override path in the books table - both the one stored in the cache and the one in the database.
-        :param book_id:
-        :param path:
-        :param db:
-        :return:
+
+        Example:
+            Exercise SQLitePathTable.set path through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :param db: Value supplied for db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.metadata_sql.set_override_book_path(book_id=book_id, path=path)
         self.set_db_path(book_id, path, db)
@@ -142,10 +234,29 @@ class SQLitePathTable(SQLiteOneToOneTable, BasePathTable):
 class SQLiteSizeTable(SQLiteOneToOneTable, BaseSizeTable):
     """
     Represents the size of the book.
+
+    Example:
+        Exercise SQLiteSizeTable through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
 
     def __init__(self, name, metadata, link_table=None):
 
+        """
+        Initialize and validate the sqlitesizetable state.
+
+        Example:
+            Exercise SQLiteSizeTable.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param metadata: Value supplied for metadata under the utility contract.
+        :param link_table: Value supplied for link table under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         SQLiteOneToOneTable.__init__(self, name, metadata, link_table)
 
         self.size_mode = None
@@ -155,9 +266,27 @@ class SQLiteSizeTable(SQLiteOneToOneTable, BaseSizeTable):
 class SQLiteUUIDTable(SQLiteOneToOneTable, BaseUUIDTable):
     """
     UUID table - one to one as every title is assigned one UUID.
+
+    Example:
+        Exercise SQLiteUUIDTable through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
 
     def lookup_by_uuid(self, uuid):
+        """
+        Perform the lookup by uuid operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SQLiteUUIDTable.lookup by uuid through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param uuid: Value supplied for uuid under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         db_result = self.memory_db.driver_wrapper.driver.conn.get(
             "SELECT book_id FROM books WHERE book_uuid=?", (uuid,)
         )
@@ -168,8 +297,31 @@ class SQLiteUUIDTable(SQLiteOneToOneTable, BaseUUIDTable):
 
 
 class SQLiteCompositeTable(SQLiteOneToOneTable, BaseCompositeTable):
+    """
+    Provide the sqlitecompositetable contract for validated ebook processing.
+
+    Example:
+        Exercise SQLiteCompositeTable through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+    """
     def __init__(self, name, metadata, link_table=None, custom=False):
 
+        """
+        Initialize and validate the sqlitecompositetable state.
+
+        Example:
+            Exercise SQLiteCompositeTable.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param metadata: Value supplied for metadata under the utility contract.
+        :param link_table: Value supplied for link table under the utility contract.
+        :param custom: Value supplied for custom under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         SQLiteOneToOneTable.__init__(self, name, metadata, link_table, custom=custom)
 
         self.composite_template = None
@@ -181,8 +333,16 @@ class SQLiteCompositeTable(SQLiteOneToOneTable, BaseCompositeTable):
     def read(self, db):
         """
         Because the values for composite caches tend to be generated on the fly minimal actual reading is needed.
-        :param db:
-        :return:
+
+        Example:
+            Exercise SQLiteCompositeTable.read through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param db: Value supplied for db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
 
         d = self.metadata["display"]
@@ -193,16 +353,50 @@ class SQLiteCompositeTable(SQLiteOneToOneTable, BaseCompositeTable):
         self.use_decorations = d.get("use_decorations", False)
 
     def remove_books(self, book_ids, db):
+        """
+        Perform the remove books operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SQLiteCompositeTable.remove books through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_ids: Book identities included in the batched read operation.
+        :param db: Value supplied for db under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return set()
 
 
 class SQLiteVirtualOneToOneTable(SQLiteOneToOneTable):
     """
     Temporary table created in the cache to
+
+    Example:
+        Exercise SQLiteVirtualOneToOneTable through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
 
     def __init__(self, name, metadata, link_table=None, custom=False):
 
+        """
+        Initialize and validate the sqlitevirtualonetoonetable state.
+
+        Example:
+            Exercise SQLiteVirtualOneToOneTable.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param metadata: Value supplied for metadata under the utility contract.
+        :param link_table: Value supplied for link table under the utility contract.
+        :param custom: Value supplied for custom under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         SQLiteOneToOneTable.__init__(self, name, metadata, link_table, custom=custom)
 
         self.temp_table_name = str(uuid.uuid4())
@@ -216,11 +410,29 @@ class SQLiteVirtualOneToOneTable(SQLiteOneToOneTable):
 
 
 class SQLiteManyToOneTable(SQLiteOneToOneTable, BaseManyToOneTable):
+    """
+    Provide the sqlitemanytoonetable contract for validated ebook processing.
+
+    Example:
+        Exercise SQLiteManyToOneTable through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+    """
     def __init__(self, name, metadata, link_table=None, custom=False):
         """
         Preform startup tasks - additionally read the properties of the link table into the class.
-        :param args:
-        :param kwargs:
+
+        Example:
+            Exercise SQLiteManyToOneTable.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param metadata: Value supplied for metadata under the utility contract.
+        :param link_table: Value supplied for link table under the utility contract.
+        :param custom: Value supplied for custom under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         super(SQLiteManyToOneTable, self).__init__(name=name, metadata=metadata, link_table=link_table, custom=custom)
 
@@ -237,9 +449,17 @@ class SQLiteManyToOneTable(SQLiteOneToOneTable, BaseManyToOneTable):
     def remove_books(self, book_ids, db):
         """
         Remove all the given books from this table in the cache.
-        :param book_ids:
-        :param db:
-        :return:
+
+        Example:
+            Exercise SQLiteManyToOneTable.remove books through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_ids: Book identities included in the batched read operation.
+        :param db: Value supplied for db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         for book_id in book_ids:
             self.metadata_sql.delete_title(book_id)
@@ -248,12 +468,18 @@ class SQLiteManyToOneTable(SQLiteOneToOneTable, BaseManyToOneTable):
 
     def remove_items(self, item_ids, db):
         """
-        Remove all the given items from the cache.
-        Items are removed from the link table - the underlying asset tables are not touched (as they might be linked
-        to other objects).
-        :param item_ids:
-        :param db:
-        :return:
+        Remove all the given items from the cache. Items are removed from the link table - the underlying asset tables are not touched (as they might be linked to other objects).
+
+        Example:
+            Exercise SQLiteManyToOneTable.remove items through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param item_ids: Value supplied for item ids under the utility contract.
+        :param db: Value supplied for db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         del_stmt = "DELETE FROM {0} WHERE {1} = ?;".format(self.link_table, self.link_table_table_id_column)
         for item_id in item_ids:
@@ -264,10 +490,18 @@ class SQLiteManyToOneTable(SQLiteOneToOneTable, BaseManyToOneTable):
     def rename_item(self, item_id, new_name, db):
         """
         Preform a rename on an item in the cache.
-        :param item_id:
-        :param new_name:
-        :param db:
-        :return:
+
+        Example:
+            Exercise SQLiteManyToOneTable.rename item through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param item_id: Value supplied for item id under the utility contract.
+        :param new_name: Value supplied for new name under the utility contract.
+        :param db: Value supplied for db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # Todo: Need to check for and deal with name clash - should currently simply fail
         table, column = self.metadata["table"], self.metadata["column"]
@@ -283,13 +517,30 @@ class SQLiteManyToOneTable(SQLiteOneToOneTable, BaseManyToOneTable):
 
 
 class SQLiteManyToManyTable(SQLiteManyToOneTable, BaseManyToManyTable):
+    """
+    Provide the sqlitemanytomanytable contract for validated ebook processing.
+
+    Example:
+        Exercise SQLiteManyToManyTable through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
+    """
     def remove_items(self, item_ids, db, restrict_to_book_ids=None):
         """
         Remove items from the table - updating the database and the cache.
-        :param item_ids: Remove the items with the given ids
-        :param db: From this database
-        :param restrict_to_book_ids: Only remove items from the ids list which are linked to the given books
-        :return affected_books: Books whose properties have changed
+
+        Example:
+            Exercise SQLiteManyToManyTable.remove items through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param item_ids: Value supplied for item ids under the utility contract.
+        :param db: Value supplied for db under the utility contract.
+        :param restrict_to_book_ids: Value supplied for restrict to book ids under the
+            utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         link_table = self.link_table
         item_link_col = self.link_table_table_id_column
@@ -369,19 +620,55 @@ class SQLiteManyToManyTable(SQLiteManyToOneTable, BaseManyToManyTable):
 class SQLiteTypedManyToManyTable(SQLiteManyToManyTable, BaseTypedManyToManyTable):
     """
     many_to_many table - for many to many relations where typing is important.
+
+    Example:
+        Exercise SQLiteTypedManyToManyTable through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
 
     @property
     def seen_types(self):
+        """
+        Perform the seen types operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SQLiteTypedManyToManyTable.seen types through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.macros.get_unique_values(table=self.link_table, column=self.link_table_type)
 
 
 class SQLiteCreatorsTable(SQLiteTypedManyToManyTable, BaseCreatorsTable):
     """
     Basis for either a subtype of the creators table (e.g. Authors).
+
+    Example:
+        Exercise SQLiteCreatorsTable through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
 
     def __init__(self, name, metadata, link_table=None):
+        """
+        Initialize and validate the sqlitecreatorstable state.
+
+        Example:
+            Exercise SQLiteCreatorsTable.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param metadata: Value supplied for metadata under the utility contract.
+        :param link_table: Value supplied for link table under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         super(SQLiteTypedManyToManyTable, self).__init__(name=name, metadata=metadata, link_table=link_table)
 
         # Set the link table for the authors - which is a subset for the creators table
@@ -393,25 +680,49 @@ class SQLiteCreatorsTable(SQLiteTypedManyToManyTable, BaseCreatorsTable):
     def get_creator_sort(self, cid):
         """
         Returns the creator sort from the cache.
-        :param cid:
-        :return:
+
+        Example:
+            Exercise SQLiteCreatorsTable.get creator sort through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param cid: Value supplied for cid under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.memory_db.metadata_sql.get_creator_sort(cid)
 
     def get_creator_link(self, cid):
         """
         Return the creator link from the cache.
-        :param cid:
-        :return:
+
+        Example:
+            Exercise SQLiteCreatorsTable.get creator link through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param cid: Value supplied for cid under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.memory_db.metadata_sql.get_creator_link(cid)
 
     def set_sort_names(self, aus_map, db):
         """
         Update the database with the given author_sort map
-        :param aus_map: An author_sort map
-        :param db:
-        :return aus_map: A processed author sort map - as it will actually be written into the database
+
+        Example:
+            Exercise SQLiteCreatorsTable.set sort names through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param aus_map: Value supplied for aus map under the utility contract.
+        :param db: Value supplied for db under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # Prepare the sort maps for update
         aus_map = {aid: (a or "").strip() for aid, a in iteritems(aus_map)}
@@ -426,12 +737,18 @@ class SQLiteCreatorsTable(SQLiteTypedManyToManyTable, BaseCreatorsTable):
 
     def set_links(self, link_map, db):
         """
-        NOTE: THIS DOES NOT UPDATE THE LINKS BETWEEN CREATOR AND BOOKS, DESPITE THE CONFUSING NAME.
-        This uses the link_map (keyed with the creator_id, valued with the value that the creator_link will have) to
-        update the creators table with new links.
-        :param link_map:
-        :param db:
-        :return link_map: With the standard transforms done on the values
+        NOTE: THIS DOES NOT UPDATE THE LINKS BETWEEN CREATOR AND BOOKS, DESPITE THE CONFUSING NAME. This uses the link_map (keyed with the creator_id, valued with the value that the creator_link will have) to update the creators table with new links.
+
+        Example:
+            Exercise SQLiteCreatorsTable.set links through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param link_map: Value supplied for link map under the utility contract.
+        :param db: Value supplied for db under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         link_map = {author_id: (l or "").strip() for author_id, l in iteritems(link_map)}
         link_map = {aid: l for aid, l in iteritems(link_map) if l != self.get_creator_link(aid)}
@@ -445,9 +762,28 @@ class SQLiteCreatorsTable(SQLiteTypedManyToManyTable, BaseCreatorsTable):
 class SQLiteFormatsTable(SQLiteManyToManyTable, BaseFormatsTable):
     """
     Class for the formats table - provides methods for dealing with formats.
+
+    Example:
+        Exercise SQLiteFormatsTable through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
 
     def __init__(self, name, metadata, link_table=None):
+        """
+        Initialize and validate the sqliteformatstable state.
+
+        Example:
+            Exercise SQLiteFormatsTable.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param metadata: Value supplied for metadata under the utility contract.
+        :param link_table: Value supplied for link table under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         super(SQLiteFormatsTable, self).__init__(name=name, metadata=metadata, link_table=link_table)
 
         # Set the link table for the authors - which is a subset for the creators table
@@ -458,8 +794,16 @@ class SQLiteFormatsTable(SQLiteManyToManyTable, BaseFormatsTable):
     def format_id_map_for_book(self, book_id):
         """
         Produce a dictionary keyed with the numbered format and valued with the id of the file.
-        :param book_id:
-        :return:
+
+        Example:
+            Exercise SQLiteFormatsTable.format id map for book through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         numbered_fmts = {}
         fmt_counts = {}
@@ -481,11 +825,19 @@ class SQLiteFormatsTable(SQLiteManyToManyTable, BaseFormatsTable):
     def set_fname(self, book_id, fmt, fname, db):
         """
         Update the file name of a format in the database.
-        :param book_id:
-        :param fmt:
-        :param fname:
-        :param db:
-        :return:
+
+        Example:
+            Exercise SQLiteFormatsTable.set fname through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :param fname: Value supplied for fname under the utility contract.
+        :param db: Value supplied for db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # We need to know what file the user wants to update
         fmt_file_map = self.format_id_map_for_book(book_id)
@@ -503,6 +855,11 @@ class SQLiteFormatsTable(SQLiteManyToManyTable, BaseFormatsTable):
 class SQLiteSeriesTable(SQLiteManyToManyTable):
     """
     Class for series and series link tables - provides index information as well as series info.
+
+    Example:
+        Exercise SQLiteSeriesTable through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
 
     pass

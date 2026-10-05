@@ -1,17 +1,27 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Normalize source markup before it enters the conversion pipeline.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise preprocess through a consuming regression::
+
+        python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+"""
 from __future__ import annotations
 
-import typing as _typing
 import functools
-import re
 import json
-
-from LiuXin_alpha.utils.text import entity_to_unicode, as_unicode
+import re
+import typing as _typing
 
 # Py2/Py3
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.text import as_unicode, entity_to_unicode
 
 __license__ = "GPL v3"
 __copyright__ = "2009, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -54,12 +64,38 @@ _ligpat = re.compile("|".join(LIGATURES))
 
 
 def sanitize_head(match: _typing.Any) -> _typing.Any:
+    """
+    Perform the sanitize head operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise sanitize head through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+    :param match: Value supplied for match under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     x = match.group(1)
     x = _span_pat.sub("", x)
     return "<head>\n%s\n</head>" % x
 
 
 def chap_head(match: _typing.Any) -> _typing.Any:
+    """
+    Perform the chap head operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise chap head through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+    :param match: Value supplied for match under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     chap = match.group("chap")
     title = match.group("title")
     if not title:
@@ -69,6 +105,19 @@ def chap_head(match: _typing.Any) -> _typing.Any:
 
 
 def wrap_lines(match: _typing.Any) -> _typing.Any:
+    """
+    Perform the wrap lines operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise wrap lines through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+    :param match: Value supplied for match under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     ital = match.group("ital")
     if not ital:
         return " "
@@ -78,10 +127,25 @@ def wrap_lines(match: _typing.Any) -> _typing.Any:
 
 def smarten_punctuation(html: _typing.Any, log: _typing.Any) -> _typing.Any:
 
+    """
+    Perform the smarten punctuation operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise smarten punctuation through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+    :param html: Value supplied for html under the utility contract.
+    :param log: Value supplied for log under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     from uuid import uuid4
-    from LiuXin_alpha.utils.libraries.smartypants import smartyPants
-    from LiuXin_alpha.file_formats.chardet import substitute_entites
+
     from LiuXin_alpha.file_formats.conversion.utils import HeuristicProcessor
+    from LiuXin_alpha.utils.libraries.calibre_chardet import substitute_entites
+    from LiuXin_alpha.utils.libraries.smartypants import smartyPants
 
     preprocessor = HeuristicProcessor(log=log)
     start = "calibre-smartypants-" + str(uuid4())
@@ -101,13 +165,28 @@ def smarten_punctuation(html: _typing.Any, log: _typing.Any) -> _typing.Any:
 
 class DocAnalysis(object):
     """
-    Provides various text analysis functions to determine how the document is structured.
-    format is the type of document analysis will be done against.
-    raw is the raw text to determine the line length to use for wrapping.
-    Blank lines are excluded from analysis
+    Provides various text analysis functions to determine how the document is structured. format is the type of document analysis will be done against. raw is the raw text to determine the line length to use for wrapping. Blank lines are excluded from analysis
+
+    Example:
+        Exercise DocAnalysis through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
     """
 
     def __init__(self: _typing.Self, format: str = "html", raw: str = "") -> None:
+        """
+        Initialize and validate the docanalysis state.
+
+        Example:
+            Exercise DocAnalysis.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+        :param format: Value supplied for format under the utility contract.
+        :param raw: Value supplied for raw under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         raw = raw.replace("&nbsp;", " ")
         linere = None
         if format == "html":
@@ -122,13 +201,17 @@ class DocAnalysis(object):
 
     def line_length(self: _typing.Self, percent: _typing.Any) -> _typing.Any:
         """
-        Analyses the document to find the median line length.
-        percentage is a decimal number, 0 - 1 which is used to determine
-        how far in the list of line lengths to use. The list of line lengths is
-        ordered smallest to larged and does not include duplicates. 0.5 is the
-        median value.
-        :param percent:
-        :return:
+        Analyses the document to find the median line length. percentage is a decimal number, 0 - 1 which is used to determine how far in the list of line lengths to use. The list of line lengths is ordered smallest to larged and does not include duplicates. 0.5 is the median value.
+
+        Example:
+            Exercise DocAnalysis.line length through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+        :param percent: Value supplied for percent under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         lengths = []
         for line in self.lines:
@@ -159,14 +242,17 @@ class DocAnalysis(object):
 
     def line_histogram(self: _typing.Self, percent: _typing.Any) -> bool:
         """
-        Creates a broad histogram of the document to determine whether it incorporates hard
-        line breaks.  Lines are sorted into 20 'buckets' based on length.
-        percent is the percentage of lines that should be in a single bucket to return true
-        The majority of the lines will exist in 1-2 buckets in typical docs with hard line breaks
-        Hard line breaks are line breaks hard coded at the end of every line - this are often undesirable and should be
-        removed.
-        :param percent:
-        :return:
+        Creates a broad histogram of the document to determine whether it incorporates hard line breaks. Lines are sorted into 20 'buckets' based on length. percent is the percentage of lines that should be in a single bucket to return true The majority of the lines will exist in 1-2 buckets in typical docs with hard line breaks Hard line breaks are line breaks hard coded at the end of every line - this are often undesirable and should be removed.
+
+        Example:
+            Exercise DocAnalysis.line histogram through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+        :param percent: Value supplied for percent under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         min_line_length = 20  # Ignore lines under 20 chars (typical of spaces)
         max_line_length = 1900  # Discard larger than this to stay in range
@@ -213,13 +299,28 @@ class DocAnalysis(object):
 
 class Dehyphenator(object):
     """
-    Analyzes words to determine whether hyphens should be retained/removed.  Uses the document
-    itself is as a dictionary. This method handles all languages along with uncommon, made-up, and
-    scientific words. The primary disadvantage is that words appearing only once in the document
-    retain hyphens.
+    Analyzes words to determine whether hyphens should be retained/removed. Uses the document itself is as a dictionary. This method handles all languages along with uncommon, made-up, and scientific words. The primary disadvantage is that words appearing only once in the document retain hyphens.
+
+    Example:
+        Exercise Dehyphenator through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
     """
 
     def __init__(self: _typing.Self, verbose: int = 0, log: _typing.Any = None) -> None:
+        """
+        Initialize and validate the dehyphenator state.
+
+        Example:
+            Exercise Dehyphenator.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+        :param verbose: Value supplied for verbose under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.log = log
         self.verbose = verbose
         # Add common suffixes to the regex below to increase the likelihood of a match -
@@ -238,6 +339,19 @@ class Dehyphenator(object):
         self.removeprefix = re.compile(r"%s" % self.prefix_string, re.IGNORECASE)
 
     def dehyphenate(self: _typing.Self, match: _typing.Any) -> _typing.Any:
+        """
+        Perform the dehyphenate operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Dehyphenator.dehyphenate through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+        :param match: Value supplied for match under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         firsthalf = match.group("firstpart")
         secondhalf = match.group("secondpart")
         try:
@@ -296,6 +410,21 @@ class Dehyphenator(object):
                 return hyphenated
 
     def __call__(self: _typing.Self, html: _typing.Any, format: _typing.Any, length: int = 1) -> _typing.Any:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Dehyphenator.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+        :param html: Value supplied for html under the utility contract.
+        :param format: Value supplied for format under the utility contract.
+        :param length: Value supplied for length under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.html = html
         self.format = format
         if format == "html":
@@ -338,6 +467,14 @@ class Dehyphenator(object):
 class CSSPreProcessor(object):
 
     # Remove some of the broken CSS Microsoft products create
+    """
+    Provide the csspreprocessor contract for validated ebook processing.
+
+    Example:
+        Exercise CSSPreProcessor through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+    """
     MS_PAT = re.compile(
         r"""
         (?P<start>^|;|\{)\s*    # The end of the previous rule or block start
@@ -349,6 +486,19 @@ class CSSPreProcessor(object):
     )
 
     def ms_sub(self: _typing.Self, match: _typing.Any) -> _typing.Any:
+        """
+        Perform the ms sub operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CSSPreProcessor.ms sub through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+        :param match: Value supplied for match under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         end = match.group("end")
         try:
             start = match.group("start")
@@ -359,6 +509,20 @@ class CSSPreProcessor(object):
         return start + end
 
     def __call__(self: _typing.Self, data: _typing.Any, add_namespace: bool = False) -> _typing.Any:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CSSPreProcessor.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+        :param data: Value supplied for data under the utility contract.
+        :param add_namespace: Value supplied for add namespace under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.file_formats.oeb.base import XHTML_CSS_NAMESPACE
 
         data = self.MS_PAT.sub(self.ms_sub, data)
@@ -390,6 +554,14 @@ class CSSPreProcessor(object):
 
 class HTMLPreProcessor(object):
 
+    """
+    Provide the htmlpreprocessor contract for validated ebook processing.
+
+    Example:
+        Exercise HTMLPreProcessor through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+    """
     PREPROCESS = [
         # Remove huge block of contiguous spaces as they slow down
         # the following regexes pretty badly
@@ -577,6 +749,21 @@ class HTMLPreProcessor(object):
     ]
 
     def __init__(self: _typing.Self, log: _typing.Any = None, extra_opts: _typing.Any = None, regex_wizard_callback: _typing.Any = None) -> None:
+        """
+        Initialize and validate the htmlpreprocessor state.
+
+        Example:
+            Exercise HTMLPreProcessor.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+        :param log: Value supplied for log under the utility contract.
+        :param extra_opts: Value supplied for extra opts under the utility contract.
+        :param regex_wizard_callback: Value supplied for regex wizard callback under the
+            utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.log = log
         self.extra_opts = extra_opts
         self.regex_wizard_callback = regex_wizard_callback
@@ -585,23 +772,66 @@ class HTMLPreProcessor(object):
     def is_baen(self: _typing.Self, src: _typing.Any) -> bool:
         """
         Was the book produced by Baen books?
-        :param src:
-        :return:
+
+        Example:
+            Exercise HTMLPreProcessor.is baen through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+        :param src: Value supplied for src under the utility contract.
+        :return: True when the documented condition holds; otherwise False.
         """
         return re.compile(r'<meta\s+name="Publisher"\s+content=".*?Baen.*?"', re.IGNORECASE).search(src) is not None
 
     def is_book_designer(self: _typing.Self, raw: _typing.Any) -> bool:
+        """
+        Return whether is book designer holds for the supplied ebook data.
+
+        Example:
+            Exercise HTMLPreProcessor.is book designer through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+        :param raw: Value supplied for raw under the utility contract.
+        :return: True when the documented condition holds; otherwise False.
+        """
         return re.search("<H2[^><]*id=BookTitle", raw) is not None
 
     def is_pdftohtml(self: _typing.Self, src: _typing.Any) -> bool:
         """
         Was the book produced by calibre's pdftohtml?
-        :param src:
-        :return:
+
+        Example:
+            Exercise HTMLPreProcessor.is pdftohtml through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+        :param src: Value supplied for src under the utility contract.
+        :return: True when the documented condition holds; otherwise False.
         """
         return "<!-- created by calibre's pdftohtml -->" in src[:1000]
 
     def __call__(self: _typing.Self, html: _typing.Any, remove_special_chars: _typing.Any = None, get_preprocess_html: bool = False) -> _typing.Any:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HTMLPreProcessor.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+        :param html: Value supplied for html under the utility contract.
+        :param remove_special_chars: Value supplied for remove special chars under the
+            utility contract.
+        :param get_preprocess_html: Value supplied for get preprocess html under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if remove_special_chars is not None:
             html = remove_special_chars.sub("", html)
         html = html.replace("\0", "")
@@ -635,6 +865,22 @@ class HTMLPreProcessor(object):
 
         # Function for processing search and replace
         def do_search_replace(local_search_pattern: _typing.Any, local_replace_txt: _typing.Any) -> None:
+            """
+            Perform the do search replace operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise HTMLPreProcessor.  call  .do search replace through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+            :param local_search_pattern: Value supplied for local search pattern under the
+                utility contract.
+            :param local_replace_txt: Value supplied for local replace txt under the utility
+                contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             try:
                 search_re = re.compile(local_search_pattern)
                 if not local_replace_txt:
@@ -709,6 +955,20 @@ class HTMLPreProcessor(object):
 
         # Used during debug
         def dump(raw: _typing.Any, where: _typing.Any) -> None:
+            """
+            Perform the dump operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise HTMLPreProcessor.  call  .dump through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+            :param raw: Value supplied for raw under the utility contract.
+            :param where: Value supplied for where under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             import os
 
             dp = getattr(self.extra_opts, "debug_pipeline", None)
@@ -763,8 +1023,8 @@ class HTMLPreProcessor(object):
         html = XMLDECL_RE.sub("", html)
 
         if getattr(self.extra_opts, "asciiize", False):
-            from LiuXin_alpha.utils.localization import get_udc
             from LiuXin_alpha.utils.libraries.mreplace import MReplace
+            from LiuXin_alpha.utils.localization import get_udc
 
             unihandecoder = get_udc()
             mr = MReplace(data={"«": "&lt;" * 3, "»": "&gt;" * 3})

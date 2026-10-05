@@ -1,11 +1,14 @@
 """
-LiuXin-aware storage-manager contracts and public domain values.
+Expose the composed storage-manager API, domain values, and compatibility ports.
 
-The facade is composed from small responsibility-specific APIs ordered along
-the normal application journey. Store plugins own byte mechanics; manager
-components own Asset identity, Replica claims, provenance, policy, and
-operator workflows. Persistence ports are re-exported for compatibility but
-database rows never form part of the consumer-facing contract.
+Store plugins own byte mechanics; manager components coordinate Asset identity,
+Replica claims, provenance, policy, and operator workflows. StorageManagerAPI
+combines those contracts with convenience methods accepting ordinary caller
+values. Its own methods only provide context-manager entry and delegated close.
+
+Persistence protocols are identity-preserving re-exports from persistence_api
+for existing adapters. Application callers should use manager operations;
+database rows and raw driver addresses do not form this facade's value contract.
 """
 
 from __future__ import annotations
@@ -131,6 +134,7 @@ from LiuXin_alpha.storage.api.storage_manager_api.router_api import StorageRoute
 from LiuXin_alpha.storage.api.storage_manager_api.stores_api import StoreAdministrationAPI
 
 
+# Todo: Would be clearer to have an explicit __init__ method
 class StorageManagerAPI(
     StorageConvenienceAPI,
     StoreAdministrationAPI,
@@ -148,38 +152,43 @@ class StorageManagerAPI(
     abc.ABC,
 ):
     """
-    Complete manager facade over storage domain values and configured Stores.
+    Combine manager workflows, domain records, and caller conveniences.
 
-    The component order follows the normal application journey: configure
-    Stores, route bytes, register and ingest Assets, retrieve and manage their
-    Replicas, assemble higher-level records, apply policy, then inspect or
-    reconcile operational state.
+    The component order follows Store configuration, byte routing, Asset registration/ingest,
+    Replica retrieval/lifecycle, logical relationships, policy, and operational reconciliation. That
+    order also controls Python method resolution. Concrete managers supply the abstract operations;
+    inherited conveniences delegate through those operations rather than exposing database rows or
+    raw driver addresses.
 
-    Concrete managers orchestrate byte publication and domain repositories.
-    Database records, ORM models, and raw driver addresses do not cross this
-    boundary. Concrete convenience methods accept ordinary bytes, paths, IDs,
-    records, and keyword metadata, then delegate to the explicit domain
-    methods. The context manager closes configured Stores on exit.
-
-    The facade's mixin order is architectural documentation as well as Python
-    method resolution order. Implementations should mirror it when composing
-    responsibility slices so contract and implementation remain easy to
-    navigate together.
+    Context entry returns the existing manager without starting or probing Stores. Exit delegates to
+    close regardless of the body's outcome and never suppresses its exception. Store shutdown and
+    cleanup failures follow the concrete close implementation; this wrapper provides no transaction,
+    publication rollback, or suppression of close errors.
 
     Example:
-        >>> def read_asset(manager: StorageManagerAPI, asset_id: int) -> bytes:
-        ...     return manager.read_file(asset_id)
+        >>> from LiuXin_alpha.storage.storage_manager import TransientStorageManager
+        >>> with TransientStorageManager() as manager:
+        ...     isinstance(manager, StorageManagerAPI)
+        True
     """
 
+    # Todo: Given the constraints... why does this method exist?
     def __enter__(self) -> StorageManagerAPI:
         """
-        Enter the manager lifetime and return this manager.
+        Return this manager without starting Stores or opening a transaction.
+
+        All initialization and resource setup remain with the concrete manager and its callers; this
+        method does not check whether the manager was closed.
 
         Example:
-            >>> entered = manager.__enter__()  # doctest: +SKIP
+            >>> from LiuXin_alpha.storage.storage_manager import TransientStorageManager
+            >>> manager = TransientStorageManager()
+            >>> manager.__enter__() is manager
+            True
+            >>> manager.close()
 
 
-        :return:
+        :return: This same manager instance for use in the context body.
         """
 
         return self
@@ -191,16 +200,20 @@ class StorageManagerAPI(
         traceback: TracebackType | None,
     ) -> None:
         """
-        Close configured Stores when leaving the manager context.
+        Close the manager on both normal and exceptional context exit.
+
+        Ignore the supplied exception details and call self.close dynamically. Returning None leaves
+        a body exception unsuppressed. A close failure propagates and can replace it as the active
+        exception; no cleanup retry or transaction rollback is implemented by this wrapper.
 
         Example:
             >>> manager.__exit__(None, None, None)  # doctest: +SKIP
 
 
-        :param exc_type:
-        :param exc:
-        :param traceback:
-        :return:
+        :param exc_type: Exception type from the context body, or None on normal exit; ignored by this wrapper.
+        :param exc: Exception instance from the body, or None; not inspected or forwarded to close.
+        :param traceback: Body exception traceback, or None; not inspected by the wrapper.
+        :return: None after close succeeds, without suppressing an exception from the context body.
         """
 
         self.close()

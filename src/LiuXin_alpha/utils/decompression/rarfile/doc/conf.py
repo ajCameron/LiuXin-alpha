@@ -11,6 +11,17 @@
 # All configuration values have a default; values that are commented out
 # serve to show the default.
 
+"""
+Configure documentation generation for the bundled rarfile compatibility package.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise conf through a consuming regression::
+
+        python -m pytest -q tests/utils/decompression/test_archives.py
+"""
 import sys, os, os.path
 
 # If extensions (or modules to document with autodoc) are in another directory,

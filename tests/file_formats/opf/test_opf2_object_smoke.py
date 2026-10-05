@@ -1,7 +1,13 @@
 """
-Smoke tests for opf2.OPF object.
+Provide test opf2 object smoke utility behavior.
 
-Uses the legacy alias shim so import succeeds even before cleanup.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test opf2 object smoke through a consuming regression::
+
+        python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
 """
 
 from __future__ import annotations
@@ -37,11 +43,39 @@ OPF2_MINIMAL = b"""<?xml version='1.0' encoding='utf-8'?>
 
 
 def _dc_text(root: etree._Element, tag: str) -> str | None:
+    """
+    Perform the dc text operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  dc text through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param tag: Value supplied for tag under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     el = root.find(f".//{{{DC_NS}}}{tag}")
     return el.text if el is not None else None
 
 
 def test_opf2_construct_render_and_to_book_metadata_smoke(legacy_liuxin_alias) -> None:
+    """
+    Perform the test opf2 construct render and to book metadata smoke operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test opf2 construct render and to book metadata smoke through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf2_object_smoke.py
+
+
+    :param legacy_liuxin_alias: Value supplied for legacy liuxin alias under the utility
+        contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     opf2 = importlib.import_module("LiuXin_alpha.file_formats.opf.opf2")
     OPF = getattr(opf2, "OPF")
     pretty_print = getattr(opf2, "pretty_print")

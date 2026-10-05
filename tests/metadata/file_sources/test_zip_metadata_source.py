@@ -1,3 +1,14 @@
+"""
+Verify ZIP metadata member dispatch and fallback behavior.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test zip metadata source through its owning regression module::
+
+        python -m pytest -q tests/metadata/file_sources/test_zip_metadata_source.py
+"""
 from __future__ import annotations
 
 import io
@@ -11,6 +22,18 @@ from LiuXin_alpha.metadata.utils import calibreMetaInformation
 
 
 def _values(raw):
+    """
+    Perform the values test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise values through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_zip_metadata_source.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     if raw is None:
         return []
     if isinstance(raw, Mapping):
@@ -24,15 +47,53 @@ def _values(raw):
 
 
 def _first(raw):
+    """
+    Perform the first test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise first through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_zip_metadata_source.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     vals = _values(raw)
     return vals[0] if vals else None
 
 
 def _make_md(title: str, authors: list[str] | None = None):
+    """
+    Perform the make md test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise make md through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_zip_metadata_source.py
+
+
+    :param title: Value supplied for title in the focused test operation.
+    :param authors: Value supplied for authors in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return calibreMetaInformation(title, authors or ["Unknown"])
 
 
 def _zip_bytes(entries: dict[str, bytes], *, comment: bytes = b"") -> bytes:
+    """
+    Perform the zip bytes test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise zip bytes through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_zip_metadata_source.py
+
+
+    :param entries: Value supplied for entries in the focused test operation.
+    :param comment: Value supplied for comment in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     out = io.BytesIO()
     with zipfile.ZipFile(out, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         for name, payload in entries.items():
@@ -42,6 +103,18 @@ def _zip_bytes(entries: dict[str, bytes], *, comment: bytes = b"") -> bytes:
 
 
 def _snapshot(md) -> dict:
+    """
+    Perform the snapshot test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise snapshot through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_zip_metadata_source.py
+
+
+    :param md: Value supplied for md in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     identifiers = {}
     try:
         identifiers = {str(k): sorted(str(v) for v in vals) for k, vals in (md.get_identifiers() or {}).items()}
@@ -57,12 +130,36 @@ def _snapshot(md) -> dict:
 
 
 def test_zip_metadata_module_import_smoke() -> None:
+    """
+    Verify zip metadata module import smoke.
+
+    Example:
+        Exercise test zip metadata module import smoke through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_zip_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.zip as zip_md
 
     assert zip_md is not None
 
 
 def test_zip_reader_plugin_is_available_and_preserves_stream_position(monkeypatch) -> None:
+    """
+    Verify zip reader plugin remains available and preserves stream position.
+
+    Example:
+        Exercise test zip reader plugin is available and preserves stream position through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_zip_metadata_source.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.customize.builtins.metadata_readers import get_metadata_reader_plugins
     import LiuXin_alpha.metadata.file_sources.zip as zip_md
 
@@ -74,6 +171,19 @@ def test_zip_reader_plugin_is_available_and_preserves_stream_position(monkeypatc
     seen = {}
 
     def _fake_dispatch(target, *, force_type: str):
+        """
+        Perform the fake dispatch test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test zip reader plugin is available and preserves stream position.fake dispatch through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_zip_metadata_source.py
+
+
+        :param target: Container or object receiving hydrated metadata.
+        :param force_type: Value supplied for force type in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         seen["force_type"] = force_type
         seen["target_name"] = getattr(target, "name", "")
         seen["payload"] = target.read()
@@ -98,6 +208,19 @@ def test_zip_reader_plugin_is_available_and_preserves_stream_position(monkeypatc
 
 
 def test_zip_get_metadata_routes_comic_archive_to_cbz(monkeypatch) -> None:
+    """
+    Verify zip get metadata routes comic archive to cbz.
+
+    Example:
+        Exercise test zip get metadata routes comic archive to cbz through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_zip_metadata_source.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.zip as zip_md
 
     payload = _zip_bytes({"page001.jpg": b"img1", "page002.png": b"img2"})
@@ -107,6 +230,19 @@ def test_zip_get_metadata_routes_comic_archive_to_cbz(monkeypatch) -> None:
     seen = {}
 
     def _fake_dispatch(target, *, force_type: str):
+        """
+        Perform the fake dispatch test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test zip get metadata routes comic archive to cbz.fake dispatch through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_zip_metadata_source.py
+
+
+        :param target: Container or object receiving hydrated metadata.
+        :param force_type: Value supplied for force type in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         seen["force_type"] = force_type
         seen["target"] = target
         return _make_md("Comic Title", ["Artist One"])
@@ -121,6 +257,19 @@ def test_zip_get_metadata_routes_comic_archive_to_cbz(monkeypatch) -> None:
 
 
 def test_zip_get_metadata_extracts_first_supported_member(monkeypatch) -> None:
+    """
+    Verify zip get metadata extracts first supported member.
+
+    Example:
+        Exercise test zip get metadata extracts first supported member through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_zip_metadata_source.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.zip as zip_md
 
     payload = _zip_bytes(
@@ -134,6 +283,19 @@ def test_zip_get_metadata_extracts_first_supported_member(monkeypatch) -> None:
     stream.name = "bundle.zip"
 
     def _fake_dispatch(target, *, force_type: str):
+        """
+        Perform the fake dispatch test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test zip get metadata extracts first supported member.fake dispatch through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_zip_metadata_source.py
+
+
+        :param target: Container or object receiving hydrated metadata.
+        :param force_type: Value supplied for force type in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         assert force_type == "epub"
         assert getattr(target, "name", "") == "book.epub"
         assert target.read() == b"epub-bytes"
@@ -151,6 +313,17 @@ def test_zip_get_metadata_extracts_first_supported_member(monkeypatch) -> None:
 
 
 def test_zip_get_metadata_raises_for_archive_with_no_supported_members() -> None:
+    """
+    Verify zip get metadata raises for archive with no supported members.
+
+    Example:
+        Exercise test zip get metadata raises for archive with no supported members through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_zip_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.zip as zip_md
 
     payload = _zip_bytes({"readme.txt": b"text", "images/page.jpg": b"img"})
@@ -162,6 +335,20 @@ def test_zip_get_metadata_raises_for_archive_with_no_supported_members() -> None
 
 
 def test_zip_get_metadata_accepts_pathlike_input(tmp_path: Path, monkeypatch) -> None:
+    """
+    Verify zip get metadata accepts pathlike input.
+
+    Example:
+        Exercise test zip get metadata accepts pathlike input through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_zip_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.zip as zip_md
 
     archive_path = tmp_path / "sample.zip"
@@ -175,6 +362,19 @@ def test_zip_get_metadata_accepts_pathlike_input(tmp_path: Path, monkeypatch) ->
 
 
 def test_zip_md_fixtures_smoke_and_deterministic(md_test_fixture) -> None:
+    """
+    Verify zip md fixtures smoke and deterministic.
+
+    Example:
+        Exercise test zip md fixtures smoke and deterministic through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_zip_metadata_source.py
+
+
+    :param md_test_fixture: Value supplied for md test fixture in the focused test
+        operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.zip as zip_md
 
     fixture = md_test_fixture(file_ext="zip", file_num=3, verify_hash=True)

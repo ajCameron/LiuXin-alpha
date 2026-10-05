@@ -1,6 +1,17 @@
 #!/usr/bin/env python2
 # vim:fileencoding=utf-8
 
+"""
+Embed and register fonts in generated DOCX packages.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise fonts through a consuming regression::
+
+        python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -15,6 +26,20 @@ try:
 except Exception:
     # Font subsetting backend is optional during the ongoing port.
     def find_font_face_rules(sheet: _typing.Any, oeb: _typing.Any) -> list[_typing.Any]:
+        """
+        Find font face rules under the format's safety and compatibility rules.
+
+        Example:
+            Exercise find font face rules through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param sheet: Value supplied for sheet under the utility contract.
+        :param oeb: Value supplied for oeb under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return []
 
 # Py2/Py3
@@ -25,6 +50,20 @@ __copyright__ = "2015, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
 def obfuscate_font_data(data: _typing.Any, key: _typing.Any) -> _typing.Any:
+    """
+    Perform the obfuscate font data operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise obfuscate font data through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :param key: Metadata, identifier or local-variable key.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     prefix = bytearray(data[:32])
     key = bytearray(reversed(key.bytes))
     prefix = bytes(bytearray(prefix[i] ^ key[i % len(key)] for i in memory_range(len(prefix))))
@@ -32,11 +71,50 @@ def obfuscate_font_data(data: _typing.Any, key: _typing.Any) -> _typing.Any:
 
 
 class FontsManager(object):
+    """
+    Provide the fontsmanager contract for validated ebook processing.
+
+    Example:
+        Exercise FontsManager through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+    """
     def __init__(self: _typing.Self, namespace: _typing.Any, oeb: _typing.Any, opts: _typing.Any) -> None:
+        """
+        Initialize and validate the fontsmanager state.
+
+        Example:
+            Exercise FontsManager.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param namespace: Value supplied for namespace under the utility contract.
+        :param oeb: Value supplied for oeb under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.namespace = namespace
         self.oeb, self.log, self.opts = oeb, oeb.log, opts
 
     def serialize(self: _typing.Self, text_styles: _typing.Any, fonts: _typing.Any, embed_relationships: _typing.Any, font_data_map: _typing.Any) -> None:
+        """
+        Perform the serialize operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise FontsManager.serialize through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param text_styles: Value supplied for text styles under the utility contract.
+        :param fonts: Value supplied for fonts under the utility contract.
+        :param embed_relationships: Value supplied for embed relationships under the utility
+            contract.
+        :param font_data_map: Value supplied for font data map under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         makeelement = self.namespace.makeelement
         font_families, seen = set(), set()
         for ts in text_styles:

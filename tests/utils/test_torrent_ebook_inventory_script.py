@@ -1,3 +1,14 @@
+"""
+Provide test torrent ebook inventory script utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test torrent ebook inventory script through a consuming regression::
+
+        python -m pytest -q tests/utils/test_torrent_ebook_inventory_script.py
+"""
 from __future__ import annotations
 
 import importlib.util
@@ -7,6 +18,18 @@ from pathlib import Path
 
 
 def _load_script():
+    """
+    Perform the load script utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  load script through a consuming regression::
+
+            python -m pytest -q tests/utils/test_torrent_ebook_inventory_script.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     script_path = Path(__file__).resolve().parents[2] / "scripts" / "torrent_ebook_inventory.py"
     spec = importlib.util.spec_from_file_location("torrent_ebook_inventory", script_path)
     assert spec is not None
@@ -18,6 +41,19 @@ def _load_script():
 
 
 def _bencode(value):
+    """
+    Perform the bencode utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  bencode through a consuming regression::
+
+            python -m pytest -q tests/utils/test_torrent_ebook_inventory_script.py
+
+
+    :param value: Value normalized, stored, formatted or returned.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if isinstance(value, int):
         return b"i" + str(value).encode("ascii") + b"e"
     if isinstance(value, bytes):
@@ -37,6 +73,18 @@ def _bencode(value):
 
 
 def test_analyze_single_file_torrent_identifies_ebook_file() -> None:
+    """
+    Perform the test analyze single file torrent identifies ebook file utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test analyze single file torrent identifies ebook file through a consuming regression::
+
+            python -m pytest -q tests/utils/test_torrent_ebook_inventory_script.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     script = _load_script()
     torrent_bytes = _bencode(
         {
@@ -61,6 +109,18 @@ def test_analyze_single_file_torrent_identifies_ebook_file() -> None:
 
 
 def test_analyze_multi_file_torrent_groups_multiformat_books() -> None:
+    """
+    Perform the test analyze multi file torrent groups multiformat books utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test analyze multi file torrent groups multiformat books through a consuming regression::
+
+            python -m pytest -q tests/utils/test_torrent_ebook_inventory_script.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     script = _load_script()
     torrent_bytes = _bencode(
         {
@@ -108,6 +168,20 @@ def test_analyze_multi_file_torrent_groups_multiformat_books() -> None:
 
 
 def test_main_writes_json_output_file(tmp_path: Path, capsys) -> None:
+    """
+    Perform the test main writes json output file utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test main writes json output file through a consuming regression::
+
+            python -m pytest -q tests/utils/test_torrent_ebook_inventory_script.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param capsys: Value supplied for capsys under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     script = _load_script()
     torrent_path = tmp_path / "sample.torrent"
     output_path = tmp_path / "inventory.json"
@@ -136,6 +210,18 @@ def test_main_writes_json_output_file(tmp_path: Path, capsys) -> None:
 
 
 def test_render_text_report_lists_groups_and_files() -> None:
+    """
+    Perform the test render text report lists groups and files utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test render text report lists groups and files through a consuming regression::
+
+            python -m pytest -q tests/utils/test_torrent_ebook_inventory_script.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     script = _load_script()
     torrent_bytes = _bencode(
         {
@@ -168,6 +254,20 @@ def test_render_text_report_lists_groups_and_files() -> None:
 
 
 def test_main_emits_text_report_to_stdout(tmp_path: Path, capsys) -> None:
+    """
+    Perform the test main emits text report to stdout utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test main emits text report to stdout through a consuming regression::
+
+            python -m pytest -q tests/utils/test_torrent_ebook_inventory_script.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param capsys: Value supplied for capsys under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     script = _load_script()
     torrent_path = tmp_path / "sample.torrent"
     torrent_path.write_bytes(

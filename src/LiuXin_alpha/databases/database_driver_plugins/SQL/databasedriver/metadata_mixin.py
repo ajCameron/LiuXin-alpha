@@ -1,6 +1,6 @@
 
 """
-Mixin to handle metadata of the database.
+Inspect SQLite schema caches and read or update the single-row database metadata table.
 """
 
 from __future__ import annotations
@@ -20,37 +20,51 @@ from LiuXin_alpha.errors import DatabaseIntegrityError, InputIntegrityError
 
 class MetadataMethodMixin:
     """
-    Metadata methods.
+    Supply schema-version-aware introspection and database metadata operations.
 
-    Includes both database metadata, and also user set metadata.
+    The host provides primary/fresh connections, schema caches and row CRUD helpers.
+
+    Example:
+        ``driver.direct_get_tables_and_columns()`` obtains the cached schema mapping.
     """
 
     @property
     def user_version(self) -> Optional[str]:
         """
-        Property of the user version.
+        Read the first PRAGMA user_version value from the primary connection.
 
-        :return:
+        Example:
+            ``driver.user_version`` reads SQLite's application-controlled integer version.
+
+
+        :return: The raw PRAGMA value, normally an integer, or ``None`` if no row is returned.
         """
         for row in self.conn.execute("pragma user_version;"):
             return row[0]
 
     def direct_get_user_version(self) -> str:
         """
-        Return the user version.
+        Expose the user_version property through the driver method interface.
 
-        :return:
+        Example:
+            ``driver.direct_get_user_version()`` returns the same value as ``driver.user_version``.
+
+
+        :return: The raw user-version value, normally an integer.
         """
         return self.user_version
 
     def direct_get_schema_version(self) -> Optional[int]:
         """
-        Return the current SQLite ``schema_version`` as an ``int``.
+        Read SQLite's schema change counter, retrying on a fresh connection after failure.
 
-        SQLite increments ``schema_version`` whenever the schema changes. We use this
-        to detect when our cached table/column metadata has become stale — including
-        when another connection modifies the schema (e.g. during concurrency tests).
-        :return:
+        Temporary connections are closed. A failing primary handle may be closed without replacing ``self.conn``; failure of the retry propagates. Failed integer conversion preserves the raw value.
+
+        Example:
+            ``driver.direct_get_schema_version()`` supports checking for external schema changes.
+
+
+        :return: The integer counter, a raw non-convertible value, or ``None`` if no row is produced.
         """
         conn = getattr(self, "conn", None)
         close_after = False
@@ -96,9 +110,13 @@ class MetadataMethodMixin:
 
     def _invalidate_schema_caches(self) -> None:
         """
-        Invalidate schema-related caches.
+        Clear table/column caches, declared-type entries and the cached schema version.
 
-        :return:
+        Example:
+            ``driver._invalidate_schema_caches()`` forces subsequent schema reads to rebuild caches.
+
+
+        :return: ``None``.
         """
         self.tables = None
         self.tables_and_columns = None
@@ -113,10 +131,16 @@ class MetadataMethodMixin:
     # Either uses the data from self.tables_and_columns, or gets the data while populating it
     def direct_get_tables(self, force_refresh: bool = False) -> dict[str, list[str]]:
         """
-        Returns a index of the names of all tables in the database.
+        Return cached table/view names, rebuilding when a known schema version changes.
 
-        :param force_refresh: Force the driver to introspect the database again
-        :return:
+        Suppress an ``_v`` name when its unsuffixed counterpart exists. The returned list is the cache itself; forcing refresh closes and replaces the primary handle.
+
+        Example:
+            ``driver.direct_get_tables(force_refresh=True)`` re-reads sqlite_master.
+
+
+        :param force_refresh: Invalidate cached schema data and reopen the primary connection before introspection.
+        :return: The mutable list of visible table and view names.
         """
         if force_refresh:
             self._invalidate_schema_caches()
@@ -165,13 +189,17 @@ class MetadataMethodMixin:
     # Todo: Not sure what normalize is intended to do...
     def direct_get_column_headings(self, table: str, normalize: bool = False) -> list[str]:
         """
-        Gets an index of column headings for the given table.
+        Look up cached column names after canonicalizing the table identifier.
 
-        Tries to use the cached version - falls back on direct access if that fails.
-        :param table:
-        :param normalize:
+        Populate the combined cache only when absent; an existing cache is not independently version-checked here. Unknown tables raise InputIntegrityError.
 
-        :return column_headings:
+        Example:
+            ``driver.direct_get_column_headings("`books`")`` uses the unquoted cache key.
+
+
+        :param table: Table or view name used for schema introspection.
+        :param normalize: Accepted for callers; currently unused.
+        :return: The cached column-name list.
         """
         # Todo: Only try and normalize if first try has failed
         # Normalise the input table identifier to the unquoted cache key.
@@ -193,17 +221,17 @@ class MetadataMethodMixin:
     @staticmethod
     def _canonicalise_table_name_for_cache(table: str) -> str:
         """
-        Return the unquoted table name used as the key in ``tables_and_columns``.
+        Coerce and trim a name, discard its schema prefix and remove one wrapper pair.
 
-        Various call sites (especially legacy code) may pass table identifiers that include
-        harmless wrapper characters (e.g. backticks) that SQLite accepts in SQL. Our internal
-        caches, however, use *unquoted* names as keys.
+        Recognize brackets and symmetric quote, backslash, percent or underscore wrappers. This is a cache-key convenience, not an SQL parser or identifier validator; failed text coercion returns the input.
 
-        This function keeps behaviour conservative: it only strips a single matching wrapper
-        pair at the ends, and does not attempt to parse/transform arbitrary SQL.
+        Example:
+            >>> MetadataMethodMixin._canonicalise_table_name_for_cache(" main.[books] ")
+            'books'
 
-        :param table:
-        :return:
+
+        :param table: Table or view name used for schema introspection.
+        :return: The canonicalized name, or the original input if coercion fails.
         """
         try:
             t = force_unicode(table)
@@ -229,10 +257,16 @@ class MetadataMethodMixin:
 
     def direct_get_tables_and_columns(self, force_refresh: bool = False) -> dict[str, list[str]]:
         """
-        Returns a dictionary keyed by the table name with the column headings as the values.
+        Build or reuse the table/view-to-column-list cache with schema-version checks.
 
-        :param force_refresh:
-        :return table_and_columns:
+        Use a fresh connection for PRAGMA table_info and close it on success. Return the cache object directly; force-refresh also replaces the primary connection.
+
+        Example:
+            ``driver.direct_get_tables_and_columns()["books"]`` yields the books column names.
+
+
+        :param force_refresh: Invalidate cached schema data and reopen the primary connection before introspection.
+        :return: The cached mapping from visible table/view names to ordered column lists.
         """
         # If the information is already cached, return it unless it is stale.
         if self.tables_and_columns is not None and not force_refresh:
@@ -267,7 +301,18 @@ class MetadataMethodMixin:
         return self.tables_and_columns
 
     def _get_unique_column_groups(self, table: str) -> tuple[tuple[str, ...], ...]:
-        """Return the ordered column groups enforced by SQLite unique indexes."""
+        """
+        Collect column tuples from non-partial unique SQLite indexes.
+
+        Skip expression indexes and empty groups. Validate table/index identifiers, raising integrity errors for unsafe names. Reuse the primary handle or close a temporary one in finally.
+
+        Example:
+            ``driver._get_unique_column_groups("books")`` lists uniqueness constraints backed by ordinary indexes.
+
+
+        :param table: Table or view name used for schema introspection.
+        :return: A tuple of column tuples in PRAGMA index-list order.
+        """
 
         table = self._canonicalise_table_name_for_cache(table)
         if (
@@ -307,13 +352,14 @@ class MetadataMethodMixin:
 
     def direct_get_highest_id(self, target_table: str) -> Optional[dict[str, Any]]:
         """
-        Getting a random id from the database using u'SELECT * FROM {} ORDER BY RANDOM() LIMIT 1' is really slow in the
-        case of large tables.
+        Query the maximum ID value in a table, closing the connection after its result.
 
-        Something a little snappier would be nice.
-        Returns the highest id in the table.
-        :param target_table:
-        :return:
+        Example:
+            ``driver.direct_get_highest_id("books")`` returns ``None`` when the table is empty.
+
+
+        :param target_table: Existing table name used in the aggregate query.
+        :return: The scalar maximum ID, or ``None`` for an empty result/table.
         """
         target_table = force_unicode(target_table)
         target_table_id = self.direct_get_id_column(target_table)
@@ -331,9 +377,16 @@ class MetadataMethodMixin:
 
     def direct_get_record_count(self, target_table):
         """
-        Returns the number of records in a given table.
-        :param target_table:
-        :return:
+        Validate a table name and count its rows using a fresh connection.
+
+        Close the connection after reading the count; an invalid table raises InputIntegrityError.
+
+        Example:
+            ``driver.direct_get_record_count("books")`` returns zero for an empty books table.
+
+
+        :param target_table: Existing table name used in the aggregate query.
+        :return: The raw COUNT result, normally an integer.
         """
         if not self.direct_validate_existing_table_name(target_table):
             err_str = "target_table not found in database.\n"
@@ -351,10 +404,16 @@ class MetadataMethodMixin:
 
     def direct_get_row_count(self, table: str) -> int:
         """
-        Gets the row count off the table.
+        Count rows for a trusted SQL table identifier and convert the count to int.
 
-        :param table:
-        :return:
+        This variant does not validate the identifier; it closes the connection after obtaining a result.
+
+        Example:
+            ``driver.direct_get_row_count("books")`` counts all rows.
+
+
+        :param table: Trusted table identifier interpolated directly into SQL.
+        :return: The integer row count.
         """
         conn = self.get_connection()
         c = conn.cursor()
@@ -369,12 +428,15 @@ class MetadataMethodMixin:
 
     def direct_get_db_unique_id(self) -> Optional[str]:
         """
-        It is useful to embed certain information about the database in it directly (thus you can tell your dealing with
-        the same database, even if it's been moved to a different place or converted into a different format).
+        Read the database identity from its sole metadata row.
 
-        The database_unique_id is a uuid4 string for the database which is written into the database on creation to
-        uniquely define it's instance number forwever more.
-        :return:
+        Multiple rows raise DatabaseIntegrityError. Reuse the primary connection when available, otherwise close the temporary handle in finally.
+
+        Example:
+            ``driver.direct_get_db_unique_id()`` reads an identity without generating one.
+
+
+        :return: The stored identity value, or ``None`` when there are no rows or the value is null.
         """
         stmt = "SELECT `database_metadata_unique_id` FROM `database_metadata`"
         conn = getattr(self, "conn", None)
@@ -401,12 +463,16 @@ class MetadataMethodMixin:
 
     def direct_set_db_unique_id(self, force_value=None):
         """
-        Allows you to set the database unique id.
+        Write a supplied identity or new UUID4, commit, and verify it by rereading.
 
-        If no force value is supplied, just uses uuid to generate one and inserts it instead.
-        Prompts to proceed if it detects the value is already set
-        :param force_value: Default None
-        :return:
+        A non-null current identity updates row ID 1 without prompting. A null/missing identity takes the insert branch, so a pre-existing null-valued row can produce duplicate metadata rows. Verification failures raise DatabaseIntegrityError after the write commits.
+
+        Example:
+            ``driver.direct_set_db_unique_id()`` generates a UUID4 string for a suitable metadata table.
+
+
+        :param force_value: Identity value to write; ``None`` generates a UUID4 string.
+        :return: ``True`` when rereading matches the requested value.
         """
         if force_value is None:
             new_force_value = str(uuid.uuid4())
@@ -447,8 +513,15 @@ class MetadataMethodMixin:
 
     def _initialize_md(self):
         """
-        Checks that the MetaData table has one and only one row.
-        :return None: All changes are made internally to the database
+        Ensure the metadata table contains one row, inserting a placeholder if empty.
+
+        More than one row raises DatabaseIntegrityError; the inserted scratch value is the literal string ``None``.
+
+        Example:
+            ``driver._initialize_md()`` prepares the metadata row before field access.
+
+
+        :return: ``True`` when exactly one row exists or was inserted.
         """
         md_rows = self.direct_get_all_rows("database_metadata")
         if len(md_rows) == 0:
@@ -465,12 +538,17 @@ class MetadataMethodMixin:
 
     def direct_write_metadata(self, md_field_name: str, md_field_value: Any) -> None:
         """
-        Allows for storing data in the MetaData table of the database.
+        Validate a metadata field, initialize the sole row and update its value.
 
-        The table only has one row - if another value is given then it will be written over.
-        :param md_field_name: The name of then field where the value will be stored
-        :param md_field_value: The value of the field.
-        :return:
+        Unknown fields raise ValueError; multiple metadata rows raise DatabaseIntegrityError. Persistence is delegated to the row update helper.
+
+        Example:
+            ``driver.direct_write_metadata("scratch", "reviewed")`` sets the prefixed scratch column.
+
+
+        :param md_field_name: Metadata column name, with or without the ``database_metadata_`` prefix.
+        :param md_field_value: Value assigned to the validated metadata column.
+        :return: ``None``.
         """
         md_field_name = force_unicode(deepcopy(md_field_name))
 
@@ -500,10 +578,16 @@ class MetadataMethodMixin:
 
     def direct_read_metadata(self, md_field_name: str) -> Any:
         """
-        Read metadata from the database.
+        Read a validated metadata field, creating the placeholder row if needed.
 
-        :param md_field_name:
-        :return:
+        SQL null and values whose lowercase string is ``none`` return None. Other values are deep-copied. Unknown fields raise ValueError.
+
+        Example:
+            ``driver.direct_read_metadata("scratch")`` returns ``None`` for the initial placeholder.
+
+
+        :param md_field_name: Metadata column name, with or without the ``database_metadata_`` prefix.
+        :return: The copied field value, or ``None`` for null/none sentinels.
         """
         md_field_name = force_unicode(deepcopy(md_field_name))
 

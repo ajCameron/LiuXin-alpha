@@ -1,3 +1,14 @@
+"""
+Exercise eager and lazy WEMI hydrators across malformed, missing and partial data.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test hydrator edge cases through its owning regression module::
+
+        python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+"""
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -42,37 +53,151 @@ from tests.metadata.containers.test_work_metadata_hydrator import (
 
 
 class _MinimalDriverWrapper:
+    """
+    Provide only identifier-column lookup for hydrator edge tests.
+
+    Example:
+        Exercise MinimalDriverWrapper through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+    """
     def get_id_column(self, table: str) -> str:
+        """
+        Return the configured identity column for a table.
+
+        Example:
+            Exercise MinimalDriverWrapper.get id column through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+        :param table: Table name addressed by the test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return f"{str(table).rstrip('s')}_id"
 
 
 class _SchemaFailureDatabase:
+    """
+    Raise controlled schema-discovery failures while retaining row lookup behavior.
+
+    Example:
+        Exercise SchemaFailureDatabase through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+    """
     driver_wrapper = _MinimalDriverWrapper()
 
     def get_tables(self, force_refresh: bool = False) -> list[str]:
+        """
+        Return the table names exposed by the in-memory schema.
+
+        Example:
+            Exercise SchemaFailureDatabase.get tables through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+        :param force_refresh: Value supplied for force refresh in the focused test
+            operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         raise RuntimeError("schema unavailable")
 
     def get_tables_and_columns(self) -> dict[str, list[str]]:
+        """
+        Return a copied schema mapping for discovery tests.
+
+        Example:
+            Exercise SchemaFailureDatabase.get tables and columns through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         raise RuntimeError("columns unavailable")
 
     def get_row_from_id(self, table: str, row_id: int) -> None:
+        """
+        Return a copied row for the requested identity, or the test double's miss value.
+
+        Example:
+            Exercise SchemaFailureDatabase.get row from id through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+        :param table: Table name addressed by the test operation.
+        :param row_id: Identity of the row to retrieve or mutate.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return None
 
 
 class _ObjectTarget:
+    """
+    Provide an attribute-based hydration target for mapping-versus-object checks.
+
+    Example:
+        Exercise ObjectTarget through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+    """
     expression_id = "44"
 
 
 class _BrokenIdColumnDriverWrapper(_MinimalDriverWrapper):
+    """
+    Raise a controlled identifier-column failure for hydrator recovery tests.
+
+    Example:
+        Exercise BrokenIdColumnDriverWrapper through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+    """
     def get_id_column(self, table: str) -> str:
+        """
+        Return the configured identity column for a table.
+
+        Example:
+            Exercise BrokenIdColumnDriverWrapper.get id column through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+        :param table: Table name addressed by the test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         raise RuntimeError("id column unavailable")
 
 
 class _BrokenIdColumnDatabase(_SchemaFailureDatabase):
+    """
+    Expose the broken driver wrapper through the database-double boundary.
+
+    Example:
+        Exercise BrokenIdColumnDatabase through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+    """
     driver_wrapper = _BrokenIdColumnDriverWrapper()
 
 
 def _raise_runtime(*args: Any, **kwargs: Any) -> None:
+    """
+    Raise the controlled runtime failure used to verify exception isolation.
+
+    Example:
+        Exercise raise runtime through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+    :param args: Positional values forwarded by the test double.
+    :param kwargs: Keyword values forwarded by the test double.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     raise RuntimeError("boom")
 
 
@@ -88,6 +213,19 @@ def _raise_runtime(*args: Any, **kwargs: Any) -> None:
     ),
 )
 def test_hydrators_reject_missing_database(hydrator_cls: type, message: str) -> None:
+    """
+    Verify hydrators reject missing database.
+
+    Example:
+        Exercise test hydrators reject missing database through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+    :param hydrator_cls: Value supplied for hydrator cls in the focused test operation.
+    :param message: Value supplied for message in the focused test operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     with pytest.raises(ValueError, match=message):
         hydrator_cls(None)
 
@@ -103,6 +241,18 @@ def test_hydrators_reject_missing_database(hydrator_cls: type, message: str) -> 
     ),
 )
 def test_hydrators_tolerate_schema_snapshot_failures(hydrator_cls: type) -> None:
+    """
+    Verify hydrators tolerate schema snapshot failures.
+
+    Example:
+        Exercise test hydrators tolerate schema snapshot failures through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+    :param hydrator_cls: Value supplied for hydrator cls in the focused test operation.
+    :return: None; the function records state or raises through its assertions.
+    """
     hydrator = hydrator_cls(_SchemaFailureDatabase())
 
     assert hydrator._tables == set()
@@ -110,6 +260,17 @@ def test_hydrators_tolerate_schema_snapshot_failures(hydrator_cls: type) -> None
 
 
 def test_level_hydrators_report_missing_ids_and_unresolved_source_rows() -> None:
+    """
+    Verify level hydrators report missing ids and unresolved source rows.
+
+    Example:
+        Exercise test level hydrators report missing ids and unresolved source rows through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     cases = (
         (WorkMetadataHydrator(_build_work_db()), "from_work_id", 999),
         (ExpressionMetadataHydrator(_build_expression_db()), "from_expression_id", 999),
@@ -129,6 +290,17 @@ def test_level_hydrators_report_missing_ids_and_unresolved_source_rows() -> None
 
 
 def test_level_hydrators_accept_mapping_only_identity_payloads() -> None:
+    """
+    Verify level hydrators accept mapping only identity payloads.
+
+    Example:
+        Exercise test level hydrators accept mapping only identity payloads through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     work = WorkMetadataHydrator(_build_work_db()).from_source_row(
         {"title_id": "300", "work_title": "Mapping Work"}
     )
@@ -162,6 +334,17 @@ def test_level_hydrators_accept_mapping_only_identity_payloads() -> None:
 
 
 def test_hydrator_static_helpers_handle_unknown_and_invalid_values() -> None:
+    """
+    Verify hydrator static helpers handle unknown and invalid values.
+
+    Example:
+        Exercise test hydrator static helpers handle unknown and invalid values through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     assert WorkMetadataHydrator._mapping_from(object()) == {}
     assert ExpressionMetadataHydrator._mapping_from(object()) == {}
     assert ManifestationMetadataHydrator._mapping_from(object()) == {}
@@ -217,6 +400,17 @@ def test_hydrator_static_helpers_handle_unknown_and_invalid_values() -> None:
 
 
 def test_central_hydrator_identity_dispatch_and_error_paths() -> None:
+    """
+    Verify central hydrator identity dispatch and error paths.
+
+    Example:
+        Exercise test central hydrator identity dispatch and error paths through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     db = _build_item_db()
     hydrator = LiuXinWEMIMetadataHydrator(db)
 
@@ -266,6 +460,17 @@ def test_central_hydrator_identity_dispatch_and_error_paths() -> None:
 
 
 def test_level_hydrators_accept_direct_source_rows() -> None:
+    """
+    Verify level hydrators accept direct source rows.
+
+    Example:
+        Exercise test level hydrators accept direct source rows through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     work_db = _build_work_db()
     work_row = work_db.get_row_from_id("works", 30)
     assert work_row is not None
@@ -278,6 +483,17 @@ def test_level_hydrators_accept_direct_source_rows() -> None:
 
 
 def test_level_hydrator_row_helpers_cover_skip_and_duplicate_paths() -> None:
+    """
+    Verify level hydrator row helpers cover skip and duplicate paths.
+
+    Example:
+        Exercise test level hydrator row helpers cover skip and duplicate paths through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     work_hydrator = WorkMetadataHydrator(_build_work_db())
     work_db = work_hydrator.db
     expression_row = work_db.get_row_from_id("expressions", 20)
@@ -421,6 +637,17 @@ def test_level_hydrator_row_helpers_cover_skip_and_duplicate_paths() -> None:
 
 
 def test_item_hydrator_uses_source_manifestation_id_when_item_mapping_lacks_one() -> None:
+    """
+    Verify item hydrator uses source manifestation id when item mapping lacks one.
+
+    Example:
+        Exercise test item hydrator uses source manifestation id when item mapping lacks one through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     metadata = ItemMetadataHydrator(_build_item_db()).from_source_row(
         {
             "item_id": "999",
@@ -440,6 +667,17 @@ def test_item_hydrator_uses_source_manifestation_id_when_item_mapping_lacks_one(
 
 
 def test_item_hydrator_skips_non_row_digital_assets_during_replica_resolution() -> None:
+    """
+    Verify item hydrator skips non row digital assets during replica resolution.
+
+    Example:
+        Exercise test item hydrator skips non row digital assets during replica resolution through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     db = _build_item_db()
     hydrator = ItemMetadataHydrator(db)
     original_collect = hydrator._collect_interlinks_from_row
@@ -450,6 +688,22 @@ def test_item_hydrator_skips_non_row_digital_assets_during_replica_resolution() 
         secondary_table: str,
         source_entity_type: str,
     ) -> list[ItemRelationLink]:
+        """
+        Collect with non row asset for the enclosing assertion.
+
+        Example:
+            Exercise test item hydrator skips non row digital assets during replica resolution.collect with non row asset through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+        :param source_row: Value supplied for source row in the focused test operation.
+        :param secondary_table: Value supplied for secondary table in the focused test
+            operation.
+        :param source_entity_type: Value supplied for source entity type in the focused test
+            operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         if secondary_table == "digital_assets":
             return [ItemRelationLink(target="not-a-row")]
         return original_collect(
@@ -467,6 +721,17 @@ def test_item_hydrator_skips_non_row_digital_assets_during_replica_resolution() 
 
 
 def test_item_hydrator_collect_interlink_edge_paths() -> None:
+    """
+    Verify item hydrator collect interlink edge paths.
+
+    Example:
+        Exercise test item hydrator collect interlink edge paths through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     hydrator = ItemMetadataHydrator(_build_item_db())
     assert hydrator._collect_interlinks_from_row(
         None,
@@ -543,6 +808,17 @@ def test_item_hydrator_collect_interlink_edge_paths() -> None:
 
 
 def test_item_hydrator_direct_fk_and_identifier_exception_paths() -> None:
+    """
+    Verify item hydrator direct fk and identifier exception paths.
+
+    Example:
+        Exercise test item hydrator direct fk and identifier exception paths through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     hydrator = ItemMetadataHydrator(_build_item_db())
     assert hydrator._collect_direct_fk_rows(
         table="not_a_table",
@@ -593,6 +869,17 @@ def test_item_hydrator_direct_fk_and_identifier_exception_paths() -> None:
 
 
 def test_item_hydrator_resolves_folders_and_stores_from_files_and_work_links() -> None:
+    """
+    Verify item hydrator resolves folders and stores from files and work links.
+
+    Example:
+        Exercise test item hydrator resolves folders and stores from files and work links through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     db = _build_item_db()
     db.tables_and_columns["folders"] = ["folder_id", "folder_store_id", "folder_path"]
     db.driver_wrapper.tables_and_columns["folders"] = [
@@ -660,6 +947,17 @@ def test_item_hydrator_resolves_folders_and_stores_from_files_and_work_links() -
 
 
 def test_manifestation_hydrator_uses_explicit_work_and_item_ids_from_mapping() -> None:
+    """
+    Verify manifestation hydrator uses explicit work and item ids from mapping.
+
+    Example:
+        Exercise test manifestation hydrator uses explicit work and item ids from mapping through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     metadata = ManifestationMetadataHydrator(_build_manifestation_db()).from_source_row(
         {
             "book_manifestation_id": "999",
@@ -684,6 +982,17 @@ def test_manifestation_hydrator_uses_explicit_work_and_item_ids_from_mapping() -
 
 
 def test_manifestation_hydrator_skips_non_row_and_idless_assets() -> None:
+    """
+    Verify manifestation hydrator skips non row and idless assets.
+
+    Example:
+        Exercise test manifestation hydrator skips non row and idless assets through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     db = _build_manifestation_db()
     hydrator = ManifestationMetadataHydrator(db)
     original_collect = hydrator._collect_interlinks_from_row
@@ -695,6 +1004,22 @@ def test_manifestation_hydrator_skips_non_row_and_idless_assets() -> None:
         secondary_table: str,
         source_entity_type: str,
     ) -> list[ManifestationRelationLink]:
+        """
+        Collect with unusable assets for the enclosing assertion.
+
+        Example:
+            Exercise test manifestation hydrator skips non row and idless assets.collect with unusable assets through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+        :param source_row: Value supplied for source row in the focused test operation.
+        :param secondary_table: Value supplied for secondary table in the focused test
+            operation.
+        :param source_entity_type: Value supplied for source entity type in the focused test
+            operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         if secondary_table == "digital_assets":
             return [
                 ManifestationRelationLink(target="not-a-row"),
@@ -717,6 +1042,17 @@ def test_manifestation_hydrator_skips_non_row_and_idless_assets() -> None:
 
 
 def test_manifestation_hydrator_skips_idless_item_rows_for_direct_assets() -> None:
+    """
+    Verify manifestation hydrator skips idless item rows for direct assets.
+
+    Example:
+        Exercise test manifestation hydrator skips idless item rows for direct assets through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     db = _build_manifestation_db()
     hydrator = ManifestationMetadataHydrator(db)
     idless_item = Row(db, row_dict={"item_id": None}, read_only=True)
@@ -732,6 +1068,17 @@ def test_manifestation_hydrator_skips_idless_item_rows_for_direct_assets() -> No
 
 
 def test_manifestation_hydrator_collect_interlink_edge_paths() -> None:
+    """
+    Verify manifestation hydrator collect interlink edge paths.
+
+    Example:
+        Exercise test manifestation hydrator collect interlink edge paths through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     hydrator = ManifestationMetadataHydrator(_build_manifestation_db())
     assert hydrator._collect_interlinks_from_row(
         None,
@@ -812,6 +1159,17 @@ def test_manifestation_hydrator_collect_interlink_edge_paths() -> None:
 
 
 def test_manifestation_hydrator_direct_fk_item_and_identifier_edge_paths() -> None:
+    """
+    Verify manifestation hydrator direct fk item and identifier edge paths.
+
+    Example:
+        Exercise test manifestation hydrator direct fk item and identifier edge paths through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     hydrator = ManifestationMetadataHydrator(_build_manifestation_db())
     idless_manifestation = Row(
         hydrator.db,
@@ -900,6 +1258,17 @@ def test_manifestation_hydrator_direct_fk_item_and_identifier_edge_paths() -> No
 
 
 def test_expression_hydrator_uses_explicit_manifestation_and_item_ids_from_mapping() -> None:
+    """
+    Verify expression hydrator uses explicit manifestation and item ids from mapping.
+
+    Example:
+        Exercise test expression hydrator uses explicit manifestation and item ids from mapping through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     metadata = ExpressionMetadataHydrator(_build_expression_db()).from_source_row(
         {
             "book_expression_id": "999",
@@ -924,6 +1293,17 @@ def test_expression_hydrator_uses_explicit_manifestation_and_item_ids_from_mappi
 
 
 def test_expression_hydrator_collect_interlink_edge_paths() -> None:
+    """
+    Verify expression hydrator collect interlink edge paths.
+
+    Example:
+        Exercise test expression hydrator collect interlink edge paths through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     hydrator = ExpressionMetadataHydrator(_build_expression_db())
     assert hydrator._collect_interlinks_from_row(
         None,
@@ -1002,6 +1382,17 @@ def test_expression_hydrator_collect_interlink_edge_paths() -> None:
 
 
 def test_expression_hydrator_item_and_identifier_edge_paths() -> None:
+    """
+    Verify expression hydrator item and identifier edge paths.
+
+    Example:
+        Exercise test expression hydrator item and identifier edge paths through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     hydrator = ExpressionMetadataHydrator(_build_expression_db())
     idless_manifestation = Row(
         hydrator.db,
@@ -1123,6 +1514,17 @@ def test_expression_hydrator_item_and_identifier_edge_paths() -> None:
 
 
 def test_work_hydrator_skips_idless_item_rows_for_direct_assets() -> None:
+    """
+    Verify work hydrator skips idless item rows for direct assets.
+
+    Example:
+        Exercise test work hydrator skips idless item rows for direct assets through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     db = _build_work_db()
     hydrator = WorkMetadataHydrator(db)
     idless_item = Row(db, row_dict={"item_id": None}, read_only=True)
@@ -1138,6 +1540,17 @@ def test_work_hydrator_skips_idless_item_rows_for_direct_assets() -> None:
 
 
 def test_work_hydrator_collect_interlink_edge_paths() -> None:
+    """
+    Verify work hydrator collect interlink edge paths.
+
+    Example:
+        Exercise test work hydrator collect interlink edge paths through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     hydrator = WorkMetadataHydrator(_build_work_db())
     assert hydrator._collect_interlinks_from_row(
         None,
@@ -1216,6 +1629,17 @@ def test_work_hydrator_collect_interlink_edge_paths() -> None:
 
 
 def test_work_hydrator_direct_fk_item_and_identifier_edge_paths() -> None:
+    """
+    Verify work hydrator direct fk item and identifier edge paths.
+
+    Example:
+        Exercise test work hydrator direct fk item and identifier edge paths through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     hydrator = WorkMetadataHydrator(_build_work_db())
     idless_manifestation = Row(
         hydrator.db,
@@ -1287,6 +1711,17 @@ def test_work_hydrator_direct_fk_item_and_identifier_edge_paths() -> None:
 
 
 def test_work_hydrator_item_identifier_and_folder_resolution_paths() -> None:
+    """
+    Verify work hydrator item identifier and folder resolution paths.
+
+    Example:
+        Exercise test work hydrator item identifier and folder resolution paths through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     work_singulars = _build_work_db.__globals__["SINGULARS"]
     work_singulars["item_identifiers"] = "item_identifier"
     work_singulars["folders"] = "folder"
@@ -1379,6 +1814,17 @@ def test_work_hydrator_item_identifier_and_folder_resolution_paths() -> None:
 
 
 def test_central_hydrator_identity_getters_reject_empty_metadata() -> None:
+    """
+    Verify central hydrator identity getters reject empty metadata.
+
+    Example:
+        Exercise test central hydrator identity getters reject empty metadata through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     hydrator = LiuXinWEMIMetadataHydrator(_build_item_db())
     hydrator.get_work_metadata = lambda work_id: WorkMetadata()
     hydrator.get_expression_metadata = lambda expression_id: ExpressionMetadata()
@@ -1398,6 +1844,17 @@ def test_central_hydrator_identity_getters_reject_empty_metadata() -> None:
 
 
 def test_central_hydrator_empty_fallbacks_and_target_id_variants() -> None:
+    """
+    Verify central hydrator empty fallbacks and target id variants.
+
+    Example:
+        Exercise test central hydrator empty fallbacks and target id variants through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     hydrator = LiuXinWEMIMetadataHydrator(_build_item_db())
 
     assert hydrator._get_work_metadata_or_empty(None, {"unrelated": "value"}).work is None
@@ -1421,6 +1878,17 @@ def test_central_hydrator_empty_fallbacks_and_target_id_variants() -> None:
 
 
 def test_lazy_hydrator_aliases_and_source_row_paths() -> None:
+    """
+    Verify lazy hydrator aliases and source row paths.
+
+    Example:
+        Exercise test lazy hydrator aliases and source row paths through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     db = _build_item_db()
     hydrator = LazyLiuXinWEMIMetadataHydrator(db)
 
@@ -1487,6 +1955,17 @@ def test_lazy_hydrator_aliases_and_source_row_paths() -> None:
 
 
 def test_lazy_hydrator_helper_branches() -> None:
+    """
+    Verify lazy hydrator helper branches.
+
+    Example:
+        Exercise test lazy hydrator helper branches through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     hydrator = LazyLiuXinWEMIMetadataHydrator(_SchemaFailureDatabase())
     item_row = _build_item_db().get_row_from_id("items", 1)
     assert item_row is not None
@@ -1553,6 +2032,17 @@ def test_lazy_hydrator_helper_branches() -> None:
 
 
 def test_lazy_hydrator_relation_loader_exception_paths() -> None:
+    """
+    Verify lazy hydrator relation loader exception paths.
+
+    Example:
+        Exercise test lazy hydrator relation loader exception paths through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     db = _build_item_db()
     hydrator = LazyLiuXinWEMIMetadataHydrator(db)
     item_row = db.get_row_from_id("items", 1)
@@ -1603,6 +2093,17 @@ def test_lazy_hydrator_relation_loader_exception_paths() -> None:
 
 
 def test_lazy_hydrator_direct_and_identifier_loader_exception_paths() -> None:
+    """
+    Verify lazy hydrator direct and identifier loader exception paths.
+
+    Example:
+        Exercise test lazy hydrator direct and identifier loader exception paths through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     db = _build_item_db()
     hydrator = LazyLiuXinWEMIMetadataHydrator(db)
     item_row = db.get_row_from_id("items", 1)
@@ -1641,6 +2142,17 @@ def test_lazy_hydrator_direct_and_identifier_loader_exception_paths() -> None:
 
 
 def test_lazy_hydrator_asset_replica_and_extra_helpers_cover_skips() -> None:
+    """
+    Verify lazy hydrator asset replica and extra helpers cover skips.
+
+    Example:
+        Exercise test lazy hydrator asset replica and extra helpers cover skips through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     metadata = LazyLiuXinWEMIMetadata()
     metadata.add_wemi_relation_link(
         "item",

@@ -1,3 +1,14 @@
+"""
+Convert OEB content from the normalized ebook conversion pipeline.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise oeb output through a consuming regression::
+
+        python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+"""
 from __future__ import with_statement
 from __future__ import annotations
 
@@ -17,6 +28,14 @@ __docformat__ = "restructuredtext en"
 
 class OEBOutput(OutputFormatPlugin):
 
+    """
+    Provide the oeboutput contract for validated ebook processing.
+
+    Example:
+        Exercise OEBOutput through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+    """
     name = "OEB Output"
     author = "Kovid Goyal"
     file_type = "oeb"
@@ -25,6 +44,23 @@ class OEBOutput(OutputFormatPlugin):
 
     def convert(self: _typing.Self, oeb_book: _typing.Any, output_path: _typing.Any, input_plugin: _typing.Any, opts: _typing.Any, log: _typing.Any) -> None:
 
+        """
+        Convert the supplied source into the stage's normalized output representation.
+
+        Example:
+            Exercise OEBOutput.convert through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param oeb_book: Value supplied for oeb book under the utility contract.
+        :param output_path: Value supplied for output path under the utility contract.
+        :param input_plugin: Value supplied for input plugin under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         from urllib.parse import unquote
         from lxml import etree
         from LiuXin_alpha.file_formats.oeb.base import (
@@ -92,9 +128,35 @@ class OEBOutput(OutputFormatPlugin):
                 item.unload_data_from_memory(memory=path)
 
     def workaround_nook_cover_bug(self: _typing.Self, root: _typing.Any) -> None:  # {{{
+        """
+        Perform the workaround nook cover bug operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OEBOutput.workaround nook cover bug through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param root: Root directory that bounds path resolution or traversal.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         cov = root.xpath('//*[local-name() = "meta" and @name="cover" and @content != "cover"]')
 
         def manifest_items_with_id(id_: _typing.Any) -> _typing.Any:
+            """
+            Perform the manifest items with id operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise OEBOutput.workaround nook cover bug.manifest items with id through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+            :param id_: Value supplied for id under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return root.xpath('//*[local-name() = "manifest"]/*[local-name() = "item"  and @id="%s"]' % id_)
 
         if len(cov) == 1:
@@ -123,6 +185,19 @@ class OEBOutput(OutputFormatPlugin):
     # }}}
 
     def workaround_pocketbook_cover_bug(self: _typing.Self, root: _typing.Any) -> None:  # {{{
+        """
+        Perform the workaround pocketbook cover bug operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OEBOutput.workaround pocketbook cover bug through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param root: Root directory that bounds path resolution or traversal.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         m = root.xpath('//*[local-name() = "manifest"]/*[local-name() = "item"  and @id="cover"]')
         if len(m) == 1:
             m = m[0]
@@ -133,6 +208,19 @@ class OEBOutput(OutputFormatPlugin):
     # }}}
 
     def migrate_lang_code(self: _typing.Self, root: _typing.Any) -> None:  # {{{
+        """
+        Perform the migrate lang code operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OEBOutput.migrate lang code through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param root: Root directory that bounds path resolution or traversal.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         from LiuXin_alpha.utils.localization import lang_as_iso639_1
 
         for lang in root.xpath('//*[local-name() = "language"]'):

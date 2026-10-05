@@ -1,3 +1,14 @@
+"""
+Provide test rtf2xml regressions utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test rtf2xml regressions through a consuming regression::
+
+        python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+"""
 from __future__ import annotations
 
 import importlib
@@ -7,6 +18,18 @@ import pytest
 
 
 def test_override_table_uses_bug_handler_for_missing_list_id() -> None:
+    """
+    Perform the test override table uses bug handler for missing list id operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test override table uses bug handler for missing list id through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     mod = importlib.import_module("LiuXin_alpha.file_formats.rtf2xml.override_table")
 
     table = mod.OverrideTable(
@@ -21,6 +44,18 @@ def test_override_table_uses_bug_handler_for_missing_list_id() -> None:
 
 
 def test_list_table_unknown_state_raises_configured_bug_handler() -> None:
+    """
+    Perform the test list table unknown state raises configured bug handler operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test list table unknown state raises configured bug handler through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     mod = importlib.import_module("LiuXin_alpha.file_formats.rtf2xml.list_table")
     table = mod.ListTable(bug_handler=RuntimeError, run_level=4)
     table._ListTable__state = "unknown-state"
@@ -30,6 +65,19 @@ def test_list_table_unknown_state_raises_configured_bug_handler() -> None:
 
 
 def test_preamble_div_unknown_margin_token_raises_at_high_run_level(tmp_path: Path) -> None:
+    """
+    Perform the test preamble div unknown margin token raises at high run level operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test preamble div unknown margin token raises at high run level through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     mod = importlib.import_module("LiuXin_alpha.file_formats.rtf2xml.preamble_div")
     src = tmp_path / "in.data"
     src.write_text("", encoding="utf-8")
@@ -41,6 +89,19 @@ def test_preamble_div_unknown_margin_token_raises_at_high_run_level(tmp_path: Pa
 
 
 def test_parse_rtf2xml_end_to_end_smoke(tmp_path: Path) -> None:
+    """
+    Perform the test parse rtf2xml end to end smoke operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test parse rtf2xml end to end smoke through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     mod = importlib.import_module("LiuXin_alpha.file_formats.rtf2xml.ParseRtf")
     src = tmp_path / "sample.rtf"
     out = tmp_path / "sample.xml"

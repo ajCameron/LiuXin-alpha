@@ -1,3 +1,14 @@
+"""
+Verify local ISFDB lookup, normalization and WEMI projection.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test local sources isfdb through its owning regression module::
+
+        python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+"""
 from __future__ import annotations
 
 import queue
@@ -7,26 +18,117 @@ from threading import Event
 
 
 class _Log:
+    """
+    Provide the Log test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise Log through its owning regression module::
+
+            python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+    """
     def __init__(self) -> None:
+        """
+        Initialize the Log test double.
+
+        Example:
+            Exercise Log.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+        :return: None; the function records state or raises through its assertions.
+        """
         self.events = []
 
     def __call__(self, *parts):
+        """
+        Perform the call test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.call through its owning regression module::
+
+                python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("call", parts))
 
     def info(self, *parts):
+        """
+        Perform the info test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.info through its owning regression module::
+
+                python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("info", parts))
 
     def warning(self, *parts):
+        """
+        Perform the warning test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.warning through its owning regression module::
+
+                python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("warning", parts))
 
     def error(self, *parts):
+        """
+        Perform the error test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.error through its owning regression module::
+
+                python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("error", parts))
 
     def exception(self, *parts):
+        """
+        Perform the exception test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.exception through its owning regression module::
+
+                python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("exception", parts))
 
 
 def _drain(out: queue.Queue) -> list:
+    """
+    Perform the drain test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise drain through its owning regression module::
+
+            python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+    :param out: Value supplied for out in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     results = []
     while True:
         try:
@@ -36,6 +138,18 @@ def _drain(out: queue.Queue) -> list:
 
 
 def _create_isfdb_fixture(path: Path) -> Path:
+    """
+    Perform the create isfdb fixture test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise create isfdb fixture through its owning regression module::
+
+            python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+    :param path: Value supplied for path in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     conn = sqlite3.connect(path)
     with conn:
         conn.executescript(
@@ -263,12 +377,37 @@ def _create_isfdb_fixture(path: Path) -> Path:
 
 
 def test_local_sources_isfdb_import_smoke() -> None:
+    """
+    Verify local sources isfdb import smoke.
+
+    Example:
+        Exercise test local sources isfdb import smoke through its owning regression module::
+
+            python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.local_sources.isfdb as isfdb
 
     assert isfdb is not None
 
 
 def test_isfdb_helper_edges(tmp_path: Path, monkeypatch) -> None:
+    """
+    Verify isfdb helper edges.
+
+    Example:
+        Exercise test isfdb helper edges through its owning regression module::
+
+            python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.local_sources.isfdb as isfdb
 
     db_path = _create_isfdb_fixture(tmp_path / "isfdb.test_db")
@@ -290,6 +429,18 @@ def test_isfdb_helper_edges(tmp_path: Path, monkeypatch) -> None:
 
 
 def test_isfdb_url_and_query_builders(tmp_path: Path) -> None:
+    """
+    Verify isfdb url and query builders.
+
+    Example:
+        Exercise test isfdb url and query builders through its owning regression module::
+
+            python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.local_sources.isfdb import ISFDB
 
     plugin = ISFDB(database_path=str(_create_isfdb_fixture(tmp_path / "isfdb.test_db")))
@@ -317,6 +468,18 @@ def test_isfdb_url_and_query_builders(tmp_path: Path) -> None:
 
 
 def test_isfdb_identify_direct_title_maps_metadata(tmp_path: Path) -> None:
+    """
+    Verify isfdb identify direct title maps metadata.
+
+    Example:
+        Exercise test isfdb identify direct title maps metadata through its owning regression module::
+
+            python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.local_sources.isfdb import ISFDB
 
     plugin = ISFDB(database_path=str(_create_isfdb_fixture(tmp_path / "isfdb.test_db")))
@@ -349,6 +512,18 @@ def test_isfdb_identify_direct_title_maps_metadata(tmp_path: Path) -> None:
 
 
 def test_isfdb_identify_by_isbn_prefers_publication_title_work(tmp_path: Path) -> None:
+    """
+    Verify isfdb identify by isbn prefers publication title work.
+
+    Example:
+        Exercise test isfdb identify by isbn prefers publication title work through its owning regression module::
+
+            python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.local_sources.isfdb import ISFDB
 
     db_path = _create_isfdb_fixture(tmp_path / "isfdb.test_db")
@@ -365,6 +540,18 @@ def test_isfdb_identify_by_isbn_prefers_publication_title_work(tmp_path: Path) -
 
 
 def test_isfdb_identify_by_text_author_and_abort(tmp_path: Path) -> None:
+    """
+    Verify isfdb identify by text author and abort.
+
+    Example:
+        Exercise test isfdb identify by text author and abort through its owning regression module::
+
+            python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.local_sources.isfdb import ISFDB
 
     plugin = ISFDB(database_path=str(_create_isfdb_fixture(tmp_path / "isfdb.test_db")))
@@ -385,6 +572,20 @@ def test_isfdb_identify_by_text_author_and_abort(tmp_path: Path) -> None:
 
 
 def test_isfdb_identify_configuration_schema_and_parse_failures(tmp_path: Path, monkeypatch) -> None:
+    """
+    Verify isfdb identify configuration schema and parse failures.
+
+    Example:
+        Exercise test isfdb identify configuration schema and parse failures through its owning regression module::
+
+            python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.local_sources.isfdb import ISFDB
 
     plugin = ISFDB(database_path=str(tmp_path / "missing.test_db"))
@@ -409,6 +610,17 @@ def test_isfdb_identify_configuration_schema_and_parse_failures(tmp_path: Path, 
 
 
 def test_isfdb_import_local_source_module() -> None:
+    """
+    Verify isfdb import local source module.
+
+    Example:
+        Exercise test isfdb import local source module through its owning regression module::
+
+            python -m pytest -q tests/metadata/local_sources/test_local_sources_isfdb.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.local_sources import import_local_source_module, iter_known_local_source_modules
 
     assert "isfdb" in iter_known_local_source_modules()

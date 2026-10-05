@@ -1,10 +1,19 @@
-"""CHM conversion plugin."""
+"""
+Convert CHM archives into normalized conversion input.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise chm input through a consuming regression::
+
+        python -m pytest -q tests/file_formats/chm/test_chm_modernized.py
+"""
 
 from __future__ import annotations
 
-import typing as _typing
-
 import os
+import typing as _typing
 from urllib.parse import unquote_to_bytes
 
 from LiuXin_alpha.customize.conversion import InputFormatPlugin
@@ -16,12 +25,37 @@ __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>, and Alex Bramley <
 
 
 class CHMInput(InputFormatPlugin):
+    """
+    Convert chminput sources into the normalized OEB pipeline model.
+
+    Example:
+        Exercise CHMInput through a consuming regression::
+
+            python -m pytest -q tests/file_formats/chm/test_chm_modernized.py
+    """
     name = "CHM Input"
     author = "Kovid Goyal and Alex Bramley"
     description = "Convert CHM files to OEB"
     file_types = {"chm"}
 
     def _chmtohtml(self: _typing.Self, output_dir: _typing.Any, chm_path: _typing.Any, no_images: _typing.Any, log: _typing.Any, debug_dump: bool = False) -> _typing.Any:
+        """
+        Perform the chmtohtml operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CHMInput. chmtohtml through a consuming regression::
+
+                python -m pytest -q tests/file_formats/chm/test_chm_modernized.py
+
+
+        :param output_dir: Value supplied for output dir under the utility contract.
+        :param chm_path: Value supplied for chm path under the utility contract.
+        :param no_images: Value supplied for no images under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :param debug_dump: Value supplied for debug dump under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.file_formats.chm.reader import CHMReader
 
         log.debug("Opening CHM file")
@@ -32,6 +66,21 @@ class CHMInput(InputFormatPlugin):
         return rdr.hhc_path
 
     def _stream_to_path(self: _typing.Self, stream: _typing.Any, tdir: _typing.Any) -> _typing.Any:
+        """
+        Perform the stream to path operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CHMInput. stream to path through a consuming regression::
+
+                python -m pytest -q tests/file_formats/chm/test_chm_modernized.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param tdir: Value supplied for tdir under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         stream_name = getattr(stream, "name", None)
         if stream_name and os.path.exists(stream_name):
             return stream_name
@@ -42,7 +91,24 @@ class CHMInput(InputFormatPlugin):
         return temp_input
 
     def convert(self: _typing.Self, stream: _typing.Any, options: _typing.Any, file_ext: _typing.Any, log: _typing.Any, accelerators: _typing.Any) -> _typing.Any:
-        """Convert a CHM stream into an OEBBook."""
+        """
+        Convert a CHM stream into an OEBBook.
+
+        Example:
+            Exercise CHMInput.convert through a consuming regression::
+
+                python -m pytest -q tests/file_formats/chm/test_chm_modernized.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param options: Value supplied for options under the utility contract.
+        :param file_ext: Value supplied for file ext under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :param accelerators: Value supplied for accelerators under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.customize.ui import plugin_for_input_format
         from LiuXin_alpha.file_formats.chm.metadata import get_metadata_from_reader
         from LiuXin_alpha.metadata.utils import calibreMetaInformation
@@ -105,13 +171,39 @@ class CHMInput(InputFormatPlugin):
         return oeb
 
     def parse_html_toc(self: _typing.Self, item: _typing.Any) -> _typing.Any:
-        """Parse an HTML document into an OEB TOC tree."""
+        """
+        Parse an HTML document into an OEB TOC tree.
+
+        Example:
+            Exercise CHMInput.parse html toc through a consuming regression::
+
+                python -m pytest -q tests/file_formats/chm/test_chm_modernized.py
+
+
+        :param item: Value supplied for item under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.file_formats.oeb.base import TOC, XPath
 
         dx = XPath("./h:div")
         ax = XPath("./h:a[1]")
 
         def do_node(parent: _typing.Any, div: _typing.Any) -> None:
+            """
+            Perform the do node operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise CHMInput.parse html toc.do node through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/chm/test_chm_modernized.py
+
+
+            :param parent: Value supplied for parent under the utility contract.
+            :param div: Value supplied for div under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             for child in dx(div):
                 links = ax(child)
                 if not links:
@@ -127,7 +219,23 @@ class CHMInput(InputFormatPlugin):
         return toc
 
     def _create_oebbook_html(self: _typing.Self, htmlpath: _typing.Any, basedir: _typing.Any, opts: _typing.Any, log: _typing.Any, mi: _typing.Any) -> _typing.Any:
-        """Use HTMLInput plugin to generate an OEBBook."""
+        """
+        Use HTMLInput plugin to generate an OEBBook.
+
+        Example:
+            Exercise CHMInput. create oebbook html through a consuming regression::
+
+                python -m pytest -q tests/file_formats/chm/test_chm_modernized.py
+
+
+        :param htmlpath: Value supplied for htmlpath under the utility contract.
+        :param basedir: Value supplied for basedir under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :param mi: Metadata object exposed to the template function.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.file_formats.conversion.plugins.html_input import HTMLInput
 
         opts.breadth_first = True
@@ -141,10 +249,25 @@ class CHMInput(InputFormatPlugin):
         return oeb
 
     def _create_html_root(self: _typing.Self, hhcpath: _typing.Any, log: _typing.Any, encoding: _typing.Any) -> tuple[_typing.Any, ...]:
+        """
+        Create html root under the format's safety and compatibility rules.
+
+        Example:
+            Exercise CHMInput. create html root through a consuming regression::
+
+                python -m pytest -q tests/file_formats/chm/test_chm_modernized.py
+
+
+        :param hhcpath: Value supplied for hhcpath under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :param encoding: Value supplied for encoding under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from lxml import html
 
-        from LiuXin_alpha.file_formats.chardet import xml_to_unicode
         from LiuXin_alpha.file_formats.oeb.base import TOC, urlquote
+        from LiuXin_alpha.utils.libraries.calibre_chardet import xml_to_unicode
 
         try:
             hhcdata = self._read_file(hhcpath)
@@ -163,10 +286,37 @@ class CHMInput(InputFormatPlugin):
         base = os.path.dirname(os.path.abspath(htmlpath))
 
         def unquote(text: _typing.Any) -> _typing.Any:
+            """
+            Perform the unquote operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise CHMInput. create html root.unquote through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/chm/test_chm_modernized.py
+
+
+            :param text: Text parsed, normalized or rendered.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             raw = text if isinstance(text, bytes) else text.encode("utf-8")
             return unquote_to_bytes(raw).decode("utf-8", errors="replace")
 
         def unquote_path(path: _typing.Any) -> tuple[_typing.Any, ...]:
+            """
+            Perform the unquote path operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise CHMInput. create html root.unquote path through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/chm/test_chm_modernized.py
+
+
+            :param path: Filesystem path read, written, normalized or validated by the
+                operation.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             raw, frag = (path.split("#", 1) + [""])[:2]
             if frag:
                 frag = "#" + frag
@@ -176,6 +326,22 @@ class CHMInput(InputFormatPlugin):
             return raw, frag
 
         def donode(item: _typing.Any, parent: _typing.Any, base_dir: _typing.Any, subpath: _typing.Any) -> None:
+            """
+            Perform the donode operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise CHMInput. create html root.donode through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/chm/test_chm_modernized.py
+
+
+            :param item: Value supplied for item under the utility contract.
+            :param parent: Value supplied for parent under the utility contract.
+            :param base_dir: Value supplied for base dir under the utility contract.
+            :param subpath: Value supplied for subpath under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             for child in item:
                 title = child.title
                 if not title:
@@ -198,7 +364,7 @@ class CHMInput(InputFormatPlugin):
 
         with open(htmlpath, "wb") as f:
             if toc.count() > 1:
-                from lxml.html.builder import A, BODY, DIV, HTML
+                from lxml.html.builder import BODY, DIV, HTML, A
 
                 path0 = toc[0].href
                 path0 = unquote_path(path0)[0]
@@ -215,10 +381,38 @@ class CHMInput(InputFormatPlugin):
         return htmlpath, toc
 
     def _read_file(self: _typing.Self, name: _typing.Any) -> _typing.Any:
+        """
+        Read file under the format's safety and compatibility rules.
+
+        Example:
+            Exercise CHMInput. read file through a consuming regression::
+
+                python -m pytest -q tests/file_formats/chm/test_chm_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         with open(name, "rb") as f:
             return f.read()
 
     def add_node(self: _typing.Self, node: _typing.Any, toc: _typing.Any, ancestor_map: _typing.Any) -> None:
+        """
+        Perform the add node operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CHMInput.add node through a consuming regression::
+
+                python -m pytest -q tests/file_formats/chm/test_chm_modernized.py
+
+
+        :param node: Value supplied for node under the utility contract.
+        :param toc: Value supplied for toc under the utility contract.
+        :param ancestor_map: Value supplied for ancestor map under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         from LiuXin_alpha.file_formats.chm.reader import match_string
 
         if match_string(node.attrib.get("type", ""), "text/sitemap"):
@@ -235,6 +429,19 @@ class CHMInput(InputFormatPlugin):
             ancestor_map[node] = child
 
     def _process_nodes(self: _typing.Self, root: _typing.Any) -> _typing.Any:
+        """
+        Perform the process nodes operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CHMInput. process nodes through a consuming regression::
+
+                python -m pytest -q tests/file_formats/chm/test_chm_modernized.py
+
+
+        :param root: Root directory that bounds path resolution or traversal.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.file_formats.oeb.base import TOC
 
         toc = TOC()

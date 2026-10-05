@@ -1,4 +1,8 @@
-"""Consistency checks for generated FRBR database schemas."""
+"""
+Check column-name collisions across a supplied schema-name mapping.
+
+The helper reports collisions rather than validating SQL, table existence or types.
+"""
 
 # Verifies that the database is fine - checks for things which might cause problems
 
@@ -13,14 +17,20 @@ def check_for_duplicate_column_names(
         tables_and_columns: dict[str, dict[str, list[str]]],
         additional_column_names: Optional[list[str]] = None) -> bool:
     """
-    Takes an iterable of additional columns names (or a string).
+    Report whether a schema column repeats or collides with additional reserved names.
 
-    Checks through the database to make sure that none of
-    the given names conflict with any names currently present in the database.
-    :param tables_and_columns: A map keyed with the name of the table and valued with all the names of the columns in
-                               that table.
-    :param additional_column_names: An iterable containing additional column names to exclude
-    :return:
+    Each table value is iterated directly (dictionary values therefore contribute keys).
+    Additional iterables are deduplicated first; a string contributes characters, and
+    None seeds a None sentinel. Repeats solely within the additional input are not reported.
+
+    Example:
+        >>> check_for_duplicate_column_names({"a": ["id"], "b": ["id"]})
+        True
+
+
+    :param tables_and_columns: Table-to-iterable-of-column-names mapping, despite the narrower annotation.
+    :param additional_column_names: Optional reserved names or scalar seed; copied before use.
+    :return: True on the first collision; False when all schema column names are new.
     """
     additional_column_names = deepcopy(additional_column_names)
 

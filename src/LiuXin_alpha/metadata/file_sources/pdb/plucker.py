@@ -1,5 +1,13 @@
 """
-Read metadata from Plucker PDB files.
+Read bounded Plucker metadata records, declared encodings and publication timestamps from caller-owned PDB streams.
+
+The module makes ordering, fallback, ownership and optional-integration behavior
+explicit for callers.
+
+Example:
+    Exercise plucker with the owning regression module::
+
+        python -m pytest -q tests/metadata/file_sources/test_plucker_metadata_source.py
 """
 
 from __future__ import annotations
@@ -20,6 +28,19 @@ __docformat__ = "restructuredtext en"
 
 
 def _decode_text(raw: bytes | None, encoding: str) -> str:
+    """
+    Decode and whitespace-normalize Plucker text with a Latin-1 recovery path.
+
+    Example:
+        Exercise  decode text with the owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_plucker_metadata_source.py
+
+
+    :param raw: Raw scalar, bytes or markup value to parse or normalize.
+    :param encoding: Preferred text encoding declared by the source format.
+    :return: The normalized row, metadata object or value described above.
+    """
     if not raw:
         return ""
     try:
@@ -31,6 +52,19 @@ def _decode_text(raw: bytes | None, encoding: str) -> str:
 
 
 def _iter_records(section_data: bytes):
+    """
+    Yield complete bounded Plucker metadata records and stop safely at malformed lengths.
+
+    Example:
+        Exercise  iter records with the owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_plucker_metadata_source.py
+
+
+    :param section_data: Declared Plucker metadata-section payload.
+    :return: An iterator of complete ``(record_type, payload)`` pairs; malformed tails
+        are omitted.
+    """
     if len(section_data) < 2:
         return
 
@@ -58,7 +92,18 @@ def _iter_records(section_data: bytes):
 
 def get_metadata(stream, extract_cover: bool = True):
     """
-    Return metadata from a Plucker stream.
+    Read normalized metadata using this module's format-specific parser and fallback policy.
+
+    Example:
+        Exercise get metadata with the owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_plucker_metadata_source.py
+
+
+    :param stream: Caller-owned seekable binary PDB stream.
+    :param extract_cover: Request cover extraction when the underlying format supports
+        it.
+    :return: The normalized row, metadata object or value described above.
     """
     del extract_cover  # Plucker metadata reader does not expose cover bytes.
     mi = calibreMetaInformation(_("Unknown"), [_("Unknown")])

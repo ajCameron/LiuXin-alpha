@@ -1,12 +1,14 @@
-"""Read-only RAR archive Store plugin."""
+"""
+Expose the read-only RAR member Store.
 
-from LiuXin_alpha.storage.api import Location
+Locations and observed file metadata use the shared storage API values.
+The imported implementation owns backend construction and physical operations.
+"""
+
 from LiuXin_alpha.storage.store_backend_plugins.archive_backends import (
     RarReadOnlyStorageBackend,
 )
 
-
-RarReadOnlyStoreLocation = Location
-
-
-__all__ = ["RarReadOnlyStorageBackend", "RarReadOnlyStoreLocation"]
+__all__ = [
+    "RarReadOnlyStorageBackend",
+]

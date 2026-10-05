@@ -1,16 +1,25 @@
 """
-Shared mutable state for composed storage-manager implementations.
+Initialize process-owned state shared by composed storage-manager workflow mixins.
+
+The abstract base combines public APIs and private helper contracts for type-checked
+cross-component calls. It allocates empty registries, counters, and locks; supplied
+Store attachment can perform startup, while persistence adapters replace selected
+state and transaction behavior elsewhere in the manager composition.
 """
 
 from __future__ import annotations
 
 from collections.abc import Iterable
 from threading import RLock
-from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 import LiuXin_alpha.storage.api as api
 from LiuXin_alpha.storage.api.storage_manager_api import StorageManagerAPI
+from LiuXin_alpha.storage.storage_manager.mixins._contracts import (
+    _StorageManagerMechanics,
+    _StorageManagerPolicyHooks,
+    _StorageManagerStoreHooks,
+)
 from LiuXin_alpha.storage.storage_manager.mixins._types import (
     StoreFactory,
     StoreRegistration,
@@ -19,28 +28,23 @@ from LiuXin_alpha.storage.storage_manager.mixins._types import (
 )
 
 
-class _StorageManagerState(StorageManagerAPI):
+class _StorageManagerState(
+    StorageManagerAPI,
+    _StorageManagerMechanics,
+    _StorageManagerPolicyHooks,
+    _StorageManagerStoreHooks,
+):
     """
-    Typed state base shared by the orthogonal implementation mixins.
+    Provide typed shared state and initialization for the final manager composition.
 
-    The public manager contract makes ``@override`` and cross-component API
-    calls checkable in each standalone mixin. Private cross-cutting helpers are
-    supplied by the final composition and remain dynamically visible only to
-    static analysis; runtime attribute lookup still fails normally on typos.
+    The public API and abstract helper contracts keep incomplete compositions abstract. This base
+    initializes one set of mutable registries/counters and a reentrant lock; sibling mixins supply
+    operational methods. It does not make dictionary access automatically synchronized or install
+    durable persistence.
+
+    Example:
+        >>> manager = TransientStorageManager(store_registrations=registrations)  # doctest: +SKIP
     """
-
-    if TYPE_CHECKING:
-
-        def __getattr__(self, name: str) -> Any:
-            """
-            Describe private helpers supplied by sibling mixins.
-
-
-            :param name:
-            :return:
-            """
-
-            ...
 
     def __init__(
         self,
@@ -53,16 +57,32 @@ class _StorageManagerState(StorageManagerAPI):
         artifact_resolver: (api.ReproductionRecipeArtifactResolverAPI | None) = None,
     ) -> None:
         """
-        Initialize empty manager state and attach supplied Store instances.
+        Allocate empty state, retain configured helpers/default policies, and attach supplied Stores
+        in order.
+
+        All record/operation maps and identity-lock caches start empty; metadata IDs start at one
+        and revision/Replica generations at zero. Missing policies receive new default values, while
+        supplied policies, factory, and resolver are retained without added validation.
+
+        Each registration delegates to attach_store with its default startup behavior. The first
+        attachment can become the default when none was supplied; any resulting default is checked
+        after all attachments. Iteration, startup, duplicate, or final-default failures propagate
+        without cleanup or rollback of earlier attachments. No Store factory is invoked directly by
+        this initializer.
+
+        Example:
+            >>> manager = TransientStorageManager(  # doctest: +SKIP
+            ...     store_registrations=((configuration, store),), default_store_ref=store.store_ref,
+            ... )
 
 
-        :param store_registrations:
-        :param store_factory:
-        :param default_store_ref:
-        :param default_replication_policy:
-        :param default_backup_policy:
-        :param artifact_resolver:
-        :return:
+        :param store_registrations: Iterable of configuration/facade pairs consumed once and attached in order.
+        :param store_factory: Optional retained callable used later by Store lifecycle operations.
+        :param default_store_ref: Optional default UUID retained before attachment and checked against attached facades afterwards.
+        :param default_replication_policy: Optional retained policy value; None constructs ReplicationPolicy().
+        :param default_backup_policy: Optional retained policy value; None constructs BackupPolicy().
+        :param artifact_resolver: Optional external-artefact availability provider retained for later recovery decisions.
+        :return: None after state setup and Store attachment/default validation; failures may leave earlier Store startup and registration effects.
         """
 
         self._lock = RLock()

@@ -1,158 +1,200 @@
-"""Core endpoint declarations for content workflows operations."""
+"""
+Declare Core ingestion, metadata-file/online-source, and conversion workflow endpoints.
+
+Registration describes supported request fields and binds handlers; it does not
+probe plugins, open content files, access online services, or submit jobs. Payload
+metadata is descriptive, with actual validation and execution left to each handler.
+"""
 
 from __future__ import annotations
 
-from typing import cast
-
 from LiuXin_alpha.core.program_endpoints.common import (
-    ProgramEndpointHandlers,
     ProgramEndpointRegistrar,
     field,
 )
+from LiuXin_alpha.core.program_endpoints.handlers import ContentWorkflowsHandlers
 
 
-def install_queries(api: object, runtime: object) -> None:
-    """Register this family's query endpoints."""
+def install_queries(
+    api: ContentWorkflowsHandlers, runtime: ProgramEndpointRegistrar
+) -> None:
+    """
+    Install six queries for ingest/metadata/conversion formats, file metadata inspection, online sources, and conversion options.
 
-    handlers = cast(ProgramEndpointHandlers, api)
-    registrar = cast(ProgramEndpointRegistrar, runtime)
-    query = registrar.register_query_handler
+    Metadata inspection advertises path/base64/type alternatives without enforcing
+    their exclusivity here. Conversion options advertise an input/output path pair;
+    plugin loading and file inspection happen on dispatch, not on registration.
 
-    query(
-                "ingest.formats",
-                handlers.ingest_formats,
-                summary="List recognised ebook and metadata ingest extensions.",
-                tags=("ingest", "capabilities"),
-            )
+    Example:
+        >>> from unittest.mock import Mock
+        >>> registrar = Mock()
+        >>> install_queries(Mock(), registrar)
+        >>> registrar.register_query_handler.call_count
+        6
 
-    query(
-                "metadata.file.formats",
-                handlers.metadata_file_formats,
-                summary="List metadata file reader and writer support.",
-                tags=("metadata", "files", "capabilities"),
-            )
 
-    query(
-                "metadata.file.inspect",
-                handlers.metadata_file_inspect,
-                summary="Extract metadata from a local path or base64 file payload.",
-                payload_fields=(
-                    field("path", field_type="string"),
-                    field("base64", field_type="string"),
-                    field("file_type", field_type="string"),
-                ),
-                tags=("metadata", "files", "read"),
-            )
+    :param api: Handler provider for content capability discovery and synchronous metadata/option inspection.
+    :param runtime: Registrar accepting six ordered query bindings and their advertised payload fields and tags.
+    :return: None after installation, with a late registration error propagated rather than rolling back earlier bindings.
+    """
+
+    query = runtime.register_query_handler
 
     query(
-                "metadata.online.sources",
-                handlers.metadata_online_sources,
-                summary="List configured online metadata and cover sources.",
-                tags=("metadata", "online", "capabilities"),
-            )
+        "ingest.formats",
+        api.ingest_formats,
+        summary="List recognised ebook and metadata ingest extensions.",
+        tags=("ingest", "capabilities"),
+    )
 
     query(
-                "conversion.formats",
-                handlers.conversion_formats,
-                summary="List available conversion input and output formats.",
-                tags=("conversion", "capabilities"),
-            )
+        "metadata.file.formats",
+        api.metadata_file_formats,
+        summary="List metadata file reader and writer support.",
+        tags=("metadata", "files", "capabilities"),
+    )
 
     query(
-                "conversion.options",
-                handlers.conversion_options,
-                summary="Describe conversion options for an input/output pair.",
-                payload_fields=(
-                    field("input_path", required=True, field_type="string"),
-                    field("output_path", required=True, field_type="string"),
-                ),
-                tags=("conversion", "capabilities"),
-            )
+        "metadata.file.inspect",
+        api.metadata_file_inspect,
+        summary="Extract metadata from a local path or base64 file payload.",
+        payload_fields=(
+            field("path", field_type="string"),
+            field("base64", field_type="string"),
+            field("file_type", field_type="string"),
+        ),
+        tags=("metadata", "files", "read"),
+    )
 
-def install_commands(api: object, runtime: object) -> None:
-    """Register this family's command endpoints."""
+    query(
+        "metadata.online.sources",
+        api.metadata_online_sources,
+        summary="List configured online metadata and cover sources.",
+        tags=("metadata", "online", "capabilities"),
+    )
 
-    handlers = cast(ProgramEndpointHandlers, api)
-    registrar = cast(ProgramEndpointRegistrar, runtime)
-    command = registrar.register_command_handler
+    query(
+        "conversion.formats",
+        api.conversion_formats,
+        summary="List available conversion input and output formats.",
+        tags=("conversion", "capabilities"),
+    )
 
-    command(
-                "metadata.file.write",
-                handlers.metadata_file_write,
-                summary="Write metadata into a local path or base64 file payload.",
-                payload_fields=(
-                    field("path", field_type="string"),
-                    field("base64", field_type="string"),
-                    field("file_type", field_type="string"),
-                    field("item_id", field_type="integer"),
-                    field("metadata", field_type="object"),
-                ),
-                tags=("metadata", "files", "write"),
-            )
+    query(
+        "conversion.options",
+        api.conversion_options,
+        summary="Describe conversion options for an input/output pair.",
+        payload_fields=(
+            field("input_path", required=True, field_type="string"),
+            field("output_path", required=True, field_type="string"),
+        ),
+        tags=("conversion", "capabilities"),
+    )
 
-    command(
-                "metadata.identify.start",
-                handlers.metadata_identify_start,
-                summary="Submit online metadata identification as a managed job.",
-                payload_fields=(
-                    field("title", field_type="string|null"),
-                    field("authors", field_type="array|null"),
-                    field("identifiers", field_type="object|null"),
-                    field("timeout_s", field_type="number"),
-                    field("allowed_plugins", field_type="array|null"),
-                ),
-                tags=("metadata", "online", "jobs", "write"),
-            )
 
-    command(
-                "metadata.covers.start",
-                handlers.metadata_covers_start,
-                summary="Submit online cover discovery as a managed job.",
-                payload_fields=(
-                    field("title", field_type="string|null"),
-                    field("authors", field_type="array|null"),
-                    field("identifiers", field_type="object|null"),
-                    field("timeout_s", field_type="number"),
-                ),
-                tags=("metadata", "online", "jobs", "write"),
-            )
+def install_commands(
+    api: ContentWorkflowsHandlers, runtime: ProgramEndpointRegistrar
+) -> None:
+    """
+    Bind metadata-file writing and five job-start routes for online metadata, cover lookup, ingestion, and conversion.
 
-    command(
-                "ingest.disk.start",
-                handlers.ingest_disk_start,
-                summary="Submit local-disk ingestion as a managed job.",
-                payload_fields=(
-                    field("disk_path", required=True, field_type="string"),
-                    field("store_name", field_type="string|null"),
-                    field("ebook_extensions", field_type="array|null"),
-                    field("source_label", field_type="string"),
-                    field("compute_hash", field_type="boolean"),
-                    field("follow_symlinks", field_type="boolean"),
-                    field("attach_store_links", field_type="boolean"),
-                    field("refresh_storage_manager", field_type="boolean"),
-                ),
-                tags=("ingest", "jobs", "write"),
-            )
+    The file-write route is distinct from managed-job submission. Job controls
+    accepted by shared submission helpers are not exhaustively listed in these
+    endpoint fields; the declarations neither constrain payload keys nor promise
+    completion of a requested job. Installation executes no content operations.
+
+    Example:
+        >>> from unittest.mock import Mock
+        >>> registrar = Mock()
+        >>> install_commands(Mock(), registrar)
+        >>> registrar.register_command_handler.call_count
+        6
+
+
+    :param api: Provider of file-write and asynchronous content-workflow submission handlers.
+    :param runtime: Registrar receiving six command bindings, explicit summaries, payload metadata, and tags.
+    :return: None after sequential registration; failures propagate without provider-level cleanup of prior registrations.
+    """
+
+    command = runtime.register_command_handler
 
     command(
-                "ingest.remote-html.start",
-                handlers.ingest_remote_html_start,
-                summary="Submit remote HTML source registration as a managed job.",
-                payload_fields=(
-                    field("kind", required=True, field_type="string"),
-                    field("options", required=True, field_type="object"),
-                ),
-                tags=("ingest", "remote", "jobs", "write"),
-            )
+        "metadata.file.write",
+        api.metadata_file_write,
+        summary="Write metadata into a local path or base64 file payload.",
+        payload_fields=(
+            field("path", field_type="string"),
+            field("base64", field_type="string"),
+            field("file_type", field_type="string"),
+            field("item_id", field_type="integer"),
+            field("metadata", field_type="object"),
+        ),
+        tags=("metadata", "files", "write"),
+    )
 
     command(
-                "conversion.start",
-                handlers.conversion_start,
-                summary="Submit an ebook conversion as a managed job.",
-                payload_fields=(
-                    field("input_path", required=True, field_type="string"),
-                    field("output_path", required=True, field_type="string"),
-                    field("options", field_type="object"),
-                ),
-                tags=("conversion", "jobs", "write"),
-            )
+        "metadata.identify.start",
+        api.metadata_identify_start,
+        summary="Submit online metadata identification as a managed job.",
+        payload_fields=(
+            field("title", field_type="string|null"),
+            field("authors", field_type="array|null"),
+            field("identifiers", field_type="object|null"),
+            field("timeout_s", field_type="number"),
+            field("allowed_plugins", field_type="array|null"),
+        ),
+        tags=("metadata", "online", "jobs", "write"),
+    )
+
+    command(
+        "metadata.covers.start",
+        api.metadata_covers_start,
+        summary="Submit online cover discovery as a managed job.",
+        payload_fields=(
+            field("title", field_type="string|null"),
+            field("authors", field_type="array|null"),
+            field("identifiers", field_type="object|null"),
+            field("timeout_s", field_type="number"),
+        ),
+        tags=("metadata", "online", "jobs", "write"),
+    )
+
+    command(
+        "ingest.disk.start",
+        api.ingest_disk_start,
+        summary="Submit local-disk ingestion as a managed job.",
+        payload_fields=(
+            field("disk_path", required=True, field_type="string"),
+            field("store_name", field_type="string|null"),
+            field("ebook_extensions", field_type="array|null"),
+            field("source_label", field_type="string"),
+            field("compute_hash", field_type="boolean"),
+            field("follow_symlinks", field_type="boolean"),
+            field("attach_store_links", field_type="boolean"),
+            field("refresh_storage_manager", field_type="boolean"),
+        ),
+        tags=("ingest", "jobs", "write"),
+    )
+
+    command(
+        "ingest.remote-html.start",
+        api.ingest_remote_html_start,
+        summary="Submit remote HTML source registration as a managed job.",
+        payload_fields=(
+            field("kind", required=True, field_type="string"),
+            field("options", required=True, field_type="object"),
+        ),
+        tags=("ingest", "remote", "jobs", "write"),
+    )
+
+    command(
+        "conversion.start",
+        api.conversion_start,
+        summary="Submit an ebook conversion as a managed job.",
+        payload_fields=(
+            field("input_path", required=True, field_type="string"),
+            field("output_path", required=True, field_type="string"),
+            field("options", field_type="object"),
+        ),
+        tags=("conversion", "jobs", "write"),
+    )

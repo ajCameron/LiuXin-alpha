@@ -2,11 +2,11 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:fdm=marker:ai
 
 """
-Write convenience methods for items linked to the titles table.
+Export legacy writer classes and dispatch fields to specialized implementations.
 
-These are intended to make reasoning about and writing to the database easier by providing methods which abstract away
-much of the complications of setting up and preforming writes to the database.
-
+Writer construction uses field name, datatype and legacy table/shape flags.
+The package retains canonical classes from their implementation modules;
+this factory is separate from modern Cache/Catalog write coordination.
 """
 
 from __future__ import unicode_literals, division, absolute_import, print_function, annotations
@@ -20,10 +20,8 @@ from LiuXin_alpha.caches.write.generic_writers.many_to_one_writer import ManyToO
 from LiuXin_alpha.caches.write.generic_writers.one_to_many_writer import OneToManyWriter
 from LiuXin_alpha.caches.write.generic_writers.one_to_one_writer import OneToOneWriter
 from LiuXin_alpha.caches.write.author_sort_writer import AuthorSortWriter
-from LiuXin_alpha.caches.write.base_writer import BaseWriter
 from LiuXin_alpha.caches.write.covers_writer import CoversWrite
 from LiuXin_alpha.caches.write.custom_columns_writers import CustomSeriesIndexWriter
-from LiuXin_alpha.caches.write.generic_writers.one_to_one_writer import OneToOneWriter
 from LiuXin_alpha.caches.write.identifiers_writer import IdentifiersWrite
 from LiuXin_alpha.caches.write.languages_writer import LanguagesWriter
 from LiuXin_alpha.caches.write.title_writer import TitleWriter
@@ -43,10 +41,26 @@ __docformat__ = "restructuredtext en"
 # Todo: Actually might also want to be able to call this by name?
 def get_writer(field) -> Union["BaseWriter", "DummyWriter"]:
     """
-    Return a writer object suitable for the table.
+    Select and construct a legacy writer using ordered field-specific rules.
 
-    :param field:
-    :return:
+    First choose DummyWriter for composite datatype or protected fields
+    id/size/path/formats/news. Next check identifiers by field or table name,
+    then languages, cover, uuid, custom #..._index, title and author_sort.
+    After those special cases select MANY_ONE by table type, then MANY_MANY
+    for publisher/is_many_many/type, then ONE_MANY for is_many/type; otherwise
+    use OneToOneWriter. Earlier matches win.
+
+    The factory adds no shape validation: missing metadata/attributes propagate,
+    and an empty name can fail at name[0] before generic dispatch. Constructors
+    select adapters but this function does not perform database writes.
+
+    Example:
+        A title field uses TitleWriter even when generic relation flags could
+        otherwise select another writer.
+
+
+    :param field: Legacy field providing name, metadata, table and relation-shape attributes.
+    :return: New specialized BaseWriter or DummyWriter instance bound to the supplied field.
     """
     if field.metadata["datatype"] == "composite" or field.name in {
         "id",
@@ -95,5 +109,4 @@ def get_writer(field) -> Union["BaseWriter", "DummyWriter"]:
 
 
 # Todo: When you say many_one, do you actually mean one_many - which would make a lot more sense in the context
-
 

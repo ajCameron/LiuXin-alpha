@@ -1,3 +1,15 @@
+"""
+Check saved Calibre fixture snapshots for required libraries, expected shapes, and representative golden values.
+
+Discover fixtures at import and skip the module’s tests when none are found. These
+tests inspect saved expectations; live extraction/read comparisons are covered by
+the separate round-trip module.
+
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_fixture_libraries_e1_golden.py
+"""
 from __future__ import annotations
 
 from typing import Dict, List
@@ -27,6 +39,20 @@ pytestmark = pytest.mark.skipif(
 
 
 def _specs_by_name(specs: List[CalibreFixtureSpec]) -> Dict[str, CalibreFixtureSpec]:
+    """
+    Index fixture specifications by name, letting later entries replace earlier duplicates.
+
+    Example:
+        >>> from types import SimpleNamespace
+        >>> first = SimpleNamespace(name='same', version=1)
+        >>> last = SimpleNamespace(name='same', version=2)
+        >>> _specs_by_name([first, last])['same'] is last
+        True
+
+
+    :param specs: Ordered list of fixture descriptors.
+    :return: New name-to-specification dictionary.
+    """
     out: Dict[str, CalibreFixtureSpec] = {}
     for s in specs:
         out[s.name] = s
@@ -34,6 +60,17 @@ def _specs_by_name(specs: List[CalibreFixtureSpec]) -> Dict[str, CalibreFixtureS
 
 
 def test_e1_required_fixtures_present() -> None:
+    """
+    Require the minimal, custom-stress, filesystem-drift, and Unicode fixture names when fixture discovery is enabled.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_fixture_libraries_e1_golden.py::test_e1_required_fixtures_present
+
+
+    :return: None; failed expectations raise AssertionError.
+    """
     by = _specs_by_name(_SPECS)
     required = {
         "01_minimal",
@@ -57,6 +94,19 @@ def test_e1_required_fixtures_present() -> None:
     ],
 )
 def test_e1_expected_snapshot_shape_and_counts(fixture_name: str) -> None:
+    """
+    Check schema/count/book keys and that the saved book-list length matches its reported count; skip the named fixture when absent.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_fixture_libraries_e1_golden.py::test_e1_expected_snapshot_shape_and_counts
+
+
+    :param fixture_name: Parametrized optional fixture name whose saved snapshot is
+        inspected.
+    :return: None; failed expectations raise AssertionError.
+    """
     by = _specs_by_name(_SPECS)
     if fixture_name not in by:
         pytest.skip(f"Fixture not present: {fixture_name}")
@@ -106,6 +156,17 @@ def test_e1_expected_snapshot_shape_and_counts(fixture_name: str) -> None:
 
 
 def test_e1_minimal_fixture_expectations() -> None:
+    """
+    Check the minimal saved fixture has one book, at least one format, its expected title/author, and an EPUB; skip when absent.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_fixture_libraries_e1_golden.py::test_e1_minimal_fixture_expectations
+
+
+    :return: None; failed expectations raise AssertionError.
+    """
     by = _specs_by_name(_SPECS)
     spec = by.get("01_minimal")
     if spec is None:
@@ -122,6 +183,17 @@ def test_e1_minimal_fixture_expectations() -> None:
 
 
 def test_e1_customs_stress_fixture_expectations() -> None:
+    """
+    Check the custom-stress snapshot has one book, at least eight columns, and four representative custom keys; skip when absent.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_fixture_libraries_e1_golden.py::test_e1_customs_stress_fixture_expectations
+
+
+    :return: None; failed expectations raise AssertionError.
+    """
     by = _specs_by_name(_SPECS)
     spec = by.get("02_customs_stress")
     if spec is None:
@@ -142,6 +214,17 @@ def test_e1_customs_stress_fixture_expectations() -> None:
 
 
 def test_e1_filesystem_drift_fixture_expectations() -> None:
+    """
+    Check the drift snapshot contains missing-format, missing-cover, orphan, and duplicate-or-recovery event codes; skip when absent.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_fixture_libraries_e1_golden.py::test_e1_filesystem_drift_fixture_expectations
+
+
+    :return: None; failed expectations raise AssertionError.
+    """
     by = _specs_by_name(_SPECS)
     spec = by.get("03_filesystem_drift")
     if spec is None:
@@ -164,6 +247,17 @@ def test_e1_filesystem_drift_fixture_expectations() -> None:
 
 
 def test_e1_unicode_chaos_fixture_expectations() -> None:
+    """
+    Check the Unicode snapshot has one book with non-ASCII title and author content; skip when absent.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_fixture_libraries_e1_golden.py::test_e1_unicode_chaos_fixture_expectations
+
+
+    :return: None; failed expectations raise AssertionError.
+    """
     by = _specs_by_name(_SPECS)
     spec = by.get("04_unicode_chaos")
     if spec is None:

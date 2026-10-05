@@ -1,6 +1,6 @@
 
 """
-Macros for preforming updates on the database.
+Update bound row values and maintain configured normalized identity columns.
 """
 
 from copy import deepcopy
@@ -25,18 +25,28 @@ from LiuXin_alpha.utils.logging import default_log
 
 class UpdateMixin:
     """
-    Methods to update the database.
+    Provide scalar-column batches and dictionary-based row updates through host schema helpers.
+
+    Example:
+        ``driver.direct_update_columns({3: "Example"}, field="book_title")`` updates one inferred column.
     """
 
     # Todo: Check for field degeneracy
     # Todo: I think this may have been superseded by the writers....
     def direct_update_columns(self, id_values_map, field=None, table=None) -> None:
         """
-        For when you only want to update specific columns in rows.
+        Update one field for each ID, also deriving its configured identity column when available.
 
-        Detects the kind of map entered - preforms different actions depending on what it is.
+        Infer the table from the field; a conflicting table argument only warns and the inferred table wins. Commit the batch on success and close in finally. Empty mappings are no-ops; dict-valued mappings select an unimplemented multi-column mode.
 
-        :return:
+        Example:
+            ``driver.direct_update_columns({2: "A", 3: "B"}, field="book_title")`` writes two titles.
+
+
+        :param id_values_map: Mapping from row IDs to scalar field values; dict values are currently unsupported.
+        :param field: Trusted column heading required for scalar mode.
+        :param table: Optional expected table name; a mismatch warns rather than rejecting the update.
+        :return: ``None``.
         """
         # Check to see if the map is one-one (a id_values_map keyed with an id and values with a single entry - with a
         # field and table for targeting - one value is changed in each row)
@@ -44,6 +54,16 @@ class UpdateMixin:
         # valued with the new column value)
 
         def detect_mode(int_id_values_map):
+            """
+            Inspect only the first mapping value to choose scalar or mapping update mode.
+
+            Example:
+                An empty mapping selects no work; a first value of ``{"title": "A"}`` selects the unsupported many mode.
+
+
+            :param int_id_values_map: Sized mapping of row IDs to candidate update values.
+            :return: ``None`` for empty input, ``many`` for a first dict value, otherwise ``one``.
+            """
             if len(int_id_values_map) == 0:
                 return None
 
@@ -128,11 +148,16 @@ class UpdateMixin:
 
     def direct_update_row_dict(self, row_dict: dict[str, Any]) -> None:
         """
-        Takes a row in the form of a row_dict. Updates that row_dict into the database.
+        Update the identified row using its ID and the remaining supplied columns.
 
-        This is the method Row ultimately calls to update itself - THUS DO NOT CALL WITH ROW. IT WAS CAUSE RECURSION.
-        :param row_dict:
-        :return:
+        Infer the table before copying the mapping, convert exact text ``None`` values to null and derive configured identity fields. Missing ID raises RowIntegrityError. Use a plain dict, since a live Row object can recurse through its writer. Commit/close on success; handled SQLite errors are translated, with an additional commit on the integrity-error path.
+
+        Example:
+            ``driver.direct_update_row_dict({"book_id": 3, "book_title": "Example"})`` updates supplied fields only.
+
+
+        :param row_dict: Plain column/value dictionary including the ID; inference may remove its ``table`` key before copying.
+        :return: ``True`` for an ID-only no-op; otherwise ``None`` after executing the update.
         """
         target_table = self.direct_identify_table_from_row(row_dict)
         row_dict = deepcopy(row_dict)

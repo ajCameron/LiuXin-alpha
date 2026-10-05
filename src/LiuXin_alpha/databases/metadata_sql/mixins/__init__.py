@@ -1,4 +1,9 @@
-"""Mixin classes for metadata-aware SQL operations."""
+"""
+Export the metadata SQL operation mixins.
+
+The aggregate MetadataSQL class composes these helpers elsewhere. Importing this
+namespace loads definitions only; it opens no connection and executes no SQL.
+"""
 
 from __future__ import annotations
 

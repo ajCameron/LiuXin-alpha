@@ -1,6 +1,14 @@
-"""Unit tests for link-table SQL generation requested columns.
+"""
+Check generated link SQL text without building a full FRBR catalogue.
 
-These are lightweight and do not rely on the full FRBR generator bundle.
+Uses a minimal mixin host and asserts metadata-column fragments, one source-column
+declaration and absence of a nullable pseudo-column. No SQL is executed by these
+tests.
+
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/test_link_sql_generation_requested_columns.py
 """
 
 from __future__ import annotations
@@ -9,10 +17,26 @@ from LiuXin_alpha.databases.database_driver_plugins.SQL.utility_mixins import SQ
 
 
 class _Dummy(SQLiteTableLinkingMixin):
+    """
+    Expose the shared SQLite link SQL builder without connection or name-resolution overrides.
+
+    Example:
+        >>> isinstance(_Dummy(), SQLiteTableLinkingMixin)
+        True
+    """
     pass
 
 
 def test_link_sql_all_includes_origin_source_policy_data() -> None:
+    """
+    Require origin, source, policy and data fragments when requesting all link columns.
+
+    Example:
+        >>> test_link_sql_all_includes_origin_source_policy_data()
+
+
+    :return: None; failed expectations raise AssertionError.
+    """
     d = _Dummy()
     sql_list, _ = d.direct_get_direct_link_main_tables_sql(
         primary_table="agents",
@@ -28,6 +52,18 @@ def test_link_sql_all_includes_origin_source_policy_data() -> None:
 
 
 def test_link_sql_bespoke_columns_are_emitted_as_text() -> None:
+    """
+    Require nullable TEXT declarations for bespoke extra_meta and standard source fields.
+
+    Exercises the lower-level SQL builder, whose bespoke-column support differs from
+    strict FRBR TOML validation.
+
+    Example:
+        >>> test_link_sql_bespoke_columns_are_emitted_as_text()
+
+
+    :return: None; failed expectations raise AssertionError.
+    """
     d = _Dummy()
     sql_list, table_name = d.direct_get_direct_link_main_tables_sql(
         primary_table="agents",
@@ -41,6 +77,15 @@ def test_link_sql_bespoke_columns_are_emitted_as_text() -> None:
 
 
 def test_link_sql_source_request_does_not_duplicate_standard_column() -> None:
+    """
+    Require exactly one source-column TEXT NULL declaration when source is explicitly requested.
+
+    Example:
+        >>> test_link_sql_source_request_does_not_duplicate_standard_column()
+
+
+    :return: None; failed expectations raise AssertionError.
+    """
     d = _Dummy()
     sql_list, table_name = d.direct_get_direct_link_main_tables_sql(
         primary_table="agents",
@@ -55,6 +100,15 @@ def test_link_sql_source_request_does_not_duplicate_standard_column() -> None:
 
 
 def test_link_sql_nullable_sentinel_does_not_create_physical_column() -> None:
+    """
+    Require the nullable sentinel to be absent from generated SQL text.
+
+    Example:
+        >>> test_link_sql_nullable_sentinel_does_not_create_physical_column()
+
+
+    :return: None; failed expectations raise AssertionError.
+    """
     d = _Dummy()
     sql_list, table_name = d.direct_get_direct_link_main_tables_sql(
         primary_table="agents",

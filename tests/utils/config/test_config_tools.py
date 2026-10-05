@@ -1,3 +1,14 @@
+"""
+Provide test config tools utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test config tools through a consuming regression::
+
+        python -m pytest -q tests/utils/config/test_config_tools.py
+"""
 from __future__ import annotations
 
 import importlib
@@ -12,11 +23,35 @@ import pytest
 
 
 def _install_clint_stubs() -> None:
-    """Provide minimal `clint` so `LiuXin_alpha.utils.terminal` can import."""
+    """
+    Provide minimal `clint` so `LiuXin_alpha.utils.terminal` can import.
+
+    Example:
+        Exercise  install clint stubs through a consuming regression::
+
+            python -m pytest -q tests/utils/config/test_config_tools.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     clint = types.ModuleType("clint")
     textui = types.ModuleType("clint.textui")
 
     def puts(s: str) -> None:
+        """
+        Perform the puts utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  install clint stubs.puts through a consuming regression::
+
+                python -m pytest -q tests/utils/config/test_config_tools.py
+
+
+        :param s: Value supplied for s under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         sys.stdout.write(str(s) + "\n")
 
     textui.puts = puts  # type: ignore[attr-defined]
@@ -34,7 +69,18 @@ def _install_clint_stubs() -> None:
 
 
 def _install_liuxin_dateutil_stubs() -> None:
-    """Provide a minimal top-level `liuxin_dateutil` for LiuXin_alpha.utils.date."""
+    """
+    Provide a minimal top-level `liuxin_dateutil` for LiuXin_alpha.utils.date.
+
+    Example:
+        Exercise  install liuxin dateutil stubs through a consuming regression::
+
+            python -m pytest -q tests/utils/config/test_config_tools.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
 
     try:
         from dateutil.parser import parse  # type: ignore
@@ -49,6 +95,20 @@ def _install_liuxin_dateutil_stubs() -> None:
 
 
 def _set_isolated_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Perform the set isolated env utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  set isolated env through a consuming regression::
+
+            python -m pytest -q tests/utils/config/test_config_tools.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     base = tmp_path / "liuxin_base"
     prefs = base / "LiuXin_prefs"
     cfg = prefs / "calibre_config"
@@ -65,11 +125,38 @@ def _set_isolated_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def _clear_modules(*names: str) -> None:
+    """
+    Perform the clear modules utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  clear modules through a consuming regression::
+
+            python -m pytest -q tests/utils/config/test_config_tools.py
+
+
+    :param names: Value supplied for names under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     for n in names:
         sys.modules.pop(n, None)
 
 
 def _import_config_tools(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """
+    Perform the import config tools utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  import config tools through a consuming regression::
+
+            python -m pytest -q tests/utils/config/test_config_tools.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     _install_clint_stubs()
     _install_liuxin_dateutil_stubs()
     _set_isolated_env(tmp_path, monkeypatch)
@@ -93,6 +180,19 @@ def _import_config_tools(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 
 @pytest.fixture()
 def ct(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """
+    Perform the ct utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise ct through a consuming regression::
+
+            python -m pytest -q tests/utils/config/test_config_tools.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: An iterator yielding the normalized values described above.
+    """
     mod = _import_config_tools(tmp_path, monkeypatch)
     try:
         yield mod
@@ -107,6 +207,19 @@ def ct(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 
 
 def test_to_json_datetime_roundtrip(ct) -> None:
+    """
+    Perform the test to json datetime roundtrip utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test to json datetime roundtrip through a consuming regression::
+
+            python -m pytest -q tests/utils/config/test_config_tools.py
+
+
+    :param ct: Value supplied for ct under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     dt = datetime(2025, 1, 2, 3, 4, 5, tzinfo=timezone.utc)
     raw = json.dumps({"dt": dt}, default=ct.to_json)
     obj = json.loads(raw, object_hook=ct.from_json)
@@ -116,6 +229,19 @@ def test_to_json_datetime_roundtrip(ct) -> None:
 
 
 def test_to_json_bytearray_roundtrip(ct) -> None:
+    """
+    Perform the test to json bytearray roundtrip utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test to json bytearray roundtrip through a consuming regression::
+
+            python -m pytest -q tests/utils/config/test_config_tools.py
+
+
+    :param ct: Value supplied for ct under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     b = bytearray(b"abc")
     raw = json.dumps({"b": b}, default=ct.to_json)
     obj = json.loads(raw, object_hook=ct.from_json)
@@ -124,6 +250,19 @@ def test_to_json_bytearray_roundtrip(ct) -> None:
 
 def test_device_prefs_overrides(ct) -> None:
     # prefs is imported from config_base; should act mapping-like.
+    """
+    Perform the test device prefs overrides utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test device prefs overrides through a consuming regression::
+
+            python -m pytest -q tests/utils/config/test_config_tools.py
+
+
+    :param ct: Value supplied for ct under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     gp = ct.prefs
     ct.device_prefs.set_overrides(network_timeout=321)
     assert ct.device_prefs["network_timeout"] == 321
@@ -132,6 +271,19 @@ def test_device_prefs_overrides(ct) -> None:
 
 
 def test_dynamic_config_roundtrip(ct) -> None:
+    """
+    Perform the test dynamic config roundtrip utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test dynamic config roundtrip through a consuming regression::
+
+            python -m pytest -q tests/utils/config/test_config_tools.py
+
+
+    :param ct: Value supplied for ct under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     d = ct.DynamicConfig(name="unit_dynamic")
     d.defaults["missing"] = "fallback"
 
@@ -148,6 +300,19 @@ def test_dynamic_config_roundtrip(ct) -> None:
     assert d2["x"] == 12
 
 def test_json_config_roundtrip(ct) -> None:
+    """
+    Perform the test json config roundtrip utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test json config roundtrip through a consuming regression::
+
+            python -m pytest -q tests/utils/config/test_config_tools.py
+
+
+    :param ct: Value supplied for ct under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     j = ct.JSONConfig("unit_json")
     j.defaults["a"] = 1
     j["a"] = 2
@@ -160,6 +325,19 @@ def test_json_config_roundtrip(ct) -> None:
 
 
 def test_xml_config_roundtrip(ct) -> None:
+    """
+    Perform the test xml config roundtrip utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test xml config roundtrip through a consuming regression::
+
+            python -m pytest -q tests/utils/config/test_config_tools.py
+
+
+    :param ct: Value supplied for ct under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     x = ct.XMLConfig("unit_xml")
     x.defaults["a"] = 1
     x["a"] = 2

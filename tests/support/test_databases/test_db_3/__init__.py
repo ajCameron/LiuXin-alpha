@@ -8,6 +8,17 @@
 # The folder-file lin priority serves as the priority column for the book-file link - it affects the order the files
 # appear and the extension they are assigned
 
+"""
+Build the deterministic test_db_3 database fixture and its declared content profile.
+
+The module keeps generated data, ordering and failure modes explicit so consumers
+can assert stable behavior.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/databases/test_test_resources_manager.py
+"""
 from itertools import cycle
 
 from LiuXin_alpha.utils.libraries.liuxin_clint import puts, colored
@@ -23,15 +34,45 @@ __folder__ = test_db_1_folder
 class TestDB3Builder(TestDatabaseBuilder):
     """
     Constructs test_db_3 - which has a LOT of (largely invalid) fake file and folder data
+
+    Example:
+        Exercise TestDB3Builder through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
     """
 
     def detail_databases(self, scratch_db):
+        """
+        Return or record the database profiles supplied by this fixture module.
+
+        Example:
+            Exercise TestDB3Builder.detail databases through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param scratch_db: Scratch database receiving deterministic schema and rows.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         make_file_test_data(scratch_db)
 
         return scratch_db
 
     def write_timestamps(self, scratch_db):
 
+        """
+        Write deterministic timestamp values into the selected fixture rows.
+
+        Example:
+            Exercise TestDB3Builder.write timestamps through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param scratch_db: Scratch database receiving deterministic schema and rows.
+        :return: None; fixture state or the supplied destination is updated in place.
+        """
         self.write_timestamps_books_table(scratch_db)
         self.write_timestamps_titles_table(scratch_db)
 
@@ -39,8 +80,15 @@ class TestDB3Builder(TestDatabaseBuilder):
     def write_timestamps_books_table(scratch_db):
         """
         Update the timestamp columns of the books field to static values, freezing them after database rebuilds.
-        :param scratch_db:
-        :return:
+
+        Example:
+            Exercise TestDB3Builder.write timestamps books table through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param scratch_db: Scratch database receiving deterministic schema and rows.
+        :return: None; fixture state or the supplied destination is updated in place.
         """
         # Update the books table
 
@@ -151,8 +199,15 @@ class TestDB3Builder(TestDatabaseBuilder):
     def write_timestamps_titles_table(scratch_db):
         """
         Update the timestamp columns of the books field to static values, freezing them after database rebuilds.
-        :param scratch_db:
-        :return:
+
+        Example:
+            Exercise TestDB3Builder.write timestamps titles table through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param scratch_db: Scratch database receiving deterministic schema and rows.
+        :return: None; fixture state or the supplied destination is updated in place.
         """
         theo_title_created_datestamp_dict = {
             1: "2022-05-09 18:28:52",
@@ -369,11 +424,23 @@ def build_test_db(
     test_asset_version=None,
 ):
     """
-    Constructs test db 1 - then adds the randomly generated file data to it.
-    Should build in a repeatable, platform agnostic way.
-    :param dst_file_path:
-    :param dump:
-    :return:
+    Constructs test db 1 - then adds the randomly generated file data to it. Should build in a repeatable, platform agnostic way.
+
+    Example:
+        Exercise build test db through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param dst_file_path: Destination file written with the generated database or asset.
+    :param dump: Value supplied for dump under the deterministic fixture contract.
+    :param plugin_name: Value supplied for plugin name under the deterministic fixture
+        contract.
+    :param new_db_uuid: Value supplied for new db uuid under the deterministic fixture
+        contract.
+    :param test_asset_version: Value supplied for test asset version under the
+        deterministic fixture contract.
+    :return: None; fixture state or the supplied destination is updated in place.
     """
     test_db_builder = TestDB3Builder(
         dst_file_path=dst_file_path,
@@ -388,13 +455,19 @@ def build_test_db(
 
 def make_file_test_data(test_db, clear=True, extensions=None):
     """
-    Write file test data to the target db - in a repeatable manner - if the database has the same number of books each
-    time it should end up with the test data each time.
-    :param test_db:
-    :param clear: The relevant tables will be cleared before anything is written to them
-    :param extensions: Overriding iterable of extensions to assign to the files. If None is passed will default to
-                       cycling over ["epub", "mobi", "pdf"]
-    :return:
+    Write file test data to the target db - in a repeatable manner - if the database has the same number of books each time it should end up with the test data each time.
+
+    Example:
+        Exercise make file test data through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param test_db: Database fixture or builder being populated.
+    :param clear: Value supplied for clear under the deterministic fixture contract.
+    :param extensions: Value supplied for extensions under the deterministic fixture
+        contract.
+    :return: None; fixture state or the supplied destination is updated in place.
     """
     if clear:
         # Clear the decks - erase book_folder_links, folders, file_folder_links, files

@@ -1,5 +1,16 @@
 # -*- coding: utf-8 -*-
 
+"""
+Convert PML content into the normalized ebook conversion pipeline.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise pml input through a consuming regression::
+
+        python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -22,6 +33,14 @@ __docformat__ = "restructuredtext en"
 
 class PMLInput(InputFormatPlugin):
 
+    """
+    Convert pmlinput sources into the normalized OEB pipeline model.
+
+    Example:
+        Exercise PMLInput through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+    """
     name = "PML Input"
     author = "John Schember"
     description = "Convert PML to OEB"
@@ -29,6 +48,21 @@ class PMLInput(InputFormatPlugin):
     file_types = {"pml", "pmlz"}
 
     def process_pml(self: _typing.Self, pml_path: _typing.Any, html_path: _typing.Any, close_all: bool = False) -> _typing.Any:
+        """
+        Perform the process pml operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PMLInput.process pml through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param pml_path: Value supplied for pml path under the utility contract.
+        :param html_path: Value supplied for html path under the utility contract.
+        :param close_all: Value supplied for close all under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.file_formats.pml.pmlconverter import PML_HTMLizer
 
         pclose = False
@@ -67,6 +101,22 @@ class PMLInput(InputFormatPlugin):
         return hizer.get_toc()
 
     def get_images(self: _typing.Self, stream: _typing.Any, tdir: _typing.Any, top_level: bool = False) -> _typing.Any:
+        """
+        Return images under the format's safety and compatibility rules.
+
+        Example:
+            Exercise PMLInput.get images through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param tdir: Value supplied for tdir under the utility contract.
+        :param top_level: Value supplied for top level under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         images = []
         imgs = []
 
@@ -99,6 +149,24 @@ class PMLInput(InputFormatPlugin):
         return images
 
     def convert(self: _typing.Self, stream: _typing.Any, options: _typing.Any, file_ext: _typing.Any, log: _typing.Any, accelerators: _typing.Any) -> _typing.Any:
+        """
+        Convert the supplied source into the stage's normalized output representation.
+
+        Example:
+            Exercise PMLInput.convert through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param options: Value supplied for options under the utility contract.
+        :param file_ext: Value supplied for file ext under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :param accelerators: Value supplied for accelerators under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.file_formats.toc import TOC
         from LiuXin_alpha.file_formats.opf.opf2 import OPFCreator
         from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile

@@ -1,3 +1,14 @@
+"""
+Exercise legacy reader/writer adapters across streams, paths and failures.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test legacy format adapter edge cases through its owning regression module::
+
+        python -m pytest -q tests/metadata/file_sources/test_legacy_format_adapter_edge_cases.py
+"""
 from __future__ import annotations
 
 import io
@@ -12,6 +23,18 @@ from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 
 
 def _values(raw):
+    """
+    Perform the values test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise values through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_legacy_format_adapter_edge_cases.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     if raw is None:
         return []
     if isinstance(raw, dict):
@@ -25,11 +48,35 @@ def _values(raw):
 
 
 def _first(raw):
+    """
+    Perform the first test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise first through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_legacy_format_adapter_edge_cases.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     vals = _values(raw)
     return vals[0] if vals else None
 
 
 def _encode_vwi(value: int) -> bytes:
+    """
+    Perform the encode vwi test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise encode vwi through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_legacy_format_adapter_edge_cases.py
+
+
+    :param value: Value stored, compared or projected by the operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     parts = [value & 0x7F]
     value >>= 7
     while value:
@@ -39,6 +86,17 @@ def _encode_vwi(value: int) -> bytes:
 
 
 def _minimal_topaz_with_empty_metadata_header() -> bytes:
+    """
+    Perform the minimal topaz with empty metadata header test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise minimal topaz with empty metadata header through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_legacy_format_adapter_edge_cases.py
+
+
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return (
         b"TPZ0"
         + _encode_vwi(1)
@@ -51,11 +109,45 @@ def _minimal_topaz_with_empty_metadata_header() -> bytes:
 
 
 class _SeekBroken(io.BytesIO):
+    """
+    Provide the SeekBroken test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise SeekBroken through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_legacy_format_adapter_edge_cases.py
+    """
     def seek(self, *args, **kwargs):
+        """
+        Perform the seek test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise SeekBroken.seek through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_legacy_format_adapter_edge_cases.py
+
+
+        :param args: Positional values forwarded by the test double.
+        :param kwargs: Keyword values forwarded by the test double.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         raise OSError("seek unavailable")
 
 
 def test_rar_helper_type_and_restore_edges(monkeypatch) -> None:
+    """
+    Verify rar helper type and restore edges.
+
+    Example:
+        Exercise test rar helper type and restore edges through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_legacy_format_adapter_edge_cases.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.rar as rar_md
 
     assert rar_md._member_type(r"nested\BOOK.PMLZ") == "pmlz"
@@ -67,12 +159,43 @@ def test_rar_helper_type_and_restore_edges(monkeypatch) -> None:
     assert rar_md._source_label(named) == "archive.rar"
 
     class _TimestampRaises:
+        """
+        Provide the TimestampRaises test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test rar helper type and restore edges.TimestampRaises through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_legacy_format_adapter_edge_cases.py
+        """
         @property
         def timestamp(self):
+            """
+            Perform the timestamp test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test rar helper type and restore edges.TimestampRaises.timestamp through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_legacy_format_adapter_edge_cases.py
+
+
+            :return: The deterministic value, row, identity or collection described above.
+            """
             return None
 
         @timestamp.setter
         def timestamp(self, _value):
+            """
+            Perform the timestamp test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test rar helper type and restore edges.TimestampRaises.timestamp through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_legacy_format_adapter_edge_cases.py
+
+
+            :param _value: Value supplied for value in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             raise RuntimeError("cannot clear")
 
     rar_md._set_timestamp_none(_TimestampRaises())
@@ -90,6 +213,19 @@ def test_rar_helper_type_and_restore_edges(monkeypatch) -> None:
 
 
 def test_imp_helper_decode_cstring_and_type_edges(monkeypatch) -> None:
+    """
+    Verify imp helper decode cstring and type edges.
+
+    Example:
+        Exercise test imp helper decode cstring and type edges through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_legacy_format_adapter_edge_cases.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.imp as imp_md
 
     assert imp_md._default_metadata().title == "Unknown"
@@ -100,7 +236,27 @@ def test_imp_helper_decode_cstring_and_type_edges(monkeypatch) -> None:
         imp_md._read_cstring(io.BytesIO(b"abcdef"), max_bytes=3)
 
     class _NullRaises:
+        """
+        Provide the NullRaises test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test imp helper decode cstring and type edges.NullRaises through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_legacy_format_adapter_edge_cases.py
+        """
         def is_null(self, _field):
+            """
+            Perform the is null test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test imp helper decode cstring and type edges.NullRaises.is null through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_legacy_format_adapter_edge_cases.py
+
+
+            :param _field: Value supplied for field in the focused test operation.
+            :return: True when the tested condition is satisfied; otherwise False.
+            """
             raise RuntimeError("no null check")
 
     target = _NullRaises()
@@ -117,6 +273,19 @@ def test_imp_helper_decode_cstring_and_type_edges(monkeypatch) -> None:
 
 
 def test_lrx_private_xml_and_invalid_stream_edges(monkeypatch) -> None:
+    """
+    Verify lrx private xml and invalid stream edges.
+
+    Example:
+        Exercise test lrx private xml and invalid stream edges through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_legacy_format_adapter_edge_cases.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.lrx as lrx_md
 
     assert lrx_md._default_metadata("/tmp/Named.lrx").title == "Named"
@@ -147,10 +316,30 @@ def test_lrx_private_xml_and_invalid_stream_edges(monkeypatch) -> None:
     assert _first(mi.language) == "en"
 
     class _LoggerNoLogException:
+        """
+        Provide the LoggerNoLogException test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test lrx private xml and invalid stream edges.LoggerNoLogException through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_legacy_format_adapter_edge_cases.py
+        """
         messages: list[str] = []
 
         @classmethod
         def warning(cls, message):
+            """
+            Perform the warning test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test lrx private xml and invalid stream edges.LoggerNoLogException.warning through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_legacy_format_adapter_edge_cases.py
+
+
+            :param message: Value supplied for message in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             cls.messages.append(message)
 
     monkeypatch.setattr(lrx_md, "default_log", _LoggerNoLogException)
@@ -173,6 +362,17 @@ def test_lrx_private_xml_and_invalid_stream_edges(monkeypatch) -> None:
 
 
 def test_rb_helper_no_info_and_error_edges() -> None:
+    """
+    Verify rb helper no info and error edges.
+
+    Example:
+        Exercise test rb helper no info and error edges through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_legacy_format_adapter_edge_cases.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.rb as rb_md
 
     assert rb_md._default_metadata("/tmp/Named.rb").title == "Named"
@@ -199,6 +399,17 @@ def test_rb_helper_no_info_and_error_edges() -> None:
 
 
 def test_rtf_helper_detection_decode_and_replace_edges() -> None:
+    """
+    Verify rtf helper detection decode and replace edges.
+
+    Example:
+        Exercise test rtf helper detection decode and replace edges through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_legacy_format_adapter_edge_cases.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.rtf as rtf_md
 
     assert rtf_md._source_name(Path("/tmp/book.rtf")) == "/tmp/book.rtf"
@@ -230,6 +441,19 @@ def test_rtf_helper_detection_decode_and_replace_edges() -> None:
 
 
 def test_snb_helper_cover_parse_and_error_edges(monkeypatch) -> None:
+    """
+    Verify snb helper cover parse and error edges.
+
+    Example:
+        Exercise test snb helper cover parse and error edges through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_legacy_format_adapter_edge_cases.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.snb as snb_md
 
     assert snb_md._source_name(Path("/tmp/book.snb")) == "/tmp/book.snb"
@@ -242,10 +466,42 @@ def test_snb_helper_cover_parse_and_error_edges(monkeypatch) -> None:
     assert tuple(snb_md._cover_candidates("cover")) == ("cover", "snbc/cover", "snbc/images/cover")
 
     class _FakeSNB:
+        """
+        Provide the FakeSNB test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test snb helper cover parse and error edges.FakeSNB through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_legacy_format_adapter_edge_cases.py
+        """
         def __init__(self, files: dict[str, bytes]) -> None:
+            """
+            Initialize the FakeSNB test double.
+
+            Example:
+                Exercise test snb helper cover parse and error edges.FakeSNB.init through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_legacy_format_adapter_edge_cases.py
+
+
+            :param files: Value supplied for files in the focused test operation.
+            :return: None; the function records state or raises through its assertions.
+            """
             self.files = files
 
         def GetFileStream(self, name):
+            """
+            Perform the GetFileStream test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test snb helper cover parse and error edges.FakeSNB.GetFileStream through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_legacy_format_adapter_edge_cases.py
+
+
+            :param name: Value supplied for name in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             return self.files.get(name)
 
     assert snb_md._read_cover_data(_FakeSNB({"snbc/images/cover": b"cover"}), "cover") == ("jpg", b"cover")
@@ -256,7 +512,28 @@ def test_snb_helper_cover_parse_and_error_edges(monkeypatch) -> None:
     assert md.title == "Unknown"
 
     class _SNBFileRaises:
+        """
+        Provide the SNBFileRaises test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test snb helper cover parse and error edges.SNBFileRaises through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_legacy_format_adapter_edge_cases.py
+        """
         def Parse(self, *_args, **_kwargs):
+            """
+            Perform the Parse test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test snb helper cover parse and error edges.SNBFileRaises.Parse through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_legacy_format_adapter_edge_cases.py
+
+
+            :param _args: Value supplied for args in the focused test operation.
+            :param _kwargs: Value supplied for kwargs in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             raise RuntimeError("parse fail")
 
     monkeypatch.setattr(snb_md, "SNBFile", _SNBFileRaises)
@@ -268,6 +545,18 @@ def test_snb_helper_cover_parse_and_error_edges(monkeypatch) -> None:
 
 
 def test_topaz_stream_slicer_metadata_updater_and_type_edges(tmp_path: Path) -> None:
+    """
+    Verify topaz stream slicer metadata updater and type edges.
+
+    Example:
+        Exercise test topaz stream slicer metadata updater and type edges through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_legacy_format_adapter_edge_cases.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.topaz as topaz_md
 
     stream = io.BytesIO(b"abcdef")

@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=utf-8
 
+"""
+Inspect and update OPF metadata, manifests, spines and guide entries.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise opf through a consuming regression::
+
+        python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -23,19 +34,84 @@ __copyright__ = "2014, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
 class MissingSection(BaseError):
+    """
+    Provide the missingsection contract for validated ebook processing.
+
+    Example:
+        Exercise MissingSection through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+    """
     def __init__(self: _typing.Self, name: _typing.Any, section_name: _typing.Any) -> None:
+        """
+        Initialize and validate the missingsection state.
+
+        Example:
+            Exercise MissingSection.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param section_name: Value supplied for section name under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         BaseError.__init__(self, _("The <%s> section is missing from the OPF") % section_name, name)
         self.HELP = xml(_("The <%s> section is required in the OPF file. You have to create one.") % section_name)
 
 
 class IncorrectIdref(BaseError):
+    """
+    Provide the incorrectidref contract for validated ebook processing.
+
+    Example:
+        Exercise IncorrectIdref through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+    """
     def __init__(self: _typing.Self, name: _typing.Any, idref: _typing.Any, lnum: _typing.Any) -> None:
+        """
+        Initialize and validate the incorrectidref state.
+
+        Example:
+            Exercise IncorrectIdref.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param idref: Value supplied for idref under the utility contract.
+        :param lnum: Value supplied for lnum under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         BaseError.__init__(self, _('idref="%s" points to unknown id') % idref, name, lnum)
         self.HELP = xml(_('The idref="%s" points to an id that does not exist in the OPF') % idref)
 
 
 class IncorrectCover(BaseError):
+    """
+    Provide the incorrectcover contract for validated ebook processing.
+
+    Example:
+        Exercise IncorrectCover through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+    """
     def __init__(self: _typing.Self, name: _typing.Any, lnum: _typing.Any, cover: _typing.Any) -> None:
+        """
+        Initialize and validate the incorrectcover state.
+
+        Example:
+            Exercise IncorrectCover.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param lnum: Value supplied for lnum under the utility contract.
+        :param cover: Value supplied for cover under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         BaseError.__init__(self, _("The meta cover tag points to an non-existent item"), name, lnum)
         self.HELP = xml(
             _('The meta cover tag points to an item with id="%s" which does not exist in the manifest') % cover
@@ -44,6 +120,14 @@ class IncorrectCover(BaseError):
 
 class NookCover(BaseError):
 
+    """
+    Provide the nookcover contract for validated ebook processing.
+
+    Example:
+        Exercise NookCover through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+    """
     HELP = _(
         "Some ebook readers such as the Nook fail to recognize covers if"
         " the content attribute comes before the name attribute."
@@ -52,9 +136,35 @@ class NookCover(BaseError):
     INDIVIDUAL_FIX = _("Move the name attribute before the content attribute")
 
     def __init__(self: _typing.Self, name: _typing.Any, lnum: _typing.Any) -> None:
+        """
+        Initialize and validate the nookcover state.
+
+        Example:
+            Exercise NookCover.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param lnum: Value supplied for lnum under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         BaseError.__init__(self, _("The meta cover tag has content before name"), name, lnum)
 
     def __call__(self: _typing.Self, container: _typing.Any) -> bool:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise NookCover.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param container: Value supplied for container under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         for cover in container.opf_xpath('//opf:meta[@name="cover" and @content]'):
             cover.set("content", cover.attrib.pop("content"))
         container.dirty(container.opf_name)
@@ -62,7 +172,30 @@ class NookCover(BaseError):
 
 
 class IncorrectToc(BaseError):
+    """
+    Provide the incorrecttoc contract for validated ebook processing.
+
+    Example:
+        Exercise IncorrectToc through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+    """
     def __init__(self: _typing.Self, name: _typing.Any, lnum: _typing.Any, bad_idref: _typing.Any = None, bad_mimetype: _typing.Any = None) -> None:
+        """
+        Initialize and validate the incorrecttoc state.
+
+        Example:
+            Exercise IncorrectToc.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param lnum: Value supplied for lnum under the utility contract.
+        :param bad_idref: Value supplied for bad idref under the utility contract.
+        :param bad_mimetype: Value supplied for bad mimetype under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         if bad_idref is not None:
             msg = _("The item identified as the Table of Contents (%s) does not exist") % bad_idref
             self.HELP = _('There is no item with id="%s" in the manifest.') % bad_idref
@@ -74,14 +207,49 @@ class IncorrectToc(BaseError):
 
 class NoHref(BaseError):
 
+    """
+    Provide the nohref contract for validated ebook processing.
+
+    Example:
+        Exercise NoHref through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+    """
     HELP = _("This manifest entry has no href attribute. Either add the href attribute or remove the entry.")
     INDIVIDUAL_FIX = _("Remove this manifest entry")
 
     def __init__(self: _typing.Self, name: _typing.Any, item_id: _typing.Any, lnum: _typing.Any) -> None:
+        """
+        Initialize and validate the nohref state.
+
+        Example:
+            Exercise NoHref.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param item_id: Value supplied for item id under the utility contract.
+        :param lnum: Value supplied for lnum under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         BaseError.__init__(self, _("Item in manifest has no href attribute"), name, lnum)
         self.item_id = item_id
 
     def __call__(self: _typing.Self, container: _typing.Any) -> _typing.Any:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise NoHref.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param container: Value supplied for container under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         changed = False
         for item in container.opf_xpath("/opf:package/opf:manifest/opf:item"):
             if item.get("id", None) == self.item_id:
@@ -93,17 +261,52 @@ class NoHref(BaseError):
 
 class MissingHref(BaseError):
 
+    """
+    Provide the missinghref contract for validated ebook processing.
+
+    Example:
+        Exercise MissingHref through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+    """
     HELP = _(
         "A file listed in the manifest is missing, you should either remove"
         " it from the manifest or add the missing file to the book."
     )
 
     def __init__(self: _typing.Self, name: _typing.Any, href: _typing.Any, lnum: _typing.Any) -> None:
+        """
+        Initialize and validate the missinghref state.
+
+        Example:
+            Exercise MissingHref.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param href: Value supplied for href under the utility contract.
+        :param lnum: Value supplied for lnum under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         BaseError.__init__(self, _("Item (%s) in manifest is missing") % href, name, lnum)
         self.bad_href = href
         self.INDIVIDUAL_FIX = _("Remove the entry for %s from the manifest") % href
 
     def __call__(self: _typing.Self, container: _typing.Any) -> bool:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MissingHref.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param container: Value supplied for container under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         [
             container.remove_from_xml(elem)
             for elem in container.opf_xpath("/opf:package/opf:manifest/opf:item[@href]")
@@ -115,6 +318,14 @@ class MissingHref(BaseError):
 
 class NonLinearItems(BaseError):
 
+    """
+    Provide the nonlinearitems contract for validated ebook processing.
+
+    Example:
+        Exercise NonLinearItems through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+    """
     level = WARN
     has_multiple_locations = True
 
@@ -132,10 +343,36 @@ class NonLinearItems(BaseError):
     INDIVIDUAL_FIX = _("Mark all non-linear items as linear")
 
     def __init__(self: _typing.Self, name: _typing.Any, locs: _typing.Any) -> None:
+        """
+        Initialize and validate the nonlinearitems state.
+
+        Example:
+            Exercise NonLinearItems.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param locs: Value supplied for locs under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         BaseError.__init__(self, _("Non-linear items in the spine"), name)
         self.all_locations = [(name, x, None) for x in locs]
 
     def __call__(self: _typing.Self, container: _typing.Any) -> bool:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise NonLinearItems.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param container: Value supplied for container under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         [elem.attrib.pop("linear") for elem in container.opf_xpath("//opf:spine/opf:itemref[@linear]")]
         container.dirty(container.opf_name)
         return True
@@ -143,11 +380,34 @@ class NonLinearItems(BaseError):
 
 class DuplicateHref(BaseError):
 
+    """
+    Provide the duplicatehref contract for validated ebook processing.
+
+    Example:
+        Exercise DuplicateHref through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+    """
     has_multiple_locations = True
 
     INDIVIDUAL_FIX = _("Remove all but the first duplicate item")
 
     def __init__(self: _typing.Self, name: _typing.Any, eid: _typing.Any, locs: _typing.Any, for_spine: bool = False) -> None:
+        """
+        Initialize and validate the duplicatehref state.
+
+        Example:
+            Exercise DuplicateHref.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param eid: Value supplied for eid under the utility contract.
+        :param locs: Value supplied for locs under the utility contract.
+        :param for_spine: Value supplied for for spine under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         loc = "spine" if for_spine else "manifest"
         BaseError.__init__(self, _("Duplicate item in {0}: {1}").format(loc, eid), name)
         self.HELP = _("The item {0} is present more than once in the {2} in {1}. This is" " not allowed.").format(
@@ -159,6 +419,19 @@ class DuplicateHref(BaseError):
         self.attr = "idref" if for_spine else "href"
 
     def __call__(self: _typing.Self, container: _typing.Any) -> bool:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DuplicateHref.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param container: Value supplied for container under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         items = [e for e in container.opf_xpath(self.xpath) if e.get(self.attr) == self.duplicate_href]
         [container.remove_from_xml(e) for e in items[1:]]
         container.dirty(self.name)
@@ -167,15 +440,49 @@ class DuplicateHref(BaseError):
 
 class MultipleCovers(BaseError):
 
+    """
+    Provide the multiplecovers contract for validated ebook processing.
+
+    Example:
+        Exercise MultipleCovers through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+    """
     has_multiple_locations = True
     HELP = xml(_('There is more than one <meta name="cover"> tag defined. There should be only one.'))
     INDIVIDUAL_FIX = _("Remove all but the first meta cover tag")
 
     def __init__(self: _typing.Self, name: _typing.Any, locs: _typing.Any) -> None:
+        """
+        Initialize and validate the multiplecovers state.
+
+        Example:
+            Exercise MultipleCovers.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param locs: Value supplied for locs under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         BaseError.__init__(self, _("There is more than one cover defined"), name)
         self.all_locations = [(name, lnum, None) for lnum in sorted(locs)]
 
     def __call__(self: _typing.Self, container: _typing.Any) -> bool:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MultipleCovers.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param container: Value supplied for container under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         items = [e for e in container.opf_xpath('/opf:package/opf:metadata/opf:meta[@name="cover"]')]
         [container.remove_from_xml(e) for e in items[1:]]
         container.dirty(self.name)
@@ -184,6 +491,14 @@ class MultipleCovers(BaseError):
 
 class NoUID(BaseError):
 
+    """
+    Provide the nouid contract for validated ebook processing.
+
+    Example:
+        Exercise NoUID through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+    """
     HELP = xml(
         _(
             "The OPF must have a unique identifier, i.e. a <dc:identifier> element whose id is referenced"
@@ -193,9 +508,34 @@ class NoUID(BaseError):
     INDIVIDUAL_FIX = _("Auto-generate a unique identifier")
 
     def __init__(self: _typing.Self, name: _typing.Any) -> None:
+        """
+        Initialize and validate the nouid state.
+
+        Example:
+            Exercise NoUID.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: None; validated state is stored on the receiving object.
+        """
         BaseError.__init__(self, _("The OPF has no unique identifier"), name)
 
     def __call__(self: _typing.Self, container: _typing.Any) -> bool:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise NoUID.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param container: Value supplied for container under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         import uuid
 
         opf = container.opf
@@ -215,7 +555,31 @@ class NoUID(BaseError):
 
 
 class BadSpineMime(BaseError):
+    """
+    Provide the badspinemime contract for validated ebook processing.
+
+    Example:
+        Exercise BadSpineMime through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+    """
     def __init__(self: _typing.Self, name: _typing.Any, iid: _typing.Any, mt: _typing.Any, lnum: _typing.Any, opf_name: _typing.Any) -> None:
+        """
+        Initialize and validate the badspinemime state.
+
+        Example:
+            Exercise BadSpineMime.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param iid: Value supplied for iid under the utility contract.
+        :param mt: Value supplied for mt under the utility contract.
+        :param lnum: Value supplied for lnum under the utility contract.
+        :param opf_name: Value supplied for opf name under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         BaseError.__init__(self, _("Incorrect media-type for spine item"), opf_name, lnum)
         self.HELP = _(
             "The item {0} present in the spine has the media-type {1}. "
@@ -229,6 +593,19 @@ class BadSpineMime(BaseError):
             self.iid = iid
 
     def __call__(self: _typing.Self, container: _typing.Any) -> bool:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise BadSpineMime.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param container: Value supplied for container under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         container.opf_xpath("/opf:package/opf:manifest/opf:item[@id=%r]" % self.iid)[0].set("media-type", XHTML_MIME)
         container.dirty(container.opf_name)
         container.refresh_mime_map()
@@ -236,6 +613,19 @@ class BadSpineMime(BaseError):
 
 
 def check_opf(container: _typing.Any) -> _typing.Any:
+    """
+    Perform the check opf operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise check opf through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     errors = []
 
     if container.opf.tag != OPF("package"):

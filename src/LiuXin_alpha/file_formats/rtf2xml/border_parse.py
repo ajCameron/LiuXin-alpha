@@ -10,6 +10,17 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+"""
+Parse RTF border control words into normalized attributes.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise border parse through a consuming regression::
+
+        python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -19,10 +30,26 @@ import sys
 class BorderParse:
     """
     Parse a border line and return a dictionary of attributes and values
+
+    Example:
+        Exercise BorderParse through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
     """
 
     def __init__(self: _typing.Self) -> None:
         # cw<bd<bor-t-r-hi<nu<true
+        """
+        Initialize and validate the borderparse state.
+
+        Example:
+            Exercise BorderParse.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         self.__border_dict = {
             "bor-t-r-hi": "border-table-row-horizontal-inside",
             "bor-t-r-vi": "border-table-row-vertical-inside",
@@ -79,11 +106,17 @@ class BorderParse:
 
     def parse_border(self: _typing.Self, line: _typing.Any) -> _typing.Any:
         """
-        Requires:
-            line -- line with border definition in it
-        Returns:
-            ?
-        Logic:
+        Requires: line -- line with border definition in it Returns: ? Logic:
+
+        Example:
+            Exercise BorderParse.parse border through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         border_dict = {}
         border_style_dict = {}
@@ -133,6 +166,21 @@ class BorderParse:
         return border_dict
 
     def __determine_styles(self: _typing.Self, border_type: _typing.Any, border_style_list: _typing.Any) -> _typing.Any:
+        """
+        Perform the determine styles operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise BorderParse.  determine styles through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param border_type: Value supplied for border type under the utility contract.
+        :param border_style_list: Value supplied for border style list under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         new_border_dict = {}
         att = "%s-style" % border_type
         if "shadowed-border" in border_style_list:

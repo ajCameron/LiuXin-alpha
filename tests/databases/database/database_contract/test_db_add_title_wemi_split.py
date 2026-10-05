@@ -1,4 +1,14 @@
-"""Database contract: add.title() compatibility path splits metadata into WEMI core rows."""
+"""
+Check title-adder metadata splitting and override behavior across the FRBR work/expression/manifestation chain.
+
+Tests skip when works is absent; item source paths are stored strings, not files
+created by these checks.
+
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/database/database_contract/test_db_add_title_wemi_split.py
+"""
 
 from __future__ import annotations
 
@@ -10,6 +20,21 @@ from LiuXin_alpha.catalog.metadata_tools import Add
 
 
 def _resolve_work_id(row) -> int:
+    """
+    Return the first non-None work identifier from supported row keys.
+
+    Try work_id, title_id, then book_work_id; ignore lookup exceptions, but propagate
+    int-conversion failures for the first present value. Raise AssertionError if no
+    candidate is found.
+
+    Example:
+        >>> _resolve_work_id({'title_id': '7'})
+        7
+
+
+    :param row: Mapping-like row supporting the candidate ID keys.
+    :return: Integer work ID.
+    """
     for key in ("work_id", "title_id", "book_work_id"):
         try:
             value = row[key]
@@ -22,6 +47,19 @@ def _resolve_work_id(row) -> int:
 
 
 def test_add_title_creates_work_expression_manifestation_items(open_db) -> None:
+    """
+    Check title metadata creates the expected work, single expression/manifestation, and two source items, and book compatibility resolves the same work.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_add_title_wemi_split.py::test_add_title_creates_work_expression_manifestation_items
+
+
+    :param open_db: Open Database for the selected driver; the fixture attempts close
+        and suppresses ordinary close errors at teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     if "works" not in set(open_db.get_tables()):
         pytest.skip("Schema does not expose FRBR/WEMI tables")
 
@@ -77,6 +115,19 @@ def test_add_title_creates_work_expression_manifestation_items(open_db) -> None:
 
 
 def test_add_title_override_updates_existing_work_chain(open_db) -> None:
+    """
+    Check an override reuses the work ID, changes selected metadata, and retains one expression and manifestation.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_add_title_wemi_split.py::test_add_title_override_updates_existing_work_chain
+
+
+    :param open_db: Open Database for the selected driver; the fixture attempts close
+        and suppresses ordinary close errors at teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     if "works" not in set(open_db.get_tables()):
         pytest.skip("Schema does not expose FRBR/WEMI tables")
 

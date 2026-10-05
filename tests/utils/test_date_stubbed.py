@@ -1,3 +1,14 @@
+"""
+Provide test date stubbed utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test date stubbed through a consuming regression::
+
+        python -m pytest -q tests/utils/test_date_stubbed.py
+"""
 from __future__ import annotations
 
 import sys
@@ -8,11 +19,17 @@ import pytest
 
 
 def _install_liuxin_date_stubs() -> None:
-    """Provide minimal stubs so `LiuXin_alpha.utils.date` can import.
+    """
+    Provide minimal stubs so `LiuXin_alpha.utils.date` can import.
 
-    The alpha tree still references some legacy `LiuXin.*` modules.
-    These stubs let the unit tests exercise the pure date logic without
-    needing the full legacy package.
+    Example:
+        Exercise  install liuxin date stubs through a consuming regression::
+
+            python -m pytest -q tests/utils/test_date_stubbed.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     liuxin = types.ModuleType("LiuXin")
     utils = types.ModuleType("LiuXin.utils")
@@ -22,6 +39,20 @@ def _install_liuxin_date_stubs() -> None:
     import time
 
     def strftime(fmt: str, t=None):
+        """
+        Perform the strftime utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  install liuxin date stubs.strftime through a consuming regression::
+
+                python -m pytest -q tests/utils/test_date_stubbed.py
+
+
+        :param fmt: Date, number or template format specification.
+        :param t: Value supplied for t under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return time.strftime(fmt, t)
 
     calibre.strftime = strftime  # type: ignore[attr-defined]
@@ -75,6 +106,18 @@ def _install_liuxin_date_stubs() -> None:
 
 
 def test_format_date_and_iso_helpers_importable() -> None:
+    """
+    Perform the test format date and iso helpers importable utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test format date and iso helpers importable through a consuming regression::
+
+            python -m pytest -q tests/utils/test_date_stubbed.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     _install_liuxin_date_stubs()
 
     import importlib
@@ -91,6 +134,18 @@ def test_format_date_and_iso_helpers_importable() -> None:
 
 
 def test_fix_only_date_handles_empty_and_partial_dates() -> None:
+    """
+    Perform the test fix only date handles empty and partial dates utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test fix only date handles empty and partial dates through a consuming regression::
+
+            python -m pytest -q tests/utils/test_date_stubbed.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     _install_liuxin_date_stubs()
 
     import importlib
@@ -104,6 +159,18 @@ def test_fix_only_date_handles_empty_and_partial_dates() -> None:
 
 
 def test_isoformat_rejects_bad_date() -> None:
+    """
+    Perform the test isoformat rejects bad date utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test isoformat rejects bad date through a consuming regression::
+
+            python -m pytest -q tests/utils/test_date_stubbed.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     _install_liuxin_date_stubs()
 
     import importlib

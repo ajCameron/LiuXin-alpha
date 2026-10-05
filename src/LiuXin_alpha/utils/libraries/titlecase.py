@@ -2,9 +2,15 @@
 # -*- coding: utf-8 -*-
 # Version 0.7.2
 """
-Original Perl version by: John Gruber http://daringfireball.net/ 10 May 2008
-Python version by Stuart Colville http://muffinresearch.co.uk
-License: http://www.opensource.org/licenses/mit-license.php
+Apply title-casing rules while preserving configured small words and acronyms.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise titlecase through a consuming regression::
+
+        python -m pytest -q tests/file_formats/html/test_html_modernized.py
 """
 
 import re
@@ -32,10 +38,16 @@ def titlecase(text, callback=None):
     """
     Titlecases input text
 
-    This filter changes all words to Title Caps, and attempts to be clever about *un*capitalizing SMALL words like
-    a/an/the in the input.
+    Example:
+        Exercise titlecase through a consuming regression::
 
-    The list of "SMALL words" which are not capped comes from the New York Times Manual of Style, plus 'vs' and 'v'.
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+    :param text: Text parsed, normalized or rendered.
+    :param callback: Value supplied for callback under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
 
     try:

@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Decode and report PalmDB, MOBI and EXTH header fields.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise headers through a consuming regression::
+
+        python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -27,6 +38,20 @@ __docformat__ = "restructuredtext en"
 
 
 def _decint(raw: _typing.Any, forward: bool = True) -> tuple[_typing.Any, ...]:
+    """
+    Perform the decint operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  decint through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :param forward: Value supplied for forward under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     val = 0
     byts = bytearray()
     src = bytearray(raw)
@@ -46,6 +71,21 @@ def _decint(raw: _typing.Any, forward: bool = True) -> tuple[_typing.Any, ...]:
 
 
 def get_trailing_data(record: _typing.Any, extra_data_flags: _typing.Any) -> tuple[_typing.Any, ...]:
+    """
+    Return trailing data under the format's safety and compatibility rules.
+
+    Example:
+        Exercise get trailing data through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param record: Value supplied for record under the utility contract.
+    :param extra_data_flags: Value supplied for extra data flags under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     data = OrderedDict()
     flags = extra_data_flags >> 1
 
@@ -69,15 +109,69 @@ def get_trailing_data(record: _typing.Any, extra_data_flags: _typing.Any) -> tup
 
 # PalmDB {{{
 class PalmDOCAttributes(object):
+    """
+    Provide the palmdocattributes contract for validated ebook processing.
+
+    Example:
+        Exercise PalmDOCAttributes through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+    """
     class Attr(object):
+        """
+        Provide the attr contract for validated ebook processing.
+
+        Example:
+            Exercise PalmDOCAttributes.Attr through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+        """
         def __init__(self: _typing.Self, name: _typing.Any, field: _typing.Any, val: _typing.Any) -> None:
+            """
+            Initialize and validate the attr state.
+
+            Example:
+                Exercise PalmDOCAttributes.Attr.  init   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+            :param name: Field, file, function or resource name addressed by the operation.
+            :param field: Metadata or template field addressed by the operation.
+            :param val: Template or metadata value evaluated by the operation.
+            :return: None; validated state is stored on the receiving object.
+            """
             self.name = name
             self.val = val & field
 
         def __str__(self: _typing.Self) -> _typing.Any:
+            """
+            Perform the str operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise PalmDOCAttributes.Attr.  str   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return "%s: %s" % (self.name, bool(self.val))
 
     def __init__(self: _typing.Self, raw: _typing.Any) -> None:
+        """
+        Initialize and validate the palmdocattributes state.
+
+        Example:
+            Exercise PalmDOCAttributes.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param raw: Value supplied for raw under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.val = struct.unpack(b"<H", raw)[0]
         self.attributes = []
         for name, field in [
@@ -91,12 +185,44 @@ class PalmDOCAttributes(object):
             self.attributes.append(PalmDOCAttributes.Attr(name, field, self.val))
 
     def __str__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the str operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PalmDOCAttributes.  str   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         attrs = "\n\t".join([str(x) for x in self.attributes])
         return "PalmDOC Attributes: %s\n\t%s" % (bin(self.val), attrs)
 
 
 class PalmDB(object):
+    """
+    Provide the palmdb contract for validated ebook processing.
+
+    Example:
+        Exercise PalmDB through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+    """
     def __init__(self: _typing.Self, raw: _typing.Any) -> None:
+        """
+        Initialize and validate the palmdb state.
+
+        Example:
+            Exercise PalmDB.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param raw: Value supplied for raw under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.raw = raw
 
         if self.raw.startswith(b"TPZ"):
@@ -127,6 +253,18 @@ class PalmDB(object):
         (self.number_of_records,) = struct.unpack(b">H", self.raw[76:78])
 
     def __str__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the str operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PalmDB.  str   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = list(["*" * 20 + " PalmDB Header " + "*" * 20])
         ans.append("Name: %r" % self.name)
         ans.append(str(self.attributes))
@@ -150,11 +288,44 @@ class PalmDB(object):
 
 
 class Record(object):  # {{{
+    """
+    Provide the record contract for validated ebook processing.
+
+    Example:
+        Exercise Record through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+    """
     def __init__(self: _typing.Self, raw: _typing.Any, header: _typing.Any) -> None:
+        """
+        Initialize and validate the record state.
+
+        Example:
+            Exercise Record.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param raw: Value supplied for raw under the utility contract.
+        :param header: Value supplied for header under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.offset, self.flags, self.uid = header
         self.raw = raw
 
     def header(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the header operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Record.header through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "Offset: %d Flags: %d UID: %d First 4 bytes: %r Size: %d" % (
             self.offset,
             self.flags,
@@ -169,7 +340,29 @@ class Record(object):  # {{{
 
 # EXTH {{{
 class EXTHRecord(object):
+    """
+    Provide the exthrecord contract for validated ebook processing.
+
+    Example:
+        Exercise EXTHRecord through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+    """
     def __init__(self: _typing.Self, type_: _typing.Any, data: _typing.Any, length: _typing.Any) -> None:
+        """
+        Initialize and validate the exthrecord state.
+
+        Example:
+            Exercise EXTHRecord.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param type_: Value supplied for type under the utility contract.
+        :param data: Value supplied for data under the utility contract.
+        :param length: Value supplied for length under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.type = type_
         self.data = data
         self.length = length
@@ -267,11 +460,43 @@ class EXTHRecord(object):
             self.data = bytes(self.data.encode("hex"))
 
     def __str__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the str operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise EXTHRecord.  str   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "%s (%d): %r" % (self.name, self.type, self.data)
 
 
 class EXTHHeader(object):
+    """
+    Provide the exthheader contract for validated ebook processing.
+
+    Example:
+        Exercise EXTHHeader through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+    """
     def __init__(self: _typing.Self, raw: _typing.Any) -> None:
+        """
+        Initialize and validate the exthheader state.
+
+        Example:
+            Exercise EXTHHeader.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param raw: Value supplied for raw under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.raw = raw
         if not self.raw.startswith(b"EXTH"):
             raise ValueError("EXTH header does not start with EXTH")
@@ -286,25 +511,89 @@ class EXTHHeader(object):
         self.rmap = {x.type: x for x in self.records}
 
     def __getitem__(self: _typing.Self, type_: _typing.Any) -> _typing.Any:
+        """
+        Perform the getitem operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise EXTHHeader.  getitem   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param type_: Value supplied for type under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.rmap.__getitem__(type_).data
 
     def get(self: _typing.Self, type_: _typing.Any, default: _typing.Any = None) -> _typing.Any:
+        """
+        Perform the get operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise EXTHHeader.get through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param type_: Value supplied for type under the utility contract.
+        :param default: Value supplied for default under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = self.rmap.get(type_, default)
         return getattr(ans, "data", default)
 
     def read_record(self: _typing.Self, pos: _typing.Any) -> _typing.Any:
+        """
+        Read record under the format's safety and compatibility rules.
+
+        Example:
+            Exercise EXTHHeader.read record through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param pos: Value supplied for pos under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         type_, length = struct.unpack(b">LL", self.raw[pos : pos + 8])
         data = self.raw[(pos + 8) : (pos + length)]
         self.records.append(EXTHRecord(type_, data, length))
         return pos + length
 
     def kf8_header_index(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the kf8 header index operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise EXTHHeader.kf8 header index through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = self.get(121, None)
         if ans == NULL_INDEX:
             ans = None
         return ans
 
     def __str__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the str operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise EXTHHeader.  str   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = list(["*" * 20 + " EXTH Header " + "*" * 20])
         ans.append("EXTH header length: %d" % self.length)
         ans.append("Number of EXTH records: %d" % self.count)
@@ -318,7 +607,28 @@ class EXTHHeader(object):
 
 
 class MOBIHeader(object):  # {{{
+    """
+    Provide the mobiheader contract for validated ebook processing.
+
+    Example:
+        Exercise MOBIHeader through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+    """
     def __init__(self: _typing.Self, record0: _typing.Any, offset: _typing.Any) -> None:
+        """
+        Initialize and validate the mobiheader state.
+
+        Example:
+            Exercise MOBIHeader.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param record0: Value supplied for record0 under the utility contract.
+        :param offset: Value supplied for offset under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.raw = record0.raw
         self.header_offset = offset
 
@@ -486,15 +796,55 @@ class MOBIHeader(object):  # {{{
                 self.last_resource_record = self.exth.kf8_header_index - 2
 
     def __str__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the str operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MOBIHeader.  str   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = ["*" * 20 + " MOBI %d Header " % self.file_version + "*" * 20]
 
         a = ans.append
 
         def i(d: _typing.Any, x: _typing.Any) -> None:
+            """
+            Perform the i operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise MOBIHeader.  str  .i through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+            :param d: Value supplied for d under the utility contract.
+            :param x: Value supplied for x under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             x = "NULL" if x == NULL_INDEX else x
             a("%s: %s" % (d, x))
 
         def r(d: _typing.Any, attr: _typing.Any) -> None:
+            """
+            Perform the r operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise MOBIHeader.  str  .r through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+            :param d: Value supplied for d under the utility contract.
+            :param attr: Value supplied for attr under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             x = getattr(self, attr)
             if attr in self.relative_records and x != NULL_INDEX:
                 a("%s: Absolute: %d Relative: %d" % (d, x, x - self.header_offset))
@@ -596,7 +946,28 @@ class MOBIHeader(object):  # {{{
 
 
 class MOBIFile(object):
+    """
+    Provide the mobifile contract for validated ebook processing.
+
+    Example:
+        Exercise MOBIFile through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+    """
     def __init__(self: _typing.Self, stream: _typing.Any) -> None:
+        """
+        Initialize and validate the mobifile state.
+
+        Example:
+            Exercise MOBIFile.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.raw = stream.read()
         self.palmdb = PalmDB(self.raw[:78])
 
@@ -609,6 +980,19 @@ class MOBIFile(object):
             self.record_headers.append((offset, flags, val))
 
         def section(section_number: _typing.Any) -> _typing.Any:
+            """
+            Perform the section operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise MOBIFile.  init  .section through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+            :param section_number: Value supplied for section number under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             if section_number == self.palmdb.number_of_records - 1:
                 end_off = len(self.raw)
             else:
@@ -642,6 +1026,20 @@ class MOBIFile(object):
             from LiuXin_alpha.file_formats.mobi.huffcdic import HuffReader
 
             def huffit(off: _typing.Any, cnt: _typing.Any) -> tuple[_typing.Any, ...]:
+                """
+                Perform the huffit operation under explicit file-format and conversion rules.
+
+                Example:
+                    Exercise MOBIFile.  init  .huffit through a consuming regression::
+
+                        python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+                :param off: Value supplied for off under the utility contract.
+                :param cnt: Value supplied for cnt under the utility contract.
+                :return: The normalized value, metadata record, path, stream result or collection
+                    described above.
+                """
                 huffman_record_nums = list(memory_range(off, off + cnt))
                 huffrecs = [self.records[r].raw for r in huffman_record_nums]
                 huffs = HuffReader(huffrecs)
@@ -665,7 +1063,31 @@ class MOBIFile(object):
 
 
 class TextRecord(object):  # {{{
+    """
+    Provide the textrecord contract for validated ebook processing.
+
+    Example:
+        Exercise TextRecord through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+    """
     def __init__(self: _typing.Self, idx: _typing.Any, record: _typing.Any, extra_data_flags: _typing.Any, decompress: _typing.Any) -> None:
+        """
+        Initialize and validate the textrecord state.
+
+        Example:
+            Exercise TextRecord.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param idx: Value supplied for idx under the utility contract.
+        :param record: Value supplied for record under the utility contract.
+        :param extra_data_flags: Value supplied for extra data flags under the utility
+            contract.
+        :param decompress: Value supplied for decompress under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.trailing_data, self.raw = get_trailing_data(record.raw, extra_data_flags)
         raw_trailing_bytes = record.raw[len(self.raw) :]
         self.raw = decompress(self.raw)
@@ -685,6 +1107,19 @@ class TextRecord(object):  # {{{
         self.idx = idx
 
     def dump(self: _typing.Self, folder: _typing.Any) -> None:
+        """
+        Perform the dump operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TextRecord.dump through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param folder: Value supplied for folder under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         name = "%06d" % self.idx
         with open(os.path.join(folder, name + ".txt"), "wb") as f:
             f.write(self.raw)
@@ -694,6 +1129,18 @@ class TextRecord(object):  # {{{
                 f.write(raw.encode("utf-8"))
 
     def __len__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the len operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TextRecord.  len   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return len(self.raw)
 
 

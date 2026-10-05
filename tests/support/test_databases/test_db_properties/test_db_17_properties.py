@@ -1,6 +1,14 @@
 
 """
-Properties for test DB 17.
+Declare expected capabilities and contents for test db 17 properties.
+
+The module keeps generated data, ordering and failure modes explicit so consumers
+can assert stable behavior.
+
+Example:
+    Exercise test db 17 properties through a consuming regression::
+
+        python -m pytest -q tests/support/test_databases/test_db_properties/test_db_17_properties.py
 """
 
 
@@ -14,6 +22,11 @@ from .common_db_properties import (
 class TestDB17Properties(CommonDBProperties):
     """
     Properties for the test_db_17 test database.
+
+    Example:
+        Exercise TestDB17Properties through a consuming regression::
+
+            python -m pytest -q tests/support/test_databases/test_db_properties/test_db_17_properties.py
     """
 
     alpha_focus_row_counts = {

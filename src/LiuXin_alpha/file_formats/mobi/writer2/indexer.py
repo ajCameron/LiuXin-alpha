@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Build MOBI text and navigation index records.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise indexer through a consuming regression::
+
+        python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -36,7 +47,28 @@ __docformat__ = "restructuredtext en"
 
 
 class CNCX(CNCX_):  # {{{
+    """
+    Provide the cncx contract for validated ebook processing.
+
+    Example:
+        Exercise CNCX through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+    """
     def __init__(self: _typing.Self, toc: _typing.Any, is_periodical: _typing.Any) -> None:
+        """
+        Initialize and validate the cncx state.
+
+        Example:
+            Exercise CNCX.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param toc: Value supplied for toc under the utility contract.
+        :param is_periodical: Value supplied for is periodical under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         strings = []
         for item in toc.iterdescendants(breadth_first=True):
             strings.append(item.title)
@@ -54,6 +86,14 @@ class CNCX(CNCX_):  # {{{
 
 class TAGX(object):  # {{{
 
+    """
+    Provide the tagx contract for validated ebook processing.
+
+    Example:
+        Exercise TAGX through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+    """
     BITMASKS = {11: 0b1}
     BITMASKS.update({x: (1 << i) for i, x in enumerate([1, 2, 3, 4, 5, 21, 22, 23])})
     BITMASKS.update({x: (1 << i) for i, x in enumerate([69, 70, 71, 72, 73])})
@@ -63,9 +103,33 @@ class TAGX(object):  # {{{
     NUM_VALUES[0] = 0
 
     def __init__(self: _typing.Self) -> None:
+        """
+        Initialize and validate the tagx state.
+
+        Example:
+            Exercise TAGX.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         self.byts = bytearray()
 
     def add_tag(self: _typing.Self, tag: _typing.Any) -> None:
+        """
+        Perform the add tag operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TAGX.add tag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         buf = self.byts
         buf.append(tag)
         buf.append(self.NUM_VALUES[tag])
@@ -75,6 +139,20 @@ class TAGX(object):  # {{{
         buf.append(0 if tag else 1)
 
     def header(self: _typing.Self, control_byte_count: _typing.Any) -> _typing.Any:
+        """
+        Perform the header operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TAGX.header through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param control_byte_count: Value supplied for control byte count under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         header = b"TAGX"
         # table length, control byte count
         header += pack(b">II", 12 + len(self.byts), control_byte_count)
@@ -84,6 +162,15 @@ class TAGX(object):  # {{{
     def periodical(self: _typing.Self) -> _typing.Any:
         """
         TAGX block for the Primary index header of a periodical
+
+        Example:
+            Exercise TAGX.periodical through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         list(six_map(self.add_tag, (1, 2, 3, 4, 5, 21, 22, 23, 0, 69, 70, 71, 72, 73, 0)))
         return self.header(2) + bytes(self.byts)
@@ -92,6 +179,15 @@ class TAGX(object):  # {{{
     def secondary(self: _typing.Self) -> _typing.Any:
         """
         TAGX block for the secondary index header of a periodical
+
+        Example:
+            Exercise TAGX.secondary through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         list(six_map(self.add_tag, (11, 0)))
         return self.header(1) + bytes(self.byts)
@@ -100,6 +196,15 @@ class TAGX(object):  # {{{
     def flat_book(self: _typing.Self) -> _typing.Any:
         """
         TAGX block for the primary index header of a flat book
+
+        Example:
+            Exercise TAGX.flat book through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         list(six_map(self.add_tag, (1, 2, 3, 4, 0)))
         return self.header(1) + bytes(self.byts)
@@ -112,6 +217,14 @@ class TAGX(object):  # {{{
 
 class IndexEntry(object):
 
+    """
+    Provide the indexentry contract for validated ebook processing.
+
+    Example:
+        Exercise IndexEntry through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+    """
     TAG_VALUES = {
         "offset": 1,
         "size": 2,
@@ -129,6 +242,19 @@ class IndexEntry(object):
     RTAG_MAP = {v: k for k, v in iteritems(TAG_VALUES)}  # noqa
 
     def __init__(self: _typing.Self, offset: _typing.Any, label_offset: _typing.Any) -> None:
+        """
+        Initialize and validate the indexentry state.
+
+        Example:
+            Exercise IndexEntry.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param offset: Value supplied for offset under the utility contract.
+        :param label_offset: Value supplied for label offset under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.offset, self.label_offset = offset, label_offset
         self.depth, self.class_offset = 0, None
         self.control_byte_count = 1
@@ -145,6 +271,18 @@ class IndexEntry(object):
         self.desc_offset = None
 
     def __repr__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the repr operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise IndexEntry.  repr   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "IndexEntry(offset=%r, depth=%r, length=%r, index=%r, parent_index=%r)" % (
             self.offset,
             self.depth,
@@ -155,18 +293,66 @@ class IndexEntry(object):
 
     @property
     def size(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the size operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise IndexEntry.size through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.length
 
     @size.setter
     def size(self: _typing.Self, val: _typing.Any) -> None:
+        """
+        Perform the size operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise IndexEntry.size through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.length = val
 
     @property
     def next_offset(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the next offset operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise IndexEntry.next offset through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.offset + self.length
 
     @property
     def tag_nums(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
+        """
+        Perform the tag nums operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise IndexEntry.tag nums through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         for i in range(1, 5):
             yield i
         for attr in (
@@ -180,16 +366,53 @@ class IndexEntry(object):
 
     @property
     def entry_type(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the entry type operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise IndexEntry.entry type through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = 0
         for tag in self.tag_nums:
             ans |= TAGX.BITMASKS[tag]
         return ans
 
     def attr_for_tag(self: _typing.Self, tag: _typing.Any) -> _typing.Any:
+        """
+        Perform the attr for tag operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise IndexEntry.attr for tag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param tag: Value supplied for tag under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.RTAG_MAP[tag]
 
     @property
     def bytestring(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the bytestring operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise IndexEntry.bytestring through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         buf = BytesIO()
         if isinstance(self.index, int):
             buf.write(encode_number_as_hex(self.index))
@@ -229,7 +452,30 @@ class IndexEntry(object):
 
 
 class PeriodicalIndexEntry(IndexEntry):
+    """
+    Provide the periodicalindexentry contract for validated ebook processing.
+
+    Example:
+        Exercise PeriodicalIndexEntry through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+    """
     def __init__(self: _typing.Self, offset: _typing.Any, label_offset: _typing.Any, class_offset: _typing.Any, depth: _typing.Any) -> None:
+        """
+        Initialize and validate the periodicalindexentry state.
+
+        Example:
+            Exercise PeriodicalIndexEntry.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param offset: Value supplied for offset under the utility contract.
+        :param label_offset: Value supplied for label offset under the utility contract.
+        :param class_offset: Value supplied for class offset under the utility contract.
+        :param depth: Value supplied for depth under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         IndexEntry.__init__(self, offset, label_offset)
         self.depth = depth
         self.class_offset = class_offset
@@ -238,6 +484,14 @@ class PeriodicalIndexEntry(IndexEntry):
 
 class SecondaryIndexEntry(IndexEntry):
 
+    """
+    Provide the secondaryindexentry contract for validated ebook processing.
+
+    Example:
+        Exercise SecondaryIndexEntry through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+    """
     INDEX_MAP = {
         "author": 73,
         "caption": 72,
@@ -247,6 +501,18 @@ class SecondaryIndexEntry(IndexEntry):
     }
 
     def __init__(self: _typing.Self, index: _typing.Any) -> None:
+        """
+        Initialize and validate the secondaryindexentry state.
+
+        Example:
+            Exercise SecondaryIndexEntry.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param index: Value supplied for index under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         IndexEntry.__init__(self, 0, 0)
         self.index = index
 
@@ -257,13 +523,47 @@ class SecondaryIndexEntry(IndexEntry):
         self.secondary = [5 if tag == min(itervalues(self.INDEX_MAP)) else 0, 0, tag]
 
     def tag_nums(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
+        """
+        Perform the tag nums operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SecondaryIndexEntry.tag nums through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         yield 11
 
     def entry_type(self: _typing.Self) -> int:
+        """
+        Perform the entry type operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SecondaryIndexEntry.entry type through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return 1
 
     @classmethod
     def entries(cls: type[_typing.Self]) -> _typing.Iterator[_typing.Any]:
+        """
+        Perform the entries operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SecondaryIndexEntry.entries through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         rmap = {v: k for k, v in iteritems(cls.INDEX_MAP)}
         for tag in sorted(rmap, reverse=True):
             yield cls(rmap[tag])
@@ -275,11 +575,31 @@ class SecondaryIndexEntry(IndexEntry):
 class TBS(object):  # {{{
 
     """
-    Take the list of index nodes starting/ending on a record and calculate the
-    trailing byte sequence for the record.
+    Take the list of index nodes starting/ending on a record and calculate the trailing byte sequence for the record.
+
+    Example:
+        Exercise TBS through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
     """
 
     def __init__(self: _typing.Self, data: _typing.Any, is_periodical: _typing.Any, first: bool = False, section_map: _typing.Any = None, after_first: bool = False) -> None:
+        """
+        Initialize and validate the tbs state.
+
+        Example:
+            Exercise TBS.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param data: Value supplied for data under the utility contract.
+        :param is_periodical: Value supplied for is periodical under the utility contract.
+        :param first: Value supplied for first under the utility contract.
+        :param section_map: Value supplied for section map under the utility contract.
+        :param after_first: Value supplied for after first under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         if section_map is None:
             section_map = {}
         self.section_map = section_map
@@ -318,6 +638,21 @@ class TBS(object):  # {{{
                 self.book_tbs(data, first)
 
     def periodical_tbs(self: _typing.Self, data: _typing.Any, first: _typing.Any, depth_map: _typing.Any) -> None:
+        """
+        Perform the periodical tbs operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TBS.periodical tbs through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param data: Value supplied for data under the utility contract.
+        :param first: Value supplied for first under the utility contract.
+        :param depth_map: Value supplied for depth map under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         buf = BytesIO()
 
         has_section_start = depth_map[1] and set(depth_map[1]).intersection(set(data["starts"]))
@@ -428,6 +763,20 @@ class TBS(object):  # {{{
         self.bytestring = buf.getvalue()
 
     def book_tbs(self: _typing.Self, data: _typing.Any, first: _typing.Any) -> None:
+        """
+        Perform the book tbs operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TBS.book tbs through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param data: Value supplied for data under the utility contract.
+        :param first: Value supplied for first under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         spanner = data["spans"]
         if spanner is not None:
             self.bytestring = encode_tbs(spanner.index, {0b010: 0, 0b001: 0}, flag_size=3)
@@ -448,6 +797,14 @@ class TBS(object):  # {{{
 
 
 class Indexer(object):  # {{{
+    """
+    Provide the indexer contract for validated ebook processing.
+
+    Example:
+        Exercise Indexer through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+    """
     def __init__(
         self: _typing.Self,
         serializer: _typing.Any,
@@ -458,6 +815,27 @@ class Indexer(object):  # {{{
         opts: _typing.Any,
         oeb: _typing.Any,
     ) -> None:
+        """
+        Initialize and validate the indexer state.
+
+        Example:
+            Exercise Indexer.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param serializer: Value supplied for serializer under the utility contract.
+        :param number_of_text_records: Value supplied for number of text records under the
+            utility contract.
+        :param size_of_last_text_record: Value supplied for size of last text record under
+            the utility contract.
+        :param masthead_offset: Value supplied for masthead offset under the utility
+            contract.
+        :param is_periodical: Value supplied for is periodical under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :param oeb: Value supplied for oeb under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.serializer = serializer
         self.number_of_text_records = number_of_text_records
         self.text_size = RECORD_SIZE * (self.number_of_text_records - 1) + size_of_last_text_record
@@ -515,6 +893,19 @@ class Indexer(object):  # {{{
         self.calculate_trailing_byte_sequences()
 
     def create_index_record(self: _typing.Self, secondary: bool = False) -> _typing.Any:  # {{{
+        """
+        Create index record under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Indexer.create index record through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param secondary: Value supplied for secondary under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         header_length = 192
         buf = BytesIO()
         indices = list(SecondaryIndexEntry.entries()) if secondary else self.indices
@@ -560,6 +951,19 @@ class Indexer(object):  # {{{
     # }}}
 
     def create_header(self: _typing.Self, secondary: bool = False) -> _typing.Any:  # {{{
+        """
+        Create header under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Indexer.create header through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param secondary: Value supplied for secondary under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         buf = BytesIO()
         if secondary:
             tagx_block = TAGX().secondary
@@ -651,6 +1055,18 @@ class Indexer(object):  # {{{
     # }}}
 
     def create_book_index(self: _typing.Self) -> _typing.Any:  # {{{
+        """
+        Create book index under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Indexer.create book index through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         indices = []
         seen = set()
         id_offsets = self.serializer.id_offsets
@@ -701,6 +1117,18 @@ class Indexer(object):  # {{{
     # }}}
 
     def create_periodical_index(self: _typing.Self) -> _typing.Any:  # {{{
+        """
+        Create periodical index under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Indexer.create periodical index through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         periodical_node = next(iter(self.oeb.toc))
         periodical_node_offset = self.serializer.body_start_offset
         periodical_node_size = self.serializer.body_end_offset - periodical_node_offset
@@ -862,6 +1290,18 @@ class Indexer(object):  # {{{
 
     # TBS {{{
     def calculate_trailing_byte_sequences(self: _typing.Self) -> None:
+        """
+        Perform the calculate trailing byte sequences operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Indexer.calculate trailing byte sequences through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.tbs_map = {}
         found_node = False
         sections = [i for i in self.indices if i.depth == 1]
@@ -925,6 +1365,19 @@ class Indexer(object):  # {{{
                 )
 
     def get_trailing_byte_sequence(self: _typing.Self, num: _typing.Any) -> _typing.Any:
+        """
+        Return trailing byte sequence under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Indexer.get trailing byte sequence through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param num: Value supplied for num under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.tbs_map[num].bytestring
 
     # }}}

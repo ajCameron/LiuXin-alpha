@@ -1,5 +1,9 @@
 """
-Configured Store administration for the storage manager.
+Implement manager Store registration, lifecycle, and registry snapshots.
+
+Registry updates and backend lifecycle calls have separate failure boundaries.
+Application overrides own persistence; this mixin does not provide a transaction
+covering startup, replacement, and cleanup.
 """
 
 from __future__ import annotations
@@ -20,12 +24,17 @@ from LiuXin_alpha.storage.storage_manager.mixins._types import (
 
 class StoreAdministrationMixin(_StorageManagerState):
     """
-    Own the runtime registry and configuration of Store plugins.
+    Manage configured and live Store registries using the shared manager state. This layer validates
+    UUID agreement and registered policy references, delegates factory/startup/close calls, and
+    updates process registry bookkeeping. Application-manager overrides surround selected operations
+    with persistence.
 
-    Administration attaches or constructs Stores, validates capability and
-    policy references, manages startup/shutdown, and produces status snapshots.
-    The base implementation changes process-local state; the application
-    ``StorageManager`` surrounds configuration changes with database updates.
+    Lifecycle calls generally run outside registry lock sections. Operations are not atomic across
+    construction, startup, registration, and old-facade cleanup, and this mixin adds no universal
+    cleanup of failed candidates.
+
+    Example:
+        >>> configuration = manager.create_store(configuration)  # doctest: +SKIP
     """
 
     def attach_store(
@@ -37,14 +46,24 @@ class StoreAdministrationMixin(_StorageManagerState):
         replace_existing: bool = False,
     ) -> api.StoreConfiguration:
         """
-        Attach an already constructed Store to this manager.
+        Require Store/configuration UUID agreement and registered default policies, then check
+        duplicate configuration under the lock. Optional startup runs before registry replacement
+        and its returned availability flag is ignored. Configuration/facade/default references are
+        then assigned under the lock.
+
+        A different old facade closes after the new one is installed; its failure propagates without
+        undoing replacement. Duplicate checking and assignment use separate lock sections, with no
+        final duplicate recheck or general cleanup of a failed candidate.
+
+        Example:
+            >>> registered = manager.attach_store(configuration, store, startup=False)  # doctest: +SKIP
 
 
-        :param configuration:
-        :param store:
-        :param startup:
-        :param replace_existing:
-        :return:
+        :param configuration: Portable configuration whose UUID is the routing identity.
+        :param store: Already constructed facade whose store_ref must match configuration.store_uuid.
+        :param startup: Whether to invoke startup on the constructed or attached Store.
+        :param replace_existing: Whether a previously configured UUID may be replaced.
+        :return: The supplied configuration after registration and any old-facade close succeed.
         """
 
         if store.store_ref != configuration.store_uuid:
@@ -76,12 +95,17 @@ class StoreAdministrationMixin(_StorageManagerState):
         startup: bool = True,
     ) -> api.StoreConfiguration:
         """
-        Construct and register a Store through the configured factory.
+        Require a configured factory and reject an already configured UUID, then construct a
+        candidate and call attach_store. Factory lookup precedes duplicate checking. Candidate
+        cleanup on later validation/startup failure is not supplied here.
+
+        Example:
+            >>> registered = manager.create_store(configuration, startup=True)  # doctest: +SKIP
 
 
-        :param configuration:
-        :param startup:
-        :return:
+        :param configuration: Portable configuration whose UUID is the routing identity.
+        :param startup: Whether to invoke startup on the constructed or attached Store.
+        :return: Configuration returned by the dynamically dispatched attach_store.
         """
 
         factory = self._require_store_factory()
@@ -125,29 +149,34 @@ class StoreAdministrationMixin(_StorageManagerState):
         start: bool = True,
     ) -> api.StoreConfiguration:
         """
-        Build and register one Store through this manager's factory.
+        Convert optional policy records/IDs and build StoreConfiguration.for_backend, then call
+        create_store with start as startup. Factory normalization and policy/construction failures
+        propagate; no additional transaction or rollback is added.
+
+        Example:
+            >>> configuration = manager.add_store("primary", "filesystem", root)  # doctest: +SKIP
 
 
-        :param name:
-        :param kind:
-        :param root:
-        :param store_uuid:
-        :param url:
-        :param protocol:
-        :param failure_domain:
-        :param region:
-        :param host:
-        :param device:
-        :param tags:
-        :param replication:
-        :param backup:
-        :param modes:
-        :param operational_role:
-        :param read_only:
-        :param folders:
-        :param options:
-        :param start:
-        :return:
+        :param name: Required display name for the configured Store.
+        :param kind: Registered backend kind to construct.
+        :param root: Backend path, URI, or native endpoint text normalized by configuration construction.
+        :param store_uuid: Optional durable routing UUID; ordinary configuration factories generate one for None.
+        :param url: Optional operator-facing URL.
+        :param protocol: Optional access-protocol declaration.
+        :param failure_domain: Optional fault-isolation label used by placement policy.
+        :param region: Optional geographic or administrative placement region.
+        :param host: Optional declared host UUID.
+        :param device: Optional declared physical-device UUID.
+        :param tags: Iterable of placement labels collected by configuration construction.
+        :param replication: Optional registered replication-policy ID or record used as a first-placement default.
+        :param backup: Optional registered backup-policy ID or record used as a first-placement default.
+        :param modes: Iterable of permitted Replica modes or enum-value strings.
+        :param operational_role: Optional operator-facing role such as archive.
+        :param read_only: Requested read-only configuration policy.
+        :param folders: Declared support for folder semantics.
+        :param options: Backend option mapping or pair iterable; configuration validation owns supported value shapes.
+        :param start: Whether registration requests Store startup before returning.
+        :return: Configuration returned by create_store.
         """
 
         configuration = api.StoreConfiguration.for_backend(
@@ -199,25 +228,30 @@ class StoreAdministrationMixin(_StorageManagerState):
         start: bool = True,
     ) -> api.StoreConfiguration:
         """
-        Build and register a filesystem Store through this manager's factory.
+        Convert policy inputs, build StoreConfiguration.filesystem, and delegate to create_store.
+        Path normalization occurs before backend construction; start controls the delegated startup
+        call.
+
+        Example:
+            >>> configuration = manager.add_filesystem_store("primary", root, start=False)  # doctest: +SKIP
 
 
-        :param name:
-        :param root:
-        :param store_uuid:
-        :param failure_domain:
-        :param region:
-        :param host:
-        :param device:
-        :param tags:
-        :param replication:
-        :param backup:
-        :param modes:
-        :param operational_role:
-        :param read_only:
-        :param options:
-        :param start:
-        :return:
+        :param name: Required display name for the configured Store.
+        :param root: Local path, PathLike value, or file URI normalized by the filesystem configuration factory.
+        :param store_uuid: Optional durable routing UUID; ordinary configuration factories generate one for None.
+        :param failure_domain: Optional fault-isolation label used by placement policy.
+        :param region: Optional geographic or administrative placement region.
+        :param host: Optional declared host UUID.
+        :param device: Optional declared physical-device UUID.
+        :param tags: Iterable of placement labels collected by configuration construction.
+        :param replication: Optional registered replication-policy ID or record used as a first-placement default.
+        :param backup: Optional registered backup-policy ID or record used as a first-placement default.
+        :param modes: Iterable of permitted Replica modes or enum-value strings.
+        :param operational_role: Optional operator-facing role such as archive.
+        :param read_only: Requested read-only configuration policy.
+        :param options: Backend option mapping or pair iterable; configuration validation owns supported value shapes.
+        :param start: Whether registration requests Store startup before returning.
+        :return: Configuration returned by create_store for the filesystem backend.
         """
 
         configuration = api.StoreConfiguration.filesystem(
@@ -257,23 +291,34 @@ class StoreAdministrationMixin(_StorageManagerState):
         start: bool = True,
     ) -> api.StoreConfiguration:
         """
-        Create a read-only Store view over a catalogued container Asset.
+        Look up the backing Asset and require a supplied source Replica to belong to it. Shallowly
+        collect options and use a truthy supplied UUID or derive one from Asset size/digest,
+        normalized kind, and sorted option representation. The helper prefers SHA-256 evidence when
+        present.
+
+        Build read-only backed configuration and call create_store. Name, preferred Replica, and
+        materialization target do not enter this helper's derived UUID. This method does not itself
+        prove source readability or materialize bytes; those steps belong to construction/startup
+        and other manager paths.
+
+        Example:
+            >>> configuration = manager.add_backed_store("pack", "zip_readonly", asset_id)  # doctest: +SKIP
 
 
-        :param name:
-        :param kind:
-        :param digital_asset_id:
-        :param source_replica_id:
-        :param materialization_store_ref:
-        :param store_uuid:
-        :param protocol:
-        :param tags:
-        :param modes:
-        :param operational_role:
-        :param folders:
-        :param options:
-        :param start:
-        :return:
+        :param name: Required display name for the configured Store.
+        :param kind: Registered backend kind to construct.
+        :param digital_asset_id: Catalogue Asset whose container bytes back the read-only view.
+        :param source_replica_id: Optional preferred Replica identity belonging to the backing Asset.
+        :param materialization_store_ref: Optional UUID of a writable local CACHE Store used when local backing bytes must be materialized.
+        :param store_uuid: Optional durable routing UUID; ordinary configuration factories generate one for None.
+        :param protocol: Optional access-protocol declaration.
+        :param tags: Iterable of placement labels collected by configuration construction.
+        :param modes: Iterable of permitted Replica modes or enum-value strings.
+        :param operational_role: Optional operator-facing role such as archive.
+        :param folders: Declared support for folder semantics.
+        :param options: Backend option mapping or pair iterable; configuration validation owns supported value shapes.
+        :param start: Whether registration requests Store startup before returning.
+        :return: Configuration returned after create_store for the backed view.
         """
 
         asset_record = self.get_digital_asset_record(digital_asset_id)
@@ -316,12 +361,18 @@ class StoreAdministrationMixin(_StorageManagerState):
         configuration: api.StoreConfiguration,
     ) -> api.StoreConfiguration:
         """
-        Replace Store configuration and its live Store atomically in memory.
+        Require unchanged UUID and existing configuration, then build a replacement and attach it
+        with startup/replacement enabled. Startup happens before registry assignment; old-facade
+        close happens afterwards and can fail with the new Store already installed. No cross-step
+        rollback is added.
+
+        Example:
+            >>> updated = manager.update_store(store_uuid, configuration)  # doctest: +SKIP
 
 
-        :param store_ref:
-        :param configuration:
-        :return:
+        :param store_ref: Configured Store UUID, rather than a row ID or display name.
+        :param configuration: Portable configuration whose UUID is the routing identity.
+        :return: Supplied replacement configuration after attach_store succeeds.
         """
 
         if configuration.store_uuid != store_ref:
@@ -346,12 +397,18 @@ class StoreAdministrationMixin(_StorageManagerState):
         forget_configuration: bool = False,
     ) -> bool:
         """
-        Stop a Store and optionally discard its in-memory configuration.
+        Under the lock, refuse forgetting when any non-DELETED Replica still claims the Store,
+        detach the facade, optionally remove configuration, and update a removed default to the
+        lowest remaining UUID integer. Close the detached facade afterwards. Close errors propagate
+        after those mutations; unknown identities otherwise return false.
+
+        Example:
+            >>> removed = manager.remove_store(store_uuid)  # doctest: +SKIP
 
 
-        :param store_ref:
-        :param forget_configuration:
-        :return:
+        :param store_ref: Configured Store UUID, rather than a row ID or display name.
+        :param forget_configuration: Whether to discard configuration as well as detach the facade; live Replica claims may forbid forgetting.
+        :return: True when a facade or configuration was known, otherwise False.
         """
 
         with self._lock:
@@ -383,11 +440,15 @@ class StoreAdministrationMixin(_StorageManagerState):
         store_ref: api.StoreUUID,
     ) -> api.StoreConfiguration:
         """
-        Return one registered Store configuration.
+        Look up the exact UUID under the registry lock. Missing keys become
+        StoreConfigurationNotFound chained from KeyError; no Store is constructed or probed.
+
+        Example:
+            >>> configuration = manager.get_store_configuration(store_uuid)  # doctest: +SKIP
 
 
-        :param store_ref:
-        :return:
+        :param store_ref: Configured Store UUID, rather than a row ID or display name.
+        :return: Retained configuration value for the requested UUID.
         """
 
         with self._lock:
@@ -399,10 +460,15 @@ class StoreAdministrationMixin(_StorageManagerState):
     @override
     def iter_store_configurations(self) -> Iterator[api.StoreConfiguration]:
         """
-        Iterate over a stable snapshot of Store configurations.
+        Snapshot retained configurations under the lock in ascending UUID integer order. The
+        returned iterator owns a tuple of references; later registry changes do not change that
+        sequence.
+
+        Example:
+            >>> configurations = tuple(manager.iter_store_configurations())  # doctest: +SKIP
 
 
-        :return:
+        :return: Iterator over the captured ordered configuration references.
         """
 
         with self._lock:
@@ -417,11 +483,16 @@ class StoreAdministrationMixin(_StorageManagerState):
     @override
     def get_store(self, store_ref: api.StoreUUID) -> api.StoreAPI:
         """
-        Return one live Store facade.
+        Read facade/configuration presence under the lock, then return an attached facade without
+        checking its online state. An absent unknown identity raises StoreConfigurationNotFound; a
+        known identity without a facade raises StoreUnavailable.
+
+        Example:
+            >>> store = manager.get_store(store_uuid)  # doctest: +SKIP
 
 
-        :param store_ref:
-        :return:
+        :param store_ref: Configured Store UUID, rather than a row ID or display name.
+        :return: Retained live facade reference, whose endpoint may still be offline.
         """
 
         with self._lock:
@@ -436,10 +507,14 @@ class StoreAdministrationMixin(_StorageManagerState):
     @override
     def iter_stores(self) -> Iterator[api.StoreAPI]:
         """
-        Iterate over a stable snapshot of live Stores.
+        Snapshot attached facade references under the lock in ascending UUID integer order.
+        Iteration neither probes availability nor transfers resource ownership.
+
+        Example:
+            >>> stores = tuple(manager.iter_stores())  # doctest: +SKIP
 
 
-        :return:
+        :return: Iterator over the captured ordered Store references.
         """
 
         with self._lock:
@@ -456,11 +531,16 @@ class StoreAdministrationMixin(_StorageManagerState):
         refresh: bool = False,
     ) -> Iterator[api.StoreStatusObservation]:
         """
-        Yield attributable status for every configured Store.
+        Delegate attributable status iteration through the inherited administration helper. The
+        helper translates only StoreUnavailable; this wrapper adds no cache, eager consumption, or
+        exception handling.
+
+        Example:
+            >>> statuses = list(manager.iter_store_statuses(refresh=True))  # doctest: +SKIP
 
 
-        :param refresh:
-        :return:
+        :param refresh: Flag forwarded unchanged to inherited status enumeration.
+        :return: Inherited lazy iterator of StoreStatusObservation values.
         """
 
         return super().iter_store_statuses(refresh=refresh)
@@ -473,12 +553,22 @@ class StoreAdministrationMixin(_StorageManagerState):
         replace_existing: bool = True,
     ) -> api.StorageBootstrapReport:
         """
-        Rebuild live Store facades from the current configurations.
+        Snapshot configurations and process each separately. Existing facades skip when replacement
+        is disabled. Otherwise construct/start a candidate; unavailable candidates close and skip
+        unless include_offline permits attachment. Successful attachment increments loaded.
+
+        Exceptions within one attempt become failed counts/issues and processing continues;
+        BaseException is not caught. There is no general candidate cleanup on failure. Old-facade
+        close can fail after a replacement was installed, so a failed count does not prove unchanged
+        registry state. Skipped offline replacements leave an existing facade intact.
+
+        Example:
+            >>> report = manager.reload_stores(replace_existing=False)  # doctest: +SKIP
 
 
-        :param include_offline:
-        :param replace_existing:
-        :return:
+        :param include_offline: Whether constructed Stores reporting unavailable may remain attached.
+        :param replace_existing: Whether to reconstruct already loaded Store facades instead of skipping them.
+        :return: Bootstrap report for attempted configurations, including offline skips and caught failures.
         """
 
         configurations = tuple(self.iter_store_configurations())
@@ -532,11 +622,16 @@ class StoreAdministrationMixin(_StorageManagerState):
     @override
     def set_default_store(self, store_ref: api.StoreUUID) -> None:
         """
-        Select the default destination Store.
+        Require an attached facade through get_store, then assign the UUID under the lock. This
+        validates registry presence rather than endpoint availability, writability, or placement
+        eligibility.
+
+        Example:
+            >>> manager.set_default_store(store_uuid)  # doctest: +SKIP
 
 
-        :param store_ref:
-        :return:
+        :param store_ref: Configured Store UUID, rather than a row ID or display name.
+        :return: None after assigning the default reference.
         """
 
         self.get_store(store_ref)
@@ -546,10 +641,14 @@ class StoreAdministrationMixin(_StorageManagerState):
     @override
     def get_default_store_ref(self) -> api.StoreUUID:
         """
-        Return the current default destination Store UUID.
+        Read the default UUID under the lock, reject None, and require a facade through get_store
+        before returning it. No online or writable check is performed.
+
+        Example:
+            >>> store_uuid = manager.get_default_store_ref()  # doctest: +SKIP
 
 
-        :return:
+        :return: Current default UUID; missing configuration/facade errors propagate.
         """
 
         with self._lock:
@@ -562,10 +661,15 @@ class StoreAdministrationMixin(_StorageManagerState):
     @override
     def close(self) -> None:
         """
-        Close every live Store, attempting all closes before re-raising.
+        Snapshot live Stores and attempt every close in UUID order. Catch BaseException for each
+        attempt and re-raise the first after trying the rest. Registries and the selected default
+        remain retained, even though their facades may now be closed.
+
+        Example:
+            >>> manager.close()  # doctest: +SKIP
 
 
-        :return:
+        :return: None if all closes succeed; otherwise raises the first captured BaseException after attempting all Stores.
         """
 
         stores = tuple(self.iter_stores())

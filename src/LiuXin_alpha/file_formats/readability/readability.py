@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Extract the principal readable article from arbitrary HTML.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise readability through a consuming regression::
+
+        python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -22,6 +33,20 @@ from LiuXin_alpha.file_formats.readability.htmls import (
 
 
 def tounicode(tree_or_node: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
+    """
+    Perform the tounicode operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise tounicode through a consuming regression::
+
+            python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+
+
+    :param tree_or_node: Value supplied for tree or node under the utility contract.
+    :param kwargs: Keyword values forwarded to the compatibility implementation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     kwargs["encoding"] = "unicode"
     return htostring(tree_or_node, **kwargs)
 
@@ -45,6 +70,20 @@ REGEXES = {
 
 
 def describe(node: _typing.Any, depth: int = 1) -> _typing.Any:
+    """
+    Perform the describe operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise describe through a consuming regression::
+
+            python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+
+
+    :param node: Value supplied for node under the utility contract.
+    :param depth: Value supplied for depth under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if not hasattr(node, "tag"):
         return "[%s]" % type(node)
     name = node.tag
@@ -60,6 +99,19 @@ def describe(node: _typing.Any, depth: int = 1) -> _typing.Any:
 
 
 def to_int(x: _typing.Any) -> _typing.Any:
+    """
+    Perform the to int operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise to int through a consuming regression::
+
+            python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+
+
+    :param x: Value supplied for x under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if not x:
         return None
     x = x.strip()
@@ -71,24 +123,80 @@ def to_int(x: _typing.Any) -> _typing.Any:
 
 
 def clean(text: _typing.Any) -> _typing.Any:
+    """
+    Perform the clean operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise clean through a consuming regression::
+
+            python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+
+
+    :param text: Text parsed, normalized or rendered.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     text = re.sub(r"\s*\n\s*", "\n", text)
     text = re.sub(r"[ \t]{2,}", " ", text)
     return text.strip()
 
 
 def text_length(i: _typing.Any) -> _typing.Any:
+    """
+    Perform the text length operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise text length through a consuming regression::
+
+            python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+
+
+    :param i: Value supplied for i under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return len(clean(i.text_content() or ""))
 
 
 class Unparseable(ValueError):
+    """
+    Provide the unparseable contract for validated ebook processing.
+
+    Example:
+        Exercise Unparseable through a consuming regression::
+
+            python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+    """
     pass
 
 
 class Document:
+    """
+    Provide the document contract for validated ebook processing.
+
+    Example:
+        Exercise Document through a consuming regression::
+
+            python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+    """
     TEXT_LENGTH_THRESHOLD = 25
     RETRY_LENGTH = 250
 
     def __init__(self: _typing.Self, input: _typing.Any, log: _typing.Any, **options: _typing.Any) -> None:
+        """
+        Initialize and validate the document state.
+
+        Example:
+            Exercise Document.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+
+
+        :param input: Value supplied for input under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :param options: Value supplied for options under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.input = input
         self.options = defaultdict(lambda: None)
         for key, value in options.items():
@@ -98,6 +206,19 @@ class Document:
         self.keep_elements = set()
 
     def _html(self: _typing.Self, force: bool = False) -> _typing.Any:
+        """
+        Perform the html operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Document. html through a consuming regression::
+
+                python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+
+
+        :param force: Value supplied for force under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if force or self.html is None:
             self.html = self._parse(self.input)
             path = self.options["keep_elements"]
@@ -107,6 +228,19 @@ class Document:
         return self.html
 
     def _parse(self: _typing.Self, input: _typing.Any) -> _typing.Any:
+        """
+        Perform the parse operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Document. parse through a consuming regression::
+
+                python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+
+
+        :param input: Value supplied for input under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         doc = build_doc(input)
         doc = html_cleaner.clean_html(doc)
         base_href = self.options["url"]
@@ -117,15 +251,63 @@ class Document:
         return doc
 
     def content(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the content operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Document.content through a consuming regression::
+
+                python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return get_body(self._html(True))
 
     def title(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the title operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Document.title through a consuming regression::
+
+                python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return get_title(self._html(True))
 
     def short_title(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the short title operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Document.short title through a consuming regression::
+
+                python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return shorten_title(self._html(True))
 
     def summary(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the summary operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Document.summary through a consuming regression::
+
+                python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             ruthless = True
             while True:
@@ -165,6 +347,20 @@ class Document:
             raise Unparseable(str(err))
 
     def get_article(self: _typing.Self, candidates: _typing.Any, best_candidate: _typing.Any) -> _typing.Any:
+        """
+        Return article under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Document.get article through a consuming regression::
+
+                python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+
+
+        :param candidates: Value supplied for candidates under the utility contract.
+        :param best_candidate: Value supplied for best candidate under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         sibling_score_threshold = max([10, best_candidate["content_score"] * 0.2])
         output = document_fromstring("<div/>")
         parent = output.xpath("//div")[0]
@@ -193,6 +389,19 @@ class Document:
         return output.find("body")
 
     def select_best_candidate(self: _typing.Self, candidates: _typing.Any) -> _typing.Any:
+        """
+        Perform the select best candidate operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Document.select best candidate through a consuming regression::
+
+                python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+
+
+        :param candidates: Value supplied for candidates under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         sorted_candidates = sorted(candidates.values(), key=lambda x: x["content_score"], reverse=True)
         for candidate in sorted_candidates[:5]:
             elem = candidate["elem"]
@@ -204,6 +413,19 @@ class Document:
         return sorted_candidates[0]
 
     def get_link_density(self: _typing.Self, elem: _typing.Any) -> _typing.Any:
+        """
+        Return link density under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Document.get link density through a consuming regression::
+
+                python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+
+
+        :param elem: Value supplied for elem under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         link_length = 0
         for item in elem.findall(".//a"):
             link_length += text_length(item)
@@ -211,6 +433,18 @@ class Document:
         return float(link_length) / max(total_length, 1)
 
     def score_paragraphs(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the score paragraphs operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Document.score paragraphs through a consuming regression::
+
+                python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         min_len = self.options.get("min_text_length", self.TEXT_LENGTH_THRESHOLD)
         candidates = {}
         ordered = []
@@ -253,6 +487,19 @@ class Document:
         return candidates
 
     def class_weight(self: _typing.Self, elem: _typing.Any) -> _typing.Any:
+        """
+        Perform the class weight operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Document.class weight through a consuming regression::
+
+                python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+
+
+        :param elem: Value supplied for elem under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         weight = 0
         if elem.get("class", None):
             if REGEXES["negativeRe"].search(elem.get("class")):
@@ -269,6 +516,19 @@ class Document:
         return weight
 
     def score_node(self: _typing.Self, elem: _typing.Any) -> dict[_typing.Any, _typing.Any]:
+        """
+        Perform the score node operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Document.score node through a consuming regression::
+
+                python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+
+
+        :param elem: Value supplied for elem under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         content_score = self.class_weight(elem)
         name = elem.tag.lower()
         if name == "div":
@@ -282,9 +542,34 @@ class Document:
         return {"content_score": content_score, "elem": elem}
 
     def debug(self: _typing.Self, *parts: _typing.Any) -> None:
+        """
+        Perform the debug operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Document.debug through a consuming regression::
+
+                python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+
+
+        :param parts: Value supplied for parts under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.log.debug(*parts)
 
     def remove_unlikely_candidates(self: _typing.Self) -> None:
+        """
+        Perform the remove unlikely candidates operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Document.remove unlikely candidates through a consuming regression::
+
+                python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for elem in self.html.iter():
             if elem in self.keep_elements:
                 continue
@@ -298,6 +583,18 @@ class Document:
                 elem.drop_tree()
 
     def transform_misused_divs_into_paragraphs(self: _typing.Self) -> None:
+        """
+        Perform the transform misused divs into paragraphs operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Document.transform misused divs into paragraphs through a consuming regression::
+
+                python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for elem in self.tags(self.html, "div"):
             child_markup = "".join(tostring(child, encoding="unicode") for child in list(elem))
             if not REGEXES["divToPElementsRe"].search(child_markup):
@@ -320,16 +617,56 @@ class Document:
                     child.drop_tree()
 
     def tags(self: _typing.Self, node: _typing.Any, *tag_names: _typing.Any) -> _typing.Iterator[_typing.Any]:
+        """
+        Perform the tags operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Document.tags through a consuming regression::
+
+                python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+
+
+        :param node: Value supplied for node under the utility contract.
+        :param tag_names: Value supplied for tag names under the utility contract.
+        :return: An iterator yielding the normalized values described above.
+        """
         for tag_name in tag_names:
             for elem in node.findall(".//%s" % tag_name):
                 yield elem
 
     def reverse_tags(self: _typing.Self, node: _typing.Any, *tag_names: _typing.Any) -> _typing.Iterator[_typing.Any]:
+        """
+        Perform the reverse tags operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Document.reverse tags through a consuming regression::
+
+                python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+
+
+        :param node: Value supplied for node under the utility contract.
+        :param tag_names: Value supplied for tag names under the utility contract.
+        :return: An iterator yielding the normalized values described above.
+        """
         for tag_name in tag_names:
             for elem in reversed(node.findall(".//%s" % tag_name)):
                 yield elem
 
     def sanitize(self: _typing.Self, node: _typing.Any, candidates: _typing.Any) -> _typing.Any:
+        """
+        Perform the sanitize operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Document.sanitize through a consuming regression::
+
+                python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+
+
+        :param node: Value supplied for node under the utility contract.
+        :param candidates: Value supplied for candidates under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         min_len = self.options.get("min_text_length", self.TEXT_LENGTH_THRESHOLD)
         for header in self.tags(node, "h1", "h2", "h3", "h4", "h5", "h6"):
             if self.class_weight(header) < 0 or self.get_link_density(header) > 0.33:
@@ -425,6 +762,18 @@ class Document:
 
 
 def option_parser() -> _typing.Any:
+    """
+    Perform the option parser operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise option parser through a consuming regression::
+
+            python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     from LiuXin_alpha.utils.config.config_tools import OptionParser
 
     parser = OptionParser(usage="%prog: [options] file")
@@ -449,6 +798,18 @@ def option_parser() -> _typing.Any:
 
 
 def main() -> None:
+    """
+    Perform the main operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise main through a consuming regression::
+
+            python -m pytest -q tests/file_formats/readability/test_readability_modernized.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.utils.logging import default_log
 
     parser = option_parser()

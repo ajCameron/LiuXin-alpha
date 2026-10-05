@@ -1,5 +1,16 @@
 #! /usr/bin/env python
 
+"""
+Describe the bundled rarfile compatibility package metadata.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise setup through a consuming regression::
+
+        python -m pytest -q tests/utils/decompression/test_archives.py
+"""
 from distutils.core import setup
 
 import rarfile

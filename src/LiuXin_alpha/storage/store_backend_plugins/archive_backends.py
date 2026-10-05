@@ -1,5 +1,11 @@
 """
-Configured Store facades for local ZIP, TAR, RAR, and 7z archive drivers.
+Bind ZIP, TAR, RAR, and 7z drivers to durable Store identity and compatibility APIs.
+
+Concrete constructors select drivers and record options for newly created Store
+configuration. Existing configuration is retained; explicit UUID conflicts are
+rejected, while other runtime arguments are not automatically reconciled with it.
+Member Locations remain logical archive keys, with a legacy local-path prefix
+accepted by the shared facade rather than an extracted directory tree.
 """
 
 from __future__ import annotations
@@ -57,10 +63,16 @@ from LiuXin_alpha.utils.text.safe_path_to_name import safe_path_to_name
 
 class _ConfiguredArchiveStore(DriverBackedStoreAPI[ArchiveObjectAddress]):
     """
-    Bind one local archive driver to durable Store identity and policy.
+    Bind an archive driver to Store identity, location handling, and durable policy.
+
+    The generic driver-backed bridge implements file operations and policy masking. A supplied
+    configuration is retained as-is rather than reconciled with the runtime driver's path or
+    options. Concrete constructors separately reconcile explicit UUIDs before constructing their
+    drivers.
 
     Example:
-        >>> store.archive_path  # doctest: +SKIP
+        >>> store.archive_path == store.root_path  # doctest: +SKIP
+        True
     """
 
     def __init__(
@@ -75,20 +87,24 @@ class _ConfiguredArchiveStore(DriverBackedStoreAPI[ArchiveObjectAddress]):
         backend_options: Iterable[tuple[str, object]],
     ) -> None:
         """
-        Bind a configured archive driver to one durable Store facade.
+        Retain the runtime driver and use an existing configuration or build a new one.
+
+        New configuration derives UUID/root URI from the driver, supports hierarchical member keys,
+        and snapshots backend options. When configuration is supplied, this method does not consume
+        backend_options or validate other construction arguments against it.
 
         Example:
             >>> store = _ConfiguredArchiveStore(driver, store_kind="zip_readonly", access_protocol="zip", name=None, configuration=None, read_only=True, backend_options=())  # doctest: +SKIP
 
 
-        :param driver:
-        :param store_kind:
-        :param access_protocol:
-        :param name:
-        :param configuration:
-        :param read_only:
-        :param backend_options:
-        :return:
+        :param driver: Configured raw archive driver retained by reference for file operations.
+        :param store_kind: Registry backend kind used only when constructing configuration.
+        :param access_protocol: Archive access-protocol label used for new configuration.
+        :param name: Display-name override for new configuration; false values derive a name from the archive path.
+        :param configuration: Existing durable configuration retained by identity, or None to construct one.
+        :param read_only: Policy for new configuration; an existing configuration supplies its own policy.
+        :param backend_options: Option pairs converted to a tuple only when new configuration is needed.
+        :return: None after retaining driver and configuration.
         """
 
         self.__driver = driver
@@ -107,14 +123,13 @@ class _ConfiguredArchiveStore(DriverBackedStoreAPI[ArchiveObjectAddress]):
     @property
     def configuration(self) -> StoreConfiguration:
         """
-        Return the durable Store configuration used to build this facade.
+        Return the retained durable configuration without reconciling live driver state.
 
         Example:
             >>> store.configuration.store_kind  # doctest: +SKIP
-            'zip_readonly'
 
 
-        :return:
+        :return: Existing or constructor-created StoreConfiguration object, not a refreshed copy.
         """
 
         return self._configuration
@@ -122,14 +137,14 @@ class _ConfiguredArchiveStore(DriverBackedStoreAPI[ArchiveObjectAddress]):
     @property
     def _driver(self):
         """
-        Supply the archive driver to the generic Store bridge.
+        Supply the retained raw driver to inherited driver-backed Store operations.
 
         Example:
             >>> store._driver is store.driver  # doctest: +SKIP
             True
 
 
-        :return:
+        :return: The same configured archive driver exposed by driver.
         """
 
         return self.__driver
@@ -137,13 +152,17 @@ class _ConfiguredArchiveStore(DriverBackedStoreAPI[ArchiveObjectAddress]):
     @property
     def driver(self):
         """
-        Return the reusable archive driver for diagnostics.
+        Expose the raw archive driver for direct operations and diagnostics.
+
+        Direct use follows driver capabilities; callers bypassing the Store bridge must account for
+        Store-level policy themselves.
 
         Example:
-            >>> store.driver  # doctest: +SKIP
+            >>> store.driver.archive_path == store.archive_path  # doctest: +SKIP
+            True
 
 
-        :return:
+        :return: Retained raw driver object.
         """
 
         return self.__driver
@@ -151,13 +170,14 @@ class _ConfiguredArchiveStore(DriverBackedStoreAPI[ArchiveObjectAddress]):
     @property
     def archive_path(self) -> pathlib.Path:
         """
-        Return the resolved local archive path.
+        Return the runtime driver's resolved container path without probing it.
 
         Example:
-            >>> store.archive_path  # doctest: +SKIP
+            >>> store.archive_path.is_absolute()  # doctest: +SKIP
+            True
 
 
-        :return:
+        :return: Local archive Path from the driver, which may differ from a separately supplied configuration root.
         """
 
         return self.__driver.archive_path
@@ -165,14 +185,14 @@ class _ConfiguredArchiveStore(DriverBackedStoreAPI[ArchiveObjectAddress]):
     @property
     def image_path(self) -> pathlib.Path:
         """
-        Return the archive path through the image-backed Store alias.
+        Expose the container path through the legacy image-Store spelling.
 
         Example:
             >>> store.image_path == store.archive_path  # doctest: +SKIP
             True
 
 
-        :return:
+        :return: The archive path, without creating or locating a separate image.
         """
 
         return self.archive_path
@@ -180,14 +200,14 @@ class _ConfiguredArchiveStore(DriverBackedStoreAPI[ArchiveObjectAddress]):
     @property
     def db_path(self) -> pathlib.Path:
         """
-        Return the archive through the legacy single-file Store alias.
+        Expose the container path through the legacy single-file database-Store spelling.
 
         Example:
             >>> store.db_path == store.archive_path  # doctest: +SKIP
             True
 
 
-        :return:
+        :return: The archive path; this alias does not imply a database inside the container.
         """
 
         return self.archive_path
@@ -195,29 +215,33 @@ class _ConfiguredArchiveStore(DriverBackedStoreAPI[ArchiveObjectAddress]):
     @property
     def root_path(self) -> pathlib.Path:
         """
-        Return the archive through the legacy root-path alias.
+        Expose the container filename as the Store's legacy root path.
 
         Example:
             >>> store.root_path == store.archive_path  # doctest: +SKIP
             True
 
 
-        :return:
+        :return: The archive path, not an extracted member directory.
         """
 
         return self.archive_path
 
     def locate(self, identifier: str | Location) -> Location:
         """
-        Resolve a member key, including the legacy archive-path prefix form.
+        Resolve an owned Location or member key, accepting the legacy archive-path prefix.
+
+        An existing Location is checked for Store ownership. Text beginning with the exact resolved
+        archive path plus slash loses that prefix before inherited key validation. This is not
+        file-URI decoding or a member-existence check.
 
         Example:
             >>> store.locate("books/novel.epub").key  # doctest: +SKIP
             'books/novel.epub'
 
 
-        :param identifier:
-        :return:
+        :param identifier: Owned Location, relative member key, or resolved archive-path/member spelling.
+        :return: Owned Store Location corresponding to the validated member address.
         """
 
         if isinstance(identifier, Location):
@@ -230,14 +254,16 @@ class _ConfiguredArchiveStore(DriverBackedStoreAPI[ArchiveObjectAddress]):
 
     def self_test(self):
         """
-        Run the Store probe used by older plugin consumers.
+        Delegate the legacy self-test entry point to the Store probe.
+
+        Probe effects and failures depend on the configured archive backend; this is not a separate
+        test suite.
 
         Example:
-            >>> store.self_test().available  # doctest: +SKIP
-            True
+            >>> status = store.self_test()  # doctest: +SKIP
 
 
-        :return:
+        :return: Current Store probe result; probe exceptions propagate.
         """
 
         return self.probe()
@@ -248,17 +274,19 @@ def _store_uuid(
     configuration: StoreConfiguration | None,
 ) -> UUID:
     """
-    Reconcile an explicit UUID with a durable configuration identity.
+    Select durable Store identity and reject a conflicting explicit UUID.
+
+    Configuration takes precedence after matching any explicit UUID. Without configuration, retain
+    an existing UUID, parse text, or generate a random UUID when absent. Parsing failures propagate.
 
     Example:
-        >>> value = _store_uuid(UUID(int=1), None)
-        >>> value.int
+        >>> _store_uuid(UUID(int=1), None).int
         1
 
 
-    :param uuid:
-    :param configuration:
-    :return:
+    :param uuid: Explicit identity as UUID/text, or None to use configured/generated identity.
+    :param configuration: Optional configuration whose Store UUID must agree with any explicit value.
+    :return: Configured, parsed, retained, or newly generated UUID.
     """
 
     if configuration is not None:
@@ -271,7 +299,10 @@ def _store_uuid(
 
 class ZipReadOnlyStorageBackend(_ConfiguredArchiveStore):
     """
-    Expose one ZIP archive as an immutable Store.
+    Expose an existing ZIP regular-file projection through the configured Store API.
+
+    The facade does not make the underlying file immutable. Its raw driver supplies bounded
+    indexing, range reads, and archive-wide conditional versions.
 
     Example:
         >>> store = ZipReadOnlyStorageBackend("books.zip")  # doctest: +SKIP
@@ -294,23 +325,26 @@ class ZipReadOnlyStorageBackend(_ConfiguredArchiveStore):
         max_central_directory_bytes: int = DEFAULT_MAX_ZIP_CENTRAL_DIRECTORY_BYTES,
     ) -> None:
         """
-        Configure an immutable ZIP Store with durable safety limits.
+        Configure a read-only ZIP driver and retain or construct durable Store policy.
+
+        Construction requires an existing regular path but does not parse the archive. Numeric ZIP
+        policies are validated by the driver and captured in newly created backend options.
 
         Example:
             >>> store = ZipReadOnlyStorageBackend("books.zip")  # doctest: +SKIP
 
 
-        :param url:
-        :param name:
-        :param uuid:
-        :param configuration:
-        :param max_inventory_entries:
-        :param max_member_bytes:
-        :param max_depth:
-        :param max_total_uncompressed_bytes:
-        :param max_compression_ratio:
-        :param max_central_directory_bytes:
-        :return:
+        :param url: Local container filename passed directly to the raw driver; despite the name, this constructor does not decode a file URI.
+        :param name: Display name for new configuration, or None/empty to derive it from the resolved path.
+        :param uuid: Explicit Store UUID or text, required to match configuration when both are supplied; otherwise generated when absent.
+        :param configuration: Durable configuration retained as-is, or None to construct it from these arguments; other runtime arguments are not reconciled with it.
+        :param max_inventory_entries: Maximum indexed entry count, including explicit directories, forwarded to driver validation.
+        :param max_member_bytes: Maximum declared uncompressed bytes per regular member, additionally bounded by the total-byte limit.
+        :param max_depth: Maximum number of components in a relative member key.
+        :param max_total_uncompressed_bytes: Maximum sum of declared regular-member uncompressed sizes.
+        :param max_compression_ratio: Finite ratio of at least one, applied by the format driver to its available compressed-size evidence.
+        :param max_central_directory_bytes: Maximum declared central-directory bytes, checked by ZIP preflight before full inventory allocation.
+        :return: None after constructing the raw driver and binding Store configuration.
         """
 
         driver = ZipStorageDriver(
@@ -343,7 +377,10 @@ class ZipReadOnlyStorageBackend(_ConfiguredArchiveStore):
 
 class ZipWritableStorageBackend(_ConfiguredArchiveStore):
     """
-    Expose one atomically rebuilt ZIP archive as a writable Store.
+    Expose ZIP member writes and deletes through whole-container rebuilds.
+
+    The raw writer normalizes metadata and checks inspected loss policy. A supplied read-only Store
+    configuration masks facade mutations even though the underlying driver supports writes.
 
     Example:
         >>> store = ZipWritableStorageBackend("books.zip")  # doctest: +SKIP
@@ -372,29 +409,33 @@ class ZipWritableStorageBackend(_ConfiguredArchiveStore):
         max_central_directory_bytes: int = DEFAULT_MAX_ZIP_CENTRAL_DIRECTORY_BYTES,
     ) -> None:
         """
-        Configure an atomically rebuilt ZIP Store and persist its policy.
+        Configure a ZIP rebuild driver, optionally creating a missing container.
+
+        The driver validates compression first but can create parent directories and an empty
+        archive before later prefix/limit validation fails. Newly built options capture these
+        arguments; supplied configuration remains unchanged, including its read-only policy.
 
         Example:
             >>> store = ZipWritableStorageBackend("books.zip")  # doctest: +SKIP
 
 
-        :param url:
-        :param name:
-        :param uuid:
-        :param configuration:
-        :param create_archive:
-        :param compression:
-        :param compresslevel:
-        :param deterministic:
-        :param allow_lossy_rebuild:
-        :param allocation_prefix:
-        :param max_inventory_entries:
-        :param max_member_bytes:
-        :param max_depth:
-        :param max_total_uncompressed_bytes:
-        :param max_compression_ratio:
-        :param max_central_directory_bytes:
-        :return:
+        :param url: Local container filename passed directly to the raw driver; despite the name, this constructor does not decode a file URI.
+        :param name: Display name for new configuration, or None/empty to derive it from the resolved path.
+        :param uuid: Explicit Store UUID or text, required to match configuration when both are supplied; otherwise generated when absent.
+        :param configuration: Durable configuration retained as-is, or None to construct it from these arguments; other runtime arguments are not reconciled with it.
+        :param create_archive: Whether to create a missing container; None permits creation unless a supplied configuration is read-only.
+        :param compression: Stored, deflated, bzip2, or lzma; the driver strips/lowercases it, while new durable options retain the supplied text.
+        :param compresslevel: Optional level: -1 through 9 for deflated, 1 through 9 for bzip2; stored/lzma require None. Omitted from new options when None.
+        :param deterministic: Whether to normalize writer timestamps for repeatable output within the same implementation/toolchain.
+        :param allow_lossy_rebuild: Whether inspected metadata-loss reasons may be normalized; this does not permit unsafe member kinds or bypass indexing bounds.
+        :param allocation_prefix: Relative key prefix for driver-suggested member addresses, without reserving them.
+        :param max_inventory_entries: Maximum indexed entry count, including explicit directories, forwarded to driver validation.
+        :param max_member_bytes: Maximum declared uncompressed bytes per regular member, additionally bounded by the total-byte limit.
+        :param max_depth: Maximum number of components in a relative member key.
+        :param max_total_uncompressed_bytes: Maximum sum of declared regular-member uncompressed sizes.
+        :param max_compression_ratio: Finite ratio of at least one, applied by the format driver to its available compressed-size evidence.
+        :param max_central_directory_bytes: Maximum declared central-directory bytes, checked by ZIP preflight before full inventory allocation.
+        :return: None after constructing the raw driver and binding Store configuration.
         """
 
         effective_create = (
@@ -446,7 +487,10 @@ class ZipWritableStorageBackend(_ConfiguredArchiveStore):
 
 class TarReadOnlyStorageBackend(_ConfiguredArchiveStore):
     """
-    Expose one compressed or uncompressed TAR archive as an immutable Store.
+    Expose regular members of a local TAR, including supported compressed containers.
+
+    The driver bounds declared expansion, parser reads, and stream position. Names remain member
+    keys rather than extracted filesystem paths.
 
     Example:
         >>> store = TarReadOnlyStorageBackend("books.tar.gz")  # doctest: +SKIP
@@ -470,20 +514,28 @@ class TarReadOnlyStorageBackend(_ConfiguredArchiveStore):
         max_single_metadata_record_bytes: int = DEFAULT_MAX_TAR_SINGLE_METADATA_RECORD_BYTES,
     ) -> None:
         """
-        Configure an immutable TAR Store with durable safety limits.
+        Configure bounded TAR reading and retain or construct Store identity and policy.
+
+        The existing regular path and limits are checked by the driver before lazy indexing.
+        Stream-position and allocation bounds also apply to parser work, not only exposed file
+        payloads.
 
         Example:
             >>> store = TarReadOnlyStorageBackend("books.tar.gz")  # doctest: +SKIP
 
 
-        :param url:
-        :param name:
-        :param uuid:
-        :param configuration:
-        :param max_inventory_entries:
-        :param max_member_bytes:
-        :param max_depth:
-        :return:
+        :param url: Local container filename passed directly to the raw driver; despite the name, this constructor does not decode a file URI.
+        :param name: Display name for new configuration, or None/empty to derive it from the resolved path.
+        :param uuid: Explicit Store UUID or text, required to match configuration when both are supplied; otherwise generated when absent.
+        :param configuration: Durable configuration retained as-is, or None to construct it from these arguments; other runtime arguments are not reconciled with it.
+        :param max_inventory_entries: Maximum indexed entry count, including explicit directories, forwarded to driver validation.
+        :param max_member_bytes: Maximum declared uncompressed bytes per regular member, additionally bounded by the total-byte limit.
+        :param max_depth: Maximum number of components in a relative member key.
+        :param max_total_uncompressed_bytes: Maximum sum of declared regular-member uncompressed sizes.
+        :param max_compression_ratio: Finite ratio of at least one bounding declared regular-member totals against the container byte size.
+        :param max_metadata_bytes: Additional decompressed-stream byte allowance above max_total_uncompressed_bytes for TAR headers, padding, and metadata; not an independent metadata sum.
+        :param max_single_metadata_record_bytes: Maximum individual parser read allocation in bytes, also applying when the TAR wrapper reads payload data.
+        :return: None after constructing the raw driver and binding Store configuration.
         """
 
         driver = TarStorageDriver(
@@ -518,7 +570,10 @@ class TarReadOnlyStorageBackend(_ConfiguredArchiveStore):
 
 class TarWritableStorageBackend(_ConfiguredArchiveStore):
     """
-    Expose one atomically rebuilt TAR archive as a writable Store.
+    Expose whole-container TAR rebuilds with explicit compression and normalization policy.
+
+    Filename suffixes choose compression only when no override is supplied. Generic Store policy can
+    mask the raw writer, and allowing metadata loss does not allow symbolic or hard-link members.
 
     Example:
         >>> store = TarWritableStorageBackend("books.tar.xz")  # doctest: +SKIP
@@ -547,25 +602,33 @@ class TarWritableStorageBackend(_ConfiguredArchiveStore):
         max_single_metadata_record_bytes: int = DEFAULT_MAX_TAR_SINGLE_METADATA_RECORD_BYTES,
     ) -> None:
         """
-        Configure an atomically rebuilt TAR Store and persist its policy.
+        Select TAR compression, configure the rebuild driver, and retain durable policy.
+
+        An absent container may be created before later prefix or numeric validation. Compression
+        selection uses only the filename when compression is None; supplied durable configuration is
+        retained rather than rewritten to match runtime options.
 
         Example:
             >>> store = TarWritableStorageBackend("books.tar.xz")  # doctest: +SKIP
 
 
-        :param url:
-        :param name:
-        :param uuid:
-        :param configuration:
-        :param create_archive:
-        :param compression:
-        :param deterministic:
-        :param allow_lossy_rebuild:
-        :param allocation_prefix:
-        :param max_inventory_entries:
-        :param max_member_bytes:
-        :param max_depth:
-        :return:
+        :param url: Local container filename passed directly to the raw driver; despite the name, this constructor does not decode a file URI.
+        :param name: Display name for new configuration, or None/empty to derive it from the resolved path.
+        :param uuid: Explicit Store UUID or text, required to match configuration when both are supplied; otherwise generated when absent.
+        :param configuration: Durable configuration retained as-is, or None to construct it from these arguments; other runtime arguments are not reconciled with it.
+        :param create_archive: Whether to create a missing container; None permits creation unless a supplied configuration is read-only.
+        :param compression: none, gz, bz2, or xz, normalized by the driver; None guesses from the filename suffix.
+        :param deterministic: Whether to normalize writer timestamps for repeatable output within the same implementation/toolchain.
+        :param allow_lossy_rebuild: Whether inspected metadata-loss reasons may be normalized; this does not permit unsafe member kinds or bypass indexing bounds.
+        :param allocation_prefix: Relative key prefix for driver-suggested member addresses, without reserving them.
+        :param max_inventory_entries: Maximum indexed entry count, including explicit directories, forwarded to driver validation.
+        :param max_member_bytes: Maximum declared uncompressed bytes per regular member, additionally bounded by the total-byte limit.
+        :param max_depth: Maximum number of components in a relative member key.
+        :param max_total_uncompressed_bytes: Maximum sum of declared regular-member uncompressed sizes.
+        :param max_compression_ratio: Finite ratio of at least one bounding declared regular-member totals against the container byte size.
+        :param max_metadata_bytes: Additional decompressed-stream byte allowance above max_total_uncompressed_bytes for TAR headers, padding, and metadata; not an independent metadata sum.
+        :param max_single_metadata_record_bytes: Maximum individual parser read allocation in bytes, also applying when the TAR wrapper reads payload data.
+        :return: None after constructing the raw driver and binding Store configuration.
         """
 
         selected_compression = _tar_compression_for_path(url) if compression is None else str(compression)
@@ -619,7 +682,11 @@ class TarWritableStorageBackend(_ConfiguredArchiveStore):
 
 class RarReadOnlyStorageBackend(_ConfiguredArchiveStore):
     """
-    Expose one RAR 3/4/5 archive as a read-only Store.
+    Expose a bounded local RAR projection with optional external compressed-member extraction.
+
+    Stored members can be read without an extractor. Compressed members use the driver's staged
+    extraction/CRC checks, and RAR5 requires the modern optional parser. No member tree is extracted
+    by this facade.
 
     Example:
         >>> store = RarReadOnlyStorageBackend("books.rar")  # doctest: +SKIP
@@ -644,22 +711,29 @@ class RarReadOnlyStorageBackend(_ConfiguredArchiveStore):
         max_path_bytes: int = DEFAULT_MAX_RAR_PATH_BYTES,
     ) -> None:
         """
-        Configure a RAR Store with durable extractor and safety policy.
+        Configure RAR parsing, extraction limits, and durable Store options.
+
+        The raw driver defers archive parsing and tool discovery until operations need them.
+        Extractor timeout is passed to process waiting, not enforced as an end-to-end deadline for
+        indexing, pipe cleanup, and reads.
 
         Example:
             >>> store = RarReadOnlyStorageBackend("books.rar")  # doctest: +SKIP
 
 
-        :param url:
-        :param name:
-        :param uuid:
-        :param configuration:
-        :param extractor_exe:
-        :param extract_timeout_s:
-        :param max_inventory_entries:
-        :param max_member_bytes:
-        :param max_depth:
-        :return:
+        :param url: Local container filename passed directly to the raw driver; despite the name, this constructor does not decode a file URI.
+        :param name: Display name for new configuration, or None/empty to derive it from the resolved path.
+        :param uuid: Explicit Store UUID or text, required to match configuration when both are supplied; otherwise generated when absent.
+        :param configuration: Durable configuration retained as-is, or None to construct it from these arguments; other runtime arguments are not reconciled with it.
+        :param extractor_exe: Optional executable name/path preferred by the driver; None uses its discovery policy and omits the durable override.
+        :param extract_timeout_s: Positive seconds supplied to the extraction process wait; other extraction and cleanup work can add elapsed time.
+        :param max_inventory_entries: Maximum indexed entry count, including explicit directories, forwarded to driver validation.
+        :param max_member_bytes: Maximum declared uncompressed bytes per regular member, additionally bounded by the total-byte limit.
+        :param max_depth: Maximum number of components in a relative member key.
+        :param max_total_uncompressed_bytes: Maximum sum of declared regular-member uncompressed sizes.
+        :param max_compression_ratio: Finite ratio of at least one bounding positive member sizes against packed sizes and total regular bytes against container size.
+        :param max_path_bytes: Maximum UTF-8/surrogateescape bytes for the entire canonical member key.
+        :return: None after constructing the raw driver and binding Store configuration.
         """
 
         driver = RarStorageDriver(
@@ -698,7 +772,10 @@ class RarReadOnlyStorageBackend(_ConfiguredArchiveStore):
 
 class SevenZipReadOnlyStorageBackend(_ConfiguredArchiveStore):
     """
-    Expose one 7z archive as an immutable Store.
+    Expose bounded 7z member reads through the optional py7zr implementation.
+
+    The driver owns parsing and temporary member extraction without a filesystem member tree. Header
+    and expansion checks apply to observations obtained from the archive library.
 
     Example:
         >>> store = SevenZipReadOnlyStorageBackend("books.7z")  # doctest: +SKIP
@@ -722,20 +799,28 @@ class SevenZipReadOnlyStorageBackend(_ConfiguredArchiveStore):
         max_path_bytes: int = DEFAULT_MAX_SEVENZIP_PATH_BYTES,
     ) -> None:
         """
-        Configure a 7z Store with durable parser safety policy.
+        Configure 7z limits and retain or construct durable Store configuration.
+
+        Construction validates the existing regular path and driver limits. The optional library,
+        password state, header size, and member inventory are checked when the driver indexes the
+        archive.
 
         Example:
             >>> store = SevenZipReadOnlyStorageBackend("books.7z")  # doctest: +SKIP
 
 
-        :param url:
-        :param name:
-        :param uuid:
-        :param configuration:
-        :param max_inventory_entries:
-        :param max_member_bytes:
-        :param max_depth:
-        :return:
+        :param url: Local container filename passed directly to the raw driver; despite the name, this constructor does not decode a file URI.
+        :param name: Display name for new configuration, or None/empty to derive it from the resolved path.
+        :param uuid: Explicit Store UUID or text, required to match configuration when both are supplied; otherwise generated when absent.
+        :param configuration: Durable configuration retained as-is, or None to construct it from these arguments; other runtime arguments are not reconciled with it.
+        :param max_inventory_entries: Maximum indexed entry count, including explicit directories, forwarded to driver validation.
+        :param max_member_bytes: Maximum declared uncompressed bytes per regular member, additionally bounded by the total-byte limit.
+        :param max_depth: Maximum number of components in a relative member key.
+        :param max_total_uncompressed_bytes: Maximum sum of declared regular-member uncompressed sizes.
+        :param max_compression_ratio: Finite ratio of at least one bounding known member compressed-size evidence and total regular bytes against container size.
+        :param max_header_bytes: Maximum reported archive header bytes, checked after py7zr opens the archive; not a pre-allocation parser limit.
+        :param max_path_bytes: Maximum UTF-8/surrogateescape bytes for the entire canonical member key.
+        :return: None after constructing the raw driver and binding Store configuration.
         """
 
         driver = SevenZipStorageDriver(
@@ -770,15 +855,18 @@ class SevenZipReadOnlyStorageBackend(_ConfiguredArchiveStore):
 
 def _tar_compression_for_path(value: str) -> str:
     """
-    Infer the conventional TAR compression from a filename suffix.
+    Guess TAR compression from a case-insensitive filename suffix.
+
+    Recognize .tar.gz/.tgz, .tar.bz2/.tbz/.tbz2, and .tar.xz/.txz. Other names select uncompressed
+    output. Text is lowercased without trimming; existing bytes are not inspected.
 
     Example:
-        >>> _tar_compression_for_path("library.tar.gz")
-        'gz'
+        >>> [_tar_compression_for_path(name) for name in ("BOOKS.TGZ", "books.tbz2", "books.txz", "books.tar")]
+        ['gz', 'bz2', 'xz', 'none']
 
 
-    :param value:
-    :return:
+    :param value: Filename or path text used to choose a default writer compression.
+    :return: gz, bz2, xz, or none, accepted by the TAR writer.
     """
 
     lowered = str(value).lower()

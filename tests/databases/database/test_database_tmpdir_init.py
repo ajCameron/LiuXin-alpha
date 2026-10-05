@@ -1,17 +1,39 @@
 
+"""
+Check on-disk Database initialization and work-to-title projection inside temporary directories.
+
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+"""
 import os
 import tempfile
 
 
 class TestDatabaseTmpDirInit:
     """
-    We're going to try and init the database in a temporary dir.
+    Create file-backed databases with contexts that close the database before removing the temporary directory.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
     """
     def test_init_database_in_tmp_file(self) -> None:
         """
-        Tries to start up a pure in memory database.
+        Create test.db in a temporary directory and check the opened Database is non-None.
 
-        :return:
+        Both the database and temporary directory use cleanup contexts; this is a
+        file-backed database, not an in-memory connection.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+        :return: None; failed expectations raise AssertionError.
         """
         from LiuXin_alpha.databases.database import Database
 
@@ -28,9 +50,17 @@ class TestDatabaseTmpDirInit:
 
     def test_init_database_in_tmp_file_main_tables(self) -> None:
         """
-        Tries to start up a pure in memory database.
+        Create and sync a work, then check its ID resolves to one matching title in the compatibility view.
 
-        :return:
+        Close the file-backed Database before the temporary directory is removed.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database/test_database_tmpdir_init.py
+
+
+        :return: None; failed expectations raise AssertionError.
         """
         from LiuXin_alpha.databases.database import Database
 

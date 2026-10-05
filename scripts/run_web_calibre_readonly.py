@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""Run the Calibre-style read-only web surface using the repo-local virtualenv."""
+"""
+Launch the Calibre-style web surface through this checkout's existing virtualenv.
+
+Require an explicit database or Core endpoint, prepend src to a copied PYTHONPATH,
+and run the package entrypoint as a child from the repository root. This wrapper
+does not install dependencies or create .venv. Its quoted command display is
+diagnostic; subprocess execution uses an argument list without a shell.
+"""
 
 from __future__ import annotations
 
@@ -11,16 +18,64 @@ from pathlib import Path
 
 
 def venv_python_path(venv_dir: Path) -> Path:
+    """
+    Construct the current platform's expected interpreter path beneath a virtualenv.
+
+    Choose Scripts/python.exe on Windows and bin/python elsewhere without
+    checking existence, executability, or whether the directory is a valid venv.
+
+    Example:
+        >>> venv_python_path(Path("env")).name in ("python", "python.exe")
+        True
+
+
+    :param venv_dir: Virtualenv directory retained as a relative or absolute Path.
+    :return: Expected platform-specific interpreter Path beneath the supplied root.
+    """
     if os.name == "nt":
         return venv_dir / "Scripts" / "python.exe"
     return venv_dir / "bin" / "python"
 
 
 def shell_join(parts: list[str]) -> str:
+    """
+    Format argument tokens as POSIX shell-quoted display text, not an execution command.
+
+    Example:
+        >>> print(shell_join(["python", "two words"]))
+        python 'two words'
+
+
+    :param parts: Argument strings in their intended execution order.
+    :return: shlex.join output; this is not Windows cmd.exe quoting.
+    """
     return shlex.join(parts)
 
 
 def main(argv: list[str] | None = None) -> int:
+    """
+    Validate launcher options and wait for the checkout-local Calibre web child process.
+
+    Require exactly one database/core-endpoint; no profile selection is exposed.
+    Check only interpreter-path existence, then forward bind/title/source options,
+    nondefault cache choices, and UI flags. Remote mode alone forwards core-timeout.
+    This wrapper does not expose the application's page-size or OPDS grouping flags.
+
+    The child runs from the repository root, so relative database paths use that
+    cwd. Copy the environment and prepend src to its stripped PYTHONPATH without
+    changing os.environ. Print the root and complete command, then run without a
+    timeout while inheriting standard streams. Spawn errors/interrupts propagate.
+    Download disabling is forwarded configuration, not enforced authorization for
+    the application's current direct-Core compatibility acquisition path.
+
+    Example:
+        >>> main(["--database", "catalog.sqlite", "--port", "8081"])  # doctest: +SKIP
+
+
+    :param argv: Explicit option tokens, or None to parse process arguments.
+    :return: Child return code unchanged, including nonzero or POSIX signal values.
+    :raises SystemExit: For help, invalid options, or a missing virtualenv interpreter.
+    """
     parser = argparse.ArgumentParser(
         description="Run the LiuXin Calibre-style read-only web surface from the repo-local virtualenv.",
         formatter_class=argparse.RawDescriptionHelpFormatter,

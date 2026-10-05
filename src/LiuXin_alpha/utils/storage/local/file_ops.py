@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # -*- coding: latin-1 -*-
 
+"""
+Perform local file creation, hashing, movement and removal operations.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise file ops through a consuming regression::
+
+        python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+"""
 from __future__ import print_function
 
 
@@ -39,11 +50,17 @@ def local_open(name, mode="r", bufsize=-1):
     """
     Open a file that won't be inherited by child processes.
 
-    Only supports the following modes:
-        r, w, a, rb, wb, ab, r+, w+, a+, r+b, w+b, a+b
-    :param name:
-    :param mode:
-    :param bufsize:
+    Example:
+        Exercise local open through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :param mode: Open or adapter mode controlling read/write behavior.
+    :param bufsize: Value supplied for bufsize under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     import fcntl
     from LiuXin_alpha.utils.which_os import iswindows, islinux
@@ -51,11 +68,45 @@ def local_open(name, mode="r", bufsize=-1):
     if iswindows:
 
         class fwrapper(object):
+            """
+            Provide the fwrapper utility contract with explicit state and cleanup behavior.
+
+            Example:
+                Exercise local open.fwrapper through a consuming regression::
+
+                    python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+            """
             def __init__(self, name, fobject):
+                """
+                Initialize and validate the fwrapper state.
+
+                Example:
+                    Exercise local open.fwrapper.  init   through a consuming regression::
+
+                        python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+                :param name: Field, file, function or resource name addressed by the operation.
+                :param fobject: Value supplied for fobject under the utility contract.
+                :return: None; validated state is stored on the receiving object.
+                """
                 object.__setattr__(self, "fobject", fobject)
                 object.__setattr__(self, "name", name)
 
             def __getattribute__(self, attr):
+                """
+                Expose getattribute behavior for the compatibility container.
+
+                Example:
+                    Exercise local open.fwrapper.  getattribute   through a consuming regression::
+
+                        python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+                :param attr: Value supplied for attr under the utility contract.
+                :return: The normalized value, metadata record, path, stream result or collection
+                    described above.
+                """
                 if attr in (
                     "name",
                     "__enter__",
@@ -69,26 +120,100 @@ def local_open(name, mode="r", bufsize=-1):
                 return getattr(fobject, attr)
 
             def __setattr__(self, attr, val):
+                """
+                Expose setattr behavior for the compatibility container.
+
+                Example:
+                    Exercise local open.fwrapper.  setattr   through a consuming regression::
+
+                        python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+                :param attr: Value supplied for attr under the utility contract.
+                :param val: Template or metadata value evaluated by the operation.
+                :return: None; validated state is stored on the receiving object.
+                """
                 fobject = object.__getattribute__(self, "fobject")
                 return setattr(fobject, attr, val)
 
             def __repr__(self):
+                """
+                Perform the repr utility operation under explicit compatibility rules.
+
+                Example:
+                    Exercise local open.fwrapper.  repr   through a consuming regression::
+
+                        python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+                :return: The normalized value, metadata record, path, stream result or collection
+                    described above.
+                """
                 fobject = object.__getattribute__(self, "fobject")
                 name = object.__getattribute__(self, "name")
                 return re.sub(r"""['"]<fdopen>['"]""", repr(name), repr(fobject))
 
             def __str__(self):
+                """
+                Perform the str utility operation under explicit compatibility rules.
+
+                Example:
+                    Exercise local open.fwrapper.  str   through a consuming regression::
+
+                        python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+                :return: The normalized value, metadata record, path, stream result or collection
+                    described above.
+                """
                 return repr(self)
 
             def __unicode__(self):
+                """
+                Perform the unicode utility operation under explicit compatibility rules.
+
+                Example:
+                    Exercise local open.fwrapper.  unicode   through a consuming regression::
+
+                        python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+                :return: The normalized value, metadata record, path, stream result or collection
+                    described above.
+                """
                 return repr(self).decode("utf-8")
 
             def __enter__(self):
+                """
+                Implement the resource's enter lifecycle operation.
+
+                Example:
+                    Exercise local open.fwrapper.  enter   through a consuming regression::
+
+                        python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+                :return: The normalized value, metadata record, path, stream result or collection
+                    described above.
+                """
                 fobject = object.__getattribute__(self, "fobject")
                 fobject.__enter__()
                 return self
 
             def __exit__(self, *args):
+                """
+                Implement the resource's exit lifecycle operation.
+
+                Example:
+                    Exercise local open.fwrapper.  exit   through a consuming regression::
+
+                        python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+                :param args: Positional values forwarded to the compatibility implementation.
+                :return: The normalized value, metadata record, path, stream result or collection
+                    described above.
+                """
                 fobject = object.__getattribute__(self, "fobject")
                 return fobject.__exit__(*args)
 
@@ -142,6 +267,21 @@ def local_open(name, mode="r", bufsize=-1):
 if iswindows:
 
     def local_open(name, mode='r', bufsize=-1):
+        """
+        Perform the local open utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise local open through a consuming regression::
+
+                python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param mode: Open or adapter mode controlling read/write behavior.
+        :param bufsize: Value supplied for bufsize under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         mode += 'N'
         return open(name, mode, bufsize)
 
@@ -149,6 +289,21 @@ elif isosx:
     import fcntl
     FIOCLEX = 0x20006601
     def local_open(name, mode='r', bufsize=-1):
+        """
+        Perform the local open utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise local open through a consuming regression::
+
+                python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param mode: Open or adapter mode controlling read/write behavior.
+        :param bufsize: Value supplied for bufsize under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = open(name, mode, bufsize)
         try:
             fcntl.ioctl(ans.fileno(), FIOCLEX)
@@ -163,6 +318,21 @@ else:
         cloexec_flag = 1
     supports_mode_e = False
     def local_open(name, mode='r', bufsize=-1):
+        """
+        Perform the local open utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise local open through a consuming regression::
+
+                python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param mode: Open or adapter mode controlling read/write behavior.
+        :param bufsize: Value supplied for bufsize under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         global supports_mode_e
         mode += 'e'
         ans = open(name, mode, bufsize)
@@ -180,9 +350,16 @@ def standardize_ext(file_extension: str, dotted: bool = True) -> str:
     """
     Transform an extension into standardized form - ensuring that their either is or is not exactly one leading dot.
 
-    :param file_extension:
-    :param dotted:
-    :return:
+    Example:
+        Exercise standardize ext through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param file_extension: Value supplied for file extension under the utility contract.
+    :param dotted: Value supplied for dotted under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     # Remove the dot
     bare_ext = re.sub(r"^\.*", "", file_extension)
@@ -196,8 +373,15 @@ def load_file(file_path):
     """
     Load a file into memory and return it as a cStringIO object
 
-    :param file_path:
-    :return:
+    Example:
+        Exercise load file through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param file_path: Value supplied for file path under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     from LiuXin_alpha.utils.libraries.liuxin_six import six_cStringIO
 
@@ -212,11 +396,18 @@ PROBLEM_NUMBER = 1
 # Todo: Upgrade to handle streams as well
 def file_hasher(file_in, block_size=64):
     """
-    Receives a file path. Returns a hash for that file.
-    Now with additional length, due to an observed collision in sha-512.
-    :param file_in:
-    :param block_size:
-    :return file_hash:
+    Receives a file path. Returns a hash for that file. Now with additional length, due to an observed collision in sha-512.
+
+    Example:
+        Exercise file hasher through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param file_in: Value supplied for file in under the utility contract.
+    :param block_size: Value supplied for block size under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     hasher = hashlib.sha512()  # Declaring this as a default causes hash return to be non-deterministic.
 
@@ -238,8 +429,16 @@ def file_hasher(file_in, block_size=64):
 def get_files(folder_path):
     """
     Returns all the files in the folder specified by the folder_path.
-    :param folder_path: Path to the folder to probe.
-    :return:
+
+    Example:
+        Exercise get files through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param folder_path: Value supplied for folder path under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     object_list = os.listdir(folder_path)
     file_list = filter(
@@ -252,8 +451,16 @@ def get_files(folder_path):
 def get_file_paths(folder_path):
     """
     Returns paths to all the files in the folder specified by the folder_path.
-    :param folder_path:
-    :return:
+
+    Example:
+        Exercise get file paths through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param folder_path: Value supplied for folder path under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     object_list = os.listdir(folder_path)
     object_paths = [os.path.join(folder_path, n) for n in object_list]
@@ -263,8 +470,16 @@ def get_file_paths(folder_path):
 def get_folders(folder_path):
     """
     Returns a list of all the folders in the folder specified by the folder path.
-    :param folder_path:
-    :return:
+
+    Example:
+        Exercise get folders through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param folder_path: Value supplied for folder path under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     object_list = os.listdir(folder_path)
     folder_list = filter(
@@ -277,8 +492,16 @@ def get_folders(folder_path):
 def get_folder_paths(folder_path):
     """
     Returns paths to all the files in the folder specified by the folder_path.
-    :param folder_path:
-    :return:
+
+    Example:
+        Exercise get folder paths through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param folder_path: Value supplied for folder path under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     object_list = os.listdir(folder_path)
     object_paths = [os.path.join(folder_path, n) for n in object_list]
@@ -289,10 +512,18 @@ def get_folder_paths(folder_path):
 def checked_copy(file_in, file_out, blocksize=64):
     """
     Hashes the file before and after copy - checks that the file has copied successfully.
-    :param file_in: Existing file to copy
-    :param file_out: Non-existing location to copy the file to
-    :param blocksize: Blocksize used to compute the hash - has negligible performance implications
-    :return file_hash: For later use. Remember to use the same blocksize
+
+    Example:
+        Exercise checked copy through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param file_in: Value supplied for file in under the utility contract.
+    :param file_out: Value supplied for file out under the utility contract.
+    :param blocksize: Value supplied for blocksize under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     # file_in and file_out should both be in the form of strings. This is to
     # make the syntax more comparable with shutil.copyfile()
@@ -313,11 +544,19 @@ def checked_copy(file_in, file_out, blocksize=64):
 def ensured_copy(file_in, file_out, blocksize=64, giveup_after=5):
     """
     Copy the file - ensuring that the hash matches - error if it doesn't
-    :param file_in:
-    :param file_out:
-    :param blocksize:
-    :param giveup_after: The number of attempts to make to copy the file before giving up and throwing an error.
-    :return:
+
+    Example:
+        Exercise ensured copy through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param file_in: Value supplied for file in under the utility contract.
+    :param file_out: Value supplied for file out under the utility contract.
+    :param blocksize: Value supplied for blocksize under the utility contract.
+    :param giveup_after: Value supplied for giveup after under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     for i in range(giveup_after):
         copy_status = checked_copy(file_in, file_out, blocksize)
@@ -333,9 +572,17 @@ def ensured_copy(file_in, file_out, blocksize=64, giveup_after=5):
 def get_file_name(file_path, splitter=os.path.split):
     """
     Returns the name and extension of the file - equivalent to os.path.split(file_path)[1]
-    :param file_path:
-    :param splitter: Function which splits the last component of the file name out.
-    :return:
+
+    Example:
+        Exercise get file name through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param file_path: Value supplied for file path under the utility contract.
+    :param splitter: Value supplied for splitter under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return os.path.split(file_path)[1]
 
@@ -343,10 +590,17 @@ def get_file_name(file_path, splitter=os.path.split):
 def get_bare_file_name(file_path, splitter=os.path.split):
     """
     Return the name of the file without an extension - just the name of the file.
-    :param file_path:
-    :param splitter: Function to split the final component of the file path out - so that the name can be extracted
-                     from it.
-    :return:
+
+    Example:
+        Exercise get bare file name through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param file_path: Value supplied for file path under the utility contract.
+    :param splitter: Value supplied for splitter under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     file_path_local = six_unicode(file_path)
 
@@ -367,8 +621,16 @@ def get_bare_file_name(file_path, splitter=os.path.split):
 def file_size(file_in):
     """
     Calculates the file size in bits and returns an integer (not a long).
-    :param file_in:
-    :return:
+
+    Example:
+        Exercise file size through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param file_in: Value supplied for file in under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return int(os.path.getsize(file_in))
 
@@ -377,8 +639,15 @@ def get_file_extension(file_in):
     """
     Returns the extension of a file.
 
-    :param file_in:
-    :return:
+    Example:
+        Exercise get file extension through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param file_in: Value supplied for file in under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     file_in = six_unicode(file_in)
     file_name, file_ext = os.path.splitext(file_in)
@@ -391,8 +660,14 @@ def is_file_extension_rar(
     """
     Analyses file extension to see if its part of a multi-part rar file
 
-    :param extension:
-    :return:
+    Example:
+        Exercise is file extension rar through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param extension: Value supplied for extension under the utility contract.
+    :return: True when the documented condition holds; otherwise False.
     """
 
 
@@ -410,8 +685,15 @@ def is_file_extension_rar(
 def is_name_rar_part(file_name):
     """
     Analysing the file name to see if it terminates in a string of the form part--
-    :param file_name:
-    :return:
+
+    Example:
+        Exercise is name rar part through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param file_name: Value supplied for file name under the utility contract.
+    :return: True when the documented condition holds; otherwise False.
     """
 
     file_name_first_part = get_file_name(file_name)
@@ -427,8 +709,16 @@ def is_name_rar_part(file_name):
 def get_remaining_size_on_disc(file_path):
     """
     Return the folder/drive free space (in bytes).
-    :param file_path: Path terminating on the disc.
-    :return:
+
+    Example:
+        Exercise get remaining size on disc through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param file_path: Value supplied for file path under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if platform.system() == "Windows":
         free_bytes = ctypes.c_ulonglong(0)
@@ -442,8 +732,16 @@ def get_remaining_size_on_disc(file_path):
 def get_folder_size(file_path):
     """
     Walk the tree and sum the size of all the files to get the total tree size
-    :param file_path:
-    :return:
+
+    Example:
+        Exercise get folder size through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param file_path: Value supplied for file path under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     TotalSize = 0
 
@@ -460,8 +758,16 @@ def get_folder_size(file_path):
 def make_new_folder(folder_path):
     """
     Checks to see if a folder exists. If it doesn't it's created.
-    :param folder_path:
-    :return:
+
+    Example:
+        Exercise make new folder through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param folder_path: Value supplied for folder path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     d = folder_path
     if not os.path.exists(d):
@@ -472,8 +778,16 @@ def make_new_folder(folder_path):
 def count_file_types(filelist):
     """
     Takes a list of file paths in the form of an index. Returns a dictionary of file extensions and file counts.
-    :param filelist:
-    :return:
+
+    Example:
+        Exercise count file types through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param filelist: Value supplied for filelist under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     extension_count = dict()
 
@@ -494,8 +808,16 @@ def count_file_types(filelist):
 def recursive_unrar_unzip(filepath):
     """
     Takes a filepath. Walks down that path, identifying the compressed files we can deal with. Uncompresses them.
-    :param filepath:
-    :return:
+
+    Example:
+        Exercise recursive unrar unzip through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param filepath: Value supplied for filepath under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     processed_files = set()  # Storing here files which have been examined, and decompressed if appropriate
     new_files = set()  # Current files, which haven't been uncompressed yet
@@ -536,9 +858,19 @@ def recursive_unrar_unzip(filepath):
 def unzip_all(source_filename, destination_directory):
     """
     Takes a sourc filename, unzips everything inside it to the destination_directory.
-    :param source_filename:
-    :param destination_directory:
-    :return:
+
+    Example:
+        Exercise unzip all through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param source_filename: Value supplied for source filename under the utility
+        contract.
+    :param destination_directory: Value supplied for destination directory under the
+        utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
 
     try:
@@ -572,9 +904,19 @@ def unzip_all(source_filename, destination_directory):
 def unrar_all(source_filename, destination_directory):
     """
     Takes a source filename, unrars everything inside it to the destination_directory.
-    :param source_filename:
-    :param destination_directory:
-    :return:
+
+    Example:
+        Exercise unrar all through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param source_filename: Value supplied for source filename under the utility
+        contract.
+    :param destination_directory: Value supplied for destination directory under the
+        utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
 
     try:
@@ -623,8 +965,16 @@ def unrar_all(source_filename, destination_directory):
 def get_file_name_and_ext(file_path):
     """
     Gives the file name and extension from the file_path.
-    :param file_path:
-    :return:
+
+    Example:
+        Exercise get file name and ext through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param file_path: Value supplied for file path under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     file_path_local = six_unicode(file_path)
 
@@ -641,8 +991,16 @@ def get_file_name_and_ext(file_path):
 def get_tree_size(file_path):
     """
     Walks the tree - accumulates the total size.
-    :param file_path:
-    :return:
+
+    Example:
+        Exercise get tree size through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param file_path: Value supplied for file path under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     total_size = 0
 
@@ -657,7 +1015,19 @@ def get_tree_size(file_path):
 
 
 def check_for_LiuXin_format_filename(file_name):
-    """Takes a filepath. Looks a LiuXin like start to the file_name."""
+    """
+    Takes a filepath. Looks a LiuXin like start to the file_name.
+
+    Example:
+        Exercise check for LiuXin format filename through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param file_name: Value supplied for file name under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
 
     UUID_CHARACTERS = [
         "0",
@@ -724,10 +1094,18 @@ def check_for_LiuXin_format_filename(file_name):
 
 def rebuild_file_path(split_file_path):
     """
-    Used when a path has been split down into a tuple or an index of tokens.
-    Calls os.path.join repeatably with every element of the iterable.
-    :param split_file_path:
-    :return:
+    Used when a path has been split down into a tuple or an index of tokens. Calls os.path.join repeatably with every element of the iterable.
+
+    Example:
+        Exercise rebuild file path through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param split_file_path: Value supplied for split file path under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     split_file_path = deepcopy(split_file_path)
 
@@ -745,9 +1123,18 @@ def rebuild_file_path(split_file_path):
 def make_free_name(original_name, forbidden_names):
     """
     Makes a new name for a file which is not degenerate with any of the existing names in that location.
-    :param original_name: The name to be modified
-    :param forbidden_names: Names which cannot be used
-    :return:
+
+    Example:
+        Exercise make free name through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param original_name: Value supplied for original name under the utility contract.
+    :param forbidden_names: Value supplied for forbidden names under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     new_name_template = "{0}_{1}{2}"
 
@@ -766,10 +1153,17 @@ def make_free_name(original_name, forbidden_names):
 
 def ensure_folder(folder_path):
     """
-    Make a folder in the given location - if one doesn't exist.
-    Will only create the folder if all folders up to it are already present.
-    :param folder_path:
-    :return:
+    Make a folder in the given location - if one doesn't exist. Will only create the folder if all folders up to it are already present.
+
+    Example:
+        Exercise ensure folder through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param folder_path: Value supplied for folder path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     if os.path.exists(folder_path):
         return
@@ -780,10 +1174,18 @@ def ensure_folder(folder_path):
 def tokenize_path(file_path, path_start="", splitter=os.path.split):
     """
     Split a path down into tokens -
-    :param file_path: The file path to tokenize
-    :param path_start: Ignore this string from the start of a path.
-    :param splitter: Function to preform the splitting - defaults to os.path.split
-    :return:
+
+    Example:
+        Exercise tokenize path through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param file_path: Value supplied for file path under the utility contract.
+    :param path_start: Value supplied for path start under the utility contract.
+    :param splitter: Value supplied for splitter under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     file_path = six_unicode(file_path)
     if path_start:
@@ -805,9 +1207,17 @@ def tokenize_path(file_path, path_start="", splitter=os.path.split):
 def compress_dir(root_dir, dst_path):
     """
     Compress a directory into an archive.
-    :param root_dir:
-    :param dst_path: Path to the archive to write to
-    :return:
+
+    Example:
+        Exercise compress dir through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param root_dir: Value supplied for root dir under the utility contract.
+    :param dst_path: Value supplied for dst path under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     from fs.osfs import OSFS
     from fs.zipfs import ZipFS

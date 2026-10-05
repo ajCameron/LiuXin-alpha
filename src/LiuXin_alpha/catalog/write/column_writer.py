@@ -1,5 +1,12 @@
 """
-Writer for values stored directly on their source-table row.
+Build and apply validated direct-column catalog updates.
+
+The module keeps validation, normalization and host mutation boundaries explicit.
+
+Example:
+    Exercise column writer through its owning regression module::
+
+        python -m pytest -q tests/catalog/test_writer_factory.py
 """
 
 from __future__ import annotations
@@ -27,12 +34,10 @@ class CatalogColumnWriter[RawValueT, ValueT](
     """
     Write values to a column stored directly on the source table.
 
-    The default adapter preserves caller values. Field-specific subclasses may
-    override :meth:`adapt` and :meth:`validate` without changing persistence.
+    Example:
+        Exercise CatalogColumnWriter through its owning regression module::
 
-    :param catalog: Catalog facade used to apply normalized column updates.
-    :param table_spec: Source table containing the destination column.
-    :param column_spec: Destination column to update.
+            python -m pytest -q tests/catalog/test_writer_factory.py
     """
 
     def __init__(
@@ -44,10 +49,16 @@ class CatalogColumnWriter[RawValueT, ValueT](
         """
         Validate and store the column-writer configuration.
 
-        :param catalog: Catalog facade used to apply normalized column updates.
-        :param table_spec: Source table containing the destination column.
-        :param column_spec: Destination column to update.
-        :return: None.
+        Example:
+            Exercise CatalogColumnWriter.init through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+        :param catalog: Catalog host or facade supplying metadata and mutation services.
+        :param table_spec: Value supplied for table spec under the catalog contract.
+        :param column_spec: Value supplied for column spec under the catalog contract.
+        :return: None; the function records state or raises through its assertions.
         """
 
         if not callable(getattr(catalog, "write_column_update", None)):
@@ -64,7 +75,13 @@ class CatalogColumnWriter[RawValueT, ValueT](
         """
         Return the source-table specification.
 
-        :return: Configured source-table specification.
+        Example:
+            Exercise CatalogColumnWriter.table spec through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         return self._table_spec
@@ -74,7 +91,13 @@ class CatalogColumnWriter[RawValueT, ValueT](
         """
         Return the destination-column specification.
 
-        :return: Configured destination-column specification.
+        Example:
+            Exercise CatalogColumnWriter.column spec through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         return self._column_spec
@@ -83,8 +106,14 @@ class CatalogColumnWriter[RawValueT, ValueT](
         """
         Preserve one raw value by default.
 
-        :param raw_value: Raw metadata value supplied by the caller.
-        :return: Unchanged value, typed for the concrete writer.
+        Example:
+            Exercise CatalogColumnWriter.adapt through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+        :param raw_value: Value supplied for raw value under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         return cast(ValueT, raw_value)
@@ -96,8 +125,14 @@ class CatalogColumnWriter[RawValueT, ValueT](
         """
         Build an immutable normalized column update.
 
-        :param values: Raw values keyed by source-table ID.
-        :return: Immutable normalized column update.
+        Example:
+            Exercise CatalogColumnWriter.build update through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+        :param values: Values to normalize, compare or write in stable order.
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         if not isinstance(values, Mapping):
@@ -120,11 +155,16 @@ class CatalogColumnWriter[RawValueT, ValueT](
         """
         Build one same-table column replacement.
 
-        :param src_id: Source-table ID whose column should change.
-        :param dst_value: Raw replacement value.
-        :param kwargs: Unsupported additional update options.
-        :return: Immutable normalized column update.
-        :raises TypeError: If additional update options are supplied.
+        Example:
+            Exercise CatalogColumnWriter.build one update through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+        :param src_id: Value supplied for src id under the catalog contract.
+        :param dst_value: Value supplied for dst value under the catalog contract.
+        :param kwargs: Value supplied for kwargs under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         if kwargs:
@@ -141,10 +181,14 @@ class CatalogColumnWriter[RawValueT, ValueT](
         """
         Apply one normalized update through the catalog.
 
-        :param update: Immutable normalized column update.
-        :return: Stable written values keyed by source-table ID.
-        :raises TypeError: If ``update`` is not a column update.
-        :raises ValueError: If the update targets another table or column.
+        Example:
+            Exercise CatalogColumnWriter.apply update through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_writer_factory.py
+
+
+        :param update: Prepared catalog update to validate or apply.
+        :return: The deterministic value, row, identity or collection described above.
         """
 
         if not isinstance(update, CatalogColumnUpdate):

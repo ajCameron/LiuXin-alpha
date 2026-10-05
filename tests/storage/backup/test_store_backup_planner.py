@@ -1,3 +1,10 @@
+"""
+Exercise inventory-driven backup planning over real temporary filesystem Stores.
+
+Tests cover suffix filtering, deterministic grouping, oversized-source estimates, and
+carried catalogue provenance. They construct plans without invoking an archive tool.
+"""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -11,6 +18,21 @@ from LiuXin_alpha.storage.stores import FilesystemStore
 
 
 def _manager(tmp_path: Path):
+    """
+    Start a transient manager with two real filesystem Stores and seed a mixed source inventory.
+
+    The source named ebooks contains three EPUB files of 10, 11, and 12 bytes and one notes file.
+    The destination named archive starts empty. These are Store writes, so the initial files have no
+    adopted Asset/Replica catalogue identities. The returned manager remains open for the calling
+    test.
+
+    Example:
+        >>> manager, source, destination = _manager(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real source, staging, image, Store, or catalogue files.
+    :return: Tuple of the started transient manager, source FilesystemStore, and empty destination FilesystemStore.
+    """
     source = FilesystemStore(tmp_path / "source", name="ebooks")
     destination = FilesystemStore(tmp_path / "destination", name="archive")
     manager = StorageManager(
@@ -25,6 +47,21 @@ def _manager(tmp_path: Path):
 
 
 def test_planner_groups_complete_inventory_into_location_based_packs(tmp_path: Path) -> None:
+    """
+    Verify suffix-filtered inventory becomes ordered packs with captured digest evidence.
+
+    Real filesystem Stores supply three EPUBs and an excluded text file. A 25-byte target groups the
+    first two EPUBs into a 21-byte estimate, constructs the expected destination Location, and
+    leaves the third in the next pack. Assertions check member order and digest presence, not a
+    compressed archive or build execution.
+
+    Example:
+        >>> test_planner_groups_complete_inventory_into_location_based_packs(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real source, staging, image, Store, or catalogue files.
+    :return: None after the stated regression assertions pass.
+    """
     manager, source, destination = _manager(tmp_path)
     planner = StoreBackupPlanner(manager)
 
@@ -56,6 +93,19 @@ def test_planner_groups_complete_inventory_into_location_based_packs(tmp_path: P
 
 
 def test_planner_count_limit_and_oversized_single_source_are_deterministic(tmp_path: Path) -> None:
+    """
+    Verify oversized members receive stable singleton packs under a one-source limit.
+
+    All three EPUBs exceed the five-byte target; planning still returns their full 10/11/12-byte
+    estimates with consecutive one-based pack indices. No archive builder runs.
+
+    Example:
+        >>> test_planner_count_limit_and_oversized_single_source_are_deterministic(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real source, staging, image, Store, or catalogue files.
+    :return: None after the stated regression assertions pass.
+    """
     manager, source, destination = _manager(tmp_path)
     packs = StoreBackupPlanner(manager).plan_store_backup(
         source_store_ref=source.store_ref,
@@ -73,6 +123,20 @@ def test_planner_count_limit_and_oversized_single_source_are_deterministic(tmp_p
 def test_planner_preserves_catalogue_identity_for_registered_replicas(
     tmp_path: Path,
 ) -> None:
+    """
+    Verify planning carries an adopted source's Asset and Replica identities.
+
+    Add one physical EPUB to the seeded filesystem Store, adopt its Location through the transient
+    manager, and find it in the returned pack. Compare both provenance IDs with the actual adoption
+    result; no image construction or durable database restart is exercised.
+
+    Example:
+        >>> test_planner_preserves_catalogue_identity_for_registered_replicas(tmp_path)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real source, staging, image, Store, or catalogue files.
+    :return: None after the stated regression assertions pass.
+    """
     manager, source, destination = _manager(tmp_path)
     physical = source.store_bytes(
         b"catalogued",
@@ -98,6 +162,20 @@ def test_planner_preserves_catalogue_identity_for_registered_replicas(
 
 @pytest.mark.parametrize("size", [0, -1])
 def test_planner_rejects_nonpositive_target_size(tmp_path: Path, size: int) -> None:
+    """
+    Verify zero and negative byte targets reject before pack planning.
+
+    The existing real filesystem fixture supplies valid source/destination Stores. Each
+    parameterized invalid size must raise ValueError identifying the positive-target requirement.
+
+    Example:
+        >>> test_planner_rejects_nonpositive_target_size(tmp_path, size)  # doctest: +SKIP
+
+
+    :param tmp_path: Pytest temporary directory for real source, staging, image, Store, or catalogue files.
+    :param size: Parameterized invalid byte target, zero or negative.
+    :return: None after the stated regression assertions pass.
+    """
     manager, source, destination = _manager(tmp_path)
     with pytest.raises(ValueError, match="positive"):
         StoreBackupPlanner(manager).plan_store_backup(

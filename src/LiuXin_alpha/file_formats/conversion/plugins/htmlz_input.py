@@ -1,24 +1,37 @@
 # -*- coding: utf-8 -*-
 
-from __future__ import unicode_literals, division, absolute_import, print_function
-from __future__ import annotations
+"""
+Convert HTMLZ content into the normalized ebook conversion pipeline.
 
-import typing as _typing
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise htmlz input through a consuming regression::
+
+        python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+"""
+from __future__ import (
+    absolute_import,
+    annotations,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import os
+import typing as _typing
 
 from LiuXin_alpha.customize.conversion import InputFormatPlugin
-from LiuXin_alpha.file_formats.conversion.plugins._workdir import (
-    choose_conversion_workdir,
-)
-from LiuXin_alpha.file_formats.conversion.report import ensure_conversion_report
 from LiuXin_alpha.file_formats.archive_preflight import (
     normalized_zip_member_name,
     validate_zip_member_infos,
 )
-
-from LiuXin_alpha.utils.calibre import CurrentDir
-from LiuXin_alpha.utils.calibre import guess_type
+from LiuXin_alpha.file_formats.conversion.plugins._workdir import (
+    choose_conversion_workdir,
+)
+from LiuXin_alpha.file_formats.conversion.report import ensure_conversion_report
+from LiuXin_alpha.utils.calibre import CurrentDir, guess_type
 from LiuXin_alpha.utils.localization import trans as _
 
 __license__ = "GPL 3"
@@ -28,6 +41,14 @@ __docformat__ = "restructuredtext en"
 
 class HTMLZInput(InputFormatPlugin):
 
+    """
+    Convert htmlzinput sources into the normalized OEB pipeline model.
+
+    Example:
+        Exercise HTMLZInput through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+    """
     name = "HTLZ Input"
     author = "John Schember"
     description = "Convert HTML files to HTML"
@@ -39,11 +60,42 @@ class HTMLZInput(InputFormatPlugin):
     min_compression_ratio_check_size = 1024 * 1024
 
     def _warn(self: _typing.Self, log: _typing.Any, message: _typing.Any) -> None:
+        """
+        Perform the warn operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HTMLZInput. warn through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param log: Value supplied for log under the utility contract.
+        :param message: Value supplied for message under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         warn = getattr(log, "warning", None) or getattr(log, "warn", None)
         if warn is not None:
             warn(message)
 
     def _warn_optional_enrichment_loss(self: _typing.Self, log: _typing.Any, options: _typing.Any, code: _typing.Any, message: _typing.Any, details: _typing.Any = None) -> None:
+        """
+        Perform the warn optional enrichment loss operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HTMLZInput. warn optional enrichment loss through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param log: Value supplied for log under the utility contract.
+        :param options: Value supplied for options under the utility contract.
+        :param code: Value supplied for code under the utility contract.
+        :param message: Value supplied for message under the utility contract.
+        :param details: Value supplied for details under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._warn(log, message)
         report = ensure_conversion_report(options)
         report.add_warning(message)
@@ -59,6 +111,20 @@ class HTMLZInput(InputFormatPlugin):
         )
 
     def _safe_cover_path(self: _typing.Self, basedir: _typing.Any, cover_path: _typing.Any) -> _typing.Any:
+        """
+        Perform the safe cover path operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HTMLZInput. safe cover path through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param basedir: Value supplied for basedir under the utility contract.
+        :param cover_path: Value supplied for cover path under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not cover_path:
             return None
         cover_path = str(cover_path).replace("\\", "/")
@@ -78,6 +144,19 @@ class HTMLZInput(InputFormatPlugin):
         return candidate
 
     def normalized_archive_member_name(self: _typing.Self, name: _typing.Any) -> _typing.Any:
+        """
+        Perform the normalized archive member name operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HTMLZInput.normalized archive member name through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return normalized_zip_member_name(
             name,
             member_label="HTMLZ archive",
@@ -85,6 +164,20 @@ class HTMLZInput(InputFormatPlugin):
         )
 
     def validate_container_members(self: _typing.Self, stream: _typing.Any) -> None:
+        """
+        Validate container members under the format's safety and compatibility rules.
+
+        Example:
+            Exercise HTMLZInput.validate container members through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
 
         stream.seek(0)
@@ -125,21 +218,46 @@ class HTMLZInput(InputFormatPlugin):
             stream.seek(0)
 
     def warn_preflight_rejection(self: _typing.Self, stream: _typing.Any, log: _typing.Any, error: _typing.Any) -> None:
+        """
+        Perform the warn preflight rejection operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HTMLZInput.warn preflight rejection through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param log: Value supplied for log under the utility contract.
+        :param error: Value supplied for error under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         path = getattr(stream, "name", "stream")
         self._warn(log, "HTMLZ preflight rejected %s: %s" % (path, error))
 
     def convert(self: _typing.Self, stream: _typing.Any, options: _typing.Any, file_ext: _typing.Any, log: _typing.Any, accelerators: _typing.Any) -> _typing.Any:
         """
         Takes an htmlz file as input and outputs an OEB.
-        :param stream: The html file as a stream to convert
-        :param options:
-        :param file_ext:
-        :param log:
-        :param accelerators:
-        :return:
+
+        Example:
+            Exercise HTMLZInput.convert through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param options: Value supplied for options under the utility contract.
+        :param file_ext: Value supplied for file ext under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :param accelerators: Value supplied for accelerators under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
-        from LiuXin_alpha.file_formats.chardet import xml_to_unicode
         from LiuXin_alpha.file_formats.opf.opf2 import OPF
+        from LiuXin_alpha.utils.libraries.calibre_chardet import xml_to_unicode
         from LiuXin_alpha.utils.libraries.calibre_zipfile import ZipFile
 
         self.log = log

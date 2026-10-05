@@ -1,5 +1,15 @@
 
 
+"""
+Normalize rating-source labels and store supplied rating values for legacy metadata.
+
+The mixin does not validate numeric ranges or convert between rating scales.
+
+Example:
+    Exercise the owning behavior with pytest::
+
+        python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_calibre_book_metadata.py
+"""
 from __future__ import division, absolute_import, print_function, annotations
 
 from typing import Optional, Union
@@ -44,11 +54,34 @@ from LiuXin_alpha.metadata.containers.calibre_like_book_metadata.help_methods im
 
 class RatingsMethodsMixin:
     """
-    Mixin for the ratings method.
+    Provide rating assignment over the owner's _data ratings mapping.
+
+    Example:
+        Exercise the owning behavior with pytest::
+
+            python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_calibre_book_metadata.py
     """
 
     def _set_ratings_from_value(self, value):
 
+        """
+        Store rating entries from a (source, value) pair or source-to-value dictionary.
+
+        Known source names are normalized. Unknown source names are logged and retained as
+        supplied. A pair of the wrong length logs a warning without changing ratings;
+        unsupported input shapes produce NotImplementedError.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import CalibreLikeLiuXinBookMetaData
+            >>> book = CalibreLikeLiuXinBookMetaData()
+            >>> book.ratings = ('CALIBRE', 8)
+            >>> book.ratings['calibre']
+            8
+
+
+        :param value: Two-element tuple/list or dictionary of rating sources to values.
+        :return: None.
+        """
         _data = object.__getattribute__(self, "_data")
 
         if isinstance(value, (tuple, list)):

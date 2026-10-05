@@ -1,6 +1,17 @@
 #!/usr/bin/env python2
 # vim:fileencoding=utf-8
 
+"""
+Normalize and clean generated DOCX HTML, styles and redundant markup.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise cleanup through a consuming regression::
+
+        python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -22,6 +33,20 @@ NBSP = "\xa0"
 
 
 def mergeable(previous: _typing.Any, current: _typing.Any) -> bool:
+    """
+    Perform the mergeable operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise mergeable through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param previous: Value supplied for previous under the utility contract.
+    :param current: Value supplied for current under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if previous.tail or current.tail:
         return False
     if previous.get("class", None) != current.get("class", None):
@@ -35,6 +60,20 @@ def mergeable(previous: _typing.Any, current: _typing.Any) -> bool:
 
 
 def append_text(parent: _typing.Any, text: _typing.Any) -> None:
+    """
+    Perform the append text operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise append text through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param parent: Value supplied for parent under the utility contract.
+    :param text: Text parsed, normalized or rendered.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if len(parent) > 0:
         parent[-1].tail = (parent[-1].tail or "") + text
     else:
@@ -42,6 +81,20 @@ def append_text(parent: _typing.Any, text: _typing.Any) -> None:
 
 
 def merge(parent: _typing.Any, span: _typing.Any) -> None:
+    """
+    Perform the merge operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise merge through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param parent: Value supplied for parent under the utility contract.
+    :param span: Value supplied for span under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if span.text:
         append_text(parent, span.text)
     for child in span:
@@ -52,6 +105,19 @@ def merge(parent: _typing.Any, span: _typing.Any) -> None:
 
 
 def merge_run(run: _typing.Any) -> None:
+    """
+    Perform the merge run operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise merge run through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param run: Value supplied for run under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     parent = run[0]
     for span in run[1:]:
         merge(parent, span)
@@ -60,17 +126,58 @@ def merge_run(run: _typing.Any) -> None:
 def liftable(css: _typing.Any) -> _typing.Any:
     # A <span> is liftable if all its styling would work just as well if it is
     # specified on the parent element.
+    """
+    Perform the liftable operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise liftable through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param css: Value supplied for css under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     prefixes = {x.partition("-")[0] for x in iterkeys(css)}
     return not (prefixes - {"text", "font", "letter", "color", "background"})
 
 
 def add_text(elem: _typing.Any, attr: _typing.Any, text: _typing.Any) -> None:
+    """
+    Perform the add text operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise add text through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param elem: Value supplied for elem under the utility contract.
+    :param attr: Value supplied for attr under the utility contract.
+    :param text: Text parsed, normalized or rendered.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     old = getattr(elem, attr) or ""
     setattr(elem, attr, old + text)
 
 
 def lift(span: _typing.Any) -> None:
     # Replace an element by its content (text, children and tail)
+    """
+    Perform the lift operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise lift through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param span: Value supplied for span under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     parent = span.getparent()
     idx = parent.index(span)
     try:
@@ -99,6 +206,21 @@ def lift(span: _typing.Any) -> None:
 
 
 def before_count(root: _typing.Any, tag: _typing.Any, limit: int = 10) -> _typing.Any:
+    """
+    Perform the before count operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise before count through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param tag: Value supplied for tag under the utility contract.
+    :param limit: Value supplied for limit under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     body = root.xpath("//body[1]")
     if not body:
         return limit
@@ -113,6 +235,24 @@ def before_count(root: _typing.Any, tag: _typing.Any, limit: int = 10) -> _typin
 
 def cleanup_markup(log: _typing.Any, root: _typing.Any, styles: _typing.Any, dest_dir: _typing.Any, detect_cover: _typing.Any, XPath: _typing.Any) -> _typing.Any:
     # Move <hr>s outside paragraphs, if possible.
+    """
+    Perform the cleanup markup operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise cleanup markup through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param log: Value supplied for log under the utility contract.
+    :param root: Root directory that bounds path resolution or traversal.
+    :param styles: Value supplied for styles under the utility contract.
+    :param dest_dir: Value supplied for dest dir under the utility contract.
+    :param detect_cover: Value supplied for detect cover under the utility contract.
+    :param XPath: Value supplied for XPath under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     pancestor = XPath("|".join("ancestor::%s[1]" % x for x in ("p", "h1", "h2", "h3", "h4", "h5", "h6")))
     for hr in root.xpath("//span/hr"):
         p = pancestor(hr)

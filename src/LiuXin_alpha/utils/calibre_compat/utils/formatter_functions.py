@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=utf-8
 
+"""
+Register and implement Calibre-compatible built-in template functions.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise formatter functions through a consuming regression::
+
+        python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+"""
 from __future__ import print_function
 
 """
@@ -33,6 +44,14 @@ from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 class FormatterFunctions(object):
 
+    """
+    Provide the FormatterFunctions utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise FormatterFunctions through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     error_function_body = (
         "def evaluate(self, formatter, kwargs, mi, locals):\n"
         '\treturn "'
@@ -41,11 +60,35 @@ class FormatterFunctions(object):
     )
 
     def __init__(self):
+        """
+        Initialize and validate the FormatterFunctions state.
+
+        Example:
+            Exercise FormatterFunctions.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         self._builtins = {}
         self._functions = {}
         self._functions_from_library = {}
 
     def register_builtin(self, func_class):
+        """
+        Perform the register builtin utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise FormatterFunctions.register builtin through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param func_class: Value supplied for func class under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if not isinstance(func_class, FormatterFunction):
             raise ValueError("Class %s is not an instance of FormatterFunction" % (func_class.__class__.__name__))
         name = func_class.name
@@ -57,6 +100,20 @@ class FormatterFunctions(object):
             self._functions[a] = func_class
 
     def _register_function(self, func_class, replace=False):
+        """
+        Perform the register function utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise FormatterFunctions. register function through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param func_class: Value supplied for func class under the utility contract.
+        :param replace: Value supplied for replace under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if not isinstance(func_class, FormatterFunction):
             raise ValueError("Class %s is not an instance of FormatterFunction" % (func_class.__class__.__name__))
         name = func_class.name
@@ -65,10 +122,36 @@ class FormatterFunctions(object):
         self._functions[name] = func_class
 
     def register_functions(self, library_uuid, funcs):
+        """
+        Perform the register functions utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise FormatterFunctions.register functions through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param library_uuid: Value supplied for library uuid under the utility contract.
+        :param funcs: Value supplied for funcs under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._functions_from_library[library_uuid] = funcs
         self._register_functions()
 
     def _register_functions(self):
+        """
+        Perform the register functions utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise FormatterFunctions. register functions through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for compiled_funcs in self._functions_from_library.itervalues():
             for cls in compiled_funcs:
                 f = self._functions.get(cls.name, None)
@@ -93,6 +176,19 @@ class FormatterFunctions(object):
                 formatter_functions()._register_function(cls, replace=replace)
 
     def unregister_functions(self, library_uuid):
+        """
+        Perform the unregister functions utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise FormatterFunctions.unregister functions through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param library_uuid: Value supplied for library uuid under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if library_uuid in self._functions_from_library:
             for cls in self._functions_from_library[library_uuid]:
                 self._functions.pop(cls.name, None)
@@ -100,9 +196,33 @@ class FormatterFunctions(object):
             self._register_functions()
 
     def get_builtins(self):
+        """
+        Return builtins under the documented compatibility and safety rules.
+
+        Example:
+            Exercise FormatterFunctions.get builtins through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._builtins
 
     def get_builtins_and_aliases(self):
+        """
+        Return builtins and aliases under the documented compatibility and safety rules.
+
+        Example:
+            Exercise FormatterFunctions.get builtins and aliases through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         res = {}
         for f in self._builtins.itervalues():
             res[f.name] = f
@@ -111,9 +231,33 @@ class FormatterFunctions(object):
         return res
 
     def get_functions(self):
+        """
+        Return functions under the documented compatibility and safety rules.
+
+        Example:
+            Exercise FormatterFunctions.get functions through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._functions
 
     def reset_to_builtins(self):
+        """
+        Perform the reset to builtins utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise FormatterFunctions.reset to builtins through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._functions = {}
         for n, c in self._builtins.items():
             self._functions[n] = c
@@ -125,12 +269,32 @@ _ff = FormatterFunctions()
 
 
 def formatter_functions():
+    """
+    Perform the formatter functions utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise formatter functions through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     global _ff
     return _ff
 
 
 class FormatterFunction(object):
 
+    """
+    Provide the FormatterFunction utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise FormatterFunction through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     doc = _("No documentation provided")
     name = "no name provided"
     category = "Unknown"
@@ -138,9 +302,43 @@ class FormatterFunction(object):
     aliases = []
 
     def evaluate(self, formatter, kwargs, mi, locals, *args):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise FormatterFunction.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param args: Positional values forwarded to the compatibility implementation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raise NotImplementedError()
 
     def eval_(self, formatter, kwargs, mi, locals, *args):
+        """
+        Perform the eval utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise FormatterFunction.eval  through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param args: Positional values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ret = self.evaluate(formatter, kwargs, mi, locals, *args)
         if isinstance(ret, (str, unicode)):
             return ret
@@ -151,7 +349,26 @@ class FormatterFunction(object):
 
 
 class BuiltinFormatterFunction(FormatterFunction):
+    """
+    Implement the Calibre template ``FormatterFunction`` function.
+
+    Example:
+        Exercise BuiltinFormatterFunction through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     def __init__(self):
+        """
+        Initialize and validate the BuiltinFormatterFunction state.
+
+        Example:
+            Exercise BuiltinFormatterFunction.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         formatter_functions().register_builtin(self)
         eval_func = inspect.getmembers(self.__class__, lambda x: inspect.ismethod(x) and x.__name__ == "evaluate")
         try:
@@ -162,6 +379,14 @@ class BuiltinFormatterFunction(FormatterFunction):
 
 
 class BuiltinStrcmp(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``Strcmp`` function.
+
+    Example:
+        Exercise BuiltinStrcmp through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "strcmp"
     arg_count = 5
     category = "Relational"
@@ -172,6 +397,27 @@ class BuiltinStrcmp(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals, x, y, lt, eq, gt):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinStrcmp.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param x: Value supplied for x under the utility contract.
+        :param y: Value supplied for y under the utility contract.
+        :param lt: Value supplied for lt under the utility contract.
+        :param eq: Value supplied for eq under the utility contract.
+        :param gt: Value supplied for gt under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         v = strcmp(x, y)
         if v < 0:
             return lt
@@ -181,6 +427,14 @@ class BuiltinStrcmp(BuiltinFormatterFunction):
 
 
 class BuiltinCmp(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``Cmp`` function.
+
+    Example:
+        Exercise BuiltinCmp through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "cmp"
     category = "Relational"
     arg_count = 5
@@ -190,6 +444,27 @@ class BuiltinCmp(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals, x, y, lt, eq, gt):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinCmp.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param x: Value supplied for x under the utility contract.
+        :param y: Value supplied for y under the utility contract.
+        :param lt: Value supplied for lt under the utility contract.
+        :param eq: Value supplied for eq under the utility contract.
+        :param gt: Value supplied for gt under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         x = float(x if x and x != "None" else 0)
         y = float(y if y and y != "None" else 0)
         if x < y:
@@ -200,6 +475,14 @@ class BuiltinCmp(BuiltinFormatterFunction):
 
 
 class BuiltinFirstMatchingCmp(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``FirstMatchingCmp`` function.
+
+    Example:
+        Exercise BuiltinFirstMatchingCmp through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "first_matching_cmp"
     category = "Relational"
     arg_count = -1
@@ -213,6 +496,23 @@ class BuiltinFirstMatchingCmp(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals, *args):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinFirstMatchingCmp.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param args: Positional values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if (len(args) % 2) != 0:
             raise ValueError(_("first_matching_cmp requires an even number of arguments"))
         val = float(args[0] if args[0] and args[0] != "None" else 0)
@@ -224,6 +524,14 @@ class BuiltinFirstMatchingCmp(BuiltinFormatterFunction):
 
 
 class BuiltinStrcat(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``Strcat`` function.
+
+    Example:
+        Exercise BuiltinStrcat through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "strcat"
     arg_count = -1
     category = "String manipulation"
@@ -233,6 +541,23 @@ class BuiltinStrcat(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals, *args):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinStrcat.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param args: Positional values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         i = 0
         res = ""
         for i in range(0, len(args)):
@@ -241,12 +566,37 @@ class BuiltinStrcat(BuiltinFormatterFunction):
 
 
 class BuiltinStrlen(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``Strlen`` function.
+
+    Example:
+        Exercise BuiltinStrlen through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "strlen"
     arg_count = 1
     category = "String manipulation"
     __doc__ = doc = _("strlen(a) -- Returns the length of the string passed as " "the argument")
 
     def evaluate(self, formatter, kwargs, mi, locals, a):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinStrlen.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param a: Value supplied for a under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             return len(a)
         except:
@@ -254,54 +604,166 @@ class BuiltinStrlen(BuiltinFormatterFunction):
 
 
 class BuiltinAdd(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``Add`` function.
+
+    Example:
+        Exercise BuiltinAdd through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "add"
     arg_count = 2
     category = "Arithmetic"
     __doc__ = doc = _("add(x, y) -- returns x + y. Throws an exception if either x or y are not numbers.")
 
     def evaluate(self, formatter, kwargs, mi, locals, x, y):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinAdd.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param x: Value supplied for x under the utility contract.
+        :param y: Value supplied for y under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         x = float(x if x and x != "None" else 0)
         y = float(y if y and y != "None" else 0)
         return six_unicode(x + y)
 
 
 class BuiltinSubtract(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``Subtract`` function.
+
+    Example:
+        Exercise BuiltinSubtract through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "subtract"
     arg_count = 2
     category = "Arithmetic"
     __doc__ = doc = _("subtract(x, y) -- returns x - y. Throws an exception if either x or y are not numbers.")
 
     def evaluate(self, formatter, kwargs, mi, locals, x, y):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinSubtract.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param x: Value supplied for x under the utility contract.
+        :param y: Value supplied for y under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         x = float(x if x and x != "None" else 0)
         y = float(y if y and y != "None" else 0)
         return six_unicode(x - y)
 
 
 class BuiltinMultiply(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``Multiply`` function.
+
+    Example:
+        Exercise BuiltinMultiply through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "multiply"
     arg_count = 2
     category = "Arithmetic"
     __doc__ = doc = _("multiply(x, y) -- returns x * y. Throws an exception if either x or y are not numbers.")
 
     def evaluate(self, formatter, kwargs, mi, locals, x, y):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinMultiply.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param x: Value supplied for x under the utility contract.
+        :param y: Value supplied for y under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         x = float(x if x and x != "None" else 0)
         y = float(y if y and y != "None" else 0)
         return six_unicode(x * y)
 
 
 class BuiltinDivide(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``Divide`` function.
+
+    Example:
+        Exercise BuiltinDivide through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "divide"
     arg_count = 2
     category = "Arithmetic"
     __doc__ = doc = _("divide(x, y) -- returns x / y. Throws an exception if either x or y are not numbers.")
 
     def evaluate(self, formatter, kwargs, mi, locals, x, y):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinDivide.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param x: Value supplied for x under the utility contract.
+        :param y: Value supplied for y under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         x = float(x if x and x != "None" else 0)
         y = float(y if y and y != "None" else 0)
         return six_unicode(x / y)
 
 
 class BuiltinTemplate(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``Template`` function.
+
+    Example:
+        Exercise BuiltinTemplate through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "template"
     arg_count = 1
     category = "Recursion"
@@ -319,11 +781,36 @@ class BuiltinTemplate(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals, template):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinTemplate.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param template: Template expression parsed or evaluated.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         template = template.replace("[[", "{").replace("]]", "}")
         return formatter.__class__().safe_format(template, kwargs, "TEMPLATE", mi)
 
 
 class BuiltinEval(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``Eval`` function.
+
+    Example:
+        Exercise BuiltinEval through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "eval"
     arg_count = 1
     category = "Recursion"
@@ -340,6 +827,23 @@ class BuiltinEval(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals, template):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinEval.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param template: Template expression parsed or evaluated.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from formatter import EvalFormatter
 
         template = template.replace("[[", "{").replace("]]", "}")
@@ -347,6 +851,14 @@ class BuiltinEval(BuiltinFormatterFunction):
 
 
 class BuiltinAssign(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``Assign`` function.
+
+    Example:
+        Exercise BuiltinAssign through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "assign"
     arg_count = 2
     category = "Other"
@@ -355,11 +867,37 @@ class BuiltinAssign(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals, target, value):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinAssign.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param target: Value supplied for target under the utility contract.
+        :param value: Value normalized, stored, formatted or returned.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         locals[target] = value
         return value
 
 
 class BuiltinPrint(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``Print`` function.
+
+    Example:
+        Exercise BuiltinPrint through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "print"
     arg_count = -1
     category = "Other"
@@ -370,31 +908,106 @@ class BuiltinPrint(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals, *args):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinPrint.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param args: Positional values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         print(args)
         return None
 
 
 class BuiltinField(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``Field`` function.
+
+    Example:
+        Exercise BuiltinField through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "field"
     arg_count = 1
     category = "Get values from metadata"
     __doc__ = doc = _("field(name) -- returns the metadata field named by name")
 
     def evaluate(self, formatter, kwargs, mi, locals, name):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinField.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return formatter.get_value(name, [], kwargs)
 
 
 class BuiltinRawField(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``RawField`` function.
+
+    Example:
+        Exercise BuiltinRawField through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "raw_field"
     arg_count = 1
     category = "Get values from metadata"
     __doc__ = doc = _("raw_field(name) -- returns the metadata field named by name " "without applying any formatting.")
 
     def evaluate(self, formatter, kwargs, mi, locals, name):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinRawField.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return six_unicode(getattr(mi, name, None))
 
 
 class BuiltinRawList(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``RawList`` function.
+
+    Example:
+        Exercise BuiltinRawList through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "raw_list"
     arg_count = 2
     category = "Get values from metadata"
@@ -405,6 +1018,24 @@ class BuiltinRawList(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals, name, separator):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinRawList.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param separator: Delimiter used to split or join list values.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         res = getattr(mi, name, None)
         if not isinstance(res, list):
             return "%s is not a list" % name
@@ -412,6 +1043,14 @@ class BuiltinRawList(BuiltinFormatterFunction):
 
 
 class BuiltinSubstr(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``Substr`` function.
+
+    Example:
+        Exercise BuiltinSubstr through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "substr"
     arg_count = 3
     category = "String manipulation"
@@ -425,10 +1064,37 @@ class BuiltinSubstr(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals, str_, start_, end_):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinSubstr.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param str_: Value supplied for str under the utility contract.
+        :param start_: Value supplied for start under the utility contract.
+        :param end_: Value supplied for end under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return str_[int(start_) : len(str_) if int(end_) == 0 else int(end_)]
 
 
 class BuiltinLookup(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``Lookup`` function.
+
+    Example:
+        Exercise BuiltinLookup through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "lookup"
     arg_count = -1
     category = "Iterating over values"
@@ -443,6 +1109,24 @@ class BuiltinLookup(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals, val, *args):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinLookup.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param val: Template or metadata value evaluated by the operation.
+        :param args: Positional values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if len(args) == 2:  # here for backwards compatibility
             if val:
                 return formatter.vformat("{" + args[0].strip() + "}", [], kwargs)
@@ -460,6 +1144,14 @@ class BuiltinLookup(BuiltinFormatterFunction):
 
 
 class BuiltinTest(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``Test`` function.
+
+    Example:
+        Exercise BuiltinTest through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "test"
     arg_count = 3
     category = "If-then-else"
@@ -469,6 +1161,25 @@ class BuiltinTest(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals, val, value_if_set, value_not_set):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinTest.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param val: Template or metadata value evaluated by the operation.
+        :param value_if_set: Value supplied for value if set under the utility contract.
+        :param value_not_set: Value supplied for value not set under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if val:
             return value_if_set
         else:
@@ -476,6 +1187,14 @@ class BuiltinTest(BuiltinFormatterFunction):
 
 
 class BuiltinContains(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``Contains`` function.
+
+    Example:
+        Exercise BuiltinContains through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "contains"
     arg_count = 4
     category = "If-then-else"
@@ -487,6 +1206,27 @@ class BuiltinContains(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals, val, test, value_if_present, value_if_not):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinContains.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param val: Template or metadata value evaluated by the operation.
+        :param test: Value supplied for test under the utility contract.
+        :param value_if_present: Value supplied for value if present under the utility
+            contract.
+        :param value_if_not: Value supplied for value if not under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if re.search(test, val, flags=re.I):
             return value_if_present
         else:
@@ -494,6 +1234,14 @@ class BuiltinContains(BuiltinFormatterFunction):
 
 
 class BuiltinSwitch(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``Switch`` function.
+
+    Example:
+        Exercise BuiltinSwitch through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "switch"
     arg_count = -1
     category = "Iterating over values"
@@ -506,6 +1254,24 @@ class BuiltinSwitch(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals, val, *args):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinSwitch.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param val: Template or metadata value evaluated by the operation.
+        :param args: Positional values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if (len(args) % 2) != 1:
             raise ValueError(_("switch requires an odd number of arguments"))
         i = 0
@@ -518,6 +1284,14 @@ class BuiltinSwitch(BuiltinFormatterFunction):
 
 
 class BuiltinStrcatMax(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``StrcatMax`` function.
+
+    Example:
+        Exercise BuiltinStrcatMax through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "strcat_max"
     arg_count = -1
     category = "String manipulation"
@@ -532,6 +1306,23 @@ class BuiltinStrcatMax(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals, *args):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinStrcatMax.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param args: Positional values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if len(args) < 2:
             raise ValueError(_("strcat_max requires 2 or more arguments"))
         if (len(args) % 2) != 0:
@@ -555,6 +1346,14 @@ class BuiltinStrcatMax(BuiltinFormatterFunction):
 
 
 class BuiltinInList(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``InList`` function.
+
+    Example:
+        Exercise BuiltinInList through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "in_list"
     arg_count = 5
     category = "List lookup"
@@ -567,6 +1366,27 @@ class BuiltinInList(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals, val, sep, pat, fv, nfv):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinInList.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param val: Template or metadata value evaluated by the operation.
+        :param sep: Delimiter used to split or join list values.
+        :param pat: Value supplied for pat under the utility contract.
+        :param fv: Value supplied for fv under the utility contract.
+        :param nfv: Value supplied for nfv under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         l = [v.strip() for v in val.split(sep) if v.strip()]
         if l:
             for v in l:
@@ -576,6 +1396,14 @@ class BuiltinInList(BuiltinFormatterFunction):
 
 
 class BuiltinStrInList(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``StrInList`` function.
+
+    Example:
+        Exercise BuiltinStrInList through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "str_in_list"
     arg_count = 5
     category = "List lookup"
@@ -589,6 +1417,27 @@ class BuiltinStrInList(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals, val, sep, str, fv, nfv):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinStrInList.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param val: Template or metadata value evaluated by the operation.
+        :param sep: Delimiter used to split or join list values.
+        :param str: Value supplied for str under the utility contract.
+        :param fv: Value supplied for fv under the utility contract.
+        :param nfv: Value supplied for nfv under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         l = [v.strip() for v in val.split(sep) if v.strip()]
         c = [v.strip() for v in str.split(sep) if v.strip()]
         if l:
@@ -600,6 +1449,14 @@ class BuiltinStrInList(BuiltinFormatterFunction):
 
 
 class BuiltinIdentifierInList(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``IdentifierInList`` function.
+
+    Example:
+        Exercise BuiltinIdentifierInList through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "identifier_in_list"
     arg_count = 4
     category = "List lookup"
@@ -615,6 +1472,26 @@ class BuiltinIdentifierInList(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals, val, ident, fv, nfv):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinIdentifierInList.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param val: Template or metadata value evaluated by the operation.
+        :param ident: Value supplied for ident under the utility contract.
+        :param fv: Value supplied for fv under the utility contract.
+        :param nfv: Value supplied for nfv under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         l = [v.strip() for v in val.split(",") if v.strip()]
         (id, _, regexp) = ident.partition(":")
         if not id:
@@ -629,6 +1506,14 @@ class BuiltinIdentifierInList(BuiltinFormatterFunction):
 
 
 class BuiltinRe(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``Re`` function.
+
+    Example:
+        Exercise BuiltinRe through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "re"
     arg_count = 3
     category = "String manipulation"
@@ -640,10 +1525,37 @@ class BuiltinRe(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals, val, pattern, replacement):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinRe.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param val: Template or metadata value evaluated by the operation.
+        :param pattern: Value supplied for pattern under the utility contract.
+        :param replacement: Value supplied for replacement under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return re.sub(pattern, replacement, val, flags=re.I)
 
 
 class BuiltinReGroup(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``ReGroup`` function.
+
+    Example:
+        Exercise BuiltinReGroup through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "re_group"
     arg_count = -1
     category = "String manipulation"
@@ -661,9 +1573,41 @@ class BuiltinReGroup(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals, val, pattern, *args):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinReGroup.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param val: Template or metadata value evaluated by the operation.
+        :param pattern: Value supplied for pattern under the utility contract.
+        :param args: Positional values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from formatter import EvalFormatter
 
         def repl(mo):
+            """
+            Perform the repl utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise BuiltinReGroup.evaluate.repl through a consuming regression::
+
+                    python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+            :param mo: Value supplied for mo under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             res = ""
             if mo and mo.lastindex:
                 for dex in range(0, mo.lastindex):
@@ -681,6 +1625,14 @@ class BuiltinReGroup(BuiltinFormatterFunction):
 
 
 class BuiltinSwapAroundComma(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``SwapAroundComma`` function.
+
+    Example:
+        Exercise BuiltinSwapAroundComma through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "swap_around_comma"
     arg_count = 1
     category = "String manipulation"
@@ -692,10 +1644,35 @@ class BuiltinSwapAroundComma(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals, val):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinSwapAroundComma.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param val: Template or metadata value evaluated by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return re.sub(r"^(.*?),\s*(.*$)", r"\2 \1", val, flags=re.I).strip()
 
 
 class BuiltinIfempty(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``Ifempty`` function.
+
+    Example:
+        Exercise BuiltinIfempty through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "ifempty"
     arg_count = 2
     category = "If-then-else"
@@ -704,6 +1681,24 @@ class BuiltinIfempty(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals, val, value_if_empty):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinIfempty.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param val: Template or metadata value evaluated by the operation.
+        :param value_if_empty: Value supplied for value if empty under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if val:
             return val
         else:
@@ -711,6 +1706,14 @@ class BuiltinIfempty(BuiltinFormatterFunction):
 
 
 class BuiltinShorten(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``Shorten`` function.
+
+    Example:
+        Exercise BuiltinShorten through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "shorten"
     arg_count = 4
     category = "String manipulation"
@@ -730,6 +1733,26 @@ class BuiltinShorten(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals, val, leading, center_string, trailing):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinShorten.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param val: Template or metadata value evaluated by the operation.
+        :param leading: Value supplied for leading under the utility contract.
+        :param center_string: Value supplied for center string under the utility contract.
+        :param trailing: Value supplied for trailing under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         l = max(0, int(leading))
         t = max(0, int(trailing))
         if len(val) > l + len(center_string) + t:
@@ -739,6 +1762,14 @@ class BuiltinShorten(BuiltinFormatterFunction):
 
 
 class BuiltinCount(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``Count`` function.
+
+    Example:
+        Exercise BuiltinCount through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "count"
     arg_count = 2
     category = "List manipulation"
@@ -750,10 +1781,36 @@ class BuiltinCount(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals, val, sep):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinCount.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param val: Template or metadata value evaluated by the operation.
+        :param sep: Delimiter used to split or join list values.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return six_unicode(len([v for v in val.split(sep) if v]))
 
 
 class BuiltinListitem(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``Listitem`` function.
+
+    Example:
+        Exercise BuiltinListitem through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "list_item"
     arg_count = 3
     category = "List lookup"
@@ -767,6 +1824,25 @@ class BuiltinListitem(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals, val, index, sep):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinListitem.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param val: Template or metadata value evaluated by the operation.
+        :param index: Value supplied for index under the utility contract.
+        :param sep: Delimiter used to split or join list values.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not val:
             return ""
         index = int(index)
@@ -778,6 +1854,14 @@ class BuiltinListitem(BuiltinFormatterFunction):
 
 
 class BuiltinSelect(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``Select`` function.
+
+    Example:
+        Exercise BuiltinSelect through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "select"
     arg_count = 2
     category = "List lookup"
@@ -788,6 +1872,24 @@ class BuiltinSelect(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals, val, key):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinSelect.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param val: Template or metadata value evaluated by the operation.
+        :param key: Metadata, identifier or local-variable key.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not val:
             return ""
         vals = [v.strip() for v in val.split(",")]
@@ -798,6 +1900,14 @@ class BuiltinSelect(BuiltinFormatterFunction):
 
 
 class BuiltinApproximateFormats(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``ApproximateFormats`` function.
+
+    Example:
+        Exercise BuiltinApproximateFormats through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "approximate_formats"
     arg_count = 0
     category = "Get values from metadata"
@@ -817,6 +1927,22 @@ class BuiltinApproximateFormats(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinApproximateFormats.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if hasattr(mi, "_proxy_metadata"):
             fmt_data = mi._proxy_metadata.db_approx_formats
             if not fmt_data:
@@ -827,6 +1953,14 @@ class BuiltinApproximateFormats(BuiltinFormatterFunction):
 
 
 class BuiltinFormatsModtimes(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``FormatsModtimes`` function.
+
+    Example:
+        Exercise BuiltinFormatsModtimes through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "formats_modtimes"
     arg_count = 1
     category = "Get values from metadata"
@@ -842,12 +1976,37 @@ class BuiltinFormatsModtimes(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals, fmt):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinFormatsModtimes.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param fmt: Date, number or template format specification.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         fmt_data = mi.get("format_metadata", {})
         data = sorted(fmt_data.items(), key=lambda x: x[1]["mtime"], reverse=True)
         return ",".join(k.upper() + ":" + format_date(v["mtime"], fmt) for k, v in data)
 
 
 class BuiltinFormatsSizes(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``FormatsSizes`` function.
+
+    Example:
+        Exercise BuiltinFormatsSizes through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "formats_sizes"
     arg_count = 0
     category = "Get values from metadata"
@@ -861,11 +2020,35 @@ class BuiltinFormatsSizes(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinFormatsSizes.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         fmt_data = mi.get("format_metadata", {})
         return ",".join(k.upper() + ":" + str(v["size"]) for k, v in fmt_data.iteritems())
 
 
 class BuiltinFormatsPaths(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``FormatsPaths`` function.
+
+    Example:
+        Exercise BuiltinFormatsPaths through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "formats_paths"
     arg_count = 0
     category = "Get values from metadata"
@@ -879,17 +2062,58 @@ class BuiltinFormatsPaths(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinFormatsPaths.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         fmt_data = mi.get("format_metadata", {})
         return ",".join(k.upper() + ":" + str(v["path"]) for k, v in fmt_data.iteritems())
 
 
 class BuiltinHumanReadable(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``HumanReadable`` function.
+
+    Example:
+        Exercise BuiltinHumanReadable through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "human_readable"
     arg_count = 1
     category = "Formatting values"
     __doc__ = doc = _("human_readable(v) -- return a string " "representing the number v in KB, MB, GB, etc.")
 
     def evaluate(self, formatter, kwargs, mi, locals, val):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinHumanReadable.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param val: Template or metadata value evaluated by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             return human_readable(round(float(val)))
         except:
@@ -897,6 +2121,14 @@ class BuiltinHumanReadable(BuiltinFormatterFunction):
 
 
 class BuiltinFormatNumber(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``FormatNumber`` function.
+
+    Example:
+        Exercise BuiltinFormatNumber through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "format_number"
     arg_count = 2
     category = "Formatting values"
@@ -910,6 +2142,24 @@ class BuiltinFormatNumber(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals, val, template):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinFormatNumber.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param val: Template or metadata value evaluated by the operation.
+        :param template: Template expression parsed or evaluated.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if val == "" or val == "None":
             return ""
         try:
@@ -930,6 +2180,14 @@ class BuiltinFormatNumber(BuiltinFormatterFunction):
 
 
 class BuiltinSublist(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``Sublist`` function.
+
+    Example:
+        Exercise BuiltinSublist through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "sublist"
     arg_count = 4
     category = "List manipulation"
@@ -948,6 +2206,26 @@ class BuiltinSublist(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals, val, start_index, end_index, sep):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinSublist.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param val: Template or metadata value evaluated by the operation.
+        :param start_index: Value supplied for start index under the utility contract.
+        :param end_index: Value supplied for end index under the utility contract.
+        :param sep: Delimiter used to split or join list values.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not val:
             return ""
         si = int(start_index)
@@ -967,6 +2245,14 @@ class BuiltinSublist(BuiltinFormatterFunction):
 
 
 class BuiltinSubitems(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``Subitems`` function.
+
+    Example:
+        Exercise BuiltinSubitems through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "subitems"
     arg_count = 3
     category = "List manipulation"
@@ -991,6 +2277,25 @@ class BuiltinSubitems(BuiltinFormatterFunction):
     period_pattern = re.compile(r"(?<=[^\.\s])\.(?=[^\.\s])", re.U)
 
     def evaluate(self, formatter, kwargs, mi, locals, val, start_index, end_index):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinSubitems.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param val: Template or metadata value evaluated by the operation.
+        :param start_index: Value supplied for start index under the utility contract.
+        :param end_index: Value supplied for end index under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not val:
             return ""
         si = int(start_index)
@@ -1014,6 +2319,14 @@ class BuiltinSubitems(BuiltinFormatterFunction):
 
 
 class BuiltinFormatDate(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``FormatDate`` function.
+
+    Example:
+        Exercise BuiltinFormatDate through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "format_date"
     arg_count = 2
     category = "Formatting values"
@@ -1043,6 +2356,24 @@ class BuiltinFormatDate(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals, val, format_string):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinFormatDate.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param val: Template or metadata value evaluated by the operation.
+        :param format_string: Value supplied for format string under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not val or val == "None":
             return ""
         try:
@@ -1054,46 +2385,154 @@ class BuiltinFormatDate(BuiltinFormatterFunction):
 
 
 class BuiltinUppercase(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``Uppercase`` function.
+
+    Example:
+        Exercise BuiltinUppercase through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "uppercase"
     arg_count = 1
     category = "String case changes"
     __doc__ = doc = _("uppercase(val) -- return value of the field in upper case")
 
     def evaluate(self, formatter, kwargs, mi, locals, val):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinUppercase.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param val: Template or metadata value evaluated by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return val.upper()
 
 
 class BuiltinLowercase(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``Lowercase`` function.
+
+    Example:
+        Exercise BuiltinLowercase through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "lowercase"
     arg_count = 1
     category = "String case changes"
     __doc__ = doc = _("lowercase(val) -- return value of the field in lower case")
 
     def evaluate(self, formatter, kwargs, mi, locals, val):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinLowercase.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param val: Template or metadata value evaluated by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return val.lower()
 
 
 class BuiltinTitlecase(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``Titlecase`` function.
+
+    Example:
+        Exercise BuiltinTitlecase through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "titlecase"
     arg_count = 1
     category = "String case changes"
     __doc__ = doc = _("titlecase(val) -- return value of the field in title case")
 
     def evaluate(self, formatter, kwargs, mi, locals, val):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinTitlecase.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param val: Template or metadata value evaluated by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return titlecase(val)
 
 
 class BuiltinCapitalize(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``Capitalize`` function.
+
+    Example:
+        Exercise BuiltinCapitalize through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "capitalize"
     arg_count = 1
     category = "String case changes"
     __doc__ = doc = _("capitalize(val) -- return value of the field capitalized")
 
     def evaluate(self, formatter, kwargs, mi, locals, val):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinCapitalize.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param val: Template or metadata value evaluated by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return capitalize(val)
 
 
 class BuiltinBooksize(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``Booksize`` function.
+
+    Example:
+        Exercise BuiltinBooksize through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "booksize"
     arg_count = 0
     category = "Get values from metadata"
@@ -1107,6 +2546,22 @@ class BuiltinBooksize(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinBooksize.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if hasattr(mi, "_proxy_metadata"):
             try:
                 v = mi._proxy_metadata.book_size
@@ -1120,6 +2575,14 @@ class BuiltinBooksize(BuiltinFormatterFunction):
 
 
 class BuiltinOndevice(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``Ondevice`` function.
+
+    Example:
+        Exercise BuiltinOndevice through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "ondevice"
     arg_count = 0
     category = "Get values from metadata"
@@ -1133,6 +2596,22 @@ class BuiltinOndevice(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinOndevice.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if hasattr(mi, "_proxy_metadata"):
             if mi._proxy_metadata.ondevice_col:
                 return _("Yes")
@@ -1141,30 +2620,86 @@ class BuiltinOndevice(BuiltinFormatterFunction):
 
 
 class BuiltinSeriesSort(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``SeriesSort`` function.
+
+    Example:
+        Exercise BuiltinSeriesSort through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "series_sort"
     arg_count = 0
     category = "Get values from metadata"
     __doc__ = doc = _("series_sort() -- return the series sort value")
 
     def evaluate(self, formatter, kwargs, mi, locals):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinSeriesSort.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if mi.series:
             return title_sort(mi.series)
         return ""
 
 
 class BuiltinHasCover(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``HasCover`` function.
+
+    Example:
+        Exercise BuiltinHasCover through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "has_cover"
     arg_count = 0
     category = "Get values from metadata"
     __doc__ = doc = _("has_cover() -- return Yes if the book has a cover, " "otherwise return the empty string")
 
     def evaluate(self, formatter, kwargs, mi, locals):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinHasCover.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if mi.has_cover:
             return _("Yes")
         return ""
 
 
 class BuiltinFirstNonEmpty(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``FirstNonEmpty`` function.
+
+    Example:
+        Exercise BuiltinFirstNonEmpty through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "first_non_empty"
     arg_count = -1
     category = "Iterating over values"
@@ -1176,6 +2711,23 @@ class BuiltinFirstNonEmpty(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals, *args):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinFirstNonEmpty.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param args: Positional values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         i = 0
         while i < len(args):
             if args[i]:
@@ -1185,6 +2737,14 @@ class BuiltinFirstNonEmpty(BuiltinFormatterFunction):
 
 
 class BuiltinAnd(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``And`` function.
+
+    Example:
+        Exercise BuiltinAnd through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "and"
     arg_count = -1
     category = "Boolean"
@@ -1196,6 +2756,23 @@ class BuiltinAnd(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals, *args):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinAnd.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param args: Positional values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         i = 0
         while i < len(args):
             if not args[i]:
@@ -1205,6 +2782,14 @@ class BuiltinAnd(BuiltinFormatterFunction):
 
 
 class BuiltinOr(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``Or`` function.
+
+    Example:
+        Exercise BuiltinOr through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "or"
     arg_count = -1
     category = "Boolean"
@@ -1216,6 +2801,23 @@ class BuiltinOr(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals, *args):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinOr.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param args: Positional values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         i = 0
         while i < len(args):
             if args[i]:
@@ -1225,6 +2827,14 @@ class BuiltinOr(BuiltinFormatterFunction):
 
 
 class BuiltinNot(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``Not`` function.
+
+    Example:
+        Exercise BuiltinNot through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "not"
     arg_count = 1
     category = "Boolean"
@@ -1236,10 +2846,35 @@ class BuiltinNot(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals, val):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinNot.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param val: Template or metadata value evaluated by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "" if val else "1"
 
 
 class BuiltinListUnion(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``ListUnion`` function.
+
+    Example:
+        Exercise BuiltinListUnion through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "list_union"
     arg_count = 3
     category = "List manipulation"
@@ -1254,6 +2889,25 @@ class BuiltinListUnion(BuiltinFormatterFunction):
     aliases = ["merge_lists"]
 
     def evaluate(self, formatter, kwargs, mi, locals, list1, list2, separator):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinListUnion.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param list1: Value supplied for list1 under the utility contract.
+        :param list2: Value supplied for list2 under the utility contract.
+        :param separator: Delimiter used to split or join list values.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         res = [l.strip() for l in list1.split(separator) if l.strip()]
         l2 = [l.strip() for l in list2.split(separator) if l.strip()]
         lcl1 = set([icu_lower(l) for l in res])
@@ -1267,6 +2921,14 @@ class BuiltinListUnion(BuiltinFormatterFunction):
 
 
 class BuiltinListDifference(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``ListDifference`` function.
+
+    Example:
+        Exercise BuiltinListDifference through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "list_difference"
     arg_count = 3
     category = "List manipulation"
@@ -1278,6 +2940,25 @@ class BuiltinListDifference(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals, list1, list2, separator):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinListDifference.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param list1: Value supplied for list1 under the utility contract.
+        :param list2: Value supplied for list2 under the utility contract.
+        :param separator: Delimiter used to split or join list values.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         l1 = [l.strip() for l in list1.split(separator) if l.strip()]
         l2 = set([icu_lower(l.strip()) for l in list2.split(separator) if l.strip()])
 
@@ -1291,6 +2972,14 @@ class BuiltinListDifference(BuiltinFormatterFunction):
 
 
 class BuiltinListIntersection(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``ListIntersection`` function.
+
+    Example:
+        Exercise BuiltinListIntersection through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "list_intersection"
     arg_count = 3
     category = "List manipulation"
@@ -1302,6 +2991,25 @@ class BuiltinListIntersection(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals, list1, list2, separator):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinListIntersection.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param list1: Value supplied for list1 under the utility contract.
+        :param list2: Value supplied for list2 under the utility contract.
+        :param separator: Delimiter used to split or join list values.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         l1 = [l.strip() for l in list1.split(separator) if l.strip()]
         l2 = set([icu_lower(l.strip()) for l in list2.split(separator) if l.strip()])
 
@@ -1315,6 +3023,14 @@ class BuiltinListIntersection(BuiltinFormatterFunction):
 
 
 class BuiltinListSort(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``ListSort`` function.
+
+    Example:
+        Exercise BuiltinListSort through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "list_sort"
     arg_count = 3
     category = "List manipulation"
@@ -1326,6 +3042,25 @@ class BuiltinListSort(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals, list1, direction, separator):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinListSort.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param list1: Value supplied for list1 under the utility contract.
+        :param direction: Value supplied for direction under the utility contract.
+        :param separator: Delimiter used to split or join list values.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         res = [l.strip() for l in list1.split(separator) if l.strip()]
         if separator == ",":
             return ", ".join(sorted(res, key=sort_key, reverse=direction != "0"))
@@ -1333,6 +3068,14 @@ class BuiltinListSort(BuiltinFormatterFunction):
 
 
 class BuiltinListEquals(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``ListEquals`` function.
+
+    Example:
+        Exercise BuiltinListEquals through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "list_equals"
     arg_count = 6
     category = "List manipulation"
@@ -1346,6 +3089,28 @@ class BuiltinListEquals(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals, list1, sep1, list2, sep2, yes_val, no_val):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinListEquals.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param list1: Value supplied for list1 under the utility contract.
+        :param sep1: Value supplied for sep1 under the utility contract.
+        :param list2: Value supplied for list2 under the utility contract.
+        :param sep2: Value supplied for sep2 under the utility contract.
+        :param yes_val: Value supplied for yes val under the utility contract.
+        :param no_val: Value supplied for no val under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         s1 = set([icu_lower(l.strip()) for l in list1.split(sep1) if l.strip()])
         s2 = set([icu_lower(l.strip()) for l in list2.split(sep2) if l.strip()])
         if s1 == s2:
@@ -1354,6 +3119,14 @@ class BuiltinListEquals(BuiltinFormatterFunction):
 
 
 class BuiltinListRe(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``ListRe`` function.
+
+    Example:
+        Exercise BuiltinListRe through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "list_re"
     arg_count = 4
     category = "List manipulation"
@@ -1377,6 +3150,26 @@ class BuiltinListRe(BuiltinFormatterFunction):
         include_re,
         opt_replace,
     ):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinListRe.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param src_list: Value supplied for src list under the utility contract.
+        :param separator: Delimiter used to split or join list values.
+        :param include_re: Value supplied for include re under the utility contract.
+        :param opt_replace: Value supplied for opt replace under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         l = [l.strip() for l in src_list.split(separator) if l.strip()]
         res = []
         for item in l:
@@ -1392,6 +3185,14 @@ class BuiltinListRe(BuiltinFormatterFunction):
 
 
 class BuiltinListReGroup(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``ListReGroup`` function.
+
+    Example:
+        Exercise BuiltinListReGroup through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "list_re_group"
     arg_count = -1
     category = "List manipulation"
@@ -1403,6 +3204,27 @@ class BuiltinListReGroup(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals, src_list, separator, include_re, search_re, *args):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinListReGroup.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param src_list: Value supplied for src list under the utility contract.
+        :param separator: Delimiter used to split or join list values.
+        :param include_re: Value supplied for include re under the utility contract.
+        :param search_re: Value supplied for search re under the utility contract.
+        :param args: Positional values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from formatter import EvalFormatter
 
         l = [l.strip() for l in src_list.split(separator) if l.strip()]
@@ -1410,6 +3232,19 @@ class BuiltinListReGroup(BuiltinFormatterFunction):
         for item in l:
 
             def repl(mo):
+                """
+                Perform the repl utility operation under explicit compatibility rules.
+
+                Example:
+                    Exercise BuiltinListReGroup.evaluate.repl through a consuming regression::
+
+                        python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+                :param mo: Value supplied for mo under the utility contract.
+                :return: The normalized value, metadata record, path, stream result or collection
+                    described above.
+                """
                 newval = ""
                 if mo and mo.lastindex:
                     for dex in range(0, mo.lastindex):
@@ -1436,6 +3271,14 @@ class BuiltinListReGroup(BuiltinFormatterFunction):
 
 
 class BuiltinToday(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``Today`` function.
+
+    Example:
+        Exercise BuiltinToday through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "today"
     arg_count = 0
     category = "Date functions"
@@ -1447,10 +3290,34 @@ class BuiltinToday(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinToday.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return format_date(now(), "iso")
 
 
 class BuiltinDaysBetween(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``DaysBetween`` function.
+
+    Example:
+        Exercise BuiltinDaysBetween through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "days_between"
     arg_count = 2
     category = "Date functions"
@@ -1463,6 +3330,24 @@ class BuiltinDaysBetween(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals, date1, date2):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinDaysBetween.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param date1: Value supplied for date1 under the utility contract.
+        :param date2: Value supplied for date2 under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             d1 = parse_date(date1)
             if d1 == UNDEFINED_DATE:
@@ -1477,6 +3362,14 @@ class BuiltinDaysBetween(BuiltinFormatterFunction):
 
 
 class BuiltinLanguageStrings(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``LanguageStrings`` function.
+
+    Example:
+        Exercise BuiltinLanguageStrings through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "language_strings"
     arg_count = 2
     category = "Get values from metadata"
@@ -1489,6 +3382,24 @@ class BuiltinLanguageStrings(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals, lang_codes, localize):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinLanguageStrings.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param lang_codes: Value supplied for lang codes under the utility contract.
+        :param localize: Value supplied for localize under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         retval = []
         for c in [c.strip() for c in lang_codes.split(",") if c.strip()]:
             try:
@@ -1501,6 +3412,14 @@ class BuiltinLanguageStrings(BuiltinFormatterFunction):
 
 
 class BuiltinLanguageCodes(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``LanguageCodes`` function.
+
+    Example:
+        Exercise BuiltinLanguageCodes through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "language_codes"
     arg_count = 1
     category = "Get values from metadata"
@@ -1512,6 +3431,23 @@ class BuiltinLanguageCodes(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals, lang_strings):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinLanguageCodes.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param lang_strings: Value supplied for lang strings under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         retval = []
         for c in [c.strip() for c in lang_strings.split(",") if c.strip()]:
             try:
@@ -1524,6 +3460,14 @@ class BuiltinLanguageCodes(BuiltinFormatterFunction):
 
 
 class BuiltinCurrentLibraryName(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``CurrentLibraryName`` function.
+
+    Example:
+        Exercise BuiltinCurrentLibraryName through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "current_library_name"
     arg_count = 0
     category = "Get values from metadata"
@@ -1535,12 +3479,36 @@ class BuiltinCurrentLibraryName(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinCurrentLibraryName.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.utils.calibre.library import current_library_name
 
         return current_library_name()
 
 
 class BuiltinCurrentLibraryPath(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``CurrentLibraryPath`` function.
+
+    Example:
+        Exercise BuiltinCurrentLibraryPath through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "current_library_path"
     arg_count = 0
     category = "Get values from metadata"
@@ -1552,12 +3520,36 @@ class BuiltinCurrentLibraryPath(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinCurrentLibraryPath.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.utils.calibre.library import current_library_path
 
         return current_library_path()
 
 
 class BuiltinFinishFormatting(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``FinishFormatting`` function.
+
+    Example:
+        Exercise BuiltinFinishFormatting through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "finish_formatting"
     arg_count = 4
     category = "Formatting values"
@@ -1571,12 +3563,40 @@ class BuiltinFinishFormatting(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals_, val, fmt, prefix, suffix):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinFinishFormatting.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals_: Local template variables available during evaluation.
+        :param val: Template or metadata value evaluated by the operation.
+        :param fmt: Date, number or template format specification.
+        :param prefix: Text prepended to the formatted or selected result.
+        :param suffix: Text appended to the formatted or selected result.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not val:
             return val
         return prefix + formatter._do_format(val, fmt) + suffix
 
 
 class BuiltinVirtualLibraries(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``VirtualLibraries`` function.
+
+    Example:
+        Exercise BuiltinVirtualLibraries through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "virtual_libraries"
     arg_count = 0
     category = "Get values from metadata"
@@ -1591,12 +3611,36 @@ class BuiltinVirtualLibraries(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals_):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinVirtualLibraries.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals_: Local template variables available during evaluation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if hasattr(mi, "_proxy_metadata"):
             return mi._proxy_metadata.virtual_libraries
         return _("This function can be used only in the GUI")
 
 
 class BuiltinUserCategories(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``UserCategories`` function.
+
+    Example:
+        Exercise BuiltinUserCategories through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "user_categories"
     arg_count = 0
     category = "Get values from metadata"
@@ -1611,6 +3655,22 @@ class BuiltinUserCategories(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals_):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinUserCategories.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals_: Local template variables available during evaluation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if hasattr(mi, "_proxy_metadata"):
             cats = set(k for k, v in mi._proxy_metadata.user_categories.iteritems() if v)
             cats = sorted(cats, key=sort_key)
@@ -1619,6 +3679,14 @@ class BuiltinUserCategories(BuiltinFormatterFunction):
 
 
 class BuiltinTransliterate(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``Transliterate`` function.
+
+    Example:
+        Exercise BuiltinTransliterate through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "transliterate"
     arg_count = 1
     category = "String manipulation"
@@ -1630,12 +3698,37 @@ class BuiltinTransliterate(BuiltinFormatterFunction):
     ).format("Фёдор Миха́йлович Достоевский", "Fiodor Mikhailovich Dostoievskii")
 
     def evaluate(self, formatter, kwargs, mi, locals, source):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinTransliterate.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param source: Value supplied for source under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.utils.calibre.utils.filenames import ascii_text
 
         return ascii_text(source)
 
 
 class BuiltinAuthorLinks(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``AuthorLinks`` function.
+
+    Example:
+        Exercise BuiltinAuthorLinks through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "author_links"
     arg_count = 2
     category = "Get values from metadata"
@@ -1654,6 +3747,24 @@ class BuiltinAuthorLinks(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals, val_sep, pair_sep):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinAuthorLinks.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param val_sep: Value supplied for val sep under the utility contract.
+        :param pair_sep: Value supplied for pair sep under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if hasattr(mi, "_proxy_metadata"):
             link_data = mi._proxy_metadata.author_link_map
             if not link_data:
@@ -1664,6 +3775,14 @@ class BuiltinAuthorLinks(BuiltinFormatterFunction):
 
 
 class BuiltinAuthorSorts(BuiltinFormatterFunction):
+    """
+    Implement the Calibre template ``AuthorSorts`` function.
+
+    Example:
+        Exercise BuiltinAuthorSorts through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     name = "author_sorts"
     arg_count = 1
     category = "Get values from metadata"
@@ -1680,6 +3799,23 @@ class BuiltinAuthorSorts(BuiltinFormatterFunction):
     )
 
     def evaluate(self, formatter, kwargs, mi, locals, val_sep):
+        """
+        Evaluate this registered template function against metadata, formatter state and local variables.
+
+        Example:
+            Exercise BuiltinAuthorSorts.evaluate through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param formatter: Template formatter supplying evaluation services and context.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :param mi: Metadata object exposed to the template function.
+        :param locals: Local template variables available during evaluation.
+        :param val_sep: Value supplied for val sep under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         sort_data = mi.author_sort_map
         if not sort_data:
             return ""
@@ -1765,7 +3901,30 @@ _formatter_builtins = [
 
 
 class FormatterUserFunction(FormatterFunction):
+    """
+    Provide the FormatterUserFunction utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise FormatterUserFunction through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+    """
     def __init__(self, name, doc, arg_count, program_text):
+        """
+        Initialize and validate the FormatterUserFunction state.
+
+        Example:
+            Exercise FormatterUserFunction.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param doc: Value supplied for doc under the utility contract.
+        :param arg_count: Value supplied for arg count under the utility contract.
+        :param program_text: Value supplied for program text under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.name = name
         self.doc = doc
         self.arg_count = arg_count
@@ -1776,7 +3935,36 @@ tabs = re.compile(r"^\t*")
 
 
 def compile_user_function(name, doc, arg_count, eval_func):
+    """
+    Perform the compile user function utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise compile user function through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :param doc: Value supplied for doc under the utility contract.
+    :param arg_count: Value supplied for arg count under the utility contract.
+    :param eval_func: Value supplied for eval func under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     def replace_func(mo):
+        """
+        Perform the replace func utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise compile user function.replace func through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+        :param mo: Value supplied for mo under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return mo.group().replace("\t", "    ")
 
     func = "    " + "\n    ".join([tabs.sub(replace_func, line) for line in eval_func.splitlines()])
@@ -1798,6 +3986,20 @@ class UserFunction(FormatterUserFunction):
 
 
 def load_user_template_functions(library_uuid, funcs):
+    """
+    Perform the load user template functions utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise load user template functions through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+    :param library_uuid: Value supplied for library uuid under the utility contract.
+    :param funcs: Value supplied for funcs under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     unload_user_template_functions(library_uuid)
 
     compiled_funcs = []
@@ -1818,4 +4020,17 @@ def load_user_template_functions(library_uuid, funcs):
 
 
 def unload_user_template_functions(library_uuid):
+    """
+    Perform the unload user template functions utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise unload user template functions through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_metainformation_compat.py
+
+
+    :param library_uuid: Value supplied for library uuid under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     formatter_functions().unregister_functions(library_uuid)

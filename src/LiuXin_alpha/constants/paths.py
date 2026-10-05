@@ -1,31 +1,40 @@
-"""LiuXin path constants - resource and execution paths.
+"""
+Resolve application configuration, cache and resource paths.
 
-This module is imported very early during startup (often during module import
-side-effects). Keep it lightweight and dependency-free.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
 
-Environment overrides (useful for tests and portable installs):
+Example:
+    Exercise paths through a consuming regression::
 
-* ``LIUXIN_BASE_DIR``   : Base folder for top-level LiuXin folders.
-* ``LIUXIN_PREFS_DIR``  : Overrides ``LiuXin_prefs_folder``.
-* ``LIUXIN_CONFIG_DIR`` : Overrides ``config_dir`` / calibre-style config dir.
+        python -m pytest -q tests/test_constants.py
 """
 
 from __future__ import annotations
 
 import os
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable, Optional
 
+from LiuXin_alpha.resources import calibre_resource_directory
 
 CONFIG_DIR_MODE = 0o0700
 
 
 def rebuild_file_path(split_file_path: Iterable[str]) -> str:
-    """Rebuild a filesystem path from parts.
+    """
+    Rebuild a filesystem path from parts.
 
-    Historically this function lived here and returned ``False`` for empty
-    input. Returning a boolean from a function annotated as ``str`` is a footgun,
-    so the modern behaviour is to return an empty string.
+    Example:
+        Exercise rebuild file path through a consuming regression::
+
+            python -m pytest -q tests/test_constants.py
+
+
+    :param split_file_path: Value supplied for split file path under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
 
     parts = list(split_file_path)
@@ -34,7 +43,20 @@ def rebuild_file_path(split_file_path: Iterable[str]) -> str:
     return os.path.join(*parts)
 
 
-def _env_path(key: str) -> Optional[Path]:
+def _env_path(key: str) -> Path | None:
+    """
+    Perform the env path operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  env path through a consuming regression::
+
+            python -m pytest -q tests/test_constants.py
+
+
+    :param key: Metadata, identifier or local-variable key.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     v = os.environ.get(key)
     if not v:
         return None
@@ -42,13 +64,17 @@ def _env_path(key: str) -> Optional[Path]:
 
 
 def _resolve_base_dir() -> Path:
-    """Resolve the LiuXin base folder.
+    """
+    Resolve the LiuXin base folder.
 
-    Preference order:
-    1) Explicit env override.
-    2) Project root (parent of a ``src`` directory containing this file).
-    3) Nearest ancestor containing a typical project marker.
-    4) Current working directory.
+    Example:
+        Exercise  resolve base dir through a consuming regression::
+
+            python -m pytest -q tests/test_constants.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
 
     env = _env_path("LIUXIN_BASE_DIR")
@@ -71,9 +97,20 @@ def _resolve_base_dir() -> Path:
 
 
 def _makedirs(path: Path, mode: int = CONFIG_DIR_MODE) -> None:
-    """Create a directory tree if needed.
+    """
+    Create a directory tree if needed.
 
-    Uses ``os.makedirs`` so that the *mode* is applied on POSIX when possible.
+    Example:
+        Exercise  makedirs through a consuming regression::
+
+            python -m pytest -q tests/test_constants.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :param mode: Open or adapter mode controlling read/write behavior.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
 
     os.makedirs(str(path), mode=mode, exist_ok=True)
@@ -118,23 +155,30 @@ LiuXin_debug_folder = str(Path(LiuXin_base_folder) / "LiuXin_debug")
 # Resources folder
 LiuXin_resources_folder = str(Path(LiuXin_base_folder) / "LiuXin_resources")
 
-# Path to the calibre resources folder (both names retained for compatibility).
-# Prefer an existing resources tree so test isolation can point at either the
-# modern LiuXin_resources layout or the older LiuXin_data/calibre_resources
-# layout without leaking stale paths between reloads.
-_CALIBRE_RESOURCES_CANDIDATES = (
+# Path to the Calibre resources folder (both names retained for compatibility).
+# Operators may supply a complete or partial external overlay. Source and
+# installed deployments otherwise use the package-owned resource tree.
+_PACKAGED_CALIBRE_RESOURCES = calibre_resource_directory()
+_CALIBRE_RESOURCES_OVERRIDE = _env_path("LIUXIN_CALIBRE_RESOURCES_DIR")
+_EXTERNAL_CALIBRE_RESOURCES_CANDIDATES = (
     Path(LiuXin_resources_folder) / "calibre_resources",
     Path(LiuXin_base_folder) / "LiuXin_data" / "calibre_resources",
 )
-for _candidate in _CALIBRE_RESOURCES_CANDIDATES:
-    if _candidate.exists():
-        _calibre_resources_path = _candidate
-        break
+if _CALIBRE_RESOURCES_OVERRIDE is not None:
+    _calibre_resources_path = _CALIBRE_RESOURCES_OVERRIDE.resolve()
 else:
-    _calibre_resources_path = _CALIBRE_RESOURCES_CANDIDATES[0]
+    _calibre_resources_path = next(
+        (
+            candidate
+            for candidate in _EXTERNAL_CALIBRE_RESOURCES_CANDIDATES
+            if candidate.is_dir()
+        ),
+        _PACKAGED_CALIBRE_RESOURCES,
+    )
 
 LiuXin_calibre_resources_folder = str(_calibre_resources_path)
 LiuXin_calibre_resources = LiuXin_calibre_resources_folder
+LiuXin_packaged_calibre_resources_folder = str(_PACKAGED_CALIBRE_RESOURCES)
 
 # Data folders
 LiuXin_data_folder = str(Path(LiuXin_base_folder) / "LiuXin_data")

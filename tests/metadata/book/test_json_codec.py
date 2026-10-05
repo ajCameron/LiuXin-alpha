@@ -1,3 +1,14 @@
+"""
+Verify metadata JSON encoding, decoding and compatibility values.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test json codec through its owning regression module::
+
+        python -m pytest -q tests/metadata/book/test_json_codec.py
+"""
 from __future__ import annotations
 
 import io
@@ -18,16 +29,61 @@ from LiuXin_alpha.metadata.book.json_codec import (
 
 
 class _DecodedBook:
+    """
+    Provide the DecodedBook test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise DecodedBook through its owning regression module::
+
+            python -m pytest -q tests/metadata/book/test_json_codec.py
+    """
     def __init__(self, prefix: str, lpath: str | None) -> None:
+        """
+        Initialize the DecodedBook test double.
+
+        Example:
+            Exercise DecodedBook.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/book/test_json_codec.py
+
+
+        :param prefix: Value supplied for prefix in the focused test operation.
+        :param lpath: Value supplied for lpath in the focused test operation.
+        :return: None; the function records state or raises through its assertions.
+        """
         self.prefix = prefix
         self.lpath = lpath
         self.user_metadata: dict[str, object] = {}
 
     def set_all_user_metadata(self, metadata: dict[str, object]) -> None:
+        """
+        Perform the set all user metadata test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise DecodedBook.set all user metadata through its owning regression module::
+
+                python -m pytest -q tests/metadata/book/test_json_codec.py
+
+
+        :param metadata: Metadata container or mapping supplied to the assertion helper.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.user_metadata = metadata
 
 
 def _datetime_user_metadata(value: datetime) -> dict[str, object]:
+    """
+    Perform the datetime user metadata test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise datetime user metadata through its owning regression module::
+
+            python -m pytest -q tests/metadata/book/test_json_codec.py
+
+
+    :param value: Value stored, compared or projected by the operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return {
         "#when": {
             "name": "When",
@@ -51,6 +107,17 @@ def _datetime_user_metadata(value: datetime) -> dict[str, object]:
 
 
 def test_datetime_thumbnail_and_unicode_helpers_roundtrip() -> None:
+    """
+    Verify datetime thumbnail and unicode helpers roundtrip.
+
+    Example:
+        Exercise test datetime thumbnail and unicode helpers roundtrip through its owning regression module::
+
+            python -m pytest -q tests/metadata/book/test_json_codec.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     moment = datetime(2024, 1, 2, 3, 4, 5, tzinfo=timezone.utc)
 
     assert string_to_datetime("None") is None
@@ -75,6 +142,17 @@ def test_datetime_thumbnail_and_unicode_helpers_roundtrip() -> None:
 
 
 def test_is_multiple_metadata_migration_paths() -> None:
+    """
+    Verify is multiple metadata migration paths.
+
+    Example:
+        Exercise test is multiple metadata migration paths through its owning regression module::
+
+            python -m pytest -q tests/metadata/book/test_json_codec.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     composite = {"datatype": "composite", "is_multiple": {"ui_to_list": ";"}}
     encode_is_multiple(composite)
     assert composite["is_multiple"] == ","
@@ -104,6 +182,17 @@ def test_is_multiple_metadata_migration_paths() -> None:
 
 
 def test_json_codec_encodes_and_decodes_book_metadata() -> None:
+    """
+    Verify json codec encodes and decodes book metadata.
+
+    Example:
+        Exercise test json codec encodes and decodes book metadata through its owning regression module::
+
+            python -m pytest -q tests/metadata/book/test_json_codec.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     moment = datetime(2024, 1, 2, 3, 4, 5, tzinfo=timezone.utc)
     metadata = calibreMetadata("Café Book", ["Author One"])
     metadata.tags = ["unicode", "測試"]
@@ -146,6 +235,17 @@ def test_json_codec_encodes_and_decodes_book_metadata() -> None:
 
 
 def test_json_codec_preserves_unicode_torture_without_ascii_escaping() -> None:
+    """
+    Verify json codec preserves unicode torture without ascii escaping.
+
+    Example:
+        Exercise test json codec preserves unicode torture without ascii escaping through its owning regression module::
+
+            python -m pytest -q tests/metadata/book/test_json_codec.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     metadata = calibreMetadata(
         "Bibliothèque 東京 普通话 简体中文 日本語 こんにちは العربية Звёзды हिन्दी 🚀",
         ["李 白", "王小明", "山田太郎", "Renée"],
@@ -216,6 +316,18 @@ def test_json_codec_preserves_unicode_torture_without_ascii_escaping() -> None:
 
 
 def test_json_codec_decodes_legacy_classifiers_and_contains_bad_json(caplog) -> None:
+    """
+    Verify json codec decodes legacy classifiers and contains bad json.
+
+    Example:
+        Exercise test json codec decodes legacy classifiers and contains bad json through its owning regression module::
+
+            python -m pytest -q tests/metadata/book/test_json_codec.py
+
+
+    :param caplog: Pytest fixture capturing emitted log records.
+    :return: None; the function records state or raises through its assertions.
+    """
     codec = JsonCodec()
     book = codec.raw_to_book(
         {"lpath": "book.epub", "classifiers": {"isbn": "9780000000001"}},

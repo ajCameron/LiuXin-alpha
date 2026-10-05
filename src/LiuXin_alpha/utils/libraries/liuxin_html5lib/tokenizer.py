@@ -1,3 +1,14 @@
+"""
+Tokenize HTML input through the HTML5 state machine and parse-error recovery rules.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise tokenizer through a consuming regression::
+
+        python -m pytest -q tests/file_formats/html/test_html_modernized.py
+"""
 from __future__ import absolute_import, division, unicode_literals
 
 try:
@@ -22,16 +33,13 @@ entitiesTrie = Trie(entities)
 
 
 class HTMLTokenizer(object):
-    """This class takes care of tokenizing HTML.
+    """
+    This class takes care of tokenizing HTML.
 
-    * self.currentToken
-      Holds the token that is currently being processed.
+    Example:
+        Exercise HTMLTokenizer through a consuming regression::
 
-    * self.state
-      Holds a reference to the method to be invoked... XXX
-
-    * self.stream
-      Points to HTMLInputStream object.
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
     """
 
     def __init__(
@@ -46,6 +54,29 @@ class HTMLTokenizer(object):
         track_positions=False,
     ):
 
+        """
+        Initialize and validate the HTMLTokenizer state.
+
+        Example:
+            Exercise HTMLTokenizer.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param encoding: Value supplied for encoding under the utility contract.
+        :param parseMeta: Value supplied for parseMeta under the utility contract.
+        :param useChardet: Value supplied for useChardet under the utility contract.
+        :param lowercaseElementName: Value supplied for lowercaseElementName under the
+            utility contract.
+        :param lowercaseAttrName: Value supplied for lowercaseAttrName under the utility
+            contract.
+        :param parser: Value supplied for parser under the utility contract.
+        :param track_positions: Value supplied for track positions under the utility
+            contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.stream = HTMLInputStream(stream, encoding, parseMeta, useChardet)
         self.parser = parser
         self.track_positions = track_positions
@@ -65,11 +96,16 @@ class HTMLTokenizer(object):
         super(HTMLTokenizer, self).__init__()
 
     def __iter__(self):
-        """This is where the magic happens.
+        """
+        This is where the magic happens.
 
-        We do our usually processing through the states and when we have a token
-        to return we yield the token which pauses processing until the next token
-        is requested.
+        Example:
+            Exercise HTMLTokenizer.  iter   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: An iterator yielding the normalized values described above.
         """
         self.tokenQueue = deque([])
         # Start processing. When EOF is reached self.state will return False
@@ -84,9 +120,18 @@ class HTMLTokenizer(object):
                 yield self.tokenQueue.popleft()
 
     def consumeNumberEntity(self, isHex):
-        """This function returns either U+FFFD or the character based on the
-        decimal or hexadecimal representation. It also discards ";" if present.
-        If not present self.tokenQueue.append({"type": tokenTypes["ParseError"]}) is invoked.
+        """
+        This function returns either U+FFFD or the character based on the decimal or hexadecimal representation. It also discards ";" if present. If not present self.tokenQueue.append({"type": tokenTypes["ParseError"]}) is invoked.
+
+        Example:
+            Exercise HTMLTokenizer.consumeNumberEntity through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param isHex: Value supplied for isHex under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         allowed = digits
@@ -204,6 +249,20 @@ class HTMLTokenizer(object):
 
     def consumeEntity(self, allowedChar=None, fromAttribute=False):
         # Initialise to the default output for when no entity is matched
+        """
+        Perform the consumeEntity utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.consumeEntity through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param allowedChar: Value supplied for allowedChar under the utility contract.
+        :param fromAttribute: Value supplied for fromAttribute under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         output = "&"
 
         charStack = [self.stream.char()]
@@ -297,13 +356,33 @@ class HTMLTokenizer(object):
             self.tokenQueue.append({"type": tokenTypes[tokenType], "data": output})
 
     def processEntityInAttribute(self, allowedChar):
-        """This method replaces the need for "entityInAttributeValueState"."""
+        """
+        This method replaces the need for "entityInAttributeValueState".
+
+        Example:
+            Exercise HTMLTokenizer.processEntityInAttribute through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param allowedChar: Value supplied for allowedChar under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.consumeEntity(allowedChar=allowedChar, fromAttribute=True)
 
     def emitCurrentToken(self):
-        """This method is a generic handler for emitting the tags. It also sets
-        the state to "data" because that's what's needed after a token has been
-        emitted.
+        """
+        This method is a generic handler for emitting the tags. It also sets the state to "data" because that's what's needed after a token has been emitted.
+
+        Example:
+            Exercise HTMLTokenizer.emitCurrentToken through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         token = self.currentToken
         # Add token to the queue to be yielded
@@ -330,6 +409,18 @@ class HTMLTokenizer(object):
 
     # Below are the various tokenizer states worked out.
     def dataState(self):
+        """
+        Perform the dataState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.dataState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data == "&":
             self.state = self.entityDataState
@@ -360,11 +451,35 @@ class HTMLTokenizer(object):
         return True
 
     def entityDataState(self):
+        """
+        Perform the entityDataState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.entityDataState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.consumeEntity()
         self.state = self.dataState
         return True
 
     def rcdataState(self):
+        """
+        Perform the rcdataState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.rcdataState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data == "&":
             self.state = self.characterReferenceInRcdata
@@ -395,11 +510,35 @@ class HTMLTokenizer(object):
         return True
 
     def characterReferenceInRcdata(self):
+        """
+        Perform the characterReferenceInRcdata utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.characterReferenceInRcdata through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.consumeEntity()
         self.state = self.rcdataState
         return True
 
     def rawtextState(self):
+        """
+        Perform the rawtextState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.rawtextState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data == "<":
             self.state = self.rawtextLessThanSignState
@@ -415,6 +554,18 @@ class HTMLTokenizer(object):
         return True
 
     def scriptDataState(self):
+        """
+        Perform the scriptDataState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.scriptDataState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data == "<":
             self.state = self.scriptDataLessThanSignState
@@ -430,6 +581,18 @@ class HTMLTokenizer(object):
         return True
 
     def plaintextState(self):
+        """
+        Perform the plaintextState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.plaintextState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data == EOF:
             # Tokenization ends.
@@ -447,6 +610,18 @@ class HTMLTokenizer(object):
         return True
 
     def tagOpenState(self):
+        """
+        Perform the tagOpenState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.tagOpenState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data == "!":
             self.state = self.markupDeclarationOpenState
@@ -494,6 +669,18 @@ class HTMLTokenizer(object):
         return True
 
     def closeTagOpenState(self):
+        """
+        Perform the closeTagOpenState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.closeTagOpenState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data in asciiLetters:
             self.currentToken = {
@@ -534,6 +721,18 @@ class HTMLTokenizer(object):
         return True
 
     def tagNameState(self):
+        """
+        Perform the tagNameState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.tagNameState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data in spaceCharacters:
             self.state = self.beforeAttributeNameState
@@ -554,6 +753,18 @@ class HTMLTokenizer(object):
         return True
 
     def rcdataLessThanSignState(self):
+        """
+        Perform the rcdataLessThanSignState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.rcdataLessThanSignState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data == "/":
             self.temporaryBuffer = ""
@@ -565,6 +776,18 @@ class HTMLTokenizer(object):
         return True
 
     def rcdataEndTagOpenState(self):
+        """
+        Perform the rcdataEndTagOpenState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.rcdataEndTagOpenState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data in asciiLetters:
             self.temporaryBuffer += data
@@ -576,6 +799,18 @@ class HTMLTokenizer(object):
         return True
 
     def rcdataEndTagNameState(self):
+        """
+        Perform the rcdataEndTagNameState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.rcdataEndTagNameState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         appropriate = self.currentToken and self.currentToken["name"].lower() == self.temporaryBuffer.lower()
         data = self.stream.char()
         if data in spaceCharacters and appropriate:
@@ -612,6 +847,18 @@ class HTMLTokenizer(object):
         return True
 
     def rawtextLessThanSignState(self):
+        """
+        Perform the rawtextLessThanSignState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.rawtextLessThanSignState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data == "/":
             self.temporaryBuffer = ""
@@ -623,6 +870,18 @@ class HTMLTokenizer(object):
         return True
 
     def rawtextEndTagOpenState(self):
+        """
+        Perform the rawtextEndTagOpenState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.rawtextEndTagOpenState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data in asciiLetters:
             self.temporaryBuffer += data
@@ -634,6 +893,18 @@ class HTMLTokenizer(object):
         return True
 
     def rawtextEndTagNameState(self):
+        """
+        Perform the rawtextEndTagNameState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.rawtextEndTagNameState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         appropriate = self.currentToken and self.currentToken["name"].lower() == self.temporaryBuffer.lower()
         data = self.stream.char()
         if data in spaceCharacters and appropriate:
@@ -670,6 +941,18 @@ class HTMLTokenizer(object):
         return True
 
     def scriptDataLessThanSignState(self):
+        """
+        Perform the scriptDataLessThanSignState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.scriptDataLessThanSignState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data == "/":
             self.temporaryBuffer = ""
@@ -684,6 +967,18 @@ class HTMLTokenizer(object):
         return True
 
     def scriptDataEndTagOpenState(self):
+        """
+        Perform the scriptDataEndTagOpenState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.scriptDataEndTagOpenState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data in asciiLetters:
             self.temporaryBuffer += data
@@ -695,6 +990,18 @@ class HTMLTokenizer(object):
         return True
 
     def scriptDataEndTagNameState(self):
+        """
+        Perform the scriptDataEndTagNameState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.scriptDataEndTagNameState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         appropriate = self.currentToken and self.currentToken["name"].lower() == self.temporaryBuffer.lower()
         data = self.stream.char()
         if data in spaceCharacters and appropriate:
@@ -731,6 +1038,18 @@ class HTMLTokenizer(object):
         return True
 
     def scriptDataEscapeStartState(self):
+        """
+        Perform the scriptDataEscapeStartState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.scriptDataEscapeStartState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data == "-":
             self.tokenQueue.append({"type": tokenTypes["Characters"], "data": "-"})
@@ -741,6 +1060,18 @@ class HTMLTokenizer(object):
         return True
 
     def scriptDataEscapeStartDashState(self):
+        """
+        Perform the scriptDataEscapeStartDashState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.scriptDataEscapeStartDashState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data == "-":
             self.tokenQueue.append({"type": tokenTypes["Characters"], "data": "-"})
@@ -751,6 +1082,18 @@ class HTMLTokenizer(object):
         return True
 
     def scriptDataEscapedState(self):
+        """
+        Perform the scriptDataEscapedState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.scriptDataEscapedState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data == "-":
             self.tokenQueue.append({"type": tokenTypes["Characters"], "data": "-"})
@@ -768,6 +1111,18 @@ class HTMLTokenizer(object):
         return True
 
     def scriptDataEscapedDashState(self):
+        """
+        Perform the scriptDataEscapedDashState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.scriptDataEscapedDashState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data == "-":
             self.tokenQueue.append({"type": tokenTypes["Characters"], "data": "-"})
@@ -786,6 +1141,18 @@ class HTMLTokenizer(object):
         return True
 
     def scriptDataEscapedDashDashState(self):
+        """
+        Perform the scriptDataEscapedDashDashState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.scriptDataEscapedDashDashState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data == "-":
             self.tokenQueue.append({"type": tokenTypes["Characters"], "data": "-"})
@@ -806,6 +1173,18 @@ class HTMLTokenizer(object):
         return True
 
     def scriptDataEscapedLessThanSignState(self):
+        """
+        Perform the scriptDataEscapedLessThanSignState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.scriptDataEscapedLessThanSignState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data == "/":
             self.temporaryBuffer = ""
@@ -821,6 +1200,18 @@ class HTMLTokenizer(object):
         return True
 
     def scriptDataEscapedEndTagOpenState(self):
+        """
+        Perform the scriptDataEscapedEndTagOpenState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.scriptDataEscapedEndTagOpenState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data in asciiLetters:
             self.temporaryBuffer = data
@@ -832,6 +1223,18 @@ class HTMLTokenizer(object):
         return True
 
     def scriptDataEscapedEndTagNameState(self):
+        """
+        Perform the scriptDataEscapedEndTagNameState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.scriptDataEscapedEndTagNameState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         appropriate = self.currentToken and self.currentToken["name"].lower() == self.temporaryBuffer.lower()
         data = self.stream.char()
         if data in spaceCharacters and appropriate:
@@ -868,6 +1271,18 @@ class HTMLTokenizer(object):
         return True
 
     def scriptDataDoubleEscapeStartState(self):
+        """
+        Perform the scriptDataDoubleEscapeStartState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.scriptDataDoubleEscapeStartState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data in (spaceCharacters | frozenset(("/", ">"))):
             self.tokenQueue.append({"type": tokenTypes["Characters"], "data": data})
@@ -884,6 +1299,18 @@ class HTMLTokenizer(object):
         return True
 
     def scriptDataDoubleEscapedState(self):
+        """
+        Perform the scriptDataDoubleEscapedState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.scriptDataDoubleEscapedState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data == "-":
             self.tokenQueue.append({"type": tokenTypes["Characters"], "data": "-"})
@@ -902,6 +1329,18 @@ class HTMLTokenizer(object):
         return True
 
     def scriptDataDoubleEscapedDashState(self):
+        """
+        Perform the scriptDataDoubleEscapedDashState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.scriptDataDoubleEscapedDashState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data == "-":
             self.tokenQueue.append({"type": tokenTypes["Characters"], "data": "-"})
@@ -922,6 +1361,18 @@ class HTMLTokenizer(object):
         return True
 
     def scriptDataDoubleEscapedDashDashState(self):
+        """
+        Perform the scriptDataDoubleEscapedDashDashState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.scriptDataDoubleEscapedDashDashState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data == "-":
             self.tokenQueue.append({"type": tokenTypes["Characters"], "data": "-"})
@@ -944,6 +1395,18 @@ class HTMLTokenizer(object):
         return True
 
     def scriptDataDoubleEscapedLessThanSignState(self):
+        """
+        Perform the scriptDataDoubleEscapedLessThanSignState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.scriptDataDoubleEscapedLessThanSignState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data == "/":
             self.tokenQueue.append({"type": tokenTypes["Characters"], "data": "/"})
@@ -955,6 +1418,18 @@ class HTMLTokenizer(object):
         return True
 
     def scriptDataDoubleEscapeEndState(self):
+        """
+        Perform the scriptDataDoubleEscapeEndState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.scriptDataDoubleEscapeEndState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data in (spaceCharacters | frozenset(("/", ">"))):
             self.tokenQueue.append({"type": tokenTypes["Characters"], "data": data})
@@ -971,6 +1446,18 @@ class HTMLTokenizer(object):
         return True
 
     def beforeAttributeNameState(self):
+        """
+        Perform the beforeAttributeNameState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.beforeAttributeNameState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data in spaceCharacters:
             self.stream.charsUntil(spaceCharacters, True)
@@ -1008,6 +1495,18 @@ class HTMLTokenizer(object):
         return True
 
     def attributeNameState(self):
+        """
+        Perform the attributeNameState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.attributeNameState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         leavingThisState = True
         emitToken = False
@@ -1066,6 +1565,18 @@ class HTMLTokenizer(object):
         return True
 
     def afterAttributeNameState(self):
+        """
+        Perform the afterAttributeNameState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.afterAttributeNameState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data in spaceCharacters:
             self.stream.charsUntil(spaceCharacters, True)
@@ -1105,6 +1616,18 @@ class HTMLTokenizer(object):
         return True
 
     def beforeAttributeValueState(self):
+        """
+        Perform the beforeAttributeValueState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.beforeAttributeValueState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data in spaceCharacters:
             self.stream.charsUntil(spaceCharacters, True)
@@ -1150,6 +1673,18 @@ class HTMLTokenizer(object):
         return True
 
     def attributeValueDoubleQuotedState(self):
+        """
+        Perform the attributeValueDoubleQuotedState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.attributeValueDoubleQuotedState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data == '"':
             self.state = self.afterAttributeValueState
@@ -1171,6 +1706,18 @@ class HTMLTokenizer(object):
         return True
 
     def attributeValueSingleQuotedState(self):
+        """
+        Perform the attributeValueSingleQuotedState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.attributeValueSingleQuotedState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data == "'":
             self.state = self.afterAttributeValueState
@@ -1192,6 +1739,18 @@ class HTMLTokenizer(object):
         return True
 
     def attributeValueUnQuotedState(self):
+        """
+        Perform the attributeValueUnQuotedState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.attributeValueUnQuotedState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data in spaceCharacters:
             self.state = self.beforeAttributeNameState
@@ -1225,6 +1784,18 @@ class HTMLTokenizer(object):
         return True
 
     def afterAttributeValueState(self):
+        """
+        Perform the afterAttributeValueState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.afterAttributeValueState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data in spaceCharacters:
             self.state = self.beforeAttributeNameState
@@ -1253,6 +1824,18 @@ class HTMLTokenizer(object):
         return True
 
     def selfClosingStartTagState(self):
+        """
+        Perform the selfClosingStartTagState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.selfClosingStartTagState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data == ">":
             self.currentToken["selfClosing"] = True
@@ -1281,6 +1864,18 @@ class HTMLTokenizer(object):
         # Make a new comment token and give it as value all the characters
         # until the first > or EOF (charsUntil checks for EOF automatically)
         # and emit it.
+        """
+        Perform the bogusCommentState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.bogusCommentState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.charsUntil(">")
         data = data.replace("\u0000", "\uFFFD")
         self.tokenQueue.append({"type": tokenTypes["Comment"], "data": data})
@@ -1292,6 +1887,18 @@ class HTMLTokenizer(object):
         return True
 
     def markupDeclarationOpenState(self):
+        """
+        Perform the markupDeclarationOpenState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.markupDeclarationOpenState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         charStack = [self.stream.char()]
         if charStack[-1] == "-":
             charStack.append(self.stream.char())
@@ -1347,6 +1954,18 @@ class HTMLTokenizer(object):
         return True
 
     def commentStartState(self):
+        """
+        Perform the commentStartState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.commentStartState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data == "-":
             self.state = self.commentStartDashState
@@ -1367,6 +1986,18 @@ class HTMLTokenizer(object):
         return True
 
     def commentStartDashState(self):
+        """
+        Perform the commentStartDashState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.commentStartDashState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data == "-":
             self.state = self.commentEndState
@@ -1387,6 +2018,18 @@ class HTMLTokenizer(object):
         return True
 
     def commentState(self):
+        """
+        Perform the commentState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.commentState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data == "-":
             self.state = self.commentEndDashState
@@ -1402,6 +2045,18 @@ class HTMLTokenizer(object):
         return True
 
     def commentEndDashState(self):
+        """
+        Perform the commentEndDashState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.commentEndDashState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data == "-":
             self.state = self.commentEndState
@@ -1419,6 +2074,18 @@ class HTMLTokenizer(object):
         return True
 
     def commentEndState(self):
+        """
+        Perform the commentEndState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.commentEndState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data == ">":
             self.tokenQueue.append(self.currentToken)
@@ -1455,6 +2122,18 @@ class HTMLTokenizer(object):
         return True
 
     def commentEndBangState(self):
+        """
+        Perform the commentEndBangState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.commentEndBangState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data == ">":
             self.tokenQueue.append(self.currentToken)
@@ -1481,6 +2160,18 @@ class HTMLTokenizer(object):
         return True
 
     def doctypeState(self):
+        """
+        Perform the doctypeState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.doctypeState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data in spaceCharacters:
             self.state = self.beforeDoctypeNameState
@@ -1501,6 +2192,18 @@ class HTMLTokenizer(object):
         return True
 
     def beforeDoctypeNameState(self):
+        """
+        Perform the beforeDoctypeNameState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.beforeDoctypeNameState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data in spaceCharacters:
             pass
@@ -1534,6 +2237,18 @@ class HTMLTokenizer(object):
         return True
 
     def doctypeNameState(self):
+        """
+        Perform the doctypeNameState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.doctypeNameState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data in spaceCharacters:
             self.currentToken["name"] = self.currentToken["name"].translate(asciiUpper2Lower)
@@ -1557,6 +2272,18 @@ class HTMLTokenizer(object):
         return True
 
     def afterDoctypeNameState(self):
+        """
+        Perform the afterDoctypeNameState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.afterDoctypeNameState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data in spaceCharacters:
             pass
@@ -1621,6 +2348,18 @@ class HTMLTokenizer(object):
         return True
 
     def afterDoctypePublicKeywordState(self):
+        """
+        Perform the afterDoctypePublicKeywordState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.afterDoctypePublicKeywordState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data in spaceCharacters:
             self.state = self.beforeDoctypePublicIdentifierState
@@ -1639,6 +2378,18 @@ class HTMLTokenizer(object):
         return True
 
     def beforeDoctypePublicIdentifierState(self):
+        """
+        Perform the beforeDoctypePublicIdentifierState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.beforeDoctypePublicIdentifierState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data in spaceCharacters:
             pass
@@ -1665,6 +2416,18 @@ class HTMLTokenizer(object):
         return True
 
     def doctypePublicIdentifierDoubleQuotedState(self):
+        """
+        Perform the doctypePublicIdentifierDoubleQuotedState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.doctypePublicIdentifierDoubleQuotedState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data == '"':
             self.state = self.afterDoctypePublicIdentifierState
@@ -1686,6 +2449,18 @@ class HTMLTokenizer(object):
         return True
 
     def doctypePublicIdentifierSingleQuotedState(self):
+        """
+        Perform the doctypePublicIdentifierSingleQuotedState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.doctypePublicIdentifierSingleQuotedState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data == "'":
             self.state = self.afterDoctypePublicIdentifierState
@@ -1707,6 +2482,18 @@ class HTMLTokenizer(object):
         return True
 
     def afterDoctypePublicIdentifierState(self):
+        """
+        Perform the afterDoctypePublicIdentifierState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.afterDoctypePublicIdentifierState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data in spaceCharacters:
             self.state = self.betweenDoctypePublicAndSystemIdentifiersState
@@ -1733,6 +2520,18 @@ class HTMLTokenizer(object):
         return True
 
     def betweenDoctypePublicAndSystemIdentifiersState(self):
+        """
+        Perform the betweenDoctypePublicAndSystemIdentifiersState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.betweenDoctypePublicAndSystemIdentifiersState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data in spaceCharacters:
             pass
@@ -1757,6 +2556,18 @@ class HTMLTokenizer(object):
         return True
 
     def afterDoctypeSystemKeywordState(self):
+        """
+        Perform the afterDoctypeSystemKeywordState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.afterDoctypeSystemKeywordState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data in spaceCharacters:
             self.state = self.beforeDoctypeSystemIdentifierState
@@ -1775,6 +2586,18 @@ class HTMLTokenizer(object):
         return True
 
     def beforeDoctypeSystemIdentifierState(self):
+        """
+        Perform the beforeDoctypeSystemIdentifierState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.beforeDoctypeSystemIdentifierState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data in spaceCharacters:
             pass
@@ -1801,6 +2624,18 @@ class HTMLTokenizer(object):
         return True
 
     def doctypeSystemIdentifierDoubleQuotedState(self):
+        """
+        Perform the doctypeSystemIdentifierDoubleQuotedState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.doctypeSystemIdentifierDoubleQuotedState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data == '"':
             self.state = self.afterDoctypeSystemIdentifierState
@@ -1822,6 +2657,18 @@ class HTMLTokenizer(object):
         return True
 
     def doctypeSystemIdentifierSingleQuotedState(self):
+        """
+        Perform the doctypeSystemIdentifierSingleQuotedState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.doctypeSystemIdentifierSingleQuotedState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data == "'":
             self.state = self.afterDoctypeSystemIdentifierState
@@ -1843,6 +2690,18 @@ class HTMLTokenizer(object):
         return True
 
     def afterDoctypeSystemIdentifierState(self):
+        """
+        Perform the afterDoctypeSystemIdentifierState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.afterDoctypeSystemIdentifierState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data in spaceCharacters:
             pass
@@ -1860,6 +2719,18 @@ class HTMLTokenizer(object):
         return True
 
     def bogusDoctypeState(self):
+        """
+        Perform the bogusDoctypeState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.bogusDoctypeState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = self.stream.char()
         if data == ">":
             self.tokenQueue.append(self.currentToken)
@@ -1874,6 +2745,18 @@ class HTMLTokenizer(object):
         return True
 
     def cdataSectionState(self):
+        """
+        Perform the cdataSectionState utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLTokenizer.cdataSectionState through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         data = []
         while True:
             data.append(self.stream.charsUntil("]"))

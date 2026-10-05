@@ -1,3 +1,11 @@
+"""
+Check blank-row insertion for the supported scratch-table subset in test_db_13.
+
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/test_scratch_tables_allow_blank_insert_regression.py
+"""
 from __future__ import annotations
 
 import sqlite3
@@ -6,12 +14,22 @@ from LiuXin_alpha.databases.database import Database
 
 
 def test_all_scratch_tables_allow_blank_insert(provision_test_database) -> None:
-    """Regression: any writable scratch table must support Database.get_blank_row().
+    """
+    Check blank rows obtain a table name and ID for eligible scratch tables.
 
-    Some tables now enforce additional invariants at INSERT time (for example
-    `asset_replicas.asset_replica_storage_key` must be a non-empty relative
-    key). The contract we actually care about is that the public blank-row API
-    still works for writable scratch tables.
+    Provision test_db_13 and inspect physical tables, excluding insertion-blocked tables
+    and names outside the explicit supported subset. Close the Database context after
+    the insertion probes; wrap insertion errors with table context.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_scratch_tables_allow_blank_insert_regression.py::test_all_scratch_tables_allow_blank_insert
+
+
+    :param provision_test_database: Fixture factory that provisions the named test_db_13
+        database.
+    :return: None; failed expectations raise AssertionError.
     """
 
     provisioned = provision_test_database("test_db_13")

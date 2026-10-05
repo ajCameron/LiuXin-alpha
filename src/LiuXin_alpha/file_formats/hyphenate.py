@@ -1,3 +1,14 @@
+"""
+Insert language-aware soft hyphens into words and document text.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise hyphenate through a consuming regression::
+
+        python -m pytest -q tests/file_formats/html/test_html_modernized.py
+"""
 from __future__ import print_function
 from __future__ import annotations
 
@@ -25,11 +36,32 @@ __version__ = "1.0.20070709"
 
 
 class Hyphenator:
+    """
+    Provide the hyphenator contract for validated ebook processing.
+
+    Example:
+        Exercise Hyphenator through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+    """
     def __init__(
         self: _typing.Self,
         patterns: str,
         exceptions: str = "",
     ) -> None:
+        """
+        Initialize and validate the hyphenator state.
+
+        Example:
+            Exercise Hyphenator.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param patterns: Value supplied for patterns under the utility contract.
+        :param exceptions: Value supplied for exceptions under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.tree = {}
         for pattern in patterns.split():
             self._insert_pattern(pattern)
@@ -42,6 +74,19 @@ class Hyphenator:
     def _insert_pattern(self: _typing.Self, pattern: str) -> None:
         # Convert the a pattern like 'a1bc3d4' into a string of chars 'abcd'
         # and a list of points [ 1, 0, 3, 4 ].
+        """
+        Perform the insert pattern operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Hyphenator. insert pattern through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param pattern: Value supplied for pattern under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         chars = re.sub("[0-9]", "", pattern)
         points = [int(d or 0) for d in re.split("[.a-z]", pattern)]
 
@@ -58,7 +103,16 @@ class Hyphenator:
     def hyphenate_word(self: _typing.Self, word: str) -> list[str]:
         """
         Given a word, returns a list of pieces, broken at the possible hyphenation points.
-        :param word:
+
+        Example:
+            Exercise Hyphenator.hyphenate word through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param word: Value supplied for word under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # Short words aren't hyphenated.
         if len(word) <= 4:

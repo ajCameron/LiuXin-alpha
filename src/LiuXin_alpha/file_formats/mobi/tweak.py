@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Open MOBI containers for controlled inspection and reconstruction.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise tweak through a consuming regression::
+
+        python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -23,6 +34,20 @@ try:
 except ModuleNotFoundError:
     # IPC worker module is not ported yet; keep import-time compatibility.
     def fork_job(*args: _typing.Any, **kwargs: _typing.Any) -> None:
+        """
+        Perform the fork job operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise fork job through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raise RuntimeError("LiuXin_alpha.utils.ipc.simple_worker is not available in this port.")
 
 __license__ = "GPL v3"
@@ -31,10 +56,33 @@ __docformat__ = "restructuredtext en"
 
 
 class BadFormat(ValueError):
+    """
+    Provide the badformat contract for validated ebook processing.
+
+    Example:
+        Exercise BadFormat through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+    """
     pass
 
 
 def do_explode(path: _typing.Any, dest: _typing.Any) -> _typing.Any:
+    """
+    Perform the do explode operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise do explode through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :param dest: Value supplied for dest under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     from LiuXin_alpha.file_formats.mobi.reader.mobi6 import MobiReader
     from LiuXin_alpha.file_formats.mobi.reader.mobi8 import Mobi8Reader
 
@@ -55,10 +103,19 @@ def do_explode(path: _typing.Any, dest: _typing.Any) -> _typing.Any:
 def explode(path: _typing.Any, dest: _typing.Any, question: _typing.Callable[..., _typing.Any] = lambda x: True) -> _typing.Any:
     """
     Decompress and prepare a book for tweaking.
-    :param path:
-    :param dest:
-    :param question:
-    :return:
+
+    Example:
+        Exercise explode through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :param dest: Value supplied for dest under the utility contract.
+    :param question: Value supplied for question under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     with open(path, "rb") as stream:
         raw = stream.read(3)
@@ -103,8 +160,16 @@ def explode(path: _typing.Any, dest: _typing.Any, question: _typing.Callable[...
 def set_cover(oeb: _typing.Any) -> None:
     """
     Change the cover for the exploded book in OEB form.
-    :param oeb:
-    :return:
+
+    Example:
+        Exercise set cover through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param oeb: Value supplied for oeb under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     if "cover" not in oeb.guide or oeb.metadata["cover"]:
         return
@@ -116,6 +181,20 @@ def set_cover(oeb: _typing.Any) -> None:
 
 
 def do_rebuild(opf: _typing.Any, dest_path: _typing.Any) -> None:
+    """
+    Perform the do rebuild operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise do rebuild through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param opf: Value supplied for opf under the utility contract.
+    :param dest_path: Value supplied for dest path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.customize.ui import plugin_for_input_format, plugin_for_output_format
     from LiuXin_alpha.file_formats.conversion.plumber import Plumber, create_oebbook
 
@@ -133,9 +212,17 @@ def do_rebuild(opf: _typing.Any, dest_path: _typing.Any) -> None:
 def rebuild(src_dir: _typing.Any, dest_path: _typing.Any) -> None:
     """
     Take the exploded, tweaked, Open EBook and build it back into a mobi file.
-    :param src_dir:
-    :param dest_path:
-    :return:
+
+    Example:
+        Exercise rebuild through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param src_dir: Value supplied for src dir under the utility contract.
+    :param dest_path: Value supplied for dest path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     opf = glob.glob(os.path.join(src_dir, "*.opf"))
     if not opf:

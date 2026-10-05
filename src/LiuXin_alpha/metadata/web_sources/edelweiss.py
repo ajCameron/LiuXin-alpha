@@ -1,9 +1,13 @@
 """
-Edelweiss metadata source.
+Identify trade-book metadata and covers from Edelweiss search and detail fragments.
 
-This is a dependency-light port that avoids lxml/cssselect while keeping the
-core behavior: identify by Edelweiss SKU or query terms, cache ISBN->SKU and
-SKU->cover mappings, and download covers.
+The module keeps network, parsing, caching, cancellation and result-order behavior
+explicit for callers.
+
+Example:
+    Exercise edelweiss with the owning regression module::
+
+        python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
 """
 
 from __future__ import annotations
@@ -33,6 +37,19 @@ __docformat__ = "restructuredtext en"
 
 
 def _as_text(raw) -> str:
+    """
+    Convert optional or hostile input to text without propagating conversion failures.
+
+    Example:
+        Exercise  as text with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     if isinstance(raw, bytes):
         return raw.decode("utf-8", "replace")
     try:
@@ -42,6 +59,19 @@ def _as_text(raw) -> str:
 
 
 def _first(raw):
+    """
+    Perform the edelweiss first operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  first with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     if raw is None:
         return None
     if isinstance(raw, (str, bytes)):
@@ -57,12 +87,40 @@ def _first(raw):
 
 
 def _first_identifier_value(identifiers, key):
+    """
+    Perform the edelweiss first identifier value operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  first identifier value with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+    :param identifiers: Metadata identifier mapping used for direct lookup and cache
+        resolution.
+    :param key: Value supplied for key.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     if not isinstance(identifiers, Mapping):
         return None
     return _first(identifiers.get(key))
 
 
 def _identifier_text(raw) -> str:
+    """
+    Perform the edelweiss identifier text operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  identifier text with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     if raw is None:
         return ""
     text = _as_text(raw).strip()
@@ -72,6 +130,19 @@ def _identifier_text(raw) -> str:
 
 
 def _strip_tags(raw: str) -> str:
+    """
+    Normalize strip tags into the provider's canonical safe representation.
+
+    Example:
+        Exercise  strip tags with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     text = re.sub(r"<\s*br\s*/?\s*>", "\n", _as_text(raw), flags=re.IGNORECASE)
     text = re.sub(r"</(p|li|div|tr|h[1-6])\s*>", "\n", text, flags=re.IGNORECASE)
     text = re.sub(r"<[^>]+>", "", text)
@@ -82,6 +153,19 @@ def _strip_tags(raw: str) -> str:
 
 
 def _normalize_cover_url(raw: str) -> str | None:
+    """
+    Normalize normalize cover url into the provider's canonical safe representation.
+
+    Example:
+        Exercise  normalize cover url with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     url = unescape(_as_text(raw).strip())
     if not url or url.startswith("data:"):
         return None
@@ -97,6 +181,19 @@ def _normalize_cover_url(raw: str) -> str | None:
 
 
 def _split_csvish(raw: str):
+    """
+    Perform the edelweiss split csvish operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  split csvish with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     text = _as_text(raw).strip()
     if not text:
         return []
@@ -105,6 +202,19 @@ def _split_csvish(raw: str):
 
 
 def _sanitize_comments_html(raw: str) -> str:
+    """
+    Normalize sanitize comments html into the provider's canonical safe representation.
+
+    Example:
+        Exercise  sanitize comments html with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     text = _as_text(raw)
     text = re.sub(r"(?is)<noscript.*?>.*?</noscript>", "", text)
     text = re.sub(r"(?is)<script.*?>.*?</script>", "", text)
@@ -117,6 +227,14 @@ def _sanitize_comments_html(raw: str) -> str:
 
 
 class Edelweiss(Source):
+    """
+    Implement the edelweiss metadata-source integration and its explicit recovery policy.
+
+    Example:
+        Exercise Edelweiss with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+    """
     name = "Edelweiss"
     version = (2, 0, 1)
     description = _("Downloads metadata and covers from Edelweiss - A catalog updated by book publishers")
@@ -150,6 +268,18 @@ class Edelweiss(Source):
     HTTP_RETRY_MAX_SECONDS = 6.0
 
     def _retry_policy(self) -> RetryPolicy:
+        """
+        Build the bounded retry policy used by this provider's HTTP requests.
+
+        Example:
+            Exercise Edelweiss. retry policy with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         return RetryPolicy(
             attempts=int(self.HTTP_RETRY_ATTEMPTS),
             base_delay=float(self.HTTP_RETRY_BASE_SECONDS),
@@ -157,6 +287,19 @@ class Edelweiss(Source):
         )
 
     def _retry_backoff(self, attempt: int) -> float:
+        """
+        Compute the capped delay for one provider retry attempt.
+
+        Example:
+            Exercise Edelweiss. retry backoff with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+        :param attempt: Zero-based retry attempt used to calculate backoff.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         return compute_backoff_delay(
             attempt=attempt,
             base_delay=float(self.HTTP_RETRY_BASE_SECONDS),
@@ -164,9 +307,39 @@ class Edelweiss(Source):
         )
 
     def _wait_for_backoff(self, abort, delay: float) -> bool:
+        """
+        Wait interruptibly for a retry delay and report whether it completed.
+
+        Example:
+            Exercise Edelweiss. wait for backoff with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param delay: Backoff duration in seconds.
+        :return: True when the described condition is satisfied; otherwise False.
+        """
         return wait_for_backoff(abort, delay)
 
     def _open_bytes_with_backoff(self, log, abort, url: str, timeout: int, context: str):
+        """
+        Run the open bytes operation with bounded retry, diagnostics and cancellation.
+
+        Example:
+            Exercise Edelweiss. open bytes with backoff with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+        :param log: Logger receiving structured provider diagnostics.
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param url: Provider URL to normalize, request or associate with cached data.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :param context: Short operation label included in retry diagnostics.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         return call_with_backoff(
             lambda: self.browser().open_novisit(url, timeout=timeout).read(),
             log=log,
@@ -183,15 +356,58 @@ class Edelweiss(Source):
         )
 
     def _open_text_with_backoff(self, log, abort, url: str, timeout: int, context: str):
+        """
+        Run the open text operation with bounded retry, diagnostics and cancellation.
+
+        Example:
+            Exercise Edelweiss. open text with backoff with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+        :param log: Logger receiving structured provider diagnostics.
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param url: Provider URL to normalize, request or associate with cached data.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :param context: Short operation label included in retry diagnostics.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         raw = self._open_bytes_with_backoff(log=log, abort=abort, url=url, timeout=timeout, context=context)
         if not raw:
             return ""
         return decode_http_body(raw)
 
     def _book_url(self, sku: str) -> str:
+        """
+        Perform the edelweiss book url operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise Edelweiss. book url with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+        :param sku: Value supplied for sku.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         return f"https://www.edelweiss.plus/#sku={sku}&page=1"
 
     def _detail_fragment_url(self, sku: str) -> str:
+        """
+        Perform the edelweiss detail fragment url operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise Edelweiss. detail fragment url with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+        :param sku: Value supplied for sku.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         return (
             "https://www.edelweiss.plus/GetTreelineControl.aspx?"
             "controlName=/uc/product/two_Enhanced.ascx&"
@@ -199,12 +415,40 @@ class Edelweiss(Source):
         )
 
     def get_book_url(self, identifiers):
+        """
+        Return canonical provider link tuples for recognized metadata identifiers.
+
+        Example:
+            Exercise Edelweiss.get book url with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+        :param identifiers: Metadata identifier mapping used for direct lookup and cache
+            resolution.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         sku = _identifier_text(_first_identifier_value(identifiers or {}, "edelweiss"))
         if sku:
             return ("edelweiss", sku, self._book_url(sku))
         return None
 
     def get_cached_cover_url(self, identifiers):
+        """
+        Return cached cover url when present without network access.
+
+        Example:
+            Exercise Edelweiss.get cached cover url with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+        :param identifiers: Metadata identifier mapping used for direct lookup and cache
+            resolution.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         sku = _identifier_text(_first_identifier_value(identifiers or {}, "edelweiss"))
         if not sku:
             isbn = check_isbn(_as_text(_first_identifier_value(identifiers or {}, "isbn")))
@@ -215,6 +459,23 @@ class Edelweiss(Source):
         return self.cached_identifier_to_cover_url(sku)
 
     def create_query(self, log, title=None, authors=None, identifiers=None):
+        """
+        Build create query from normalized identifiers and search inputs.
+
+        Example:
+            Exercise Edelweiss.create query with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+        :param log: Logger receiving structured provider diagnostics.
+        :param title: Book title used to construct or rank the provider query.
+        :param authors: Author names used to construct or rank the provider query.
+        :param identifiers: Metadata identifier mapping used for direct lookup and cache
+            resolution.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         del log
         identifiers = identifiers or {}
         keywords = []
@@ -232,6 +493,19 @@ class Edelweiss(Source):
         return self.QUERY_BASE_URL + urlencode(params)
 
     def _parse_skus_from_search_payload(self, payload: str):
+        """
+        Parse skus from search payload without inventing absent provider data.
+
+        Example:
+            Exercise Edelweiss. parse skus from search payload with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+        :param payload: Provider response payload or bytes processed by the operation.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         raw = _as_text(payload)
         found = OrderedDict()
 
@@ -263,6 +537,20 @@ class Edelweiss(Source):
         return list(found.keys())
 
     def _parse_title(self, raw_html: str, sku: str) -> str | None:
+        """
+        Parse title without inventing absent provider data.
+
+        Example:
+            Exercise Edelweiss. parse title with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+        :param raw_html: Provider HTML response to parse without executing content.
+        :param sku: Value supplied for sku.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         patterns = (
             rf'id=["\']title_{re.escape(sku)}["\'][^>]*>(.*?)</',
             r'class=["\'][^"\']*headerTitle[^"\']*["\'][^>]*>(.*?)</',
@@ -282,6 +570,19 @@ class Edelweiss(Source):
         return None
 
     def _parse_authors(self, raw_html: str):
+        """
+        Parse authors without inventing absent provider data.
+
+        Example:
+            Exercise Edelweiss. parse authors with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+        :param raw_html: Provider HTML response to parse without executing content.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         authors = []
 
         for pat in (
@@ -306,6 +607,19 @@ class Edelweiss(Source):
         return list(OrderedDict.fromkeys(normalized))
 
     def _parse_isbns(self, raw_html: str):
+        """
+        Parse isbns without inventing absent provider data.
+
+        Example:
+            Exercise Edelweiss. parse isbns with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+        :param raw_html: Provider HTML response to parse without executing content.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         candidates = OrderedDict()
         for token in re.findall(r"(?:97[89][\-\s]?)?(?:\d[\-\s]?){9}[\dXx]", raw_html):
             isbn = check_isbn(_as_text(token))
@@ -316,6 +630,19 @@ class Edelweiss(Source):
         return out
 
     def _parse_tags(self, raw_html: str):
+        """
+        Parse tags without inventing absent provider data.
+
+        Example:
+            Exercise Edelweiss. parse tags with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+        :param raw_html: Provider HTML response to parse without executing content.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         tags = []
         for pat in (
             r'class=["\'][^"\']*(?:pev_categories|bisac)[^"\']*["\'][^>]*>(.*?)</',
@@ -336,6 +663,19 @@ class Edelweiss(Source):
         return list(OrderedDict.fromkeys(cleaned))
 
     def _parse_publisher(self, raw_html: str) -> str | None:
+        """
+        Parse publisher without inventing absent provider data.
+
+        Example:
+            Exercise Edelweiss. parse publisher with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+        :param raw_html: Provider HTML response to parse without executing content.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         for pat in (
             r'class=["\'][^"\']*headerPublisher[^"\']*["\'][^>]*>(.*?)</',
             r'class=["\'][^"\']*(?:supplier|publisher)[^"\']*["\'][^>]*>(.*?)</',
@@ -350,7 +690,33 @@ class Edelweiss(Source):
         return None
 
     def _parse_pubdate(self, raw_html: str):
+        """
+        Parse pubdate without inventing absent provider data.
+
+        Example:
+            Exercise Edelweiss. parse pubdate with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+        :param raw_html: Provider HTML response to parse without executing content.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         def _parse_date_value(raw_value: str):
+            """
+            Parse date value without inventing absent provider data.
+
+            Example:
+                Exercise Edelweiss. parse pubdate. parse date value with the owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+            :param raw_value: Value supplied for raw value.
+            :return: The normalized provider value, metadata result or collection described
+                above.
+            """
             value = _as_text(raw_value).strip()
             if not value:
                 return None
@@ -392,6 +758,19 @@ class Edelweiss(Source):
         return None
 
     def _parse_rating(self, raw_html: str):
+        """
+        Parse rating without inventing absent provider data.
+
+        Example:
+            Exercise Edelweiss. parse rating with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+        :param raw_html: Provider HTML response to parse without executing content.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         m = re.search(r"width:\s*([0-9.]+)px;[^;]*max-width:\s*([0-9.]+)px", raw_html, re.IGNORECASE)
         if m:
             try:
@@ -411,6 +790,19 @@ class Edelweiss(Source):
         return None
 
     def _parse_cover_url(self, raw_html: str):
+        """
+        Parse cover url without inventing absent provider data.
+
+        Example:
+            Exercise Edelweiss. parse cover url with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+        :param raw_html: Provider HTML response to parse without executing content.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         for pat in (
             r'class=["\'][^"\']*title-image[^"\']*["\'][^>]*src=["\']([^"\']+)["\']',
             r"<img[^>]+src=[\"']([^\"']*/jacket_covers/(?:medium|thumbnail)/[^\"']+)[\"']",
@@ -425,6 +817,20 @@ class Edelweiss(Source):
         return None
 
     def _extract_comment_sections(self, raw_html: str, sku: str):
+        """
+        Extract comment sections with stable ordering and malformed-input tolerance.
+
+        Example:
+            Exercise Edelweiss. extract comment sections with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+        :param raw_html: Provider HTML response to parse without executing content.
+        :param sku: Value supplied for sku.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         ids = [
             "pd-general-overview-content",
             "pd-general-contributor-content",
@@ -447,6 +853,21 @@ class Edelweiss(Source):
         return sections
 
     def _metadata_from_detail_html(self, raw_html: str, sku: str, relevance: int):
+        """
+        Project one provider record into normalized metadata and retain source relevance.
+
+        Example:
+            Exercise Edelweiss. metadata from detail html with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+        :param raw_html: Provider HTML response to parse without executing content.
+        :param sku: Value supplied for sku.
+        :param relevance: Zero-based provider result relevance.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         title = self._parse_title(raw_html, sku) or _("Unknown")
         authors = self._parse_authors(raw_html) or [_("Unknown")]
         mi = calibreMetaInformation(title, authors)
@@ -491,6 +912,25 @@ class Edelweiss(Source):
         return mi
 
     def _identify_skus(self, log, abort, title, authors, identifiers, timeout):
+        """
+        Perform the edelweiss identify skus operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise Edelweiss. identify skus with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+        :param log: Logger receiving structured provider diagnostics.
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param title: Book title used to construct or rank the provider query.
+        :param authors: Author names used to construct or rank the provider query.
+        :param identifiers: Metadata identifier mapping used for direct lookup and cache
+            resolution.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         sku = _identifier_text(_first_identifier_value(identifiers, "edelweiss"))
         if sku:
             return [sku]
@@ -534,6 +974,25 @@ class Edelweiss(Source):
         identifiers=None,
         timeout=30,
     ):
+        """
+        Run provider lookup, honor cancellation, isolate per-result failures and enqueue normalized metadata.
+
+        Example:
+            Exercise Edelweiss.identify with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+        :param log: Logger receiving structured provider diagnostics.
+        :param result_queue: Queue receiving normalized metadata or cover results.
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param title: Book title used to construct or rank the provider query.
+        :param authors: Author names used to construct or rank the provider query.
+        :param identifiers: Metadata identifier mapping used for direct lookup and cache
+            resolution.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :return: None.
+        """
         identifiers = identifiers or {}
         if abort.is_set():
             return
@@ -583,6 +1042,26 @@ class Edelweiss(Source):
         timeout=30,
         get_best_cover=False,
     ):
+        """
+        Resolve and download cover candidates, honor cancellation and enqueue valid image bytes.
+
+        Example:
+            Exercise Edelweiss.download cover with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_edelweiss.py
+
+
+        :param log: Logger receiving structured provider diagnostics.
+        :param result_queue: Queue receiving normalized metadata or cover results.
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param title: Book title used to construct or rank the provider query.
+        :param authors: Author names used to construct or rank the provider query.
+        :param identifiers: Metadata identifier mapping used for direct lookup and cache
+            resolution.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :param get_best_cover: Stop after the best usable cover when true.
+        :return: None.
+        """
         del get_best_cover
         identifiers = identifiers or {}
 

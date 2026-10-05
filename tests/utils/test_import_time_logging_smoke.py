@@ -1,3 +1,14 @@
+"""
+Provide test import time logging smoke utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test import time logging smoke through a consuming regression::
+
+        python -m pytest -q tests/utils/test_import_time_logging_smoke.py
+"""
 from __future__ import annotations
 
 import os
@@ -7,6 +18,19 @@ from pathlib import Path
 
 
 def test_import_time_modules_do_not_print_to_stdout_or_stderr(tmp_path) -> None:
+    """
+    Perform the test import time modules do not print to stdout or stderr utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test import time modules do not print to stdout or stderr through a consuming regression::
+
+            python -m pytest -q tests/utils/test_import_time_logging_smoke.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     root = Path(__file__).resolve().parents[2]
     env = os.environ.copy()
     env["PYTHONPATH"] = str(root / "src")

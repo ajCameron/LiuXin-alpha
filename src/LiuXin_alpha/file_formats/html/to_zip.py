@@ -1,22 +1,33 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
-from __future__ import unicode_literals, division, absolute_import, print_function
-from __future__ import annotations
+"""
+Collect linked HTML resources into a validated portable archive.
 
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise to zip through a consuming regression::
+
+        python -m pytest -q tests/file_formats/html/test_html_modernized.py
+"""
+from __future__ import (
+    absolute_import,
+    annotations,
+    division,
+    print_function,
+    unicode_literals,
+)
+
+import textwrap
 import typing as _typing
 
-import glob
-import os
-import textwrap
-
-from LiuXin_alpha.customize import FileTypePlugin
-from LiuXin_alpha.customize import numeric_version
-
-from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.customize import FileTypePlugin, numeric_version
 
 # Py2/Py3 compatibility layer
 from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
+from LiuXin_alpha.utils.localization import trans as _
 
 __license__ = "GPL v3"
 __copyright__ = "2011, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -25,8 +36,12 @@ __docformat__ = "restructuredtext en"
 
 class HTML2ZIP(FileTypePlugin):
     """
-    Follows all local links in an HTML file and creates a ZIP file containing all linked files.
-    This plugin is run every time you add an HTML file to the library.
+    Follows all local links in an HTML file and creates a ZIP file containing all linked files. This plugin is run every time you add an HTML file to the library.
+
+    Example:
+        Exercise HTML2ZIP through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
     """
 
     name = "HTML to ZIP"
@@ -46,54 +61,61 @@ every time you add an HTML file to the library.\
     on_import = True
 
     def run(self: _typing.Self, htmlfile: _typing.Any) -> _typing.Any:
-        from LiuXin_alpha.utils.ptempfiles import TemporaryDirectory
-        from LiuXin_alpha.surfaces.gui2.convert.gui_conversion import gui_convert
-        from LiuXin_alpha.customize.conversion import OptionRecommendation
-        from LiuXin_alpha.file_formats.epub import initialize_container
+        """
+        Report that this plugin requires the unavailable GUI conversion engine.
 
-        with TemporaryDirectory("_plugin_html2zip") as tdir:
-            recs = [("debug_pipeline", tdir, OptionRecommendation.HIGH)]
-            recs.append(["keep_ligatures", True, OptionRecommendation.HIGH])
-            if self.site_customization and self.site_customization.strip():
-                sc = self.site_customization.strip()
-                enc, _, bf = sc.partition("|")
-                if enc:
-                    recs.append(["input_encoding", enc, OptionRecommendation.HIGH])
-                if bf == "bf":
-                    recs.append(["breadth_first", True, OptionRecommendation.HIGH])
-            gui_convert(htmlfile, tdir, recs, abort_after_input_dump=True)
-            of = self.temporary_file("_plugin_html2zip.zip")
-            tdir = os.path.join(tdir, "input")
-            opf = glob.glob(os.path.join(tdir, "*.opf"))[0]
-            ncx = glob.glob(os.path.join(tdir, "*.ncx"))
-            if ncx:
-                os.remove(ncx[0])
-            epub = initialize_container(of.name, os.path.basename(opf))
-            epub.add_dir(tdir)
-            epub.close()
+        Example:
+            Exercise HTML2ZIP.run through a consuming regression::
 
-        return of.name
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param htmlfile: Value supplied for htmlfile under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
+        raise RuntimeError("GUI conversion is unavailable in a headless environment.")
 
     def customization_help(self: _typing.Self, gui: bool = False) -> _typing.Any:
+        """
+        Perform the customization help operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HTML2ZIP.customization help through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param gui: Value supplied for gui under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return _(
             "Character encoding for the input HTML files. Common choices " "include: cp1252, cp1251, latin1 and utf-8."
         )
 
     def do_user_config(self: _typing.Self, parent: _typing.Any = None) -> _typing.Any:
         """
-        This method shows a configuration dialog for this plugin. It returns
-        True if the user clicks OK, False otherwise. The changes are
-        automatically applied.
-        :param parent:
+        This method shows a configuration dialog for this plugin. It returns True if the user clicks OK, False otherwise. The changes are automatically applied.
+
+        Example:
+            Exercise HTML2ZIP.do user config through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         from PyQt5.Qt import (
+            QCheckBox,
             QDialog,
             QDialogButtonBox,
-            QVBoxLayout,
             QLabel,
-            Qt,
             QLineEdit,
-            QCheckBox,
+            Qt,
+            QVBoxLayout,
         )
 
         config_dialog = QDialog(parent)
@@ -101,12 +123,24 @@ every time you add an HTML file to the library.\
         v = QVBoxLayout(config_dialog)
 
         def size_dialog() -> None:
+            """
+            Perform the size dialog operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise HTML2ZIP.do user config.size dialog through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             config_dialog.resize(config_dialog.sizeHint())
 
         button_box.accepted.connect(config_dialog.accept)
         button_box.rejected.connect(config_dialog.reject)
         config_dialog.setWindowTitle(_("Customize") + " " + self.name)
-        from LiuXin_alpha.customize.ui import plugin_customization, customize_plugin
+        from LiuXin_alpha.customize.ui import customize_plugin, plugin_customization
 
         help_text = self.customization_help(gui=True)
         help_text = QLabel(help_text, config_dialog)

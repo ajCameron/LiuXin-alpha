@@ -1,3 +1,13 @@
+"""
+Check scan-report aggregates against optional fixture snapshots and OPF fallback after removing an extracted metadata database.
+
+Both tests skip when the data repository or its Calibre fixtures are unavailable.
+
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_f1_scan_report.py
+"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -14,6 +24,17 @@ from tests.databases.calibre_fixture_libraries import (
 
 
 def _sum_counter(d: dict) -> int:
+    """
+    Sum int-convertible mapping values while ignoring ordinary conversion errors.
+
+    Example:
+        >>> _sum_counter({'a': '2', 'b': 3, 'bad': None})
+        5
+
+
+    :param d: Mapping whose values are converted independently.
+    :return: Integer sum; booleans and values truncated by int are accepted.
+    """
     total = 0
     for v in d.values():
         try:
@@ -25,6 +46,21 @@ def _sum_counter(d: dict) -> int:
 
 @pytest.mark.parametrize("spec", ["_ALL"], ids=["fixtures"])
 def test_scan_report_matches_expected_counts(tmp_path: Path, spec: str) -> None:
+    """
+    Extract each available fixture and compare six normalized snapshot counts with the database scan report, including drift-total consistency.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_f1_scan_report.py::test_scan_report_matches_expected_counts
+
+
+    :param tmp_path: Pytest-provided temporary directory for isolated database and
+        fixture files.
+    :param spec: Unused parametrized _ALL label; the test discovers and iterates every
+        fixture itself.
+    :return: None; failed expectations raise AssertionError.
+    """
     data_root = find_data_repo_root()
     if data_root is None:
         pytest.skip("LiuXin_alpha_data not present; set LIUXIN_ALPHA_DATA_ROOT to run fixture tests")
@@ -59,6 +95,19 @@ def test_scan_report_matches_expected_counts(tmp_path: Path, spec: str) -> None:
 
 
 def test_scan_report_opf_fallback(tmp_path: Path) -> None:
+    """
+    Remove metadata.db from the first extracted fixture and require an OPF-mode report with no schema and at least one book.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_f1_scan_report.py::test_scan_report_opf_fallback
+
+
+    :param tmp_path: Pytest-provided temporary directory for isolated database and
+        fixture files.
+    :return: None; failed expectations raise AssertionError.
+    """
     data_root = find_data_repo_root()
     if data_root is None:
         pytest.skip("LiuXin_alpha_data not present; set LIUXIN_ALPHA_DATA_ROOT to run fixture tests")

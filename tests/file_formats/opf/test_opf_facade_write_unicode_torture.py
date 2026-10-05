@@ -1,3 +1,14 @@
+"""
+Provide test opf facade write unicode torture utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test opf facade write unicode torture through a consuming regression::
+
+        python -m pytest -q tests/file_formats/opf/test_opf_facade_write_unicode_torture.py
+"""
 from __future__ import annotations
 
 import importlib
@@ -88,20 +99,75 @@ UNICODE_TORTURE_COMMENTS = (
 
 @pytest.fixture()
 def opf_mod(legacy_liuxin_alias):
+    """
+    Perform the opf mod operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise opf mod through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf_facade_write_unicode_torture.py
+
+
+    :param legacy_liuxin_alias: Value supplied for legacy liuxin alias under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return importlib.import_module("LiuXin_alpha.file_formats.opf.opf")
 
 
 def _dc_text(root: etree._Element, tag: str) -> str | None:
+    """
+    Perform the dc text operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  dc text through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf_facade_write_unicode_torture.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param tag: Value supplied for tag under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     el = root.find(f".//{{{DC_NS}}}{tag}")
     return el.text if el is not None else None
 
 
 def _dc_texts(root: etree._Element, tag: str) -> list[str]:
+    """
+    Perform the dc texts operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  dc texts through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf_facade_write_unicode_torture.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param tag: Value supplied for tag under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     nodes = root.findall(f".//{{{DC_NS}}}{tag}")
     return [n.text for n in nodes if n is not None and n.text]
 
 
 def _contains_forbidden_xml_char(text: str) -> bool:
+    """
+    Perform the contains forbidden xml char operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  contains forbidden xml char through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf_facade_write_unicode_torture.py
+
+
+    :param text: Text parsed, normalized or rendered.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     for ch in text:
         cp = ord(ch)
         if cp == 0x7F:
@@ -120,6 +186,20 @@ def _contains_forbidden_xml_char(text: str) -> bool:
 
 @pytest.mark.parametrize("payload", [OPF2_MINIMAL, OPF3_MINIMAL])
 def test_set_metadata_unicode_torture_roundtrip_and_deterministic(opf_mod, payload: bytes) -> None:
+    """
+    Perform the test set metadata unicode torture roundtrip and deterministic operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test set metadata unicode torture roundtrip and deterministic through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf_facade_write_unicode_torture.py
+
+
+    :param opf_mod: Value supplied for opf mod under the utility contract.
+    :param payload: Value supplied for payload under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     mi, ver, *_ = opf_mod.get_metadata(payload)
     mi.title = UNICODE_TORTURE_TITLE
     mi.authors = list(UNICODE_TORTURE_AUTHORS)
@@ -152,6 +232,20 @@ def test_set_metadata_unicode_torture_roundtrip_and_deterministic(opf_mod, paylo
 
 @pytest.mark.parametrize("payload", [OPF2_MINIMAL, OPF3_MINIMAL])
 def test_set_metadata_strips_invalid_control_chars_without_crashing(opf_mod, payload: bytes) -> None:
+    """
+    Perform the test set metadata strips invalid control chars without crashing operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test set metadata strips invalid control chars without crashing through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf_facade_write_unicode_torture.py
+
+
+    :param opf_mod: Value supplied for opf mod under the utility contract.
+    :param payload: Value supplied for payload under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     mi, *_ = opf_mod.get_metadata(payload)
     bad_title = "Bad\x00Title\x1f\x7f 😀"
     bad_comment = "Comment\x00 with\x01 bad controls"
@@ -186,6 +280,20 @@ def test_set_metadata_strips_invalid_control_chars_without_crashing(opf_mod, pay
 
 
 def test_set_metadata_accepts_pathlike_payload_for_unicode_torture(opf_mod, tmp_path: Path) -> None:
+    """
+    Perform the test set metadata accepts pathlike payload for unicode torture operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test set metadata accepts pathlike payload for unicode torture through a consuming regression::
+
+            python -m pytest -q tests/file_formats/opf/test_opf_facade_write_unicode_torture.py
+
+
+    :param opf_mod: Value supplied for opf mod under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     p = tmp_path / "unicode_torture.opf"
     p.write_bytes(OPF2_MINIMAL)
 

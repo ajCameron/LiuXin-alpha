@@ -1,7 +1,13 @@
 """
-ManyToMany tables are items which are linked to many other items and visa versa.
+Provide specialized many-to-many relation tables.
 
-E.g. "tags" and "titles" - many "tags" can be assigned to a "title" and visa versa.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise specific many to many tables through a consuming regression::
+
+        python -m pytest -q tests/library/test_unified_library.py
 """
 
 import re
@@ -47,6 +53,11 @@ T = TypeVar("T")
 class CalibreAuthorsTable(CalibrePriorityManyToManyTable[T], BaseCreatorsTable):
     """
     Represents the authors' subset of the creators table, and the link between that and books.
+
+    Example:
+        Exercise CalibreAuthorsTable through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
 
     _priority: bool = True
@@ -56,10 +67,16 @@ class CalibreAuthorsTable(CalibrePriorityManyToManyTable[T], BaseCreatorsTable):
         """
         Initialize the authors table.
 
+        Example:
+            Exercise CalibreAuthorsTable.  init   through a consuming regression::
 
-        :param name:
-        :param metadata:
-        :param link_table:
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param metadata: Value supplied for metadata under the utility contract.
+        :param link_table: Value supplied for link table under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
 
         CalibrePriorityManyToManyTable.__init__(self, name, metadata, link_table)
@@ -86,10 +103,18 @@ class CalibreAuthorsTable(CalibrePriorityManyToManyTable[T], BaseCreatorsTable):
         """
         Transforms :param book_id_item_id_map: into a form which can be written out to the database.
 
-        :param book_id_item_id_map:
-        :param id_map_update:
-        :param dirtied: The books which are affected by this update
-        :return:
+        Example:
+            Exercise CalibreAuthorsTable.update preflight through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_item_id_map: Value supplied for book id item id map under the utility
+            contract.
+        :param id_map_update: Value supplied for id map update under the utility contract.
+        :param dirtied: Value supplied for dirtied under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         dirtied = set() if dirtied is None else dirtied
 
@@ -140,9 +165,15 @@ class CalibreAuthorsTable(CalibrePriorityManyToManyTable[T], BaseCreatorsTable):
         """
         Load the data off the database.
 
-        Also populates the alink and asort maps at the same time.
-        :param db:
-        :return:
+        Example:
+            Exercise CalibreAuthorsTable.read id maps through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param db: Value supplied for db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.alink_map = link_map = {}
         self.asort_map = sort_map = {}
@@ -159,12 +190,16 @@ class CalibreAuthorsTable(CalibrePriorityManyToManyTable[T], BaseCreatorsTable):
         """
         Read the maps, filtering to remove any creator who doesn't have the role of author in a given work.
 
-        Specialized to actually read off the creators table rather than the authors table - which does not exist in the
-        new schema.
-        :param db: The database to read off
-        :param type_filter: The filter to use - "authors" by default, but this could be used to view other types of
-                            creator just as well.
-        :return:
+        Example:
+            Exercise CalibreAuthorsTable.read maps through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param db: Value supplied for db under the utility contract.
+        :param type_filter: Value supplied for type filter under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         book_col_map = defaultdict(list)
         col_book_map = self.col_book_map
@@ -209,9 +244,16 @@ class CalibreAuthorsTable(CalibrePriorityManyToManyTable[T], BaseCreatorsTable):
         """
         Update the database with the given author_sort map
 
-        :param aus_map: An author_sort map
-        :param db:
-        :return aus_map: A processed author sort map - as it will actually be written into the database
+        Example:
+            Exercise CalibreAuthorsTable.set sort names through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param aus_map: Value supplied for aus map under the utility contract.
+        :param db: Value supplied for db under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # Preprocess before writing out to the database
         aus_map = {aid: (a or "").strip() for aid, a in iteritems(aus_map)}
@@ -229,12 +271,16 @@ class CalibreAuthorsTable(CalibrePriorityManyToManyTable[T], BaseCreatorsTable):
         """
         NOTE: THIS DOES NOT UPDATE THE LINKS BETWEEN CREATOR AND BOOKS, DESPITE THE CONFUSING NAME.
 
-        This uses the link_map (keyed with the creator_id, valued with the value that the creator_link will have) to
-        update the creators table with new links.
-        :param link_map:
-        :param db:
-        :return link_map: With the standard transforms done on the values
-                          The link map as it will actually appear on the database.
+        Example:
+            Exercise CalibreAuthorsTable.set links through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param link_map: Value supplied for link map under the utility contract.
+        :param db: Value supplied for db under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         link_map = {author_id: (l or "").strip() for author_id, l in iteritems(link_map)}
         link_map = {aid: l for aid, l in iteritems(link_map) if l != self.alink_map.get(aid, None)}
@@ -247,9 +293,16 @@ class CalibreAuthorsTable(CalibrePriorityManyToManyTable[T], BaseCreatorsTable):
         """
         Remove books from this cache.
 
-        :param book_ids:
-        :param db:
-        :return clean:
+        Example:
+            Exercise CalibreAuthorsTable.remove books through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_ids: Book identities included in the batched read operation.
+        :param db: Value supplied for db under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         clean = CalibreManyToManyTable.remove_books(self, book_ids, db)
 
@@ -263,10 +316,17 @@ class CalibreAuthorsTable(CalibrePriorityManyToManyTable[T], BaseCreatorsTable):
         """
         Rename items in the authors table.
 
-        :param item_id:
-        :param new_name:
-        :param db:
-        :return ret:
+        Example:
+            Exercise CalibreAuthorsTable.rename item through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param item_id: Value supplied for item id under the utility contract.
+        :param new_name: Value supplied for new name under the utility contract.
+        :param db: Value supplied for db under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         ret = CalibreManyToManyTable.rename_item(self, item_id, new_name, db)
 
@@ -286,10 +346,18 @@ class CalibreAuthorsTable(CalibrePriorityManyToManyTable[T], BaseCreatorsTable):
         """
         Remove items by ids from the cache and the database.
 
-        :param item_ids:
-        :param db:
-        :param restrict_to_book_ids:
-        :return:
+        Example:
+            Exercise CalibreAuthorsTable.remove items through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param item_ids: Value supplied for item ids under the utility contract.
+        :param db: Value supplied for db under the utility contract.
+        :param restrict_to_book_ids: Value supplied for restrict to book ids under the
+            utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise ValueError("Direct removal of authors is not allowed")
 
@@ -298,27 +366,10 @@ class CalibreFormatsTable(CalibreManyToManyTable, BaseFormatsTable):
     """
     Contains informaiton about the formats contained in the database table.
 
-    The Formats table contains the following maps.
-    It's a ManyMany table as many book can have files of a particular format - this table can easily answer the question
-    "How many books have an epub file?".
-    It can also answer "Where are all the epub files associated with this book?"
-    It also has aspects of a ManyOne table - as it also provides locations for the format files.
-    fname_map - A dictionary of dictionaries keyed with the book_id, then keyed with the format and finally valued
-                with the name of the file.
-    book_file_map - A dictionary of dictionaries keyed with the book_id, then keyed with the format and finally valued
-                    with the id of the file
-    size_map - A dictionary of dictionaries keyed with the book_id, then keyed with the format and finally valued
-               with the size of that format.
-    col_book_map - A dictionary keyed with the format and valued with a set of book_ids with that format
-    book_col_map - A dictionary keyed with the book_id and valued with a tuple of the formats that book has
-    book_col_count_map - A dictionary of dictionaries - keyed with the book_id, then keyed with the format and
-                         valued with the count
-    book_file_loc_map - A dictionary of dictionaries keyed with the book_id, then keyed with the format and finally
-                        valued with the location of that file.
-    book_fmts_map - Keyed with the id of the book and valued with a set of all the available fornat types (e.g a set
-                    of EPUB, MOBI e.t.c - not a set of the fmt_priorities (which contains information as to the format
-                    and the priority of that format in the book - e.g. a string of the form EPUB_1)
-    If adding more maps, remember to also add them to the remove_books function.
+    Example:
+        Exercise CalibreFormatsTable through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
 
     _priority: bool = True
@@ -328,10 +379,16 @@ class CalibreFormatsTable(CalibreManyToManyTable, BaseFormatsTable):
         """
         Initialize the formats table.
 
-        Data is not read into the database at this point.
-        :param name:
-        :param metadata:
-        :param link_table:
+        Example:
+            Exercise CalibreFormatsTable.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param metadata: Value supplied for metadata under the utility contract.
+        :param link_table: Value supplied for link table under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
 
         CalibreManyToManyTable.__init__(self, name, metadata, link_table)
@@ -354,7 +411,14 @@ class CalibreFormatsTable(CalibreManyToManyTable, BaseFormatsTable):
         """
         Parse the preferences to determine how the size of the book should be calculated
 
-        :return None: Changes are made internally.
+        Example:
+            Exercise CalibreFormatsTable.  parse size mode through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         pref_size_mode = preferences["book_size_display_mode"]
         if pref_size_mode.lower() not in ["sum", "max", "min"]:
@@ -370,8 +434,15 @@ class CalibreFormatsTable(CalibreManyToManyTable, BaseFormatsTable):
         """
         Id maps are not needed in this case.
 
-        :param db:
-        :return:
+        Example:
+            Exercise CalibreFormatsTable.read id maps through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param db: Value supplied for db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         pass
 
@@ -379,8 +450,15 @@ class CalibreFormatsTable(CalibreManyToManyTable, BaseFormatsTable):
         """
         A nonsensical thing to do in this context.
 
-        :param db:
-        :return:
+        Example:
+            Exercise CalibreFormatsTable.fix case duplicates through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param db: Value supplied for db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         pass
 
@@ -389,9 +467,16 @@ class CalibreFormatsTable(CalibreManyToManyTable, BaseFormatsTable):
         """
         Create the format maps. These are described in detail in the class docstring
 
-        :param db:
-        :param type_filter:
-        :return:
+        Example:
+            Exercise CalibreFormatsTable.read maps through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param db: Value supplied for db under the utility contract.
+        :param type_filter: Value supplied for type filter under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         assert self.fsm is not None, "Cannot load - fsm is None"
 
@@ -462,9 +547,16 @@ class CalibreFormatsTable(CalibreManyToManyTable, BaseFormatsTable):
         """
         Remove the specified books from the cache.
 
-        :param book_ids:
-        :param db:
-        :return clean: The format file ids to be removed
+        Example:
+            Exercise CalibreFormatsTable.remove books through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_ids: Book identities included in the batched read operation.
+        :param db: Value supplied for db under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         clean = CalibreManyToManyTable.remove_books(self, book_ids, db)
 
@@ -487,15 +579,18 @@ class CalibreFormatsTable(CalibreManyToManyTable, BaseFormatsTable):
         """
         Changes the file_name for the given format of the given file.
 
-        A note on formats.
-        calibre assumes that each book will have at most one book of each format. Thus formats are things like EPUB,
-        MOBI e.t.c - thus the fmts for each book look something like EPUB_1, MOBI_1 e.t.c.
-        So calling this method with something like EPUB will fail with an AttributeError
-        :param book_id:
-        :param fmt:
-        :param fname:
-        :param db:
-        :return:
+        Example:
+            Exercise CalibreFormatsTable.set fname through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :param fname: Value supplied for fname under the utility contract.
+        :param db: Value supplied for db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # Change the filename in the cache
         self.fname_map[book_id][fmt] = fname
@@ -512,12 +607,16 @@ class CalibreFormatsTable(CalibreManyToManyTable, BaseFormatsTable):
         """
         Takes a format map - keyed with the book_id and valued with the formats to remove.
 
-        Removes those formats first from the cache and then from the database.
-        The formats are expected to be LiuXin formats - thus things like EPUB_2.
-        format priorities will be updated to take account of the removal of the old formats.
-        :param formats_map:
-        :param db:
-        :return:
+        Example:
+            Exercise CalibreFormatsTable.remove formats through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param formats_map: Value supplied for formats map under the utility contract.
+        :param db: Value supplied for db under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # Don't even bother trying to modify the cache in place - just remove the specified files and then reload from
         # the db
@@ -541,6 +640,19 @@ class CalibreFormatsTable(CalibreManyToManyTable, BaseFormatsTable):
 
         # Todo: This probably won't do what it's intended to do at the moment - fix later
         def zero_max(book_id):
+            """
+            Perform the zero max operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise CalibreFormatsTable.remove formats.zero max through a consuming regression::
+
+                    python -m pytest -q tests/library/test_unified_library.py
+
+
+            :param book_id: Value supplied for book id under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             try:
                 return max(itervalues(self.size_map[book_id]))
             except ValueError:
@@ -556,12 +668,18 @@ class CalibreFormatsTable(CalibreManyToManyTable, BaseFormatsTable):
         """
         Attempts to remove items from the cache by id.
 
-        Not currently supported.
-        You need to remove the format from the book directly instead.
-        :param item_ids:
-        :param db:
-        :param restrict_to_book_ids:
-        :return:
+        Example:
+            Exercise CalibreFormatsTable.remove items through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param item_ids: Value supplied for item ids under the utility contract.
+        :param db: Value supplied for db under the utility contract.
+        :param restrict_to_book_ids: Value supplied for restrict to book ids under the
+            utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError("Cannot delete a format directly - must remove it from the book")
 
@@ -569,11 +687,17 @@ class CalibreFormatsTable(CalibreManyToManyTable, BaseFormatsTable):
         """
         Directly rename an item in the formats table.
 
-        Will currently fail - the concept is nonsensical in
-        :param item_id:
-        :param new_name:
-        :param db:
-        :return status: Did the rename go through?
+        Example:
+            Exercise CalibreFormatsTable.rename item through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param item_id: Value supplied for item id under the utility contract.
+        :param new_name: Value supplied for new name under the utility contract.
+        :param db: Value supplied for db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         raise NotImplementedError("Meaningless to rename formats in the format table")
 
@@ -581,11 +705,16 @@ class CalibreFormatsTable(CalibreManyToManyTable, BaseFormatsTable):
         """
         Reload information about a book from the db.
 
-        The file store is the final arbitrator of what is true or not.
-        But it can be useful to reload to check that the database hasn't mutated.
-        :param db: The database to reload from
-        :param book_id:
-        :return:
+        Example:
+            Exercise CalibreFormatsTable.reload book from db through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param db: Value supplied for db under the utility contract.
+        :param book_id: Value supplied for book id under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         book_id = int(book_id)
 
@@ -714,15 +843,19 @@ class CalibreFormatsTable(CalibreManyToManyTable, BaseFormatsTable):
         """
         Update the metadata for the particular format for this particular book.
 
-        :param book_id: The id of the book to work on
-        :param fmt: The format in the book to work on.
-                    If the given fmt is not a priority fmt, then it'll be assumed that the fmt to update is the highest
-                    priority file of that fmt associated with the book.
-                    But please try and use the specific format where possible to cut down on potential confusion.
-        :param fname: The updated name for the format
-        :param size: The updated size for the format
-        :param db: The database to apply the changes to
-        :return fmt_new_size: The new size of the format after the changes have taken effect
+        Example:
+            Exercise CalibreFormatsTable.update fmt through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :param fname: Value supplied for fname under the utility contract.
+        :param size: Value supplied for size under the utility contract.
+        :param db: Value supplied for db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         base_format = fmt.split("_")[0]
         if not self.check_fmt_is_priority_fmt(fmt):
@@ -781,9 +914,16 @@ class CalibreFormatsTable(CalibreManyToManyTable, BaseFormatsTable):
         """
         Return the highest priority fmt for the title - needed when adding a fmt to the end of the priority stack.
 
-        :param book_id:
-        :param fmt:
-        :return:
+        Example:
+            Exercise CalibreFormatsTable.get last priority fmt through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         base_fmt = self.prep_base_fmt(fmt)
         in_use_fmts = set([fn for fn in self.fname_map[book_id].keys()])
@@ -797,7 +937,16 @@ class CalibreFormatsTable(CalibreManyToManyTable, BaseFormatsTable):
         """
         Return all the priority fmts corresponding to a given base fmt.
 
-        :return:
+        Example:
+            Exercise CalibreFormatsTable.get all priority fmts through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id: Value supplied for book id under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         base_fmt = self.prep_base_fmt(fmt)
         in_use_fmts = set([fn for fn in self.fname_map[book_id].keys()])

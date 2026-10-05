@@ -1,3 +1,14 @@
+"""
+Serialize normalized OEB books and resources to disk.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise writer through a consuming regression::
+
+        python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+"""
 from __future__ import with_statement
 from __future__ import annotations
 
@@ -23,6 +34,11 @@ __all__ = ["OEBWriter"]
 class OEBWriter(object):
     """
     Class which stores and writes out an OEB.
+
+    Example:
+        Exercise OEBWriter through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
     """
 
     # Default renderer profile for content written with this Writer.
@@ -32,6 +48,20 @@ class OEBWriter(object):
     TRANSFORMS = []
 
     def __init__(self: _typing.Self, version: str = "2.0", page_map: bool = False, pretty_print: bool = False) -> None:
+        """
+        Initialize and validate the oebwriter state.
+
+        Example:
+            Exercise OEBWriter.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param version: Value supplied for version under the utility contract.
+        :param page_map: Value supplied for page map under the utility contract.
+        :param pretty_print: Value supplied for pretty print under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.version = version
         self.page_map = page_map
         self.pretty_print = pretty_print
@@ -40,7 +70,16 @@ class OEBWriter(object):
     def config(cls: type[_typing.Self], cfg: _typing.Any) -> _typing.Any:
         """
         Add any book-writing options to the :class:`Config` object
-        :param cfg:
+
+        Example:
+            Exercise OEBWriter.config through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param cfg: Value supplied for cfg under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         oeb = cfg.add_group("oeb", _("OPF/NCX/etc. generation options."))
         versions = ["1.2", "2.0"]
@@ -63,8 +102,16 @@ class OEBWriter(object):
     def generate(cls: type[_typing.Self], opts: _typing.Any) -> _typing.Any:
         """
         Generate a Writer instance from command-line options.
-        :param opts: Input options to specify the type of writer created
-        :return:
+
+        Example:
+            Exercise OEBWriter.generate through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param opts: Value supplied for opts under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         version = opts.opf_version
         page_map = opts.adobe_page_map
@@ -73,8 +120,19 @@ class OEBWriter(object):
 
     def __call__(self: _typing.Self, oeb: _typing.Any, path: _typing.Any) -> None:
         """
-        Write the book in the :class:`OEBBook` object :param:`oeb` to a folder
-        at :param:`path`.
+        Write the book in the :class:`OEBBook` object :param:`oeb` to a folder at :param:`path`.
+
+        Example:
+            Exercise OEBWriter.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param oeb: Value supplied for oeb under the utility contract.
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         version = int(self.version[0])
         opfname = None

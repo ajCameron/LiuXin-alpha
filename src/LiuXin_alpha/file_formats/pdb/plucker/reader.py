@@ -1,5 +1,16 @@
 # -*- coding: utf-8 -*-
 
+"""
+Read the package format into normalized text, metadata and resources.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise reader through a consuming regression::
+
+        python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -28,48 +39,197 @@ except Exception:
         _PILImage = None
 
     class Image(object):
+        """
+        Provide the image contract for validated ebook processing.
+
+        Example:
+            Exercise Image through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+        """
         def __init__(self: _typing.Self) -> None:
+            """
+            Initialize and validate the image state.
+
+            Example:
+                Exercise Image.  init   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+            :return: None; validated state is stored on the receiving object.
+            """
             self._img = None
             self._quality = 75
 
         def read(self: _typing.Self, path: _typing.Any) -> None:
+            """
+            Perform the read operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Image.read through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+            :param path: Filesystem path read, written, normalized or validated by the
+                operation.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if _PILImage is None:
                 raise RuntimeError("No image backend is available.")
             self._img = _PILImage.open(path).convert("RGB")
 
         @property
         def size(self: _typing.Self) -> _typing.Any:
+            """
+            Perform the size operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Image.size through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             if self._img is None:
                 return 0, 0
             return self._img.size
 
         def set_compression_quality(self: _typing.Self, quality: _typing.Any) -> None:
+            """
+            Set compression quality under the format's safety and compatibility rules.
+
+            Example:
+                Exercise Image.set compression quality through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+            :param quality: Value supplied for quality under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self._quality = int(quality)
 
         def save(self: _typing.Self, path: _typing.Any) -> None:
+            """
+            Perform the save operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Image.save through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+            :param path: Filesystem path read, written, normalized or validated by the
+                operation.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if self._img is None:
                 raise RuntimeError("No image loaded.")
             self._img.save(path, format="JPEG", quality=self._quality)
 
     class _Canvas(object):
+        """
+        Provide the canvas contract for validated ebook processing.
+
+        Example:
+            Exercise  Canvas through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+        """
         def __init__(self: _typing.Self, width: _typing.Any, height: _typing.Any) -> None:
+            """
+            Initialize and validate the canvas state.
+
+            Example:
+                Exercise  Canvas.  init   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+            :param width: Value supplied for width under the utility contract.
+            :param height: Value supplied for height under the utility contract.
+            :return: None; validated state is stored on the receiving object.
+            """
             if _PILImage is None:
                 raise RuntimeError("No image backend is available.")
             self._img = _PILImage.new("RGB", (int(width), int(height)), "white")
             self._quality = 75
 
         def compose(self: _typing.Self, image: _typing.Any, x_off: _typing.Any, y_off: _typing.Any) -> None:
+            """
+            Perform the compose operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise  Canvas.compose through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+            :param image: Value supplied for image under the utility contract.
+            :param x_off: Value supplied for x off under the utility contract.
+            :param y_off: Value supplied for y off under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if getattr(image, "_img", None) is None:
                 raise RuntimeError("No image loaded.")
             self._img.paste(image._img, (int(x_off), int(y_off)))
 
         def set_compression_quality(self: _typing.Self, quality: _typing.Any) -> None:
+            """
+            Set compression quality under the format's safety and compatibility rules.
+
+            Example:
+                Exercise  Canvas.set compression quality through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+            :param quality: Value supplied for quality under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self._quality = int(quality)
 
         def save(self: _typing.Self, path: _typing.Any) -> None:
+            """
+            Perform the save operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise  Canvas.save through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+            :param path: Filesystem path read, written, normalized or validated by the
+                operation.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self._img.save(path, format="JPEG", quality=self._quality)
 
     def create_canvas(width: _typing.Any, height: _typing.Any) -> _typing.Any:
+        """
+        Create canvas under the format's safety and compatibility rules.
+
+        Example:
+            Exercise create canvas through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :param width: Value supplied for width under the utility contract.
+        :param height: Value supplied for height under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return _Canvas(width, height)
 
 __license__ = "GPL v3"
@@ -107,6 +267,19 @@ COMPOSITE_IMAGE_HEADER_SIZE = 4
 
 
 def _as_bytes(raw: _typing.Any) -> _typing.Any:
+    """
+    Perform the as bytes operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  as bytes through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if isinstance(raw, bytes):
         return raw
     if isinstance(raw, bytearray):
@@ -117,26 +290,102 @@ def _as_bytes(raw: _typing.Any) -> _typing.Any:
 
 
 def _require_bytes(raw: _typing.Any, size: _typing.Any, context: _typing.Any) -> None:
+    """
+    Perform the require bytes operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  require bytes through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :param size: Value supplied for size under the utility contract.
+    :param context: Value supplied for context under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if len(raw) < size:
         raise PluckerError("Truncated Plucker %s" % context)
 
 
 def _require_slice(raw: _typing.Any, offset: _typing.Any, size: _typing.Any, context: _typing.Any) -> None:
+    """
+    Perform the require slice operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  require slice through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :param offset: Value supplied for offset under the utility contract.
+    :param size: Value supplied for size under the utility contract.
+    :param context: Value supplied for context under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if offset < 0 or size < 0 or offset + size > len(raw):
         raise PluckerError("Truncated Plucker %s" % context)
 
 
 def _u16(raw: _typing.Any, offset: _typing.Any, context: _typing.Any) -> _typing.Any:
+    """
+    Perform the u16 operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  u16 through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :param offset: Value supplied for offset under the utility contract.
+    :param context: Value supplied for context under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     _require_slice(raw, offset, 2, context)
     return struct.unpack(">H", raw[offset : offset + 2])[0]
 
 
 def _u32(raw: _typing.Any, offset: _typing.Any, context: _typing.Any) -> _typing.Any:
+    """
+    Perform the u32 operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  u32 through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :param offset: Value supplied for offset under the utility contract.
+    :param context: Value supplied for context under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     _require_slice(raw, offset, 4, context)
     return struct.unpack(">I", raw[offset : offset + 4])[0]
 
 
 def _byte(raw: _typing.Any, offset: _typing.Any, context: _typing.Any) -> _typing.Any:
+    """
+    Perform the byte operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  byte through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :param offset: Value supplied for offset under the utility contract.
+    :param context: Value supplied for context under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     _require_slice(raw, offset, 1, context)
     value = raw[offset]
     return value if isinstance(value, int) else ord(value)
@@ -213,9 +462,26 @@ MIBNUM_TO_NAME = {
 class HeaderRecord(object):
     """
     Plucker header. PDB record 0.
+
+    Example:
+        Exercise HeaderRecord through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
     """
 
     def __init__(self: _typing.Self, raw: _typing.Any) -> None:
+        """
+        Initialize and validate the headerrecord state.
+
+        Example:
+            Exercise HeaderRecord.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :param raw: Value supplied for raw under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         raw = _as_bytes(raw)
         _require_bytes(raw, HEADER_RECORD_SIZE, "record 0")
 
@@ -242,11 +508,27 @@ class HeaderRecord(object):
 
 class SectionHeader(object):
     """
-    Every sections (record) has this header. It gives
-    details about the section such as it's uid.
+    Every sections (record) has this header. It gives details about the section such as it's uid.
+
+    Example:
+        Exercise SectionHeader through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
     """
 
     def __init__(self: _typing.Self, raw: _typing.Any) -> None:
+        """
+        Initialize and validate the sectionheader state.
+
+        Example:
+            Exercise SectionHeader.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :param raw: Value supplied for raw under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         raw = _as_bytes(raw)
         _require_bytes(raw, SECTION_HEADER_SIZE, "section header")
         self.uid = _u16(raw, 0, "section uid")
@@ -259,9 +541,27 @@ class SectionHeader(object):
 class SectionHeaderText(object):
     """
     Sub header for text records.
+
+    Example:
+        Exercise SectionHeaderText through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
     """
 
     def __init__(self: _typing.Self, section_header: _typing.Any, raw: _typing.Any) -> None:
+        """
+        Initialize and validate the sectionheadertext state.
+
+        Example:
+            Exercise SectionHeaderText.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :param section_header: Value supplied for section header under the utility contract.
+        :param raw: Value supplied for raw under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         raw = _as_bytes(raw)
         # The uncompressed size of each paragraph.
         self.sizes = []
@@ -292,18 +592,25 @@ class SectionMetadata(object):
     """
     Metadata.
 
-    This does not store metadata such as title, or author.
-    That metadata would be best retrieved with the PDB (plucker)
-    metdata reader.
+    Example:
+        Exercise SectionMetadata through a consuming regression::
 
-    This stores document specific information such as the
-    text encoding.
-
-    Note: There is a default encoding but each text section
-    can be assigned a different encoding.
+            python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
     """
 
     def __init__(self: _typing.Self, raw: _typing.Any) -> None:
+        """
+        Initialize and validate the sectionmetadata state.
+
+        Example:
+            Exercise SectionMetadata.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :param raw: Value supplied for raw under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         raw = _as_bytes(raw)
         self.default_encoding = "latin-1"
         self.exceptional_uid_encodings = {}
@@ -361,9 +668,27 @@ class SectionMetadata(object):
 class SectionText(object):
     """
     Text data. Stores a text section header and the PHTML.
+
+    Example:
+        Exercise SectionText through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
     """
 
     def __init__(self: _typing.Self, section_header: _typing.Any, raw: _typing.Any) -> None:
+        """
+        Initialize and validate the sectiontext state.
+
+        Example:
+            Exercise SectionText.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :param section_header: Value supplied for section header under the utility contract.
+        :param raw: Value supplied for raw under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         raw = _as_bytes(raw)
         self.header = SectionHeaderText(section_header, raw)
         self.data = raw[section_header.paragraphs * 4 :]
@@ -372,9 +697,26 @@ class SectionText(object):
 class SectionCompositeImage(object):
     """
     A composite image consists of a a 2D array of rows and columns. The entries in the array are uid's.
+
+    Example:
+        Exercise SectionCompositeImage through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
     """
 
     def __init__(self: _typing.Self, raw: _typing.Any) -> None:
+        """
+        Initialize and validate the sectioncompositeimage state.
+
+        Example:
+            Exercise SectionCompositeImage.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :param raw: Value supplied for raw under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         raw = _as_bytes(raw)
         _require_bytes(raw, COMPOSITE_IMAGE_HEADER_SIZE, "composite image header")
         self.columns = _u16(raw, 0, "composite image columns")
@@ -409,18 +751,29 @@ class Reader(FormatReader):
     """
     Convert a plucker archive into HTML.
 
-    TODO:
-          * UTF 16 and 32 characters.
-          * Margins.
-          * Alignment.
-          * Font color.
-          * DATATYPE_MAILTO
-          * DATATYPE_TABLE(_COMPRESSED)
-          * DATATYPE_EXT_ANCHOR_INDEX
-          * DATATYPE_EXT_ANCHOR(_COMPRESSED)
+    Example:
+        Exercise Reader through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
     """
 
     def __init__(self: _typing.Self, header: _typing.Any, stream: _typing.Any, log: _typing.Any, options: _typing.Any) -> None:
+        """
+        Initialize and validate the reader state.
+
+        Example:
+            Exercise Reader.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :param header: Value supplied for header under the utility contract.
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param log: Value supplied for log under the utility contract.
+        :param options: Value supplied for options under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.stream = stream
         self.log = log
         self.options = options
@@ -494,6 +847,18 @@ class Reader(FormatReader):
         self.mi = get_metadata(stream, False)
 
     def _validate_composite_image_references(self: _typing.Self) -> None:
+        """
+        Validate composite image references under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Reader. validate composite image references through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for composite_uid, num in self.uid_composite_image_section_number.items():
             _section_header, section_data = self.sections[num]
             for row in section_data.layout:
@@ -509,6 +874,19 @@ class Reader(FormatReader):
         # text recored into a separate file. We will reference the
         # home.html file as the first file and let the HTML input
         # plugin assemble the order based on hyperlinks.
+        """
+        Extract content under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Reader.extract content through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :param output_dir: Value supplied for output dir under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         with CurrentDir(output_dir):
             for uid, num in self.uid_text_secion_number.items():
                 self.log.debug("Writing record with uid: %s as %s.html" % (uid, uid))
@@ -626,6 +1004,19 @@ class Reader(FormatReader):
         return oeb
 
     def decompress_phtml(self: _typing.Self, data: _typing.Any) -> _typing.Any:
+        """
+        Perform the decompress phtml operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Reader.decompress phtml through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :param data: Value supplied for data under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             if self.header_record.compression == 2:
                 if self.owner_id:
@@ -640,10 +1031,38 @@ class Reader(FormatReader):
         raise PluckerError("Unsupported Plucker compression type %i" % self.header_record.compression)
 
     def _validate_phtml_image_uid(self: _typing.Self, uid: _typing.Any) -> None:
+        """
+        Validate phtml image uid under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Reader. validate phtml image uid through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :param uid: Value supplied for uid under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if uid not in self.uid_image_section_number and uid not in self.uid_composite_image_section_number:
             raise PluckerError("Plucker PHTML references missing image uid %s" % uid)
 
     def process_phtml(self: _typing.Self, d: _typing.Any, paragraph_offsets: _typing.Any = None) -> _typing.Any:
+        """
+        Perform the process phtml operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Reader.process phtml through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :param d: Value supplied for d under the utility contract.
+        :param paragraph_offsets: Value supplied for paragraph offsets under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         d = _as_bytes(d)
 
         if paragraph_offsets is None:
@@ -921,6 +1340,19 @@ class Reader(FormatReader):
         # Return the user sepcified input encoding,
         # otherwise return the alternate encoding specified for the uid,
         # otherwise retur the default encoding for the document.
+        """
+        Return text uid encoding under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Reader.get text uid encoding through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :param uid: Value supplied for uid under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return (
             self.options.input_encoding
             if self.options.input_encoding

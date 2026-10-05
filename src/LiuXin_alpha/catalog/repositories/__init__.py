@@ -1,7 +1,11 @@
 """
-Repository implementations for catalog entities.
+Re-export the concrete Catalog entity repository implementations.
 
-
+The public names include all nineteen entity repositories plus ExactEntityRepository,
+which supplies shared configured matching/persistence behavior. Imports bind class
+objects, not database-backed instances; Catalog constructs and binds the repository
+group separately. Specialized operations live with their concrete owners, and this
+package adds no database lifetime management, queries, or transaction wrapper.
 """
 
 from .agents import AgentRepository

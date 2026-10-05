@@ -1,7 +1,13 @@
 """
-Read/write metadata in FB2 files.
+Parse and update FictionBook metadata in plain or archived FB2 payloads with namespace-tolerant XML helpers.
 
-Supports plain `.fb2` payloads and zipped archives containing an FB2 member.
+The module keeps binary parsing, optional dependency and stream ownership policy
+explicit for registry callers.
+
+Example:
+    Exercise fb2 with pytest::
+
+        python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
 """
 
 from __future__ import annotations
@@ -18,7 +24,7 @@ from pathlib import Path
 from string import ascii_letters, digits
 from typing import Any
 
-from LiuXin_alpha.file_formats.chardet import xml_to_unicode
+from LiuXin_alpha.file_formats.fb2 import base64_decode
 from LiuXin_alpha.file_formats.fb2.archive import (
     DEFAULT_MAX_ARCHIVE_MEMBERS,
     DEFAULT_MAX_COMPRESSION_RATIO,
@@ -28,15 +34,17 @@ from LiuXin_alpha.file_formats.fb2.archive import (
     FB2ZipError,
     extract_fb2_payload_from_bytes,
 )
-from LiuXin_alpha.file_formats.fb2 import base64_decode
-from LiuXin_alpha.metadata.metadata import MetaData as MetaInformation
+from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
+    CalibreLikeLiuXinBookMetaData as MetaInformation,
+)
 from LiuXin_alpha.metadata.utils import check_isbn
+from LiuXin_alpha.utils.libraries.calibre_chardet import xml_to_unicode
+from LiuXin_alpha.utils.libraries.calibre_zipfile import safe_replace
+from LiuXin_alpha.utils.libraries.cleantext import clean_xml_chars
+from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.logging import default_log
 from LiuXin_alpha.utils.mine_types import guess_all_extensions, guess_type
-from LiuXin_alpha.utils.libraries.cleantext import clean_xml_chars
-from LiuXin_alpha.utils.libraries.calibre_zipfile import safe_replace
-from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 
 try:
     from LiuXin_alpha.utils.image_tools.img import save_cover_data_to
@@ -70,6 +78,14 @@ _HTML_TAG_RE = re.compile(r"<[^>]+>")
 
 
 class FB2ParseError(Exception):
+    """
+    Signal malformed, unsupported or unreadable FictionBook input.
+
+    Example:
+        Exercise FB2ParseError with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+    """
     pass
 
 
@@ -81,22 +97,73 @@ FB2_ZIP_MIN_COMPRESSION_RATIO_CHECK_SIZE = DEFAULT_MIN_COMPRESSION_RATIO_CHECK_S
 
 
 def _is_path_like(target: Any) -> bool:
+    """
+    Return whether the supplied value satisfies the path like condition.
+
+    Example:
+        Exercise  is path like with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param target: Caller-supplied path, path-like object or stream described by this
+        operation.
+    :return: True when the condition is satisfied; otherwise False.
+    """
     return isinstance(target, (str, bytes, os.PathLike))
 
 
 def _source_name(target: Any) -> str:
+    """
+    Derive the name used for fallback metadata and diagnostics.
+
+    Example:
+        Exercise  source name with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param target: Caller-supplied path, path-like object or stream described by this
+        operation.
+    :return: Parsed, normalized or updated value described above.
+    """
     if _is_path_like(target):
         return os.fspath(target)
     return getattr(target, "name", "<stream>")
 
 
 def _source_title(target: Any) -> str:
+    """
+    Derive the title used for fallback metadata and diagnostics.
+
+    Example:
+        Exercise  source title with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param target: Caller-supplied path, path-like object or stream described by this
+        operation.
+    :return: Parsed, normalized or updated value described above.
+    """
     name = os.path.basename(_source_name(target))
     title = os.path.splitext(name)[0].strip()
     return title or _("Unknown")
 
 
 def _ensure_bytes(raw: Any) -> bytes:
+    """
+    Coerce bytes to the required representation or supply its documented fallback.
+
+    Example:
+        Exercise  ensure bytes with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param raw: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or updated value described above.
+    """
     if isinstance(raw, bytes):
         return raw
     if isinstance(raw, bytearray):
@@ -107,10 +174,34 @@ def _ensure_bytes(raw: Any) -> bytes:
 
 
 def _localname(tag: Any) -> str:
+    """
+    Perform the format-specific localname operation used by the metadata reader or writer.
+
+    Example:
+        Exercise  localname with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param tag: Value supplied for tag.
+    :return: Parsed, normalized or updated value described above.
+    """
     return str(tag).rsplit("}", 1)[-1]
 
 
 def _namespace_from_tag(tag: Any) -> str | None:
+    """
+    Perform the format-specific namespace from tag operation used by the metadata reader or writer.
+
+    Example:
+        Exercise  namespace from tag with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param tag: Value supplied for tag.
+    :return: Parsed, normalized or updated value described above.
+    """
     text = str(tag)
     if text.startswith("{") and "}" in text:
         return text[1:].split("}", 1)[0]
@@ -118,24 +209,75 @@ def _namespace_from_tag(tag: Any) -> str | None:
 
 
 def _iter_children_local(parent, local_name: str):
+    """
+    Iterate children local in source order using local-name tolerant matching.
+
+    Example:
+        Exercise  iter children local with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param parent: XML or metadata node used as the operation context.
+    :param local_name: Value supplied for local name.
+    :return: Parsed, normalized or updated value described above.
+    """
     for child in parent:
         if _localname(getattr(child, "tag", "")) == local_name:
             yield child
 
 
 def _first_child_local(parent, local_name: str):
+    """
+    Return the first usable child local under the format's fallback rules.
+
+    Example:
+        Exercise  first child local with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param parent: XML or metadata node used as the operation context.
+    :param local_name: Value supplied for local name.
+    :return: Parsed, normalized or updated value described above.
+    """
     for child in _iter_children_local(parent, local_name):
         return child
     return None
 
 
 def _iter_descendants_local(root, local_name: str):
+    """
+    Iterate descendants local in source order using local-name tolerant matching.
+
+    Example:
+        Exercise  iter descendants local with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param root: XML or metadata node used as the operation context.
+    :param local_name: Value supplied for local name.
+    :return: Parsed, normalized or updated value described above.
+    """
     for elem in root.iter():
         if _localname(getattr(elem, "tag", "")) == local_name:
             yield elem
 
 
 def _normalize_text(raw: Any) -> str:
+    """
+    Normalize text into the representation expected by later parsing or serialization steps.
+
+    Example:
+        Exercise  normalize text with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param raw: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or updated value described above.
+    """
     if raw is None:
         return ""
     text = clean_xml_chars(str(raw))
@@ -143,6 +285,18 @@ def _normalize_text(raw: Any) -> str:
 
 
 def _metadata_values(raw: Any) -> list[Any]:
+    """
+    Perform the format-specific metadata values operation used by the metadata reader or writer.
+
+    Example:
+        Exercise  metadata values with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param raw: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or updated value described above.
+    """
     if raw is None:
         return []
     if isinstance(raw, Mapping):
@@ -157,6 +311,18 @@ def _metadata_values(raw: Any) -> list[Any]:
 
 
 def _first_metadata_text(raw: Any) -> str:
+    """
+    Return the first usable metadata text under the format's fallback rules.
+
+    Example:
+        Exercise  first metadata text with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param raw: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or updated value described above.
+    """
     values = _metadata_values(raw)
     for value in values:
         text = _normalize_text(value)
@@ -166,6 +332,19 @@ def _first_metadata_text(raw: Any) -> str:
 
 
 def _is_null_field(mi, field: str) -> bool:
+    """
+    Return whether the supplied value satisfies the null field condition.
+
+    Example:
+        Exercise  is null field with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param mi: Metadata object supplying or receiving supported fields.
+    :param field: Value supplied for field.
+    :return: True when the condition is satisfied; otherwise False.
+    """
     try:
         return bool(mi.is_null(field))
     except Exception:
@@ -174,11 +353,38 @@ def _is_null_field(mi, field: str) -> bool:
 
 
 def _iter_sections(root, section_name: str):
+    """
+    Iterate sections in source order using local-name tolerant matching.
+
+    Example:
+        Exercise  iter sections with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param root: XML or metadata node used as the operation context.
+    :param section_name: Value supplied for section name.
+    :return: Parsed, normalized or updated value described above.
+    """
     for section in _iter_descendants_local(root, section_name):
         yield section
 
 
 def _first_text_from_section(root, section_name: str, child_name: str) -> str | None:
+    """
+    Return the first usable text from section under the format's fallback rules.
+
+    Example:
+        Exercise  first text from section with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param root: XML or metadata node used as the operation context.
+    :param section_name: Value supplied for section name.
+    :param child_name: Value supplied for child name.
+    :return: Parsed, normalized or updated value described above.
+    """
     for section in _iter_sections(root, section_name):
         child = _first_child_local(section, child_name)
         if child is None:
@@ -190,6 +396,18 @@ def _first_text_from_section(root, section_name: str, child_name: str) -> str | 
 
 
 def _get_xlink_href(elem) -> str | None:
+    """
+    Perform the format-specific get xlink href operation used by the metadata reader or writer.
+
+    Example:
+        Exercise  get xlink href with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param elem: XML or metadata node used as the operation context.
+    :return: Parsed, normalized or updated value described above.
+    """
     if elem is None:
         return None
     for key in (f"{{{NAMESPACES['xlink']}}}href", "xlink:href", "href"):
@@ -200,6 +418,18 @@ def _get_xlink_href(elem) -> str | None:
 
 
 def _safe_float(raw: Any) -> float | None:
+    """
+    Convert the supplied value using float semantics without propagating conversion failures.
+
+    Example:
+        Exercise  safe float with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param raw: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or updated value described above.
+    """
     if raw is None:
         return None
     text = str(raw).strip().replace(",", ".")
@@ -218,6 +448,18 @@ def _safe_float(raw: Any) -> float | None:
 
 
 def _safe_int(raw: Any) -> int | None:
+    """
+    Convert the supplied value using int semantics without propagating conversion failures.
+
+    Example:
+        Exercise  safe int with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param raw: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or updated value described above.
+    """
     if raw is None:
         return None
     try:
@@ -227,6 +469,18 @@ def _safe_int(raw: Any) -> int | None:
 
 
 def _annotation_to_text(annotation) -> str:
+    """
+    Perform the format-specific annotation to text operation used by the metadata reader or writer.
+
+    Example:
+        Exercise  annotation to text with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param annotation: XML or metadata node used as the operation context.
+    :return: Parsed, normalized or updated value described above.
+    """
     if annotation is None:
         return ""
 
@@ -253,6 +507,18 @@ def _annotation_to_text(annotation) -> str:
 
 
 def _htmlish_to_text(raw: Any) -> str:
+    """
+    Perform the format-specific htmlish to text operation used by the metadata reader or writer.
+
+    Example:
+        Exercise  htmlish to text with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param raw: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or updated value described above.
+    """
     text = str(raw or "")
     if not text:
         return ""
@@ -270,6 +536,18 @@ def _htmlish_to_text(raw: Any) -> str:
 
 
 def _extract_cover_payload(mi) -> tuple[str, bytes] | None:
+    """
+    Extract cover payload using the format-specific ordering and validation rules.
+
+    Example:
+        Exercise  extract cover payload with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param mi: Metadata object supplying or receiving supported fields.
+    :return: Parsed, normalized or updated value described above.
+    """
     cover_data = getattr(mi, "cover_data", None)
 
     if isinstance(cover_data, tuple) and len(cover_data) == 2 and cover_data[1]:
@@ -295,6 +573,18 @@ def _extract_cover_payload(mi) -> tuple[str, bytes] | None:
 
 
 def _coerce_cover_to_jpeg_bytes(payload: bytes) -> bytes:
+    """
+    Normalize cover to jpeg bytes into the representation expected by later parsing or serialization steps.
+
+    Example:
+        Exercise  coerce cover to jpeg bytes with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param payload: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or updated value described above.
+    """
     if save_cover_data_to is None:
         return payload
     try:
@@ -305,6 +595,19 @@ def _coerce_cover_to_jpeg_bytes(payload: bytes) -> bytes:
 
 
 def _cover_format_from_payload(default_fmt: str, payload: bytes) -> str:
+    """
+    Perform the format-specific cover format from payload operation used by the metadata reader or writer.
+
+    Example:
+        Exercise  cover format from payload with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param default_fmt: Format or encoding hint used for interpretation.
+    :param payload: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or updated value described above.
+    """
     fmt = _normalize_text(default_fmt).lower()
     if fmt == "jpg":
         fmt = "jpeg"
@@ -319,6 +622,19 @@ def _cover_format_from_payload(default_fmt: str, payload: bytes) -> str:
 
 
 def _extract_fb2_payload(raw_container_bytes: bytes, *, source_name: str = "<stream>") -> tuple[bytes, str | None]:
+    """
+    Extract fb2 payload using the format-specific ordering and validation rules.
+
+    Example:
+        Exercise  extract fb2 payload with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param raw_container_bytes: Raw value or payload to normalize, parse or serialize.
+    :param source_name: Source label used for fallback titles and diagnostics.
+    :return: Parsed, normalized or updated value described above.
+    """
     try:
         return extract_fb2_payload_from_bytes(
             raw_container_bytes,
@@ -335,6 +651,18 @@ def _extract_fb2_payload(raw_container_bytes: bytes, *, source_name: str = "<str
 
 
 def _parse_fb2_root(raw_payload: bytes):
+    """
+    Parse fb2 root and apply supported values without inventing absent metadata.
+
+    Example:
+        Exercise  parse fb2 root with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param raw_payload: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or updated value described above.
+    """
     if not raw_payload:
         raise FB2ParseError("Empty FB2 XML payload.")
 
@@ -366,25 +694,78 @@ def _parse_fb2_root(raw_payload: bytes):
 
 
 def _validate_fb2_root(root) -> None:
+    """
+    Perform the format-specific validate fb2 root operation used by the metadata reader or writer.
+
+    Example:
+        Exercise  validate fb2 root with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param root: XML or metadata node used as the operation context.
+    :return: Parsed, normalized or updated value described above.
+    """
     if root is None or _localname(getattr(root, "tag", "")).lower() != "fictionbook":
         raise FB2ParseError("FB2 XML payload does not look like a FictionBook document.")
 
 
 def _serialize_root(root) -> bytes:
+    """
+    Serialize root into the binary or XML representation required by the container.
+
+    Example:
+        Exercise  serialize root with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param root: XML or metadata node used as the operation context.
+    :return: Parsed, normalized or updated value described above.
+    """
     xml_body = etree.tostring(root, method="xml", encoding="utf-8", xml_declaration=False)
     return b'<?xml version="1.0" encoding="UTF-8"?>\n' + _ensure_bytes(xml_body)
 
 
 def XLINK(tag: str) -> str:
+    """
+    Perform the format-specific XLINK operation used by the metadata reader or writer.
+
+    Example:
+        Exercise XLINK with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param tag: Value supplied for tag.
+    :return: Parsed, normalized or updated value described above.
+    """
     return f"{{{NAMESPACES['xlink']}}}{tag}"
 
 
 class Context:
     """
-    Metadata read/write helper bound to a single FB2 root node.
+    Bind namespace-aware FictionBook XML creation and cleanup helpers to one root element.
+
+    Example:
+        Exercise Context with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
     """
 
     def __init__(self, root):
+        """
+        Implement init for the format helper while retaining caller-owned underlying objects.
+
+        Example:
+            Exercise Context.  init   with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+        :param root: XML or metadata node used as the operation context.
+        :return: None.
+        """
         self.fb_ns = _namespace_from_tag(getattr(root, "tag", "")) or NAMESPACES["fb2"]
         self.namespaces = {
             "fb": self.fb_ns,
@@ -393,9 +774,36 @@ class Context:
         }
 
     def tag(self, local_name: str) -> str:
+        """
+        Perform the namespace-aware FictionBook tag operation for the bound XML root.
+
+        Example:
+            Exercise Context.tag with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+        :param local_name: Value supplied for local name.
+        :return: Parsed, normalized or updated value described above.
+        """
         return f"{{{self.fb_ns}}}{local_name}"
 
     def create_tag(self, parent, tag: str, attribs: dict[str, str] | None = None, at_start: bool = True):
+        """
+        Create tag in the container's required binary or XML form.
+
+        Example:
+            Exercise Context.create tag with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+        :param parent: XML or metadata node used as the operation context.
+        :param tag: Value supplied for tag.
+        :param attribs: Value supplied for attribs.
+        :param at_start: Value supplied for at start.
+        :return: Parsed, normalized or updated value described above.
+        """
         elem = etree.Element(self.tag(tag))
         if attribs:
             elem.attrib.update(attribs)
@@ -406,6 +814,21 @@ class Context:
         return elem
 
     def get_or_create(self, parent, tag: str, attribs: dict[str, str] | None = None, at_start: bool = True):
+        """
+        Return or create derived from the current parser or container state.
+
+        Example:
+            Exercise Context.get or create with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+        :param parent: XML or metadata node used as the operation context.
+        :param tag: Value supplied for tag.
+        :param attribs: Value supplied for attribs.
+        :param at_start: Value supplied for at start.
+        :return: Parsed, normalized or updated value described above.
+        """
         attribs = dict(attribs or {})
         for child in _iter_children_local(parent, tag):
             if all(child.attrib.get(k) == v for k, v in attribs.items()):
@@ -413,6 +836,19 @@ class Context:
         return self.create_tag(parent, tag, attribs=attribs, at_start=at_start)
 
     def clear_meta_tags(self, root, tag: str):
+        """
+        Perform the namespace-aware FictionBook clear meta tags operation for the bound XML root.
+
+        Example:
+            Exercise Context.clear meta tags with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+        :param root: XML or metadata node used as the operation context.
+        :param tag: Value supplied for tag.
+        :return: Parsed, normalized or updated value described above.
+        """
         for parent_name in ("title-info", "src-title-info", "publish-info"):
             for parent in _iter_descendants_local(root, parent_name):
                 for child in list(parent):
@@ -420,6 +856,19 @@ class Context:
                         parent.remove(child)
 
     def text2fb2(self, parent, text: str):
+        """
+        Perform the namespace-aware FictionBook text2fb2 operation for the bound XML root.
+
+        Example:
+            Exercise Context.text2fb2 with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+        :param parent: XML or metadata node used as the operation context.
+        :param text: Value supplied for text.
+        :return: Parsed, normalized or updated value described above.
+        """
         for line in clean_xml_chars(str(text or "")).splitlines():
             clean = line.strip()
             if clean:
@@ -430,7 +879,31 @@ class Context:
 
 
 def _parse_author(author_elem) -> str:
+    """
+    Parse author and apply supported values without inventing absent metadata.
+
+    Example:
+        Exercise  parse author with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param author_elem: XML or metadata node used as the operation context.
+    :return: Parsed, normalized or updated value described above.
+    """
     def _child_text(local_name: str) -> str:
+        """
+        Perform the format-specific child text operation used by the metadata reader or writer.
+
+        Example:
+            Exercise  parse author. child text with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+        :param local_name: Value supplied for local name.
+        :return: Parsed, normalized or updated value described above.
+        """
         child = _first_child_local(author_elem, local_name)
         if child is None:
             return ""
@@ -454,6 +927,18 @@ def _parse_author(author_elem) -> str:
 
 
 def _parse_authors(root) -> list[str]:
+    """
+    Parse authors and apply supported values without inventing absent metadata.
+
+    Example:
+        Exercise  parse authors with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param root: XML or metadata node used as the operation context.
+    :return: Parsed, normalized or updated value described above.
+    """
     for section_name in ("title-info", "src-title-info", "document-info"):
         authors: list[str] = []
         for section in _iter_sections(root, section_name):
@@ -467,6 +952,18 @@ def _parse_authors(root) -> list[str]:
 
 
 def _parse_book_title(root) -> str | None:
+    """
+    Parse book title and apply supported values without inventing absent metadata.
+
+    Example:
+        Exercise  parse book title with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param root: XML or metadata node used as the operation context.
+    :return: Parsed, normalized or updated value described above.
+    """
     for section_name in ("title-info", "publish-info", "src-title-info"):
         title = _first_text_from_section(root, section_name, "book-title")
         if title:
@@ -475,6 +972,19 @@ def _parse_book_title(root) -> str | None:
 
 
 def _parse_cover(root, mi) -> None:
+    """
+    Parse cover and apply supported values without inventing absent metadata.
+
+    Example:
+        Exercise  parse cover with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param root: XML or metadata node used as the operation context.
+    :param mi: Metadata object supplying or receiving supported fields.
+    :return: Parsed, normalized or updated value described above.
+    """
     img_id = None
     for cover in _iter_descendants_local(root, "coverpage"):
         image = _first_child_local(cover, "image")
@@ -535,6 +1045,19 @@ def _parse_cover(root, mi) -> None:
 
 
 def _parse_tags(root, mi) -> None:
+    """
+    Parse tags and apply supported values without inventing absent metadata.
+
+    Example:
+        Exercise  parse tags with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param root: XML or metadata node used as the operation context.
+    :param mi: Metadata object supplying or receiving supported fields.
+    :return: Parsed, normalized or updated value described above.
+    """
     for section_name in ("title-info", "src-title-info"):
         tags: list[str] = []
         for section in _iter_sections(root, section_name):
@@ -555,6 +1078,19 @@ def _parse_tags(root, mi) -> None:
 
 
 def _parse_series(root, mi) -> None:
+    """
+    Parse series and apply supported values without inventing absent metadata.
+
+    Example:
+        Exercise  parse series with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param root: XML or metadata node used as the operation context.
+    :param mi: Metadata object supplying or receiving supported fields.
+    :return: Parsed, normalized or updated value described above.
+    """
     for section_name in ("title-info", "publish-info"):
         for section in _iter_sections(root, section_name):
             sequence = _first_child_local(section, "sequence")
@@ -571,6 +1107,19 @@ def _parse_series(root, mi) -> None:
 
 
 def _parse_isbn(root, mi) -> None:
+    """
+    Parse isbn and apply supported values without inventing absent metadata.
+
+    Example:
+        Exercise  parse isbn with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param root: XML or metadata node used as the operation context.
+    :param mi: Metadata object supplying or receiving supported fields.
+    :return: Parsed, normalized or updated value described above.
+    """
     isbn = _first_text_from_section(root, "publish-info", "isbn")
     if not isbn:
         return
@@ -581,6 +1130,19 @@ def _parse_isbn(root, mi) -> None:
 
 
 def _parse_comments(root, mi) -> None:
+    """
+    Parse comments and apply supported values without inventing absent metadata.
+
+    Example:
+        Exercise  parse comments with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param root: XML or metadata node used as the operation context.
+    :param mi: Metadata object supplying or receiving supported fields.
+    :return: Parsed, normalized or updated value described above.
+    """
     for section_name in ("title-info", "src-title-info"):
         for section in _iter_sections(root, section_name):
             annotation = _first_child_local(section, "annotation")
@@ -593,12 +1155,38 @@ def _parse_comments(root, mi) -> None:
 
 
 def _parse_publisher(root, mi) -> None:
+    """
+    Parse publisher and apply supported values without inventing absent metadata.
+
+    Example:
+        Exercise  parse publisher with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param root: XML or metadata node used as the operation context.
+    :param mi: Metadata object supplying or receiving supported fields.
+    :return: Parsed, normalized or updated value described above.
+    """
     publisher = _first_text_from_section(root, "publish-info", "publisher")
     if publisher:
         mi.publisher = publisher
 
 
 def _parse_pubdate(root, mi) -> None:
+    """
+    Parse pubdate and apply supported values without inventing absent metadata.
+
+    Example:
+        Exercise  parse pubdate with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param root: XML or metadata node used as the operation context.
+    :param mi: Metadata object supplying or receiving supported fields.
+    :return: Parsed, normalized or updated value described above.
+    """
     year = _safe_int(_first_text_from_section(root, "publish-info", "year"))
     if year is None:
         return
@@ -610,6 +1198,19 @@ def _parse_pubdate(root, mi) -> None:
 
 
 def _parse_language(root, mi) -> None:
+    """
+    Parse language and apply supported values without inventing absent metadata.
+
+    Example:
+        Exercise  parse language with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param root: XML or metadata node used as the operation context.
+    :param mi: Metadata object supplying or receiving supported fields.
+    :return: Parsed, normalized or updated value described above.
+    """
     language = _first_text_from_section(root, "title-info", "lang")
     if not language:
         return
@@ -618,6 +1219,23 @@ def _parse_language(root, mi) -> None:
 
 
 def _set_title(root, title_info, mi, ctx: Context, apply_null: bool = False) -> None:
+    """
+    Set title under the supplied null and replacement policy.
+
+    Example:
+        Exercise  set title with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param root: XML or metadata node used as the operation context.
+    :param title_info: XML or metadata node used as the operation context.
+    :param mi: Metadata object supplying or receiving supported fields.
+    :param ctx: Value supplied for ctx.
+    :param apply_null: Clear supported destination fields when the source metadata marks
+        them null.
+    :return: None.
+    """
     should_clear = apply_null or not _is_null_field(mi, "title")
     if not should_clear:
         return
@@ -631,6 +1249,23 @@ def _set_title(root, title_info, mi, ctx: Context, apply_null: bool = False) -> 
 
 
 def _set_comments(root, title_info, mi, ctx: Context, apply_null: bool = False) -> None:
+    """
+    Set comments under the supplied null and replacement policy.
+
+    Example:
+        Exercise  set comments with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param root: XML or metadata node used as the operation context.
+    :param title_info: XML or metadata node used as the operation context.
+    :param mi: Metadata object supplying or receiving supported fields.
+    :param ctx: Value supplied for ctx.
+    :param apply_null: Clear supported destination fields when the source metadata marks
+        them null.
+    :return: None.
+    """
     should_clear = apply_null or not _is_null_field(mi, "comments")
     if not should_clear:
         return
@@ -645,6 +1280,23 @@ def _set_comments(root, title_info, mi, ctx: Context, apply_null: bool = False) 
 
 
 def _set_authors(root, title_info, mi, ctx: Context, apply_null: bool = False) -> None:
+    """
+    Set authors under the supplied null and replacement policy.
+
+    Example:
+        Exercise  set authors with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param root: XML or metadata node used as the operation context.
+    :param title_info: XML or metadata node used as the operation context.
+    :param mi: Metadata object supplying or receiving supported fields.
+    :param ctx: Value supplied for ctx.
+    :param apply_null: Clear supported destination fields when the source metadata marks
+        them null.
+    :return: None.
+    """
     should_clear = apply_null or not _is_null_field(mi, "authors")
     if not should_clear:
         return
@@ -677,6 +1329,23 @@ def _set_authors(root, title_info, mi, ctx: Context, apply_null: bool = False) -
 
 
 def _set_publisher(root, publish_info, mi, ctx: Context, apply_null: bool = False) -> None:
+    """
+    Set publisher under the supplied null and replacement policy.
+
+    Example:
+        Exercise  set publisher with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param root: XML or metadata node used as the operation context.
+    :param publish_info: XML or metadata node used as the operation context.
+    :param mi: Metadata object supplying or receiving supported fields.
+    :param ctx: Value supplied for ctx.
+    :param apply_null: Clear supported destination fields when the source metadata marks
+        them null.
+    :return: None.
+    """
     should_clear = apply_null or not _is_null_field(mi, "publisher")
     if not should_clear:
         return
@@ -693,6 +1362,23 @@ def _set_publisher(root, publish_info, mi, ctx: Context, apply_null: bool = Fals
 
 
 def _set_pubdate(root, publish_info, mi, ctx: Context, apply_null: bool = False) -> None:
+    """
+    Set pubdate under the supplied null and replacement policy.
+
+    Example:
+        Exercise  set pubdate with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param root: XML or metadata node used as the operation context.
+    :param publish_info: XML or metadata node used as the operation context.
+    :param mi: Metadata object supplying or receiving supported fields.
+    :param ctx: Value supplied for ctx.
+    :param apply_null: Clear supported destination fields when the source metadata marks
+        them null.
+    :return: None.
+    """
     should_clear = apply_null or not _is_null_field(mi, "pubdate")
     if not should_clear:
         return
@@ -715,6 +1401,23 @@ def _set_pubdate(root, publish_info, mi, ctx: Context, apply_null: bool = False)
 
 
 def _set_tags(root, title_info, mi, ctx: Context, apply_null: bool = False) -> None:
+    """
+    Set tags under the supplied null and replacement policy.
+
+    Example:
+        Exercise  set tags with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param root: XML or metadata node used as the operation context.
+    :param title_info: XML or metadata node used as the operation context.
+    :param mi: Metadata object supplying or receiving supported fields.
+    :param ctx: Value supplied for ctx.
+    :param apply_null: Clear supported destination fields when the source metadata marks
+        them null.
+    :return: None.
+    """
     should_clear = apply_null or not _is_null_field(mi, "tags")
     if not should_clear:
         return
@@ -734,6 +1437,23 @@ def _set_tags(root, title_info, mi, ctx: Context, apply_null: bool = False) -> N
 
 
 def _set_series(root, title_info, mi, ctx: Context, apply_null: bool = False) -> None:
+    """
+    Set series under the supplied null and replacement policy.
+
+    Example:
+        Exercise  set series with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param root: XML or metadata node used as the operation context.
+    :param title_info: XML or metadata node used as the operation context.
+    :param mi: Metadata object supplying or receiving supported fields.
+    :param ctx: Value supplied for ctx.
+    :param apply_null: Clear supported destination fields when the source metadata marks
+        them null.
+    :return: None.
+    """
     should_clear = apply_null or not _is_null_field(mi, "series")
     if not should_clear:
         return
@@ -751,14 +1471,56 @@ def _set_series(root, title_info, mi, ctx: Context, apply_null: bool = False) ->
 
 
 def _rnd_name(size: int = 8, chars: str = ascii_letters + digits) -> str:
+    """
+    Perform the format-specific rnd name operation used by the metadata reader or writer.
+
+    Example:
+        Exercise  rnd name with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param size: Value supplied for size.
+    :param chars: Value supplied for chars.
+    :return: Parsed, normalized or updated value described above.
+    """
     return "".join(random.choice(chars) for _ in range(size))
 
 
 def _rnd_pic_file_name(prefix: str = "calibre_cover_", size: int = 32, ext: str = "jpg") -> str:
+    """
+    Perform the format-specific rnd pic file name operation used by the metadata reader or writer.
+
+    Example:
+        Exercise  rnd pic file name with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param prefix: Value supplied for prefix.
+    :param size: Value supplied for size.
+    :param ext: Value supplied for ext.
+    :return: Parsed, normalized or updated value described above.
+    """
     return prefix + _rnd_name(size=size) + "." + ext
 
 
 def _set_cover(root, title_info, mi, ctx: Context) -> None:
+    """
+    Set cover under the supplied null and replacement policy.
+
+    Example:
+        Exercise  set cover with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param root: XML or metadata node used as the operation context.
+    :param title_info: XML or metadata node used as the operation context.
+    :param mi: Metadata object supplying or receiving supported fields.
+    :param ctx: Value supplied for ctx.
+    :return: None.
+    """
     cover = _extract_cover_payload(mi)
     if cover is None:
         return
@@ -783,16 +1545,37 @@ def _set_cover(root, title_info, mi, ctx: Context) -> None:
 
 
 def _build_metadata_shell(target: Any) -> MetaInformation:
+    """
+    Build a minimally usable metadata object for missing or explicitly tolerated malformed input.
+
+    Example:
+        Exercise  build metadata shell with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param target: Caller-supplied path, path-like object or stream described by this
+        operation.
+    :return: Parsed, normalized or updated value described above.
+    """
     return MetaInformation(_source_title(target), [_("Unknown")])
 
 
 def get_metadata(stream_or_path, *, fallback_on_parse_error: bool = False):
     """
-    Return FB2 metadata from a path or readable binary stream.
+    Read metadata from the supported path or stream input while applying the module's ownership and fallback policy.
 
-    The reader rejects non-credible FB2 payloads by default. Set
-    `fallback_on_parse_error=True` only from a best-effort routing layer that
-    deliberately wants shell metadata for broken inputs.
+    Example:
+        Exercise get metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param stream_or_path: Caller-supplied path, path-like object or stream described by
+        this operation.
+    :param fallback_on_parse_error: Return default metadata after parse errors when
+        true; otherwise raise the format error.
+    :return: Parsed, normalized or updated value described above.
     """
     if _is_path_like(stream_or_path):
         with open(stream_or_path, "rb") as stream:
@@ -871,19 +1654,38 @@ def get_metadata(stream_or_path, *, fallback_on_parse_error: bool = False):
 
 def get_metadata_inplace(target_fb2_path):
     """
-    Extract metadata from a filesystem FB2 path.
+    Read metadata through the path-oriented adapter used by registry plugins that support in-place access.
+
+    Example:
+        Exercise get metadata inplace with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param target_fb2_path: Caller-supplied path, path-like object or stream described
+        by this operation.
+    :return: Parsed, normalized or updated value described above.
     """
     return get_metadata(target_fb2_path)
 
 
 def set_metadata(stream_or_path, mi, apply_null: bool = False, update_timestamp: bool = False):
     """
-    Write metadata into an FB2 stream/path.
+    Write supported metadata fields to a path or mutable binary stream without taking ownership of caller-supplied streams.
 
-    :param stream_or_path: read/write binary stream or filesystem path.
-    :param mi: metadata object (calibre-like or LiuXin metadata container).
-    :param apply_null: if True, clear fields that are null in `mi`.
-    :param update_timestamp: reserved for API compatibility.
+    Example:
+        Exercise set metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param stream_or_path: Caller-supplied path, path-like object or stream described by
+        this operation.
+    :param mi: Metadata object supplying or receiving supported fields.
+    :param apply_null: Clear supported destination fields when the source metadata marks
+        them null.
+    :param update_timestamp: Refresh the package modification timestamp when true.
+    :return: None.
     """
     del update_timestamp
 

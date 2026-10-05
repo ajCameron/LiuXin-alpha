@@ -1,3 +1,14 @@
+"""
+Provide test oeb unicode torture utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test oeb unicode torture through a consuming regression::
+
+        python -m pytest -q tests/file_formats/oeb/test_oeb_unicode_torture.py
+"""
 from __future__ import annotations
 
 import unicodedata
@@ -22,10 +33,36 @@ UNICODE_BODY = (
 
 
 def _nfc(text: str) -> str:
+    """
+    Perform the nfc operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  nfc through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_unicode_torture.py
+
+
+    :param text: Text parsed, normalized or rendered.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return unicodedata.normalize("NFC", text)
 
 
 def _write_unicode_oeb_dir(base: Path) -> tuple[Path, str]:
+    """
+    Write unicode oeb dir under the format's safety and compatibility rules.
+
+    Example:
+        Exercise  write unicode oeb dir through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_unicode_torture.py
+
+
+    :param base: Value supplied for base under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     chapter_name = "章节-über-Δ.xhtml"
     style_name = "样式-ß.css"
     anchor = "sec-main"
@@ -81,6 +118,19 @@ def _write_unicode_oeb_dir(base: Path) -> tuple[Path, str]:
 
 
 def test_oeb_reader_writer_unicode_torture_roundtrip(tmp_path: Path) -> None:
+    """
+    Perform the test oeb reader writer unicode torture roundtrip operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test oeb reader writer unicode torture roundtrip through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_unicode_torture.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     opf_path, chapter_name = _write_unicode_oeb_dir(tmp_path)
 
     oeb = OEBBook(default_log, lambda x: x)
@@ -103,6 +153,18 @@ def test_oeb_reader_writer_unicode_torture_roundtrip(tmp_path: Path) -> None:
 
 
 def test_oeb_parse_utils_unicode_torture_handles_mixed_markup() -> None:
+    """
+    Perform the test oeb parse utils unicode torture handles mixed markup operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test oeb parse utils unicode torture handles mixed markup through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_unicode_torture.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     raw = (
         "<!DOCTYPE html><HTML><HEAD><TITLE></TITLE></HEAD><BODY>"
         "<P>Καλημέρα &hellip; 😀 cafe\u0301 \0 العربية</P>"
@@ -120,6 +182,18 @@ def test_oeb_parse_utils_unicode_torture_handles_mixed_markup() -> None:
 
 
 def test_oeb_polish_parsing_unicode_torture_handles_namespace_and_surrogates() -> None:
+    """
+    Perform the test oeb polish parsing unicode torture handles namespace and surrogates operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test oeb polish parsing unicode torture handles namespace and surrogates through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_unicode_torture.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     namespaced = "<ns.1:html><ns.1:body><p>😀 cafe\u0301 \ud800 العربية 中文</p></ns.1:body></ns.1:html>"
     root = polish_parse_html5(namespaced, discard_namespaces=False)
     assert root.tag == "{http://www.w3.org/1999/xhtml}html"
@@ -135,11 +209,31 @@ def test_oeb_polish_parsing_unicode_torture_handles_namespace_and_surrogates() -
 
 
 def test_oeb_link_checks_handle_unicode_paths_and_anchors() -> None:
+    """
+    Perform the test oeb link checks handle unicode paths and anchors operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test oeb link checks handle unicode paths and anchors through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_unicode_torture.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     chapter = _xhtml_doc(
         '<p id="節-α">مرحبا</p><a href="文本/章.xhtml#節-α">go</a><a href="图像/封面-😀.jpg">img</a>'
     )
 
     class _Container:
+        """
+        Provide the container contract for validated ebook processing.
+
+        Example:
+            Exercise test oeb link checks handle unicode paths and anchors. Container through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_unicode_torture.py
+        """
         mime_map = {
             "文本/章.xhtml": "application/xhtml+xml",
             "图像/封面-😀.jpg": "image/jpeg",
@@ -150,11 +244,37 @@ def test_oeb_link_checks_handle_unicode_paths_and_anchors() -> None:
         book_type = "epub"
 
         def parsed(self, name):
+            """
+            Perform the parsed operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise test oeb link checks handle unicode paths and anchors. Container.parsed through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_unicode_torture.py
+
+
+            :param name: Field, file, function or resource name addressed by the operation.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             if name == "文本/章.xhtml":
                 return chapter
             raise KeyError(name)
 
         def iterlinks(self, name):
+            """
+            Perform the iterlinks operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise test oeb link checks handle unicode paths and anchors. Container.iterlinks through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_unicode_torture.py
+
+
+            :param name: Field, file, function or resource name addressed by the operation.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             if name == "文本/章.xhtml":
                 return iter(
                     [
@@ -165,15 +285,68 @@ def test_oeb_link_checks_handle_unicode_paths_and_anchors() -> None:
             return iter(())
 
         def href_to_name(self, href, base=None):
+            """
+            Perform the href to name operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise test oeb link checks handle unicode paths and anchors. Container.href to name through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_unicode_torture.py
+
+
+            :param href: Value supplied for href under the utility contract.
+            :param base: Value supplied for base under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return href.split("#", 1)[0] if href else None
 
         def exists(self, name):
+            """
+            Perform the exists operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise test oeb link checks handle unicode paths and anchors. Container.exists through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_unicode_torture.py
+
+
+            :param name: Field, file, function or resource name addressed by the operation.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return name in self.mime_map
 
         def opf_xpath(self, expr):
+            """
+            Perform the opf xpath operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise test oeb link checks handle unicode paths and anchors. Container.opf xpath through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_unicode_torture.py
+
+
+            :param expr: Value supplied for expr under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return []
 
         def ok_to_be_unmanifested(self, name):
+            """
+            Perform the ok to be unmanifested operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise test oeb link checks handle unicode paths and anchors. Container.ok to be unmanifested through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_unicode_torture.py
+
+
+            :param name: Field, file, function or resource name addressed by the operation.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return True
 
     assert check_links(_Container()) == []
@@ -183,5 +356,18 @@ def test_oeb_link_checks_handle_unicode_paths_and_anchors() -> None:
 
 
 def _xhtml_doc(body_inner: str):
+    """
+    Perform the xhtml doc operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  xhtml doc through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_unicode_torture.py
+
+
+    :param body_inner: Value supplied for body inner under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     raw = '<html xmlns="http://www.w3.org/1999/xhtml"><body>' + body_inner + "</body></html>"
     return etree.fromstring(raw.encode("utf-8"))

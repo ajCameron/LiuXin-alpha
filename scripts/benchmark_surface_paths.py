@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
-"""Benchmark representative user-surface routing and rendering paths."""
+"""
+Benchmark public surface access paths.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise benchmark surface paths through a consuming regression::
+
+        python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+"""
 
 from __future__ import annotations
 
@@ -39,6 +49,18 @@ from LiuXin_alpha.surfaces.web_readonly.app import ReadOnlyWebApplication  # noq
 
 
 def parse_args() -> argparse.Namespace:
+    """
+    Parse args under the format's safety and compatibility rules.
+
+    Example:
+        Exercise parse args through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     parser = argparse.ArgumentParser(description="Benchmark WSGI surface paths on a LiuXin database.")
     parser.add_argument("--db-name", default="metadata_rich_db_1", help="Named test DB to provision.")
     parser.add_argument("--database", default="", help="Existing database path to benchmark instead of provisioning.")
@@ -59,6 +81,20 @@ def parse_args() -> argparse.Namespace:
 
 
 def _choose_query(web_app: ReadOnlyWebApplication, explicit_query: str) -> str:
+    """
+    Perform the choose query operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  choose query through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param web_app: Value supplied for web app under the utility contract.
+    :param explicit_query: Value supplied for explicit query under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     text = str(explicit_query or "").strip()
     if text:
         return text
@@ -81,6 +117,29 @@ def run_surface_path_benchmarks(
     app_names: list[str],
     progress: Optional[Callable[[str], None]] = None,
 ) -> dict[str, object]:
+    """
+    Perform the run surface path benchmarks operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise run surface path benchmarks through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param db_name: Value supplied for db name under the utility contract.
+    :param database: Value supplied for database under the utility contract.
+    :param cache_dir: Value supplied for cache dir under the utility contract.
+    :param regenerate: Value supplied for regenerate under the utility contract.
+    :param keep_provisioned: Value supplied for keep provisioned under the utility
+        contract.
+    :param iterations: Value supplied for iterations under the utility contract.
+    :param warmups: Value supplied for warmups under the utility contract.
+    :param query: Search expression parsed or evaluated by the utility.
+    :param app_names: Value supplied for app names under the utility contract.
+    :param progress: Value supplied for progress under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if progress is not None:
         progress("preparing surface benchmark target={}".format(db_name or database))
     with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
@@ -198,7 +257,34 @@ def run_surface_path_benchmarks(
 
 
 def _route_scenario(app, path: str) -> Callable[[], dict[str, object]]:
+    """
+    Perform the route scenario operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  route scenario through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param app: Value supplied for app under the utility contract.
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     def _inner() -> dict[str, object]:
+        """
+        Perform the inner operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  route scenario. inner through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         response = consume_wsgi_response(app, path)
         return {
             "path": path,
@@ -210,6 +296,19 @@ def _route_scenario(app, path: str) -> Callable[[], dict[str, object]]:
 
 
 def main(argv: Optional[list[str]] = None) -> int:
+    """
+    Perform the main operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise main through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param argv: Value supplied for argv under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     args = parse_args()
     app_names = [one.strip() for one in str(args.apps).split(",") if one.strip()]
     progress = None if bool(args.quiet) else stderr_progress

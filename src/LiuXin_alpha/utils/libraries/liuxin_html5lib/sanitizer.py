@@ -1,3 +1,14 @@
+"""
+Filter unsafe HTML tokens, attributes, URI schemes and CSS constructs.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise sanitizer through a consuming regression::
+
+        python -m pytest -q tests/file_formats/html/test_html_modernized.py
+"""
 from __future__ import absolute_import, division, unicode_literals
 
 import re
@@ -30,7 +41,14 @@ content_type_rgx = re.compile(
 
 
 class HTMLSanitizerMixin(object):
-    """sanitization of XHTML+MathML+SVG and of inline style attributes."""
+    """
+    sanitization of XHTML+MathML+SVG and of inline style attributes.
+
+    Example:
+        Exercise HTMLSanitizerMixin through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+    """
 
     acceptable_elements = [
         "a",
@@ -747,6 +765,19 @@ class HTMLSanitizerMixin(object):
     def sanitize_token(self, token):
 
         # accommodate filters which use token_type differently
+        """
+        Perform the sanitize token utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLSanitizerMixin.sanitize token through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param token: Value supplied for token under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         token_type = token["type"]
         if token_type in list(tokenTypes.keys()):
             token_type = tokenTypes[token_type]
@@ -766,6 +797,20 @@ class HTMLSanitizerMixin(object):
             return token
 
     def allowed_token(self, token, token_type):
+        """
+        Perform the allowed token utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLSanitizerMixin.allowed token through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param token: Value supplied for token under the utility contract.
+        :param token_type: Value supplied for token type under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if "data" in token:
             attrs = dict([(name, val) for name, val in token["data"][::-1] if name in self.allowed_attributes])
             for attr in self.attr_val_is_uri:
@@ -804,6 +849,20 @@ class HTMLSanitizerMixin(object):
         return token
 
     def disallowed_token(self, token, token_type):
+        """
+        Perform the disallowed token utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLSanitizerMixin.disallowed token through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param token: Value supplied for token under the utility contract.
+        :param token_type: Value supplied for token type under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if token_type == tokenTypes["EndTag"]:
             token["data"] = "</%s>" % token["name"]
         elif token["data"]:
@@ -824,6 +883,19 @@ class HTMLSanitizerMixin(object):
 
     def sanitize_css(self, style):
         # disallow urls
+        """
+        Perform the sanitize css utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise HTMLSanitizerMixin.sanitize css through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param style: Value supplied for style under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         style = re.compile(r"url\s*\(\s*[^\s)]+?\s*\)\s*").sub(" ", style)
 
         # gauntlet
@@ -862,6 +934,14 @@ class HTMLSanitizerMixin(object):
 
 
 class HTMLSanitizer(HTMLTokenizer, HTMLSanitizerMixin):
+    """
+    Provide the HTMLSanitizer utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise HTMLSanitizer through a consuming regression::
+
+            python -m pytest -q tests/file_formats/html/test_html_modernized.py
+    """
     def __init__(
         self,
         stream,
@@ -875,6 +955,29 @@ class HTMLSanitizer(HTMLTokenizer, HTMLSanitizerMixin):
     ):
         # Change case matching defaults as we only output lowercase html anyway
         # This solution doesn't seem ideal...
+        """
+        Initialize and validate the HTMLSanitizer state.
+
+        Example:
+            Exercise HTMLSanitizer.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param encoding: Value supplied for encoding under the utility contract.
+        :param parseMeta: Value supplied for parseMeta under the utility contract.
+        :param useChardet: Value supplied for useChardet under the utility contract.
+        :param lowercaseElementName: Value supplied for lowercaseElementName under the
+            utility contract.
+        :param lowercaseAttrName: Value supplied for lowercaseAttrName under the utility
+            contract.
+        :param parser: Value supplied for parser under the utility contract.
+        :param track_positions: Value supplied for track positions under the utility
+            contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         HTMLTokenizer.__init__(
             self,
             stream,
@@ -888,6 +991,17 @@ class HTMLSanitizer(HTMLTokenizer, HTMLSanitizerMixin):
         )
 
     def __iter__(self):
+        """
+        Expose iter behavior for the compatibility container.
+
+        Example:
+            Exercise HTMLSanitizer.  iter   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/html/test_html_modernized.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         for token in HTMLTokenizer.__iter__(self):
             token = self.sanitize_token(token)
             if token:

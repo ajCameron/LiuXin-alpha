@@ -1,4 +1,11 @@
-"""Helpers for invoking `wget` and extracting crawled URLs."""
+"""
+Invoke wget with optional streamed diagnostics and extract normalized HTTP(S) candidates.
+
+Arguments/environment are trusted caller inputs, not sanitized command policy.
+No shell is used. Streamed output is limited while retained; non-streamed output
+is captured fully before its size check. Diagnostics and failure messages can
+include raw command/output text. URL extraction applies filtering afterward.
+"""
 
 from __future__ import annotations
 
@@ -14,12 +21,36 @@ from LiuXin_alpha.ingest.sources.html_common import normalize_http_url
 
 
 class WgetNotInstalledError(RuntimeError):
-    """Raised when the configured `wget` executable cannot be found."""
+    """
+    Report failure to locate the requested wget executable through shutil.which.
+
+    This exception does not cover every process-launch failure after lookup.
+
+    Example:
+        >>> str(WgetNotInstalledError('wget unavailable'))
+        'wget unavailable'
+    """
 
 
 @dataclass(frozen=True)
 class WgetResult:
-    """Normalized result payload from a `wget` invocation."""
+    """
+    Retain command arguments, exit status, and captured text from a completed invocation.
+
+    Frozen fields do not freeze the args list or validate returncode/output. In
+    callback mode stdout holds merged stdout/stderr and stderr is empty; otherwise
+    streams remain separate. This result is not proof of complete discovery.
+
+    Example:
+        >>> WgetResult(['wget', '--version'], 0, 'version text', '').returncode
+        0
+
+
+    :ivar args: Executable, extra arguments, then invocation arguments in execution order.
+    :ivar returncode: Integer process exit status.
+    :ivar stdout: Captured stdout or merged callback-mode output, retaining line endings.
+    :ivar stderr: Separate stderr in non-streamed mode, otherwise empty text.
+    """
 
     args: list[str]
     returncode: int
@@ -29,11 +60,17 @@ class WgetResult:
 
 def which_wget(exe: str = "wget") -> str:
     """
-    Return the available wget executable path, if any.
+    Resolve the requested executable through shutil.which or raise a focused lookup error.
+
+    This does not run the executable, verify its identity, or reserve its path.
+
+    Example:
+        >>> executable = which_wget()  # doctest: +SKIP
 
 
-    :param exe:
-    :return:
+    :param exe: Executable name or path passed to shutil.which.
+    :return: Located executable path string.
+    :raises WgetNotInstalledError: Lookup returns no usable executable.
     """
     path = shutil.which(exe)
     if not path:
@@ -55,18 +92,42 @@ def run_wget(
     max_output_chars: int | None = 8 * 1024 * 1024,
 ) -> WgetResult:
     """
-    Run wget with bounded output capture and return its completed process.
+    Execute wget, capture decoded output, and enforce the selected reporting policy.
+
+    Prepend extra_args to args and overlay env on a copy of the process environment.
+    Decode text as UTF-8 with surrogateescape. Without a callback, subprocess.run
+    captures both streams fully before checking their combined character length;
+    that branch does not bound peak capture memory. With a callback, merge stderr
+    into stdout, read at most 64 Ki characters per readline where supported, and
+    reject an over-limit chunk before retaining or delivering it.
+
+    Streamed callbacks receive complete lines without CR/LF and any final partial
+    line. Their errors propagate; a timer kills the child on timeout, and finally
+    cancels the timer, closes output, and attempts child kill/wait cleanup. Cleanup
+    errors are ignored; descendant-process cleanup is not promised. Final partial
+    delivery precedes the timeout check, so its exception can mask TimeoutExpired.
+    Earlier callbacks may have caused effects even when execution later fails.
+
+    Nonzero exit status raises only with check=True, including raw command and
+    captured text in the message. No credential scrubbing is performed.
+
+    Example:
+        >>> result = run_wget(['--version'], timeout_s=15)  # doctest: +SKIP
 
 
-    :param args:
-    :param wget_exe:
-    :param extra_args:
-    :param env:
-    :param timeout_s:
-    :param check:
-    :param line_callback:
-    :param max_output_chars:
-    :return:
+    :param args: Invocation tokens appended without shell interpretation.
+    :param wget_exe: Executable selector resolved before process creation.
+    :param extra_args: Optional tokens inserted immediately after the executable.
+    :param env: Optional environment overlay; unspecified inherited entries remain.
+    :param timeout_s: Process timeout in seconds, or None without a deadline.
+    :param check: Raise on nonzero exit instead of returning its result.
+    :param line_callback: Optional synchronous consumer selecting merged streamed capture.
+    :param max_output_chars: Positive captured-character ceiling, or None to disable the check.
+    :return: Completed command/exit/output facts after applicable policy checks.
+    :raises ValueError: A supplied output ceiling is less than one.
+    :raises WgetNotInstalledError: Executable lookup fails.
+    :raises subprocess.TimeoutExpired: The selected subprocess/timer deadline expires.
+    :raises RuntimeError: Output exceeds its ceiling or checked execution exits nonzero.
     """
     if max_output_chars is not None and max_output_chars < 1:
         raise ValueError("max_output_chars must be positive or None.")
@@ -121,6 +182,18 @@ def run_wget(
         timed_out = threading.Event()
 
         def _kill_timed_out_process() -> None:
+            """
+            Mark timeout and kill the child only if its current poll reports running.
+
+            Executed by a daemon timer; poll/kill errors are not caught in this
+            callback. It targets the child, not an entire process group.
+
+            Example:
+                >>> _kill_timed_out_process()  # doctest: +SKIP
+
+
+            :return: None after any timeout marking and child kill attempt.
+            """
             if proc.poll() is None:
                 timed_out.set()
                 proc.kill()
@@ -212,6 +285,17 @@ _URL_TOKEN_PATTERN = re.compile(r"https?://[^\s\"'<>]+", flags=re.IGNORECASE)
 
 
 def _normalize_url(url: str) -> str | None:
+    """
+    Delegate extracted-token normalization to the shared HTTP(S) URL policy.
+
+    Example:
+        >>> _normalize_url('HTTPS://example.test/book.epub#part')
+        'https://example.test/book.epub'
+
+
+    :param url: Raw token extracted from diagnostics, without punctuation trimming.
+    :return: Normalized accepted address or None.
+    """
     return normalize_http_url(url)
 
 
@@ -219,9 +303,18 @@ def extract_http_urls_from_wget_output(output: str) -> list[str]:
     """
     Extract unique HTTP URLs from wget diagnostic output.
 
+    Scan case-insensitively until whitespace, quotes, or angle brackets, then
+    normalize/reject tokens and deduplicate accepted text in first-seen order.
+    Other trailing punctuation may remain part of a token. Output itself is not
+    bounded or scrubbed by this helper, and no candidate is fetched here.
 
-    :param output:
-    :return:
+    Example:
+        >>> extract_http_urls_from_wget_output('URL: https://example.test/book.epub https://example.test/book.epub')
+        ['https://example.test/book.epub']
+
+
+    :param output: Diagnostic text coerced with str, treating falsey input as empty.
+    :return: Ordered distinct normalized HTTP(S) URL candidates.
     """
     urls: list[str] = []
     seen: set[str] = set()

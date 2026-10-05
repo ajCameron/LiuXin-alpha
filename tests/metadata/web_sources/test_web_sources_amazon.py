@@ -1,3 +1,14 @@
+"""
+Verify Amazon identifiers, regional parsing, retries, caches and covers.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test web sources amazon through its owning regression module::
+
+        python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+"""
 from __future__ import annotations
 
 import queue
@@ -10,26 +21,116 @@ from LiuXin_alpha.metadata.utils import calibreMetaInformation
 
 
 class _Log:
+    """
+    Provide the Log test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise Log through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+    """
     def __init__(self) -> None:
+        """
+        Initialize the Log test double.
+
+        Example:
+            Exercise Log.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+        :return: None; the function records state or raises through its assertions.
+        """
         self.events = []
 
     def __call__(self, *parts):
+        """
+        Perform the call test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.call through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("call", parts))
 
     def info(self, *parts):
+        """
+        Perform the info test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.info through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("info", parts))
 
     def warning(self, *parts):
+        """
+        Perform the warning test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.warning through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("warning", parts))
 
     def error(self, *parts):
+        """
+        Perform the error test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.error through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("error", parts))
 
     def exception(self, *parts):
+        """
+        Perform the exception test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Log.exception through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("exception", parts))
 
 
 def _sample_detail_html() -> str:
+    """
+    Perform the sample detail html test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise sample detail html through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return """
     <html>
       <head>
@@ -56,12 +157,34 @@ def _sample_detail_html() -> str:
 
 
 def test_web_sources_amazon_import_smoke() -> None:
+    """
+    Verify web sources amazon import smoke.
+
+    Example:
+        Exercise test web sources amazon import smoke through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.amazon as amazon
 
     assert amazon is not None
 
 
 def test_amazon_get_domain_and_asin_and_urls() -> None:
+    """
+    Verify amazon get domain and asin and urls.
+
+    Example:
+        Exercise test amazon get domain and asin and urls through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.amazon import Amazon
 
     plugin = Amazon()
@@ -76,6 +199,17 @@ def test_amazon_get_domain_and_asin_and_urls() -> None:
 
 
 def test_amazon_create_query_prefers_asin_then_isbn_then_title_author() -> None:
+    """
+    Verify amazon create query prefers asin then isbn then title author.
+
+    Example:
+        Exercise test amazon create query prefers asin then isbn then title author through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.amazon import Amazon
 
     plugin = Amazon()
@@ -98,6 +232,17 @@ def test_amazon_create_query_prefers_asin_then_isbn_then_title_author() -> None:
 
 
 def test_amazon_parse_results_page_deduplicates_and_limits() -> None:
+    """
+    Verify amazon parse results page deduplicates and limits.
+
+    Example:
+        Exercise test amazon parse results page deduplicates and limits through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.amazon import Amazon
 
     plugin = Amazon()
@@ -112,6 +257,17 @@ def test_amazon_parse_results_page_deduplicates_and_limits() -> None:
 
 
 def test_amazon_identify_by_asin_parses_metadata_and_caches() -> None:
+    """
+    Verify amazon identify by asin parses metadata and caches.
+
+    Example:
+        Exercise test amazon identify by asin parses metadata and caches through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.amazon import Amazon
 
     plugin = Amazon()
@@ -139,11 +295,38 @@ def test_amazon_identify_by_asin_parses_metadata_and_caches() -> None:
 
 
 def test_amazon_identify_from_search_then_details() -> None:
+    """
+    Verify amazon identify from search then details.
+
+    Example:
+        Exercise test amazon identify from search then details through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.amazon import Amazon
 
     plugin = Amazon()
 
     def _fake_open_text(log, abort, url, timeout, context):
+        """
+        Perform the fake open text test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test amazon identify from search then details.fake open text through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+        :param log: Value supplied for log in the focused test operation.
+        :param abort: Value supplied for abort in the focused test operation.
+        :param url: Value supplied for url in the focused test operation.
+        :param timeout: Value supplied for timeout in the focused test operation.
+        :param context: Value supplied for context in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         del log, abort, timeout, context
         if "/s/?" in url:
             return '<div data-asin="B000AAAAAA"></div><div data-asin="B000BBBBBB"></div>'
@@ -169,6 +352,17 @@ def test_amazon_identify_from_search_then_details() -> None:
 
 
 def test_amazon_download_cover_uses_cached_url() -> None:
+    """
+    Verify amazon download cover uses cached url.
+
+    Example:
+        Exercise test amazon download cover uses cached url through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.amazon import Amazon
 
     plugin = Amazon()
@@ -187,23 +381,106 @@ def test_amazon_download_cover_uses_cached_url() -> None:
 
 
 def test_amazon_open_bytes_with_backoff_retries_transient(monkeypatch) -> None:
+    """
+    Verify amazon open bytes with backoff retries transient.
+
+    Example:
+        Exercise test amazon open bytes with backoff retries transient through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.amazon import Amazon
 
     class _Transient(Exception):
+        """
+        Provide the Transient test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test amazon open bytes with backoff retries transient.Transient through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+        """
         @staticmethod
         def getcode():
+            """
+            Perform the getcode test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test amazon open bytes with backoff retries transient.Transient.getcode through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+            :return: The deterministic value, row, identity or collection described above.
+            """
             return 503
 
     class _Resp:
+        """
+        Provide the Resp test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test amazon open bytes with backoff retries transient.Resp through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+        """
         @staticmethod
         def read():
+            """
+            Perform the read test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test amazon open bytes with backoff retries transient.Resp.read through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+            :return: The deterministic value, row, identity or collection described above.
+            """
             return b"ok"
 
     class _Browser:
+        """
+        Provide the Browser test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test amazon open bytes with backoff retries transient.Browser through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+        """
         def __init__(self):
+            """
+            Initialize the Browser test double.
+
+            Example:
+                Exercise test amazon open bytes with backoff retries transient.Browser.init through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+            :return: None; the function records state or raises through its assertions.
+            """
             self.calls = 0
 
         def open_novisit(self, url, timeout=30):
+            """
+            Perform the open novisit test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test amazon open bytes with backoff retries transient.Browser.open novisit through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+            :param url: Value supplied for url in the focused test operation.
+            :param timeout: Value supplied for timeout in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             del url, timeout
             self.calls += 1
             if self.calls < 3:
@@ -231,11 +508,45 @@ def test_amazon_open_bytes_with_backoff_retries_transient(monkeypatch) -> None:
 
 
 def test_amazon_open_bytes_with_backoff_non_retryable_raises(monkeypatch) -> None:
+    """
+    Verify amazon open bytes with backoff non retryable raises.
+
+    Example:
+        Exercise test amazon open bytes with backoff non retryable raises through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.amazon import Amazon
 
     class _Browser:
+        """
+        Provide the Browser test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test amazon open bytes with backoff non retryable raises.Browser through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+        """
         @staticmethod
         def open_novisit(url, timeout=30):
+            """
+            Perform the open novisit test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test amazon open bytes with backoff non retryable raises.Browser.open novisit through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+            :param url: Value supplied for url in the focused test operation.
+            :param timeout: Value supplied for timeout in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             del url, timeout
             raise ValueError("bad response")
 
@@ -252,10 +563,40 @@ def test_amazon_open_bytes_with_backoff_non_retryable_raises(monkeypatch) -> Non
 
 
 def test_amazon_low_level_helpers_handle_odd_inputs() -> None:
+    """
+    Verify amazon low level helpers handle odd inputs.
+
+    Example:
+        Exercise test amazon low level helpers handle odd inputs through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.web_sources.amazon as amazon
 
     class BadText:
+        """
+        Provide the BadText test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test amazon low level helpers handle odd inputs.BadText through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+        """
         def __str__(self):
+            """
+            Perform the str test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test amazon low level helpers handle odd inputs.BadText.str through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+            :return: The deterministic value, row, identity or collection described above.
+            """
             raise RuntimeError("cannot stringify")
 
     assert amazon._as_text(b"Caf\xc3\xa9") == "Caf\u00e9"
@@ -274,6 +615,17 @@ def test_amazon_low_level_helpers_handle_odd_inputs() -> None:
 
 
 def test_amazon_domain_settings_url_parsing_and_query_edges() -> None:
+    """
+    Verify amazon domain settings url parsing and query edges.
+
+    Example:
+        Exercise test amazon domain settings url parsing and query edges through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.amazon import Amazon
 
     plugin = Amazon()
@@ -285,8 +637,27 @@ def test_amazon_domain_settings_url_parsing_and_query_edges() -> None:
     committed = []
 
     class Widget:
+        """
+        Provide the Widget test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test amazon domain settings url parsing and query edges.Widget through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+        """
         @staticmethod
         def commit():
+            """
+            Perform the commit test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test amazon domain settings url parsing and query edges.Widget.commit through its owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+            :return: The deterministic value, row, identity or collection described above.
+            """
             committed.append(True)
 
     plugin.save_settings(Widget())
@@ -320,6 +691,17 @@ def test_amazon_domain_settings_url_parsing_and_query_edges() -> None:
 
 
 def test_amazon_clean_downloaded_metadata_and_cover_cache_fallbacks() -> None:
+    """
+    Verify amazon clean downloaded metadata and cover cache fallbacks.
+
+    Example:
+        Exercise test amazon clean downloaded metadata and cover cache fallbacks through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.amazon import Amazon
 
     plugin = Amazon()
@@ -342,6 +724,17 @@ def test_amazon_clean_downloaded_metadata_and_cover_cache_fallbacks() -> None:
 
 
 def test_amazon_detail_parser_uses_json_ld_meta_fallbacks_and_cover_variants() -> None:
+    """
+    Verify amazon detail parser uses json ld meta fallbacks and cover variants.
+
+    Example:
+        Exercise test amazon detail parser uses json ld meta fallbacks and cover variants through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.amazon import Amazon, CaptchaError
 
     plugin = Amazon()
@@ -406,6 +799,17 @@ def test_amazon_detail_parser_uses_json_ld_meta_fallbacks_and_cover_variants() -
 
 
 def test_amazon_search_identify_retry_and_error_paths() -> None:
+    """
+    Verify amazon search identify retry and error paths.
+
+    Example:
+        Exercise test amazon search identify retry and error paths through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.amazon import Amazon
 
     plugin = Amazon()
@@ -413,6 +817,22 @@ def test_amazon_search_identify_retry_and_error_paths() -> None:
     calls = []
 
     def fake_open_text(log, abort, url, timeout, context):
+        """
+        Perform the fake open text test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test amazon search identify retry and error paths.fake open text through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+        :param log: Value supplied for log in the focused test operation.
+        :param abort: Value supplied for abort in the focused test operation.
+        :param url: Value supplied for url in the focused test operation.
+        :param timeout: Value supplied for timeout in the focused test operation.
+        :param context: Value supplied for context in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         del log, abort, timeout
         calls.append((context, url))
         if context == "Amazon search":
@@ -464,6 +884,17 @@ def test_amazon_search_identify_retry_and_error_paths() -> None:
 
 
 def test_amazon_download_cover_discovers_from_identify_and_handles_empty_failures() -> None:
+    """
+    Verify amazon download cover discovers from identify and handles empty failures.
+
+    Example:
+        Exercise test amazon download cover discovers from identify and handles empty failures through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.amazon import Amazon
 
     plugin = Amazon()
@@ -471,6 +902,24 @@ def test_amazon_download_cover_discovers_from_identify_and_handles_empty_failure
     out = queue.Queue()
 
     def fake_identify(log, rq, abort, title=None, authors=None, identifiers=None, timeout=30):
+        """
+        Perform the fake identify test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test amazon download cover discovers from identify and handles empty failures.fake identify through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+        :param log: Value supplied for log in the focused test operation.
+        :param rq: Value supplied for rq in the focused test operation.
+        :param abort: Value supplied for abort in the focused test operation.
+        :param title: Value supplied for title in the focused test operation.
+        :param authors: Value supplied for authors in the focused test operation.
+        :param identifiers: Value supplied for identifiers in the focused test operation.
+        :param timeout: Value supplied for timeout in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         del log, abort, title, authors, identifiers, timeout
         mi = calibreMetaInformation("Cover Book", ["Jane Doe"])
         mi.set_identifier("amazon", "B00COVER1")
@@ -503,6 +952,18 @@ def test_amazon_download_cover_discovers_from_identify_and_handles_empty_failure
     assert out.empty()
 
     def raise_download(**kwargs):
+        """
+        Perform the raise download test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test amazon download cover discovers from identify and handles empty failures.raise download through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+        :param kwargs: Keyword values forwarded by the test double.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         raise OSError("download failed")
 
     plugin._open_bytes_with_backoff = raise_download
@@ -512,6 +973,17 @@ def test_amazon_download_cover_discovers_from_identify_and_handles_empty_failure
 
 
 def test_amazon_open_text_decodes_and_abort_backoff_returns_empty() -> None:
+    """
+    Verify amazon open text decodes and abort backoff returns empty.
+
+    Example:
+        Exercise test amazon open text decodes and abort backoff returns empty through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_amazon.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.web_sources.amazon import Amazon
 
     plugin = Amazon()

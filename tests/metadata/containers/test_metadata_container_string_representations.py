@@ -1,3 +1,14 @@
+"""
+Verify stable human-readable representations for metadata containers.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test metadata container string representations through its owning regression module::
+
+        python -m pytest -q tests/metadata/containers/test_metadata_container_string_representations.py
+"""
 from __future__ import annotations
 
 from LiuXin_alpha.databases.db_types import IdentifierScheme
@@ -63,6 +74,20 @@ from LiuXin_alpha.metadata.metadata_types import WorkAgentRole
 
 
 def _assert_sane_string(value: object, *expected_parts: str) -> None:
+    """
+    Perform the assert sane string test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise assert sane string through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_container_string_representations.py
+
+
+    :param value: Value stored, compared or projected by the operation.
+    :param expected_parts: Value supplied for expected parts in the focused test
+        operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     rendered = str(value)
     assert rendered
     assert " object at " not in rendered
@@ -72,6 +97,17 @@ def _assert_sane_string(value: object, *expected_parts: str) -> None:
 
 
 def test_row_and_relation_containers_have_sane_string_representations() -> None:
+    """
+    Verify row and relation containers have sane string representations.
+
+    Example:
+        Exercise test row and relation containers have sane string representations through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_container_string_representations.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     label = LabelRow(label_id=7, label_text="Space Opera")
     tag = TagRow(tag_id=8, tag="Space Opera")
     parent = GenreRow(genre_id=1, genre="Speculative Fiction")
@@ -87,6 +123,17 @@ def test_row_and_relation_containers_have_sane_string_representations() -> None:
 
 
 def test_wemi_identity_and_bundle_containers_have_sane_string_representations() -> None:
+    """
+    Verify wemi identity and bundle containers have sane string representations.
+
+    Example:
+        Exercise test wemi identity and bundle containers have sane string representations through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_container_string_representations.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     work = WorkTitle(title_kind=TitleKind.MAIN, text="The Book", work_id=1)
     identity = WorkMetadata(
         work=WorkIdentity(work_id=1, work_title="The Book", work_type="novel")
@@ -123,6 +170,17 @@ def test_wemi_identity_and_bundle_containers_have_sane_string_representations() 
 
 
 def test_additional_metadata_value_containers_have_sane_string_representations() -> None:
+    """
+    Verify additional metadata value containers have sane string representations.
+
+    Example:
+        Exercise test additional metadata value containers have sane string representations through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_container_string_representations.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     examples = [
         WorkTitle(title_kind=TitleKind.MAIN, text="The Book", work_id=1),
         WorkLabel(label_kind=LabelKind.TAG, text="favourite", work_id=1),
@@ -143,6 +201,17 @@ def test_additional_metadata_value_containers_have_sane_string_representations()
 
 
 def test_additional_metadata_group_containers_have_sane_string_representations() -> None:
+    """
+    Verify additional metadata group containers have sane string representations.
+
+    Example:
+        Exercise test additional metadata group containers have sane string representations through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_metadata_container_string_representations.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     containers = []
 
     titles = WorkTitlesContainer(work_id=1)

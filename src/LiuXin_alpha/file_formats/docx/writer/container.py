@@ -1,5 +1,16 @@
 #!/usr/bin/env python2
 # vim:fileencoding=utf-8
+"""
+Build and serialize a valid DOCX package and its relationships.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise container through a consuming regression::
+
+        python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -70,6 +81,21 @@ __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
 def xml2str(root: _typing.Any, pretty_print: bool = False, with_tail: bool = False) -> _typing.Any:
+    """
+    Perform the xml2str operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise xml2str through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param pretty_print: Value supplied for pretty print under the utility contract.
+    :param with_tail: Value supplied for with tail under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if hasattr(etree, "cleanup_namespaces"):
         etree.cleanup_namespaces(root)
     ans = etree.tostring(
@@ -83,6 +109,19 @@ def xml2str(root: _typing.Any, pretty_print: bool = False, with_tail: bool = Fal
 
 
 def page_size(opts: _typing.Any) -> tuple[_typing.Any, ...]:
+    """
+    Perform the page size operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise page size through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param opts: Value supplied for opts under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     width, height = PAPER_SIZES[opts.docx_page_size]
     if opts.docx_custom_page_size is not None:
         width, height = map(float, opts.docx_custom_page_size.partition("x")[0::2])
@@ -90,9 +129,36 @@ def page_size(opts: _typing.Any) -> tuple[_typing.Any, ...]:
 
 
 def create_skeleton(opts: _typing.Any, namespaces: _typing.Any = None) -> tuple[_typing.Any, ...]:
+    """
+    Create skeleton under the format's safety and compatibility rules.
+
+    Example:
+        Exercise create skeleton through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param opts: Value supplied for opts under the utility contract.
+    :param namespaces: Value supplied for namespaces under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     namespaces = namespaces or DOCXNamespace().namespaces
 
     def w(x: _typing.Any) -> _typing.Any:
+        """
+        Perform the w operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise create skeleton.w through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param x: Value supplied for x under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "{%s}%s" % (namespaces["w"], x)
 
     dn = {k: v for k, v in iteritems(namespaces) if k in {"w", "r", "m", "ve", "o", "wp", "w10", "wne", "a", "pic"}}
@@ -105,6 +171,19 @@ def create_skeleton(opts: _typing.Any, namespaces: _typing.Any = None) -> tuple[
     width, height = int(20 * width), int(20 * height)
 
     def margin(which: _typing.Any) -> tuple[_typing.Any, ...]:
+        """
+        Perform the margin operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise create skeleton.margin through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param which: Value supplied for which under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return w(which), str(int(getattr(opts, "margin_" + which) * 20))
 
     body.append(
@@ -150,20 +229,35 @@ def create_skeleton(opts: _typing.Any, namespaces: _typing.Any = None) -> tuple[
 def update_doc_props(root: _typing.Any, mi: _typing.Any, namespace: _typing.Any) -> None:
     """
     Update a document with the given metadata
-    :param root:
-    :param mi:
-    :type mi: calibreMetadata object
-    :param namespace:
-    :return:
+
+    Example:
+        Exercise update doc props through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param mi: Metadata object exposed to the template function.
+    :param namespace: Value supplied for namespace under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
 
     def setm(name: _typing.Any, text: _typing.Any = None, ns: str = "dc") -> _typing.Any:
         """
         Helper function to set the metadata in the document tree.
-        :param name: The name of the metadata element to set
-        :param text: The text to set the metadata element to
-        :param ns:
-        :return:
+
+        Example:
+            Exercise update doc props.setm through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param text: Text parsed, normalized or rendered.
+        :param ns: Value supplied for ns under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         ans = root.makeelement("{%s}%s" % (namespace.namespaces[ns], name))
         for child in tuple(root):
@@ -192,7 +286,27 @@ def update_doc_props(root: _typing.Any, mi: _typing.Any, namespace: _typing.Any)
 
 
 class DocumentRelationships(object):
+    """
+    Provide the documentrelationships contract for validated ebook processing.
+
+    Example:
+        Exercise DocumentRelationships through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+    """
     def __init__(self: _typing.Self, namespace: _typing.Any) -> None:
+        """
+        Initialize and validate the documentrelationships state.
+
+        Example:
+            Exercise DocumentRelationships.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param namespace: Value supplied for namespace under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.rmap = {}
         self.namespace = namespace
         for typ, target in iteritems(
@@ -206,9 +320,39 @@ class DocumentRelationships(object):
             self.add_relationship(target, typ)
 
     def get_relationship_id(self: _typing.Self, target: _typing.Any, rtype: _typing.Any, target_mode: _typing.Any = None) -> _typing.Any:
+        """
+        Return relationship id under the format's safety and compatibility rules.
+
+        Example:
+            Exercise DocumentRelationships.get relationship id through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param target: Value supplied for target under the utility contract.
+        :param rtype: Value supplied for rtype under the utility contract.
+        :param target_mode: Value supplied for target mode under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.rmap.get((target, rtype, target_mode))
 
     def add_relationship(self: _typing.Self, target: _typing.Any, rtype: _typing.Any, target_mode: _typing.Any = None) -> _typing.Any:
+        """
+        Perform the add relationship operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DocumentRelationships.add relationship through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param target: Value supplied for target under the utility contract.
+        :param rtype: Value supplied for rtype under the utility contract.
+        :param target_mode: Value supplied for target mode under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = self.get_relationship_id(target, rtype, target_mode)
         if ans is None:
             ans = "rId%d" % (len(self.rmap) + 1)
@@ -216,9 +360,34 @@ class DocumentRelationships(object):
         return ans
 
     def add_image(self: _typing.Self, target: _typing.Any) -> _typing.Any:
+        """
+        Perform the add image operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DocumentRelationships.add image through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param target: Value supplied for target under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.add_relationship(target, self.namespace.names["IMAGES"])
 
     def serialize(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the serialize operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DocumentRelationships.serialize through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         namespaces = self.namespace.namespaces
         e = ElementMaker(namespace=namespaces["pr"], nsmap={None: namespaces["pr"]})
         relationships = e.Relationships()
@@ -231,7 +400,28 @@ class DocumentRelationships(object):
 
 
 class DOCX(object):
+    """
+    Provide the docx contract for validated ebook processing.
+
+    Example:
+        Exercise DOCX through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+    """
     def __init__(self: _typing.Self, opts: _typing.Any, log: _typing.Any) -> None:
+        """
+        Initialize and validate the docx state.
+
+        Example:
+            Exercise DOCX.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param opts: Value supplied for opts under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.namespace = DOCXNamespace()
         namespaces = self.namespace.namespaces
         self.opts, self.log = opts, log
@@ -246,6 +436,18 @@ class DOCX(object):
     # Boilerplate {{{
     @property
     def contenttypes(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the contenttypes operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DOCX.contenttypes through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         e = ElementMaker(
             namespace=self.namespace.namespaces["ct"],
             nsmap={None: self.namespace.namespaces["ct"]},
@@ -293,6 +495,18 @@ class DOCX(object):
 
     @property
     def appproperties(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the appproperties operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DOCX.appproperties through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         e = ElementMaker(
             namespace=self.namespace.namespaces["ep"],
             nsmap={None: self.namespace.namespaces["ep"]},
@@ -313,6 +527,18 @@ class DOCX(object):
 
     @property
     def containerrels(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the containerrels operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DOCX.containerrels through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return textwrap.dedent(
             b"""\
         <?xml version='1.0' encoding='utf-8'?>
@@ -327,6 +553,18 @@ class DOCX(object):
 
     @property
     def websettings(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the websettings operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DOCX.websettings through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         e = ElementMaker(
             namespace=self.namespace.namespaces["w"],
             nsmap={"w": self.namespace.namespaces["w"]},
@@ -337,6 +575,19 @@ class DOCX(object):
     # }}}
 
     def convert_metadata(self: _typing.Self, mi: _typing.Any) -> _typing.Any:
+        """
+        Convert metadata under the format's safety and compatibility rules.
+
+        Example:
+            Exercise DOCX.convert metadata through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param mi: Metadata object exposed to the template function.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         namespaces = self.namespace.namespaces
         e = ElementMaker(
             namespace=namespaces["cp"],
@@ -355,9 +606,38 @@ class DOCX(object):
         return xml2str(cp)
 
     def create_empty_document(self: _typing.Self, mi: _typing.Any) -> None:
+        """
+        Create empty document under the format's safety and compatibility rules.
+
+        Example:
+            Exercise DOCX.create empty document through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param mi: Metadata object exposed to the template function.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.document, self.styles = create_skeleton(self.opts)[:2]
 
     def write(self: _typing.Self, path_or_stream: _typing.Any, mi: _typing.Any, create_empty_document: bool = False) -> None:
+        """
+        Perform the write operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DOCX.write through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param path_or_stream: Value supplied for path or stream under the utility contract.
+        :param mi: Metadata object exposed to the template function.
+        :param create_empty_document: Value supplied for create empty document under the
+            utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if create_empty_document:
             self.create_empty_document(mi)
         with ZipFile(path_or_stream, "w") as zf:

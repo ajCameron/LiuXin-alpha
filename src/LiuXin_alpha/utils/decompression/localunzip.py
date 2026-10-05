@@ -1,7 +1,18 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:fdm=marker:ai
 
-from __future__ import unicode_literals, division, absolute_import, print_function
+"""
+Expose seekable local ZIP access with explicit member and stream ownership.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise localunzip through a consuming regression::
+
+        python -m pytest -q tests/utils/decompression/test_archives.py
+"""
+from __future__ import absolute_import, division, print_function, unicode_literals
 
 """
 Try to read invalid zip files with missing or damaged central directories.
@@ -11,11 +22,11 @@ Tries to only use the local headers to extract data from the damaged zip file.
 """
 
 import os
+import shutil
 import sys
 import zlib
-import shutil
-from struct import calcsize, unpack, pack
-from collections import namedtuple, OrderedDict
+from collections import OrderedDict, namedtuple
+from struct import calcsize, pack, unpack
 from tempfile import SpooledTemporaryFile
 
 __license__ = "GPL v3"
@@ -39,8 +50,21 @@ LocalHeader = namedtuple(
 
 
 def decode_arcname(name):
+    """
+    Perform the decode arcname utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise decode arcname through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if isinstance(name, bytes):
-        from LiuXin_alpha.file_formats.chardet import detect
+        from LiuXin_alpha.utils.libraries.calibre_chardet import detect
 
         try:
             name = name.decode("utf-8")
@@ -55,6 +79,19 @@ def decode_arcname(name):
 
 
 def find_local_header(f):
+    """
+    Find local header under the documented compatibility and safety rules.
+
+    Example:
+        Exercise find local header through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+    :param f: Value supplied for f under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     pos = f.tell()
     raw = f.read(50 * 1024)
     try:
@@ -73,6 +110,19 @@ def find_local_header(f):
 
 
 def find_data_descriptor(f):
+    """
+    Find data descriptor under the documented compatibility and safety rules.
+
+    Example:
+        Exercise find data descriptor through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+    :param f: Value supplied for f under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     pos = f.tell()
     DD = namedtuple("DataDescriptor", "crc32 compressed_size uncompressed_size")
     raw = b"a" * 16
@@ -95,6 +145,19 @@ def find_data_descriptor(f):
 
 
 def read_local_file_header(f):
+    """
+    Read local file header under the documented compatibility and safety rules.
+
+    Example:
+        Exercise read local file header through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+    :param f: Value supplied for f under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     pos = f.tell()
     raw = f.read(local_header_sz)
     if len(raw) != local_header_sz:
@@ -145,11 +208,40 @@ def read_local_file_header(f):
 
 
 def read_compressed_data(f, header):
+    """
+    Read compressed data under the documented compatibility and safety rules.
+
+    Example:
+        Exercise read compressed data through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+    :param f: Value supplied for f under the utility contract.
+    :param header: Value supplied for header under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     cdata = f.read(header.compressed_size)
     return cdata
 
 
 def copy_stored_file(src, size, dest):
+    """
+    Perform the copy stored file utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise copy stored file through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+    :param src: Value supplied for src under the utility contract.
+    :param size: Value supplied for size under the utility contract.
+    :param dest: Value supplied for dest under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     read = 0
     amt = min(size, 20 * 1024)
     while read < size:
@@ -161,6 +253,21 @@ def copy_stored_file(src, size, dest):
 
 
 def copy_compressed_file(src, size, dest):
+    """
+    Perform the copy compressed file utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise copy compressed file through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+    :param src: Value supplied for src under the utility contract.
+    :param size: Value supplied for size under the utility contract.
+    :param dest: Value supplied for dest under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     d = zlib.decompressobj(-15)
     read = 0
     amt = min(size, 20 * 1024)
@@ -180,6 +287,22 @@ def copy_compressed_file(src, size, dest):
 
 
 def _extractall(f, path=None, file_info=None):
+    """
+    Perform the extractall utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  extractall through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+    :param f: Value supplied for f under the utility contract.
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :param file_info: Value supplied for file info under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     found = False
     while True:
         header = read_local_file_header(f)
@@ -225,6 +348,21 @@ def _extractall(f, path=None, file_info=None):
 
 
 def extractall(path_or_stream, path=None):
+    """
+    Perform the extractall utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise extractall through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+    :param path_or_stream: Value supplied for path or stream under the utility contract.
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     f = path_or_stream
     close_at_end = False
     if not hasattr(f, "read"):
@@ -242,12 +380,47 @@ def extractall(path_or_stream, path=None):
 
 
 class LocalZipFile(object):
+    """
+    Provide the LocalZipFile utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise LocalZipFile through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+    """
     def __init__(self, stream):
+        """
+        Initialize and validate the LocalZipFile state.
+
+        Example:
+            Exercise LocalZipFile.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.file_info = OrderedDict()
         _extractall(stream, file_info=self.file_info)
         self.stream = stream
 
     def open(self, name, spool_size=5 * 1024 * 1024):
+        """
+        Perform the open utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise LocalZipFile.open through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param spool_size: Value supplied for spool size under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if isinstance(name, LocalHeader):
             name = name.filename
         try:
@@ -266,6 +439,19 @@ class LocalZipFile(object):
         return dest
 
     def getinfo(self, name):
+        """
+        Perform the getinfo utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise LocalZipFile.getinfo through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             offset, header = self.file_info.get(name)
         except KeyError:
@@ -273,24 +459,73 @@ class LocalZipFile(object):
         return header
 
     def read(self, name, spool_size=5 * 1024 * 1024):
+        """
+        Forward the read operation while preserving adapter ownership rules.
+
+        Example:
+            Exercise LocalZipFile.read through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param spool_size: Value supplied for spool size under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         with self.open(name, spool_size=spool_size) as f:
             return f.read()
 
     def extractall(self, path=None):
+        """
+        Perform the extractall utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise LocalZipFile.extractall through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.stream.seek(0)
         _extractall(self.stream, path=(path or os.getcwdu()))
 
     def close(self):
+        """
+        Forward the close operation while preserving adapter ownership rules.
+
+        Example:
+            Exercise LocalZipFile.close through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pass
 
     def safe_replace(self, name, datastream, extra_replacements=None, add_missing=False):
         """
         Preform a safe replace in a damaged file.
-        :param name:
-        :param datastream:
-        :param extra_replacements:
-        :param add_missing:
-        :return:
+
+        Example:
+            Exercise LocalZipFile.safe replace through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param datastream: Value supplied for datastream under the utility contract.
+        :param extra_replacements: Value supplied for extra replacements under the utility
+            contract.
+        :param add_missing: Value supplied for add missing under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if extra_replacements is None:
             extra_replacements = {}

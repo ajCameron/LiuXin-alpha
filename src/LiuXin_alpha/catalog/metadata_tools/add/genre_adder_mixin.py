@@ -1,4 +1,6 @@
-"""Genre creation and linking workflows for metadata tools."""
+"""
+Insert legacy Genre columns, including an optional parent ID.
+"""
 
 from __future__ import unicode_literals
 
@@ -9,7 +11,13 @@ from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 class GenreAdderMixin:
     """
-    Add methods for rows in the ``genres`` table.
+    Supply genre creation to a legacy Add host.
+
+    The host provides the database and any peers required by the method.
+    Validation and synchronization failures propagate to the caller.
+
+    Example:
+        A supplied parent is stored as a textual ID; this method does not create an intralink.
     """
 
     def genre(
@@ -23,7 +31,20 @@ class GenreAdderMixin:
         genre_datestamp=None,
     ):
         """
-        Create a genre row.
+        Insert legacy Genre columns, including an optional parent ID.
+
+        Example:
+            A supplied parent is stored as a textual ID; this method does not create an intralink.
+
+
+        :param genre: Genre text stored unchanged.
+        :param genre_sort: Sort value; None is retained.
+        :param genre_phash: Phonetic value; None is retained.
+        :param genre_parent: Parent object exposing row_id, converted to text; None clears it.
+        :param genre_position: Parent position stored unchanged.
+        :param genre_full: Full hierarchical name stored unchanged.
+        :param genre_datestamp: Timestamp; None uses utcnow().
+        :return: Created database Row; synchronization and schema errors propagate.
         """
         genre_row = Row(database=self.db)
 

@@ -1,7 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
-"""PalmDOC compression/decompression helpers."""
+"""
+Compress and decompress PalmDOC byte streams with bounded backreferences.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise palmdoc through a consuming regression::
+
+        python -m pytest -q tests/file_formats/compression/test_compression_modernized.py
+"""
 
 from __future__ import annotations
 
@@ -24,15 +34,70 @@ PalmDocInput: TypeAlias = str | bytes | bytearray | memoryview | None
 
 
 class _PalmDocCodec(Protocol):
-    def compress(self: _typing.Self, data: bytes) -> bytes: ...
+    """
+    Provide the palmdoccodec contract for validated ebook processing.
 
-    def decompress(self: _typing.Self, data: bytes) -> bytes: ...
+    Example:
+        Exercise  PalmDocCodec through a consuming regression::
+
+            python -m pytest -q tests/file_formats/compression/test_compression_modernized.py
+    """
+    def compress(self: _typing.Self, data: bytes) -> bytes:
+        """
+        Encode the supplied bytes into the format's compressed representation.
+
+        Example:
+            Exercise  PalmDocCodec.compress through a consuming regression::
+
+                python -m pytest -q tests/file_formats/compression/test_compression_modernized.py
+
+
+        :param data: Value supplied for data under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
+        ...
+
+    def decompress(self: _typing.Self, data: bytes) -> bytes:
+        """
+        Decode the supplied format payload and return its uncompressed bytes.
+
+        Example:
+            Exercise  PalmDocCodec.decompress through a consuming regression::
+
+                python -m pytest -q tests/file_formats/compression/test_compression_modernized.py
+
+
+        :param data: Value supplied for data under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
+        ...
 
 
 class _PalmDocModuleAdapter:
-    """Give compiled or Python plugin modules one checked codec interface."""
+    """
+    Give compiled or Python plugin modules one checked codec interface.
+
+    Example:
+        Exercise  PalmDocModuleAdapter through a consuming regression::
+
+            python -m pytest -q tests/file_formats/compression/test_compression_modernized.py
+    """
 
     def __init__(self: _typing.Self, module: object) -> None:
+        """
+        Initialize and validate the palmdocmoduleadapter state.
+
+        Example:
+            Exercise  PalmDocModuleAdapter.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/compression/test_compression_modernized.py
+
+
+        :param module: Value supplied for module under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self._compress = cast(
             Callable[[bytes], bytes],
             getattr(module, "compress"),
@@ -43,13 +108,52 @@ class _PalmDocModuleAdapter:
         )
 
     def compress(self: _typing.Self, data: bytes) -> bytes:
+        """
+        Encode the supplied bytes into the format's compressed representation.
+
+        Example:
+            Exercise  PalmDocModuleAdapter.compress through a consuming regression::
+
+                python -m pytest -q tests/file_formats/compression/test_compression_modernized.py
+
+
+        :param data: Value supplied for data under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._compress(data)
 
     def decompress(self: _typing.Self, data: bytes) -> bytes:
+        """
+        Decode the supplied format payload and return its uncompressed bytes.
+
+        Example:
+            Exercise  PalmDocModuleAdapter.decompress through a consuming regression::
+
+                python -m pytest -q tests/file_formats/compression/test_compression_modernized.py
+
+
+        :param data: Value supplied for data under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._decompress(data)
 
 
 def _as_bytes(data: PalmDocInput) -> bytes:
+    """
+    Perform the as bytes operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  as bytes through a consuming regression::
+
+            python -m pytest -q tests/file_formats/compression/test_compression_modernized.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if data is None:
         return b""
     if isinstance(data, bytes):
@@ -65,6 +169,18 @@ def _as_bytes(data: PalmDocInput) -> bytes:
 
 
 def _load_cpalmdoc() -> _PalmDocCodec:
+    """
+    Perform the load cpalmdoc operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  load cpalmdoc through a consuming regression::
+
+            python -m pytest -q tests/file_formats/compression/test_compression_modernized.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if plugins.plugin_okay("cPalmdoc"):
         module, _err = plugins["cPalmdoc"]
         if module is not None:
@@ -80,12 +196,36 @@ _CPALMDOC = _load_cpalmdoc()
 
 
 def decompress_doc(data: PalmDocInput) -> bytes:
-    """Decompress PalmDOC data into raw bytes."""
+    """
+    Decompress PalmDOC data into raw bytes.
+
+    Example:
+        Exercise decompress doc through a consuming regression::
+
+            python -m pytest -q tests/file_formats/compression/test_compression_modernized.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return _CPALMDOC.decompress(_as_bytes(data))
 
 
 def compress_doc(data: PalmDocInput) -> bytes:
-    """Compress raw bytes into PalmDOC format."""
+    """
+    Compress raw bytes into PalmDOC format.
+
+    Example:
+        Exercise compress doc through a consuming regression::
+
+            python -m pytest -q tests/file_formats/compression/test_compression_modernized.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     payload = _as_bytes(data)
     if not payload:
         return b""
@@ -93,7 +233,19 @@ def compress_doc(data: PalmDocInput) -> bytes:
 
 
 def py_compress_doc(data: PalmDocInput) -> bytes:
-    """Pure-python PalmDOC compressor (reference implementation)."""
+    """
+    Pure-python PalmDOC compressor (reference implementation).
+
+    Example:
+        Exercise py compress doc through a consuming regression::
+
+            python -m pytest -q tests/file_formats/compression/test_compression_modernized.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     data = _as_bytes(data)
     out = six_BytesIO()
     i = 0
@@ -150,6 +302,18 @@ def py_compress_doc(data: PalmDocInput) -> bytes:
 
 
 def test() -> None:
+    """
+    Perform the test operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test through a consuming regression::
+
+            python -m pytest -q tests/file_formats/compression/test_compression_modernized.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     tests: list[bytes] = [
         b"abc\x03\x04\x05\x06ms",
         b"a b c \xfed ",

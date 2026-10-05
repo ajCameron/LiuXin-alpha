@@ -1,6 +1,14 @@
 
 """
-Methods to produce and produce from calibre metadata objects.
+Convert between legacy multi-value LiuXin metadata and the Calibre book container.
+
+Conversion is selective and can lose extra values or relation ids. Import and export
+do not promise a lossless round trip.
+
+Example:
+    Exercise the owning behavior with pytest::
+
+        python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_to_from_calibre.py
 """
 
 
@@ -59,17 +67,33 @@ from LiuXin_alpha.metadata.containers.calibre_like_book_metadata.calibre_ratings
 
 class ToAndFromCalibreMetadataMixin:
     """
-    Methods to make metadata from calibre objects and visa versa.
+    Supply constructors and projections for the Calibre metadata compatibility boundary.
+
+    Example:
+        Exercise the owning behavior with pytest::
+
+            python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_to_from_calibre.py
     """
 
     @classmethod
     def from_calibre(cls, calibre_md) -> "CalibreLikeLiuXinBookMetaData":
         """
-        Returns a MetaData class object from a calibre metadata object.
+        Construct this metadata class from supported attributes of a Calibre-like source.
 
-        (or something with the same API).
-        :param calibre_md: A calibre metadata object to initialize from
-        :return:
+        Read title/authors, sort and publication-date aliases, known external/internal
+        identifiers, application-id aliases, languages, producer, and cover path. A supplied
+        get_identifiers method is also read. Fields not enumerated here are not imported; no
+        finalize call is made.
+
+        Example:
+            Exercise the owning behavior with pytest::
+
+                python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_to_from_calibre.py
+
+
+        :param calibre_md: Metadata-like input with optional Calibre attributes and
+            identifier accessor.
+        :return: New instance of the class populated through its normal setters.
         """
         title = None if not hasattr(calibre_md, "title") else calibre_md.title
         authors = None if not hasattr(calibre_md, "authors") else calibre_md.authors
@@ -136,8 +160,25 @@ class ToAndFromCalibreMetadataMixin:
     # Todo: Replace all with the is_null meth
     def to_calibre(self):
         """
-        Returns a calibreMetaData version of this metadata object.
-        :return:
+        Project stored values into a new Calibre book metadata object.
+
+        Prepend editors to authors, join comments and synopses, and choose the first cover,
+        publisher, series, and identifier value per scheme. Combine tags with subjects and
+        use the calibre rating only. An available get_database_id(item_id) result becomes
+        db_id/application_id. Field setters on the Calibre object determine identifier
+        exposure.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import CalibreLikeLiuXinBookMetaData
+            >>> book = CalibreLikeLiuXinBookMetaData()
+            >>> book.title = 'Example'
+            >>> book.authors = ['Writer']
+            >>> projected = book.to_calibre()
+            >>> projected.title, projected.authors
+            ('Example', ['Writer'])
+
+
+        :return: New calibreMetadata with a selective, potentially lossy view.
         """
         _data = object.__getattribute__(self, "_data")
 

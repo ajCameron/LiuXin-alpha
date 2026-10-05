@@ -1,5 +1,16 @@
 # Make a test data set with additional files test data
 
+"""
+Expose the supported test db 5 compatibility surface.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+"""
 import os
 import shutil
 import sys
@@ -24,12 +35,22 @@ def build_test_db(
     test_asset_version=None,
 ):
     """
-    Construct the test database specified by this module.
-    In this case a blank database is constructed and filled with data - before being copied into the test_databases
-    folder.
-    :param dst_file_path: The file to write the database to after it's been built.
-    :param dump: HERE IGNORED
-    :return:
+    Construct the test database specified by this module. In this case a blank database is constructed and filled with data - before being copied into the test_databases folder.
+
+    Example:
+        Exercise build test db through a consuming regression::
+
+            python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+    :param dst_file_path: Value supplied for dst file path under the utility contract.
+    :param dump: Value supplied for dump under the utility contract.
+    :param plugin_name: Value supplied for plugin name under the utility contract.
+    :param new_db_uuid: Value supplied for new db uuid under the utility contract.
+    :param test_asset_version: Value supplied for test asset version under the utility
+        contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     test_db_builder = TestDBFileAndFolderBuilder(
         dst_file_path=dst_file_path,
@@ -45,10 +66,27 @@ def build_test_db(
 class TestDBFileAndFolderBuilder(TestDatabaseBuilder):
     """
     Builds a test database with file and folder data baked in.
+
+    Example:
+        Exercise TestDBFileAndFolderBuilder through a consuming regression::
+
+            python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
     """
 
     def load_base_database(self):
         # Load a full copy of the database with all the current test data into a scratch folder for additional work
+        """
+        Perform the load base database operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TestDBFileAndFolderBuilder.load base database through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         full_data_backup_path = file_load_test_database_backup(base=False, scratch=True)
 
         # Open the test database - write some test data
@@ -63,6 +101,19 @@ class TestDBFileAndFolderBuilder(TestDatabaseBuilder):
         ################################################################################################################
 
         # Clear the tables that will have test data inserted into them
+        """
+        Perform the detail databases operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TestDBFileAndFolderBuilder.detail databases through a consuming regression::
+
+                python -m pytest -q tests/support/test_databases/test_legacy_objects_smoke.py
+
+
+        :param scratch_db: Value supplied for scratch db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         scratch_db.driver_wrapper.clear("files")
         scratch_db.driver_wrapper.clear("folders")
         scratch_db.driver_wrapper.clear("file_folder_links")

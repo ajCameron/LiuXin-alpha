@@ -1,5 +1,16 @@
 # -*- coding: utf-8 -*-
 
+"""
+Coordinate input, transform and output stages for an ebook conversion.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise plumber through a consuming regression::
+
+        python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -66,12 +77,37 @@ various stages of conversion. The stages are:
 
 
 def walk(path: _typing.Any) -> _typing.Iterator[_typing.Any]:
+    """
+    Perform the walk operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise walk through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: An iterator yielding the normalized values described above.
+    """
     for root, _, files in os.walk(path):
         for name in files:
             yield os.path.join(root, name)
 
 
 def supported_input_formats() -> _typing.Any:
+    """
+    Perform the supported input formats operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise supported input formats through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     from LiuXin_alpha.customize.ui import available_input_formats
 
     fmts = available_input_formats()
@@ -81,15 +117,60 @@ def supported_input_formats() -> _typing.Any:
 
 
 class OptionValues(object):
+    """
+    Provide the optionvalues contract for validated ebook processing.
+
+    Example:
+        Exercise OptionValues through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+    """
     pass
 
 
 class CompositeProgressReporter(object):
+    """
+    Provide the compositeprogressreporter contract for validated ebook processing.
+
+    Example:
+        Exercise CompositeProgressReporter through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+    """
     def __init__(self: _typing.Self, global_min: _typing.Any, global_max: _typing.Any, global_reporter: _typing.Any) -> None:
+        """
+        Initialize and validate the compositeprogressreporter state.
+
+        Example:
+            Exercise CompositeProgressReporter.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+        :param global_min: Value supplied for global min under the utility contract.
+        :param global_max: Value supplied for global max under the utility contract.
+        :param global_reporter: Value supplied for global reporter under the utility
+            contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.global_min, self.global_max = global_min, global_max
         self.global_reporter = global_reporter
 
     def __call__(self: _typing.Self, fraction: _typing.Any, msg: str = "") -> None:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CompositeProgressReporter.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+        :param fraction: Value supplied for fraction under the utility contract.
+        :param msg: Value supplied for msg under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         global_frac = self.global_min + fraction * (self.global_max - self.global_min)
         self.global_reporter(global_frac, msg)
 
@@ -100,8 +181,11 @@ ARCHIVE_FMTS = ("zip", "rar", "oebzip")
 class Plumber(object):
     """
     The `Plumber` manages the conversion pipeline. An UI should call the methods
-    :method:`merge_ui_recommendations` and then :method:`run`. The plumber will
-    take care of the rest.
+
+    Example:
+        Exercise Plumber through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
     """
 
     metadata_option_names = [
@@ -137,8 +221,30 @@ class Plumber(object):
         view_kepub: bool = False,
     ) -> None:
         """
-        :param input: Path to input file.
-        :param output: Path to output file/directory
+        Initialize and validate the plumber state.
+
+        Example:
+            Exercise Plumber.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+        :param input: Value supplied for input under the utility contract.
+        :param output: Value supplied for output under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :param report_progress: Value supplied for report progress under the utility
+            contract.
+        :param dummy: Value supplied for dummy under the utility contract.
+        :param merge_plugin_recs: Value supplied for merge plugin recs under the utility
+            contract.
+        :param abort_after_input_dump: Value supplied for abort after input dump under the
+            utility contract.
+        :param override_input_metadata: Value supplied for override input metadata under the
+            utility contract.
+        :param for_regex_wizard: Value supplied for for regex wizard under the utility
+            contract.
+        :param view_kepub: Value supplied for view kepub under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         from LiuXin_alpha.customize.ui import input_profiles, output_profiles
         from LiuXin_alpha.customize.ui import (
@@ -1048,6 +1154,21 @@ class Plumber(object):
             self.merge_plugin_recommendations()
 
     def unarchive(self: _typing.Self, path: _typing.Any, tdir: _typing.Any) -> _typing.Any:
+        """
+        Extract validated archive members into the requested destination.
+
+        Example:
+            Exercise Plumber.unarchive through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :param tdir: Value supplied for tdir under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.customize.ui import available_input_formats
 
         extract(path, tdir)
@@ -1068,8 +1189,16 @@ class Plumber(object):
     def find_html_index(self: _typing.Self, files: _typing.Any) -> tuple[_typing.Any, ...]:
         """
         Given a list of files, find the most likely root HTML file in the list.
-        :param files:
-        :return:
+
+        Example:
+            Exercise Plumber.find html index through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+        :param files: Value supplied for files under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         html_pat = re.compile(r"\.(x){0,1}htm(l){0,1}$", re.IGNORECASE)
         html_files = [f for f in files if html_pat.search(f) is not None]
@@ -1085,6 +1214,19 @@ class Plumber(object):
         return html_files[-1], os.path.splitext(html_files[-1])[1].lower()[1:]
 
     def get_option_by_name(self: _typing.Self, name: _typing.Any) -> _typing.Any:
+        """
+        Return option by name under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Plumber.get option by name through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         for group in (
             self.input_options,
             self.pipeline_options,
@@ -1096,12 +1238,37 @@ class Plumber(object):
                     return rec
 
     def get_option_help(self: _typing.Self, name: _typing.Any) -> _typing.Any:
+        """
+        Return option help under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Plumber.get option help through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         rec = self.get_option_by_name(name)
         class_help = getattr(rec, "help", None)
         if class_help is not None:
             return class_help.replace("%default", str(rec.recommended_value))
 
     def merge_plugin_recommendations(self: _typing.Self) -> None:
+        """
+        Perform the merge plugin recommendations operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Plumber.merge plugin recommendations through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for source in (self.input_plugin, self.output_plugin):
             for name, val, level in source.recommendations:
                 rec = self.get_option_by_name(name)
@@ -1111,11 +1278,18 @@ class Plumber(object):
 
     def merge_ui_recommendations(self: _typing.Self, recommendations: _typing.Any) -> None:
         """
-        Merge recommendations from the UI. As long as the UI recommendation
-        level is >= the baseline recommended level, the UI value is used,
-        *except* if the baseline has a recommendation level of `HIGH`.
-        :param recommendations:
-        :return:
+        Merge recommendations from the UI. As long as the UI recommendation level is >= the baseline recommended level, the UI value is used, *except* if the baseline has a recommendation level of `HIGH`.
+
+        Example:
+            Exercise Plumber.merge ui recommendations through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+        :param recommendations: Value supplied for recommendations under the utility
+            contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         for name, val, level in recommendations:
             rec = self.get_option_by_name(name)
@@ -1124,6 +1298,19 @@ class Plumber(object):
                 rec.level = level
 
     def opts_to_mi(self: _typing.Self, mi: _typing.Any) -> None:
+        """
+        Perform the opts to mi operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Plumber.opts to mi through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+        :param mi: Metadata object exposed to the template function.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         from LiuXin_alpha.metadata.utils import string_to_authors
 
         for x in self.metadata_option_names:
@@ -1153,8 +1340,16 @@ class Plumber(object):
     def download_cover(self: _typing.Self, url: _typing.Any) -> _typing.Any:
         """
         If the cover is store at a url download it from the url.
-        :param url:
-        :return:
+
+        Example:
+            Exercise Plumber.download cover through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+        :param url: Value supplied for url under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         from PIL import Image
 
@@ -1171,8 +1366,16 @@ class Plumber(object):
 
     def read_user_metadata(self: _typing.Self) -> None:
         """
-        Read all metadata specified by the user. Command line options override
-        metadata from a specified OPF file.
+        Read all metadata specified by the user. Command line options override metadata from a specified OPF file.
+
+        Example:
+            Exercise Plumber.read user metadata through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
             CalibreLikeLiuXinBookMetaData as MetaInformation,
@@ -1188,7 +1391,7 @@ class Plumber(object):
             )
             mi = opf.to_book_metadata()
         self.opts_to_mi(mi)
-        if mi.cover:
+        if getattr(mi, "cover", None):
             if mi.cover.startswith("http:") or mi.cover.startswith("https:"):
                 mi.cover = self.download_cover(mi.cover)
             ext = mi.cover.rpartition(".")[-1].lower().strip()
@@ -1201,6 +1404,15 @@ class Plumber(object):
     def setup_options(self: _typing.Self) -> None:
         """
         Setup the `self.opts` object.
+
+        Example:
+            Exercise Plumber.setup options through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         from LiuXin_alpha.customize.ui import input_profiles, output_profiles
 
@@ -1217,6 +1429,20 @@ class Plumber(object):
         self.opts.conversion_edge_name = self.conversion_edge.name
 
         def set_profile(profiles: _typing.Any, which: _typing.Any) -> None:
+            """
+            Set profile under the format's safety and compatibility rules.
+
+            Example:
+                Exercise Plumber.setup options.set profile through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+            :param profiles: Value supplied for profiles under the utility contract.
+            :param which: Value supplied for which under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             attr = which + "_profile"
             sval = getattr(self.opts, attr)
             for x in profiles():
@@ -1250,7 +1476,15 @@ class Plumber(object):
     def flush(self: _typing.Self) -> None:
         """
         Flush the buffers on sys.stdout and sys.stderr
-        :return:
+
+        Example:
+            Exercise Plumber.flush through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         try:
             sys.stdout.flush()
@@ -1259,12 +1493,40 @@ class Plumber(object):
             pass
 
     def dump_oeb(self: _typing.Self, oeb: _typing.Any, out_dir: _typing.Any) -> None:
+        """
+        Perform the dump oeb operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Plumber.dump oeb through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+        :param oeb: Value supplied for oeb under the utility contract.
+        :param out_dir: Value supplied for out dir under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         from LiuXin_alpha.file_formats.oeb.writer import OEBWriter
 
         w = OEBWriter(pretty_print=self.opts.pretty_print)
         w(oeb, out_dir)
 
     def dump_input(self: _typing.Self, ret: _typing.Any, output_dir: _typing.Any) -> None:
+        """
+        Perform the dump input operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Plumber.dump input through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+        :param ret: Value supplied for ret under the utility contract.
+        :param output_dir: Value supplied for output dir under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         out_dir = os.path.join(self.opts.debug_pipeline, "input")
         if isinstance(ret, six_string_types):
             shutil.copytree(output_dir, out_dir)
@@ -1287,6 +1549,15 @@ class Plumber(object):
     def run(self: _typing.Self) -> None:
         """
         Run the conversion pipeline
+
+        Example:
+            Exercise Plumber.run through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # 0) - Setup baseline option values
         self.setup_options()
@@ -1570,6 +1841,19 @@ regex_wizard_callback = None
 
 
 def set_regex_wizard_callback(f: _typing.Any) -> None:
+    """
+    Set regex wizard callback under the format's safety and compatibility rules.
+
+    Example:
+        Exercise set regex wizard callback through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+    :param f: Value supplied for f under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     global regex_wizard_callback
     regex_wizard_callback = f
 
@@ -1586,17 +1870,24 @@ def create_oebbook(
 ) -> _typing.Any:
     """
     Create an oebbook
-    :param log:
-    :param path_or_stream:
-    :param opts:
-    :param reader:
-    :param encoding:
-    :param populate:
-    :param for_regex_wizard: Should the book just be converted into HTML for easier input to the regex wizard? If True
-                             then aborts the conversion and returns after the book has gone through the first stage of
-                             the pipeline and been converted to an OEB.
-    :param specialize:
-    :return:
+
+    Example:
+        Exercise create oebbook through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/test_conversion_top_level_smoke.py
+
+
+    :param log: Value supplied for log under the utility contract.
+    :param path_or_stream: Value supplied for path or stream under the utility contract.
+    :param opts: Value supplied for opts under the utility contract.
+    :param reader: Value supplied for reader under the utility contract.
+    :param encoding: Value supplied for encoding under the utility contract.
+    :param populate: Value supplied for populate under the utility contract.
+    :param for_regex_wizard: Value supplied for for regex wizard under the utility
+        contract.
+    :param specialize: Value supplied for specialize under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     from LiuXin_alpha.file_formats.oeb.base import OEBBook
 

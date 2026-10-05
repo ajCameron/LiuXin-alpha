@@ -1,10 +1,13 @@
 """
-Composed repository-neutral storage-manager implementation.
+Compose the repository-neutral storage manager and expose its transient variant.
 
-Each implementation mixin mirrors one component of ``StorageManagerAPI``.
-Shared state and cross-cutting mechanics remain private implementation details;
-the composed class is the stable integration seam used by transient and
-database-backed managers.
+The orchestrator combines responsibility-specific implementations over shared
+state and support hooks. Its public transient class keeps manager metadata in
+memory while attached Stores still perform real byte operations. Durable
+application managers reuse the composition with persistence-specific hooks.
+
+Private request/result values live in mixins._types. The database repository
+owns their stable journal identifiers independently of Python import paths.
 """
 
 from __future__ import annotations
@@ -23,21 +26,12 @@ from LiuXin_alpha.storage.storage_manager.mixins import (
     StorageRouterMixin,
     StoreAdministrationMixin,
 )
-from LiuXin_alpha.storage.storage_manager.mixins import _types as _manager_types
 from LiuXin_alpha.storage.storage_manager.mixins._policy_support import (
     _StorageManagerPolicySupportMixin,
 )
 from LiuXin_alpha.storage.storage_manager.mixins._support import (
     _StorageManagerSupportMixin,
 )
-
-# Private compatibility exports consumed by the database-backed manager and by
-# durable journal envelopes written before the implementation was decomposed.
-_AdoptIngestRequest = _manager_types._AdoptIngestRequest
-_IdentifiedStreamIngestRequest = _manager_types._IdentifiedStreamIngestRequest
-_IngestOperation = _manager_types._IngestOperation
-_StoreObjectIngestRequest = _manager_types._StoreObjectIngestRequest
-_StreamIngestRequest = _manager_types._StreamIngestRequest
 
 
 class _StorageManagerOrchestrator(
@@ -57,32 +51,39 @@ class _StorageManagerOrchestrator(
     _StorageManagerPolicySupportMixin,
 ):
     """
-    Compose the repository-neutral storage workflow implementation.
+    Assemble Store, Asset, Replica, policy, and operational implementations.
 
-    Mixin order mirrors the public ``StorageManagerAPI`` component order so
-    readers can move between contract and implementation predictably.  The
-    class adds no behaviour of its own: transient and database-backed managers
-    supply state and persistence boundaries through the shared support hooks.
+    This class adds no methods of its own. Its base order determines Python dispatch and follows the
+    manager API's responsibility order; shared support and policy helpers supply the remaining
+    mechanics. State creation and Store attachment come from the shared initializer. Durable
+    subclasses can replace persistence hooks without changing these public workflows.
+
+    Example:
+        >>> issubclass(TransientStorageManager, _StorageManagerOrchestrator)
+        True
     """
 
 
 class TransientStorageManager(_StorageManagerOrchestrator):
     """
-    Disposable manager state for focused tests and one-shot work.
+    Manage disposable catalogue state while performing real Store operations.
 
-    Store publication is real, but manager-owned records disappear with the
-    process. Applications should use the database-backed ``StorageManager``;
-    this implementation is not a cache and does not participate in LiuXin's
-    cache lifecycle.
+    Each instance owns fresh in-memory records, revisions, and ingest retry state. None is durable
+    across a new manager or process, and the transient metadata transaction and journal hooks
+    provide no rollback or recovery. Attached Stores can still publish or delete persistent bytes.
+    Initialization can start Stores, and leaving the manager context closes attached facades;
+    closing does not erase the retained in-memory registries.
+
+    Use the application database-backed StorageManager for durable catalogue ownership. This class
+    is not a storage cache and does not join the cache lifecycle.
+
+    Example:
+        >>> with TransientStorageManager() as manager:
+        ...     tuple(manager.iter_stores())
+        ()
     """
 
 
-# Compatibility for callers written before the persistence boundary was made
-# explicit. New code should prefer the honest ``TransientStorageManager`` name.
-InMemoryStorageManager = TransientStorageManager
-
-
 __all__ = [
-    "InMemoryStorageManager",
     "TransientStorageManager",
 ]

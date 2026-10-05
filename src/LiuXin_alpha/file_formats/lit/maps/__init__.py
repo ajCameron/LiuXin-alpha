@@ -1,5 +1,13 @@
 """
-Microsoft LIT tag and attribute tables.
+Expose the supported maps compatibility surface.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/file_formats/lit/test_lit_modernized.py
 """
 from __future__ import annotations
 

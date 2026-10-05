@@ -1,31 +1,35 @@
 """
-Unified high-level library facade.
+Expose the unified high-level library facade.
 
-This class is an intentionally small first-pass wrapper around:
-- `Database` (schema + rows + metadata APIs)
-- `StorageManager` (store orchestration + file retrieval)
-- storage reconcile helpers (disk->DB registration)
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise library through a consuming regression::
+
+        python -m pytest -q tests/library/test_unified_library.py
 """
 
 from __future__ import annotations
 
 import pathlib
-
 from collections.abc import Iterable, Iterator
 from typing import Any, BinaryIO, Mapping, Optional
 from uuid import UUID
 
 from LiuXin_alpha.databases.database import Database
 from LiuXin_alpha.databases.row import Row
-from LiuXin_alpha.ingest import (
+from LiuXin_alpha.ingest.models import (
     RemoteHtmlRegistrationReport,
     StoreIngestObjectCheckpoint,
     StoreIngestReport,
-    adopt_store as adopt_configured_store,
-    ingest_store as ingest_configured_store,
+)
+from LiuXin_alpha.ingest.remote_html import (
     register_native_html_readonly_store_files,
     register_wget_html_readonly_store_files,
 )
+from LiuXin_alpha.ingest.stores import adopt_store as adopt_configured_store
+from LiuXin_alpha.ingest.stores import ingest_store as ingest_configured_store
 from LiuXin_alpha.metadata.containers import ItemMetadata, ItemMetadataHydrator
 from LiuXin_alpha.storage.api import (
     Digest,
@@ -58,8 +62,10 @@ class Library:
     """
     Unified access point for database + storage flows.
 
-    This is a compatibility-friendly facade, not a replacement for lower-level
-    APIs. Advanced callers can still access `library.database` directly.
+    Example:
+        Exercise Library through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
 
     def __init__(
@@ -78,6 +84,36 @@ class Library:
         repair_bootstrap_rows: bool = True,
         close_database_on_close: Optional[bool] = None,
     ) -> None:
+        """
+        Initialize and validate the library state.
+
+        Example:
+            Exercise Library.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param database: Value supplied for database under the utility contract.
+        :param database_path: Value supplied for database path under the utility contract.
+        :param db_type: Value supplied for db type under the utility contract.
+        :param database_metadata: Value supplied for database metadata under the utility
+            contract.
+        :param create: Value supplied for create under the utility contract.
+        :param backup: Value supplied for backup under the utility contract.
+        :param enable_storage_manager: Value supplied for enable storage manager under the
+            utility contract.
+        :param strict_storage_manager_bootstrap: Value supplied for strict storage manager
+            bootstrap under the utility contract.
+        :param storage_startup_on_add: Value supplied for storage startup on add under the
+            utility contract.
+        :param enable_maintenance: Value supplied for enable maintenance under the utility
+            contract.
+        :param repair_bootstrap_rows: Value supplied for repair bootstrap rows under the
+            utility contract.
+        :param close_database_on_close: Value supplied for close database on close under the
+            utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         if database is None and database_path is None:
             raise ValueError("Provide either `database` or `database_path`.")
         if database is not None and database_path is not None:
@@ -129,14 +165,50 @@ class Library:
 
     @property
     def database(self) -> Database:
+        """
+        Perform the database operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Library.database through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._database
 
     @property
     def db(self) -> Database:
+        """
+        Perform the db operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Library.db through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._database
 
     @property
     def storage(self) -> StorageManager:
+        """
+        Perform the storage operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Library.storage through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         storage = getattr(self._database, "storage", None)
         if storage is None:
             raise RuntimeError("Storage manager is not enabled for this library instance.")
@@ -144,10 +216,35 @@ class Library:
 
     @property
     def storage_bootstrap_report(self) -> Optional[StorageBootstrapReport]:
+        """
+        Perform the storage bootstrap report operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Library.storage bootstrap report through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return getattr(self._database, "storage_bootstrap_report", None)
 
     @staticmethod
     def _row_to_plain_dict(row: Row | Mapping[str, Any]) -> dict[str, Any]:
+        """
+        Perform the row to plain dict operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Library. row to plain dict through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param row: Value supplied for row under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if isinstance(row, Mapping):
             return dict(row)
         return dict(getattr(row, "row_dict", {}) or {})
@@ -158,6 +255,20 @@ class Library:
         *,
         limit: int,
     ) -> list[dict[str, Any]]:
+        """
+        Perform the sample plain rows operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Library. sample plain rows through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param rows: Value supplied for rows under the utility contract.
+        :param limit: Value supplied for limit under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         capped = max(0, int(limit))
         if capped <= 0:
             return []
@@ -167,6 +278,20 @@ class Library:
         return samples
 
     def _find_existing_store_row(self, *, root_uri: str, store_name: str) -> Row | None:
+        """
+        Find existing store row under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Library. find existing store row through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param root_uri: Value supplied for root uri under the utility contract.
+        :param store_name: Value supplied for store name under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         root_token = str(root_uri).strip()
         name_token = str(store_name).strip()
 
@@ -181,12 +306,40 @@ class Library:
         return None
 
     def find_existing_store(self, *, root_uri: str, store_name: str) -> dict[str, Any] | None:
+        """
+        Find existing store under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Library.find existing store through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param root_uri: Value supplied for root uri under the utility contract.
+        :param store_name: Value supplied for store name under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         row = self._find_existing_store_row(root_uri=root_uri, store_name=store_name)
         if row is None:
             return None
         return self._row_to_plain_dict(row)
 
     def get_row(self, *, table: str, row_id: int) -> dict[str, Any] | None:
+        """
+        Return row under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Library.get row through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param table: Value supplied for table under the utility contract.
+        :param row_id: Value supplied for row id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         target_table = str(table).strip()
         if not target_table:
             raise ValueError("`table` is required.")
@@ -202,10 +355,19 @@ class Library:
         item_id: int | None = None,
         source_row: Mapping[str, Any] | Row | None = None,
     ) -> ItemMetadata:
-        """Return one concrete item metadata bundle.
+        """
+        Return one concrete item metadata bundle.
 
-        Callers may provide either an ``item_id`` or an already-fetched row/view
-        that carries ``item_id`` plus optional WEMI ids.
+        Example:
+            Exercise Library.get item metadata through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param item_id: Value supplied for item id under the utility contract.
+        :param source_row: Value supplied for source row under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         hydrator = ItemMetadataHydrator(self._database)
         if item_id is not None:
@@ -221,6 +383,21 @@ class Library:
         row_id: int,
         updates: Mapping[str, Any],
     ) -> dict[str, Any]:
+        """
+        Perform the update row fields operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Library.update row fields through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param table: Value supplied for table under the utility contract.
+        :param row_id: Value supplied for row id under the utility contract.
+        :param updates: Value supplied for updates under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         target_table = str(table).strip()
         if not target_table:
             raise ValueError("`table` is required.")
@@ -260,6 +437,21 @@ class Library:
         return self._row_to_plain_dict(row)
 
     def describe_row_delete_impact(self, *, table: str, row_id: int, sample_limit: int = 3) -> dict[str, Any]:
+        """
+        Perform the describe row delete impact operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Library.describe row delete impact through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param table: Value supplied for table under the utility contract.
+        :param row_id: Value supplied for row id under the utility contract.
+        :param sample_limit: Value supplied for sample limit under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         target_table = str(table).strip()
         if not target_table:
             raise ValueError("`table` is required.")
@@ -364,6 +556,20 @@ class Library:
         }
 
     def delete_row(self, *, table: str, row_id: int) -> dict[str, Any]:
+        """
+        Perform the delete row operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Library.delete row through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param table: Value supplied for table under the utility contract.
+        :param row_id: Value supplied for row id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         target_table = str(table).strip()
         if not target_table:
             raise ValueError("`table` is required.")
@@ -377,6 +583,19 @@ class Library:
         return deleted
 
     def save_store_row(self, *, store_payload: Mapping[str, Any]) -> dict[str, Any]:
+        """
+        Perform the save store row operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Library.save store row through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param store_payload: Value supplied for store payload under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         payload = dict(store_payload or {})
         table_columns = set(self._database.get_column_headings("stores"))
         row_dict = {key: value for key, value in payload.items() if key in table_columns and value is not None}
@@ -410,6 +629,23 @@ class Library:
         clear_existing: bool = True,
         strict: bool = False,
     ) -> StorageBootstrapReport:
+        """
+        Perform the refresh storage operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Library.refresh storage through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param startup_on_add: Value supplied for startup on add under the utility contract.
+        :param include_offline: Value supplied for include offline under the utility
+            contract.
+        :param clear_existing: Value supplied for clear existing under the utility contract.
+        :param strict: Value supplied for strict under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._database.bootstrap_storage_manager(
             startup_on_add=startup_on_add,
             include_offline=include_offline,
@@ -421,12 +657,35 @@ class Library:
         self,
         store: StoreUUID | StoreConfiguration | StoreAPI,
     ) -> StoreAPI:
-        """Return one configured Store by stable UUID or Store value."""
+        """
+        Return one configured Store by stable UUID or Store value.
+
+        Example:
+            Exercise Library.get store through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param store: Value supplied for store under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
 
         return self.storage.get_store(self._store_ref(store))
 
     def iter_stores(self) -> Iterator[StoreAPI]:
-        """Iterate live Store facades, not persistence containers."""
+        """
+        Iterate live Store facades, not persistence containers.
+
+        Example:
+            Exercise Library.iter stores through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
 
         return self.storage.iter_stores()
 
@@ -441,7 +700,25 @@ class Library:
         original_name: str | None = None,
         verify: bool = True,
     ) -> DigitalAssetRecord:
-        """Store bytes transactionally and return their logical Asset record."""
+        """
+        Store bytes transactionally and return their logical Asset record.
+
+        Example:
+            Exercise Library.add file through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param file_bytes: Value supplied for file bytes under the utility contract.
+        :param metadata: Value supplied for metadata under the utility contract.
+        :param store: Value supplied for store under the utility contract.
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param media_type: Value supplied for media type under the utility contract.
+        :param original_name: Value supplied for original name under the utility contract.
+        :param verify: Value supplied for verify under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
 
         return self.storage.store_bytes(
             file_bytes,
@@ -474,7 +751,39 @@ class Library:
         object_staging_directory: str | pathlib.Path | None = None,
         resume_checkpoints: Iterable[StoreIngestObjectCheckpoint] = (),
     ) -> StoreIngestReport:
-        """Copy files from any enumerable Store into managed storage."""
+        """
+        Copy files from any enumerable Store into managed storage.
+
+        Example:
+            Exercise Library.ingest store through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param source: Value supplied for source under the utility contract.
+        :param destination: Value supplied for destination under the utility contract.
+        :param prefix: Text prepended to the formatted or selected result.
+        :param extensions: Value supplied for extensions under the utility contract.
+        :param metadata: Value supplied for metadata under the utility contract.
+        :param placement_hints: Value supplied for placement hints under the utility
+            contract.
+        :param inspect: Value supplied for inspect under the utility contract.
+        :param replica_mode: Value supplied for replica mode under the utility contract.
+        :param verify: Value supplied for verify under the utility contract.
+        :param continue_on_error: Value supplied for continue on error under the utility
+            contract.
+        :param cursor: Value supplied for cursor under the utility contract.
+        :param snapshot_token: Value supplied for snapshot token under the utility contract.
+        :param page_size: Value supplied for page size under the utility contract.
+        :param max_files: Value supplied for max files under the utility contract.
+        :param workers: Value supplied for workers under the utility contract.
+        :param object_staging_directory: Value supplied for object staging directory under
+            the utility contract.
+        :param resume_checkpoints: Value supplied for resume checkpoints under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
 
         return ingest_configured_store(
             self.storage,
@@ -514,7 +823,32 @@ class Library:
         max_files: int | None = None,
         workers: int | None = 1,
     ) -> StoreIngestReport:
-        """Register files already present in an attached managed Store."""
+        """
+        Register files already present in an attached managed Store.
+
+        Example:
+            Exercise Library.adopt store through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param source: Value supplied for source under the utility contract.
+        :param prefix: Text prepended to the formatted or selected result.
+        :param extensions: Value supplied for extensions under the utility contract.
+        :param metadata: Value supplied for metadata under the utility contract.
+        :param inspect: Value supplied for inspect under the utility contract.
+        :param replica_mode: Value supplied for replica mode under the utility contract.
+        :param verify: Value supplied for verify under the utility contract.
+        :param continue_on_error: Value supplied for continue on error under the utility
+            contract.
+        :param cursor: Value supplied for cursor under the utility contract.
+        :param snapshot_token: Value supplied for snapshot token under the utility contract.
+        :param page_size: Value supplied for page size under the utility contract.
+        :param max_files: Value supplied for max files under the utility contract.
+        :param workers: Value supplied for workers under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
 
         return adopt_configured_store(
             self.storage,
@@ -542,7 +876,23 @@ class Library:
         offset: int = 0,
         length: int | None = None,
     ) -> BinaryIO:
-        """Open an Asset by ID or digest as a read-only binary stream."""
+        """
+        Open an Asset by ID or digest as a read-only binary stream.
+
+        Example:
+            Exercise Library.open file through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param identifier: Value supplied for identifier under the utility contract.
+        :param store: Value supplied for store under the utility contract.
+        :param verified: Value supplied for verified under the utility contract.
+        :param offset: Value supplied for offset under the utility contract.
+        :param length: Value supplied for length under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
 
         return self.storage.open_file(
             identifier,
@@ -561,7 +911,23 @@ class Library:
         offset: int = 0,
         length: int | None = None,
     ) -> bytes:
-        """Read an Asset by ID or digest fully into memory."""
+        """
+        Read an Asset by ID or digest fully into memory.
+
+        Example:
+            Exercise Library.read file through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param identifier: Value supplied for identifier under the utility contract.
+        :param store: Value supplied for store under the utility contract.
+        :param verified: Value supplied for verified under the utility contract.
+        :param offset: Value supplied for offset under the utility contract.
+        :param length: Value supplied for length under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
 
         return self.storage.read_file(
             identifier,
@@ -580,7 +946,23 @@ class Library:
         offset: int = 0,
         length: int | None = None,
     ) -> BinaryIO:
-        """Return the same read-only stream as :meth:`open_file`."""
+        """
+        Return the same read-only stream as :meth:`open_file`.
+
+        Example:
+            Exercise Library.retrieve file through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param identifier: Value supplied for identifier under the utility contract.
+        :param store: Value supplied for store under the utility contract.
+        :param verified: Value supplied for verified under the utility contract.
+        :param offset: Value supplied for offset under the utility contract.
+        :param length: Value supplied for length under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
 
         return self.open_file(
             identifier,
@@ -598,7 +980,22 @@ class Library:
         mode: ReplicaMode = ReplicaMode.ACTIVE,
         verified: bool = False,
     ) -> Location:
-        """Resolve a logical Asset to its selected concrete Location."""
+        """
+        Resolve a logical Asset to its selected concrete Location.
+
+        Example:
+            Exercise Library.locate file through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param asset: Value supplied for asset under the utility contract.
+        :param store: Value supplied for store under the utility contract.
+        :param mode: Open or adapter mode controlling read/write behavior.
+        :param verified: Value supplied for verified under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
 
         asset_id = (
             asset.digital_asset_id
@@ -619,7 +1016,21 @@ class Library:
         offset: int = 0,
         length: int | None = None,
     ) -> BinaryIO:
-        """Open one exact routed Location without catalogue selection."""
+        """
+        Open one exact routed Location without catalogue selection.
+
+        Example:
+            Exercise Library.open location through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param location: Value supplied for location under the utility contract.
+        :param offset: Value supplied for offset under the utility contract.
+        :param length: Value supplied for length under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
 
         return self.storage.get(location, offset=offset, length=length)
 
@@ -630,7 +1041,21 @@ class Library:
         offset: int = 0,
         length: int | None = None,
     ) -> bytes:
-        """Read one exact routed Location fully into memory."""
+        """
+        Read one exact routed Location fully into memory.
+
+        Example:
+            Exercise Library.read location through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param location: Value supplied for location under the utility contract.
+        :param offset: Value supplied for offset under the utility contract.
+        :param length: Value supplied for length under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
 
         return self.storage.read_bytes(location, offset=offset, length=length)
 
@@ -641,7 +1066,22 @@ class Library:
         delete_bytes: bool = True,
         retain_tombstone: bool = True,
     ) -> ReplicaRemovalReport:
-        """Remove one exact Replica; never guess which copies an Asset means."""
+        """
+        Remove one exact Replica; never guess which copies an Asset means.
+
+        Example:
+            Exercise Library.delete file through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param replica: Value supplied for replica under the utility contract.
+        :param delete_bytes: Value supplied for delete bytes under the utility contract.
+        :param retain_tombstone: Value supplied for retain tombstone under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
 
         replica_id = (
             replica.replica_id
@@ -655,7 +1095,18 @@ class Library:
         )
 
     def iter_files(self) -> Iterator[DigitalAssetRecord]:
-        """Iterate logical Asset records rather than path-like locations."""
+        """
+        Iterate logical Asset records rather than path-like locations.
+
+        Example:
+            Exercise Library.iter files through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
 
         return self.storage.iter_digital_asset_records()
 
@@ -663,6 +1114,19 @@ class Library:
     def _store_ref(
         store: StoreUUID | StoreConfiguration | StoreAPI,
     ) -> StoreUUID:
+        """
+        Perform the store ref operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Library. store ref through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param store: Value supplied for store under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if isinstance(store, UUID):
             return store
         if isinstance(store, StoreConfiguration):
@@ -684,6 +1148,30 @@ class Library:
         attach_store_links: bool = True,
         refresh_storage_manager: bool = True,
     ) -> UnmanagedDiskRegistrationReport:
+        """
+        Perform the register unmanaged disk operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Library.register unmanaged disk through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param disk_path: Value supplied for disk path under the utility contract.
+        :param store_name: Value supplied for store name under the utility contract.
+        :param ebook_extensions: Value supplied for ebook extensions under the utility
+            contract.
+        :param source_label: Value supplied for source label under the utility contract.
+        :param compute_hash: Value supplied for compute hash under the utility contract.
+        :param follow_symlinks: Value supplied for follow symlinks under the utility
+            contract.
+        :param attach_store_links: Value supplied for attach store links under the utility
+            contract.
+        :param refresh_storage_manager: Value supplied for refresh storage manager under the
+            utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return register_existing_disk_as_unmanaged_store(
             self._database,
             disk_path=disk_path,
@@ -714,6 +1202,39 @@ class Library:
         attach_store_links: bool = True,
         refresh_storage_manager: bool = True,
     ) -> UnmanagedDiskRegistrationReport:
+        """
+        Perform the register rclone http store operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Library.register rclone http store through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param remote_url: Value supplied for remote url under the utility contract.
+        :param store_name: Value supplied for store name under the utility contract.
+        :param max_http_requests_per_hour: Value supplied for max http requests per hour
+            under the utility contract.
+        :param apply_rclone_tpslimit: Value supplied for apply rclone tpslimit under the
+            utility contract.
+        :param rclone_tpslimit_burst: Value supplied for rclone tpslimit burst under the
+            utility contract.
+        :param enforce_global_rate_limit: Value supplied for enforce global rate limit under
+            the utility contract.
+        :param rclone_exe: Value supplied for rclone exe under the utility contract.
+        :param rclone_args: Value supplied for rclone args under the utility contract.
+        :param timeout_s: Value supplied for timeout s under the utility contract.
+        :param ebook_extensions: Value supplied for ebook extensions under the utility
+            contract.
+        :param source_label: Value supplied for source label under the utility contract.
+        :param capture_hashes: Value supplied for capture hashes under the utility contract.
+        :param attach_store_links: Value supplied for attach store links under the utility
+            contract.
+        :param refresh_storage_manager: Value supplied for refresh storage manager under the
+            utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return register_rclone_http_readonly_store_files(
             self._database,
             remote_url=remote_url,
@@ -753,6 +1274,39 @@ class Library:
         attach_store_links: bool = True,
         refresh_storage_manager: bool = True,
     ) -> RemoteHtmlRegistrationReport:
+        """
+        Perform the register wget html store operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Library.register wget html store through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param remote_url: Value supplied for remote url under the utility contract.
+        :param store_name: Value supplied for store name under the utility contract.
+        :param max_http_requests_per_hour: Value supplied for max http requests per hour
+            under the utility contract.
+        :param wget_exe: Value supplied for wget exe under the utility contract.
+        :param wget_args: Value supplied for wget args under the utility contract.
+        :param timeout_s: Value supplied for timeout s under the utility contract.
+        :param recurse: Value supplied for recurse under the utility contract.
+        :param max_depth: Value supplied for max depth under the utility contract.
+        :param no_parent: Value supplied for no parent under the utility contract.
+        :param span_hosts: Value supplied for span hosts under the utility contract.
+        :param respect_robots: Value supplied for respect robots under the utility contract.
+        :param user_agent: Value supplied for user agent under the utility contract.
+        :param no_verbose: Value supplied for no verbose under the utility contract.
+        :param ebook_extensions: Value supplied for ebook extensions under the utility
+            contract.
+        :param source_label: Value supplied for source label under the utility contract.
+        :param attach_store_links: Value supplied for attach store links under the utility
+            contract.
+        :param refresh_storage_manager: Value supplied for refresh storage manager under the
+            utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return register_wget_html_readonly_store_files(
             self._database,
             remote_url=remote_url,
@@ -793,6 +1347,37 @@ class Library:
         attach_store_links: bool = True,
         refresh_storage_manager: bool = True,
     ) -> RemoteHtmlRegistrationReport:
+        """
+        Perform the register native html store operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Library.register native html store through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param remote_url: Value supplied for remote url under the utility contract.
+        :param store_name: Value supplied for store name under the utility contract.
+        :param max_http_requests_per_hour: Value supplied for max http requests per hour
+            under the utility contract.
+        :param timeout_s: Value supplied for timeout s under the utility contract.
+        :param recurse: Value supplied for recurse under the utility contract.
+        :param max_depth: Value supplied for max depth under the utility contract.
+        :param no_parent: Value supplied for no parent under the utility contract.
+        :param span_hosts: Value supplied for span hosts under the utility contract.
+        :param respect_robots: Value supplied for respect robots under the utility contract.
+        :param user_agent: Value supplied for user agent under the utility contract.
+        :param max_html_bytes: Value supplied for max html bytes under the utility contract.
+        :param ebook_extensions: Value supplied for ebook extensions under the utility
+            contract.
+        :param source_label: Value supplied for source label under the utility contract.
+        :param attach_store_links: Value supplied for attach store links under the utility
+            contract.
+        :param refresh_storage_manager: Value supplied for refresh storage manager under the
+            utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return register_native_html_readonly_store_files(
             self._database,
             remote_url=remote_url,
@@ -818,6 +1403,20 @@ class Library:
         archive_path: str | pathlib.Path,
         store_name: Optional[str] = None,
     ):
+        """
+        Perform the ensure open squashfs store operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Library.ensure open squashfs store through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param archive_path: Value supplied for archive path under the utility contract.
+        :param store_name: Value supplied for store name under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return ensure_open_squashfs_store(
             self._database,
             archive_path=archive_path,
@@ -831,6 +1430,22 @@ class Library:
         designations,
         replace_existing: bool = False,
     ) -> SquashfsDesignationReport:
+        """
+        Perform the designate files for squashfs store operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Library.designate files for squashfs store through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param store_id: Value supplied for store id under the utility contract.
+        :param designations: Value supplied for designations under the utility contract.
+        :param replace_existing: Value supplied for replace existing under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return designate_files_for_squashfs_store(
             self._database,
             store_id=store_id,
@@ -850,6 +1465,28 @@ class Library:
         strict: bool = False,
         refresh_storage_manager: bool = True,
     ) -> SquashfsArchivePublishReport:
+        """
+        Perform the publish open squashfs store operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Library.publish open squashfs store through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param store_id: Value supplied for store id under the utility contract.
+        :param output_archive: Value supplied for output archive under the utility contract.
+        :param compression: Value supplied for compression under the utility contract.
+        :param deterministic: Value supplied for deterministic under the utility contract.
+        :param force: Value supplied for force under the utility contract.
+        :param duplicate_verified_files: Value supplied for duplicate verified files under
+            the utility contract.
+        :param strict: Value supplied for strict under the utility contract.
+        :param refresh_storage_manager: Value supplied for refresh storage manager under the
+            utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return publish_open_squashfs_store(
             self._database,
             store_id=store_id,
@@ -874,6 +1511,27 @@ class Library:
         strict: bool = False,
         refresh_storage_manager: bool = True,
     ) -> SquashfsArchivePublishReport:
+        """
+        Perform the publish squashfs archive from file ids operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Library.publish squashfs archive from file ids through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param file_ids: Value supplied for file ids under the utility contract.
+        :param archive_path: Value supplied for archive path under the utility contract.
+        :param store_name: Value supplied for store name under the utility contract.
+        :param compression: Value supplied for compression under the utility contract.
+        :param deterministic: Value supplied for deterministic under the utility contract.
+        :param force: Value supplied for force under the utility contract.
+        :param strict: Value supplied for strict under the utility contract.
+        :param refresh_storage_manager: Value supplied for refresh storage manager under the
+            utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return publish_squashfs_archive_from_file_ids(
             self._database,
             file_ids=file_ids,
@@ -887,6 +1545,18 @@ class Library:
         )
 
     def close(self) -> None:
+        """
+        Perform the close operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Library.close through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self._closed:
             return
         self._closed = True
@@ -894,9 +1564,36 @@ class Library:
             self._database.close()
 
     def __enter__(self) -> "Library":
+        """
+        Implement the conversion resource's enter lifecycle operation.
+
+        Example:
+            Exercise Library.  enter   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self
 
     def __exit__(self, exc_type, exc, tb) -> bool:
+        """
+        Implement the conversion resource's exit lifecycle operation.
+
+        Example:
+            Exercise Library.  exit   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param exc_type: Value supplied for exc type under the utility contract.
+        :param exc: Value supplied for exc under the utility contract.
+        :param tb: Value supplied for tb under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.close()
         return False
 

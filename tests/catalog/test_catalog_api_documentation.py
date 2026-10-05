@@ -1,3 +1,13 @@
+"""
+Check the maintained Catalog API documentation and usage-guide syntax boundaries.
+
+Source scans reject empty field lines and short public-function docstrings.
+Runtime inspection checks selected contract and exported-class descriptions,
+while AST parsing validates fenced guide examples without executing them.
+These targeted text/shape contracts complement source review and the separate
+whole-project docstring audit; passing them does not establish prose accuracy.
+"""
+
 from __future__ import annotations
 
 import ast
@@ -40,6 +50,19 @@ PYTHON_FENCE = re.compile(r"```python\n(.*?)```", re.DOTALL)
 
 
 def test_catalog_api_docstrings_have_no_placeholder_fields() -> None:
+    """
+    Reject source lines matching an empty param or return field in the API tree.
+
+    Read every Python file below API_ROOT and collect paths whose text matches the placeholder
+    regex. This scan is textual, so a matching line in a non-docstring literal also fails. It
+    neither parses docstrings nor requires all parameters or return fields to be present.
+
+    Example:
+        >>> test_catalog_api_docstrings_have_no_placeholder_fields()  # doctest: +SKIP
+
+
+    :return: None after the stated contract assertions pass.
+    """
     offenders: list[str] = []
     for path in sorted(API_ROOT.rglob("*.py")):
         text = path.read_text(encoding="utf-8")
@@ -50,6 +73,20 @@ def test_catalog_api_docstrings_have_no_placeholder_fields() -> None:
 
 
 def test_public_catalog_api_methods_have_substantive_docstrings() -> None:
+    """
+    Require at least five whitespace-separated docstring words on public API functions.
+
+    Walk every API module AST, including nested definitions, and inspect synchronous and
+    asynchronous functions whose names do not start with an underscore. Skip only decorators spelled
+    as the bare name overload. Report file, line, and name for short or absent docs. Word count does
+    not establish semantic accuracy, examples, or complete parameter/return descriptions.
+
+    Example:
+        >>> test_public_catalog_api_methods_have_substantive_docstrings()  # doctest: +SKIP
+
+
+    :return: None after the stated contract assertions pass.
+    """
     offenders: list[str] = []
 
     for path in sorted(API_ROOT.rglob("*.py")):
@@ -73,6 +110,20 @@ def test_public_catalog_api_methods_have_substantive_docstrings() -> None:
 
 
 def test_primary_catalog_contracts_explain_usage_with_examples() -> None:
+    """
+    Require longer documentation and an example marker on eleven selected contracts.
+
+    Inspect the designated facade, metadata, repository, matching, retrieval, writer, and result
+    classes. Each resolved docstring needs at least twenty whitespace-separated words and the
+    case-insensitive substring example. The check does not parse or execute examples, and
+    inspect.getdoc may resolve inherited documentation.
+
+    Example:
+        >>> test_primary_catalog_contracts_explain_usage_with_examples()  # doctest: +SKIP
+
+
+    :return: None after the stated contract assertions pass.
+    """
     contracts = (
         CatalogAPI,
         CatalogMetadataToolsAPI,
@@ -94,6 +145,20 @@ def test_primary_catalog_contracts_explain_usage_with_examples() -> None:
 
 
 def test_every_exported_catalog_api_class_has_a_substantive_docstring() -> None:
+    """
+    Require at least twelve docstring words on classes exported by six API modules.
+
+    Resolve each module's explicit __all__ names and inspect values recognized as classes, including
+    re-exports. Non-class exports are ignored. Missing or short resolved documentation is reported
+    with the public module/name pair; this selected export check is not a whole-project
+    documentation audit.
+
+    Example:
+        >>> test_every_exported_catalog_api_class_has_a_substantive_docstring()  # doctest: +SKIP
+
+
+    :return: None after the stated contract assertions pass.
+    """
     modules = (
         catalog_api,
         repositories,
@@ -117,6 +182,20 @@ def test_every_exported_catalog_api_class_has_a_substantive_docstring() -> None:
 
 
 def test_catalog_usage_guide_python_examples_are_syntax_valid() -> None:
+    """
+    Parse the usage guide's explicitly fenced Python examples without executing them.
+
+    Require at least twelve lowercase python fences matching the fixed regex, dedent each body, and
+    parse it with a numbered diagnostic filename. This detects syntax errors but cannot prove
+    imports, available API names, database state, runtime results, or the validity of other fence
+    styles.
+
+    Example:
+        >>> test_catalog_usage_guide_python_examples_are_syntax_valid()  # doctest: +SKIP
+
+
+    :return: None after the stated contract assertions pass.
+    """
     text = USAGE_GUIDE.read_text(encoding="utf-8")
     examples = PYTHON_FENCE.findall(text)
 

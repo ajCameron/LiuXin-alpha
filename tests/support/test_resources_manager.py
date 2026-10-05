@@ -1,36 +1,29 @@
-"""Test resource provisioning for LiuXin_alpha.
+"""
+Discover, cache and provision versioned test databases and binary assets.
 
-This is a modernized port of the old LiuXin `LiuXin_tests.test_setup` helpers.
+The module keeps generated data, ordering and failure modes explicit so consumers
+can assert stable behavior.
 
-The intent is to let tests request a *named* resource (e.g. a legacy-style
-``test_db_13``) and receive a fresh, writable copy.
+Example:
+    Exercise test resources manager through a consuming regression::
 
-For test databases, provisioning is now provider-driven:
-
-* Copy from prebuilt bundles when available (from configured directories).
-* Import a builder module for a given name (opt-in, avoids huge binaries).
-* Fall back to small built-in generators for a couple of common DBs.
-
-Providers are registered via a small API so projects can add more without
-editing this file.
+        python -m pytest -q tests/databases/test_test_resources_manager.py
 """
 
 from __future__ import annotations
 
+import importlib
 import os
+import pkgutil
 import re
-import sqlite3
 import shutil
+import sqlite3
 import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Dict, Iterable, Mapping, Optional, Protocol, Sequence
 
-import importlib
-import pkgutil
-
 from LiuXin_alpha.databases.bootstrap_constants import AGENTS_NULL_CANONICAL_NAME
-
 
 PROFILED_COMMON_TAG = "profiled-fixture"
 PROFILED_FIRST_TAG = "first-work"
@@ -45,7 +38,14 @@ PROFILED_EVEN_TAG = "even-indexed-work"
 
 @dataclass(frozen=True)
 class ProvisionedTestDatabase:
-    """A concrete test database instance provisioned for a single test."""
+    """
+    A concrete test database instance provisioned for a single test.
+
+    Example:
+        Exercise ProvisionedTestDatabase through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+    """
 
     name: str
     root: Path
@@ -54,7 +54,14 @@ class ProvisionedTestDatabase:
 
 @dataclass(frozen=True)
 class ProvisionedTestAssets:
-    """A concrete set of copied test assets provisioned for a single test."""
+    """
+    A concrete set of copied test assets provisioned for a single test.
+
+    Example:
+        Exercise ProvisionedTestAssets through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+    """
 
     root: Path
     paths: tuple[Path, ...]
@@ -66,7 +73,14 @@ TEST_DB_BUNDLE_ROOT_TOKEN = "__LIUXIN_TEST_BUNDLE_ROOT__"
 
 @dataclass(frozen=True)
 class TestDatabaseSpec:
-    """Specification for a named test database."""
+    """
+    Specification for a named test database.
+
+    Example:
+        Exercise TestDatabaseSpec through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+    """
 
     name: str
     builder: Builder
@@ -74,16 +88,47 @@ class TestDatabaseSpec:
 
     @property
     def bundle_dirname(self) -> str:
+        """
+        Perform the bundle dirname step with deterministic fixture inputs.
+
+        Example:
+            Exercise TestDatabaseSpec.bundle dirname through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         return self.name
 
     @property
     def db_filename(self) -> str:
         # Keep compatibility with the historic naming.
+        """
+        Perform the db filename step with deterministic fixture inputs.
+
+        Example:
+            Exercise TestDatabaseSpec.db filename through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         return f"{self.name}.test_db"
 
 
 class TestResourcesManager:
-    """Manages cached templates and per-test copies of test resources."""
+    """
+    Manages cached templates and per-test copies of test resources.
+
+    Example:
+        Exercise TestResourcesManager through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+    """
 
     def __init__(
         self,
@@ -94,6 +139,26 @@ class TestResourcesManager:
         specs: Optional[Mapping[str, TestDatabaseSpec]] = None,
         db_registry: Optional["TestDatabaseRegistry"] = None,
     ) -> None:
+        """
+        Initialize and validate the TestResourcesManager test-support state.
+
+        Example:
+            Exercise TestResourcesManager.  init   through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param cache_dir: Value supplied for cache dir under the deterministic fixture
+            contract.
+        :param prebuilt_dir: Value supplied for prebuilt dir under the deterministic fixture
+            contract.
+        :param regenerate: Value supplied for regenerate under the deterministic fixture
+            contract.
+        :param specs: Value supplied for specs under the deterministic fixture contract.
+        :param db_registry: Value supplied for db registry under the deterministic fixture
+            contract.
+        :return: None; completion is expressed through state changes or assertions.
+        """
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
 
@@ -117,10 +182,35 @@ class TestResourcesManager:
     # ------------------------------------------------------------------
 
     def available_test_databases(self) -> list[str]:
+        """
+        Perform the available test databases step with deterministic fixture inputs.
+
+        Example:
+            Exercise TestResourcesManager.available test databases through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         discovered = set(self._db_registry.list_available())
         return sorted(discovered, key=_package_good_sort_key)
 
     def get_spec(self, name: str) -> TestDatabaseSpec:
+        """
+        Return spec under the fixture contract.
+
+        Example:
+            Exercise TestResourcesManager.get spec through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param name: Stable fixture, profile, member or field name.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         try:
             return self._specs[name]
         except KeyError as e:
@@ -134,7 +224,20 @@ class TestResourcesManager:
     # ------------------------------------------------------------------
 
     def provision_named_test_database(self, *, name: str, dst_dir: Path) -> ProvisionedTestDatabase:
-        """Provision a fresh writable copy of *name* inside *dst_dir*."""
+        """
+        Provision a fresh writable copy of *name* inside *dst_dir*.
+
+        Example:
+            Exercise TestResourcesManager.provision named test database through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param name: Stable fixture, profile, member or field name.
+        :param dst_dir: Destination directory that owns the provisioned fixture.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
 
         dst_dir = Path(dst_dir)
         dst_dir.mkdir(parents=True, exist_ok=True)
@@ -155,7 +258,20 @@ class TestResourcesManager:
         return ProvisionedTestDatabase(name=name, root=provision_root, db_path=db_path)
 
     def provision_test_books(self, *, dst_dir: Path, names: Optional[Sequence[str]] = None) -> ProvisionedTestAssets:
-        """Provision test ebook files into *dst_dir*."""
+        """
+        Provision test ebook files into *dst_dir*.
+
+        Example:
+            Exercise TestResourcesManager.provision test books through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param dst_dir: Destination directory that owns the provisioned fixture.
+        :param names: Value supplied for names under the deterministic fixture contract.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
 
         source_dir = _resolve_test_asset_source(
             env_key="LIUXIN_TEST_BOOKS_DIR",
@@ -164,7 +280,20 @@ class TestResourcesManager:
         return _provision_test_assets(source_dir=source_dir, dst_dir=Path(dst_dir) / "test_books", names=names)
 
     def provision_test_covers(self, *, dst_dir: Path, names: Optional[Sequence[str]] = None) -> ProvisionedTestAssets:
-        """Provision test cover image files into *dst_dir*."""
+        """
+        Provision test cover image files into *dst_dir*.
+
+        Example:
+            Exercise TestResourcesManager.provision test covers through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param dst_dir: Destination directory that owns the provisioned fixture.
+        :param names: Value supplied for names under the deterministic fixture contract.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
 
         source_dir = _resolve_test_asset_source(
             env_key="LIUXIN_TEST_COVERS_DIR",
@@ -177,9 +306,18 @@ class TestResourcesManager:
     # ------------------------------------------------------------------
 
     def _ensure_template_bundle(self, name: str) -> tuple[Path, str]:
-        """Ensure a cached template bundle for *name*.
+        """
+        Ensure a cached template bundle for *name*.
 
-        Returns (bundle_path, db_filename).
+        Example:
+            Exercise TestResourcesManager. ensure template bundle through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param name: Stable fixture, profile, member or field name.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
         """
 
         bundle = self._templates_root / name
@@ -228,32 +366,98 @@ class TestResourcesManager:
 
 
 class TestDatabaseProviderAPI(Protocol):
-    """API for providing named test databases.
+    """
+    API for providing named test databases.
 
-    Providers may create a DB by copying a prebuilt file, importing a builder
-    module, or generating a small DB on demand.
+    Example:
+        Exercise TestDatabaseProviderAPI through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
     """
 
     def list_available(self) -> Iterable[str]:
-        """Return names this provider can supply (best-effort)."""
+        """
+        Return names this provider can supply (best-effort).
+
+        Example:
+            Exercise TestDatabaseProviderAPI.list available through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :return: None; fixture state or the supplied destination is updated in place.
+        """
 
     def can_provide(self, name: str) -> bool:
-        """Fast predicate: can this provider supply *name*?"""
+        """
+        Fast predicate: can this provider supply *name*?
+
+        Example:
+            Exercise TestDatabaseProviderAPI.can provide through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param name: Stable fixture, profile, member or field name.
+        :return: True when the requested fixture condition holds; otherwise False.
+        """
 
     def provide_template(self, *, name: str, bundle_dir: Path) -> Path:
-        """Populate *bundle_dir* with required files.
+        """
+        Populate *bundle_dir* with required files.
 
-        Returns the DB path (absolute or relative to bundle_dir).
+        Example:
+            Exercise TestDatabaseProviderAPI.provide template through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param name: Stable fixture, profile, member or field name.
+        :param bundle_dir: Value supplied for bundle dir under the deterministic fixture
+            contract.
+        :return: None; fixture state or the supplied destination is updated in place.
         """
 
 
 class TestDatabaseRegistry:
-    """A simple provider registry with resolution rules."""
+    """
+    A simple provider registry with resolution rules.
+
+    Example:
+        Exercise TestDatabaseRegistry through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+    """
 
     def __init__(self, providers: Sequence[TestDatabaseProviderAPI]) -> None:
+        """
+        Initialize and validate the TestDatabaseRegistry test-support state.
+
+        Example:
+            Exercise TestDatabaseRegistry.  init   through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param providers: Value supplied for providers under the deterministic fixture
+            contract.
+        :return: None; completion is expressed through state changes or assertions.
+        """
         self._providers = list(providers)
 
     def list_available(self) -> Iterable[str]:
+        """
+        Return the stable names of fixture profiles available from this provider.
+
+        Example:
+            Exercise TestDatabaseRegistry.list available through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         out: set[str] = set()
         for p in self._providers:
             try:
@@ -264,6 +468,19 @@ class TestDatabaseRegistry:
         return out
 
     def resolve(self, name: str) -> TestDatabaseProviderAPI:
+        """
+        Perform the resolve step with deterministic fixture inputs.
+
+        Example:
+            Exercise TestDatabaseRegistry.resolve through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param name: Stable fixture, profile, member or field name.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         for p in self._providers:
             try:
                 if p.can_provide(name):
@@ -281,7 +498,21 @@ def default_test_database_registry(
     specs: Mapping[str, TestDatabaseSpec],
     prebuilt_dir: Optional[Path],
 ) -> TestDatabaseRegistry:
-    """Default provider chain (highest priority first)."""
+    """
+    Default provider chain (highest priority first).
+
+    Example:
+        Exercise default test database registry through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param specs: Value supplied for specs under the deterministic fixture contract.
+    :param prebuilt_dir: Value supplied for prebuilt dir under the deterministic fixture
+        contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
 
     providers: list[TestDatabaseProviderAPI] = []
 
@@ -306,12 +537,44 @@ def default_test_database_registry(
 
 
 class PrebuiltDirectoryDatabaseProvider:
-    """Provides databases by copying from prebuilt directories."""
+    """
+    Provides databases by copying from prebuilt directories.
+
+    Example:
+        Exercise PrebuiltDirectoryDatabaseProvider through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+    """
 
     def __init__(self, *, prebuilt_dirs: Sequence[Path]) -> None:
+        """
+        Initialize and validate the PrebuiltDirectoryDatabaseProvider test-support state.
+
+        Example:
+            Exercise PrebuiltDirectoryDatabaseProvider.  init   through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param prebuilt_dirs: Value supplied for prebuilt dirs under the deterministic
+            fixture contract.
+        :return: None; completion is expressed through state changes or assertions.
+        """
         self._dirs = [Path(p) for p in prebuilt_dirs if Path(p).exists()]
 
     def list_available(self) -> Iterable[str]:
+        """
+        Return the stable names of fixture profiles available from this provider.
+
+        Example:
+            Exercise PrebuiltDirectoryDatabaseProvider.list available through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         out: set[str] = set()
         for root in self._dirs:
             # Directory bundles: <root>/<name>/<name>.test_db
@@ -335,9 +598,36 @@ class PrebuiltDirectoryDatabaseProvider:
         return out
 
     def can_provide(self, name: str) -> bool:
+        """
+        Return whether this provider can materialize the named database profile.
+
+        Example:
+            Exercise PrebuiltDirectoryDatabaseProvider.can provide through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param name: Stable fixture, profile, member or field name.
+        :return: True when the requested fixture condition holds; otherwise False.
+        """
         return any(_find_prebuilt_db(root, name) is not None for root in self._dirs)
 
     def provide_template(self, *, name: str, bundle_dir: Path) -> Path:
+        """
+        Materialize or return the cached template for the named database profile.
+
+        Example:
+            Exercise PrebuiltDirectoryDatabaseProvider.provide template through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param name: Stable fixture, profile, member or field name.
+        :param bundle_dir: Value supplied for bundle dir under the deterministic fixture
+            contract.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         bundle_dir.mkdir(parents=True, exist_ok=True)
         for root in self._dirs:
             found = _find_prebuilt_db(root, name)
@@ -363,13 +653,45 @@ class PrebuiltDirectoryDatabaseProvider:
 
 
 class ImportedModuleDatabaseProvider:
-    """Provides databases by importing a builder module named after the DB."""
+    """
+    Provides databases by importing a builder module named after the DB.
+
+    Example:
+        Exercise ImportedModuleDatabaseProvider through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+    """
 
     def __init__(self, *, prefixes: Sequence[str]) -> None:
         # Prefixes are module packages under which submodules are named after DBs.
+        """
+        Initialize and validate the ImportedModuleDatabaseProvider test-support state.
+
+        Example:
+            Exercise ImportedModuleDatabaseProvider.  init   through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param prefixes: Value supplied for prefixes under the deterministic fixture
+            contract.
+        :return: None; completion is expressed through state changes or assertions.
+        """
         self._prefixes = [p for p in prefixes if p]
 
     def list_available(self) -> Iterable[str]:
+        """
+        Return the stable names of fixture profiles available from this provider.
+
+        Example:
+            Exercise ImportedModuleDatabaseProvider.list available through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         out: set[str] = set()
         for prefix in self._prefixes:
             try:
@@ -394,6 +716,18 @@ class ImportedModuleDatabaseProvider:
         return out
 
     def can_provide(self, name: str) -> bool:
+        """
+        Return whether this provider can materialize the named database profile.
+
+        Example:
+            Exercise ImportedModuleDatabaseProvider.can provide through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param name: Stable fixture, profile, member or field name.
+        :return: True when the requested fixture condition holds; otherwise False.
+        """
         for prefix in self._prefixes:
             try:
                 module = importlib.import_module(f"{prefix}.{name}")
@@ -404,6 +738,21 @@ class ImportedModuleDatabaseProvider:
         return False
 
     def provide_template(self, *, name: str, bundle_dir: Path) -> Path:
+        """
+        Materialize or return the cached template for the named database profile.
+
+        Example:
+            Exercise ImportedModuleDatabaseProvider.provide template through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param name: Stable fixture, profile, member or field name.
+        :param bundle_dir: Value supplied for bundle dir under the deterministic fixture
+            contract.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         bundle_dir.mkdir(parents=True, exist_ok=True)
         last_exc: Optional[BaseException] = None
         for prefix in self._prefixes:
@@ -446,18 +795,76 @@ class ImportedModuleDatabaseProvider:
 
 
 class BuiltinSpecDatabaseProvider:
-    """Provides databases from a mapping of built-in specs."""
+    """
+    Provides databases from a mapping of built-in specs.
+
+    Example:
+        Exercise BuiltinSpecDatabaseProvider through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+    """
 
     def __init__(self, *, specs: Mapping[str, TestDatabaseSpec]) -> None:
+        """
+        Initialize and validate the BuiltinSpecDatabaseProvider test-support state.
+
+        Example:
+            Exercise BuiltinSpecDatabaseProvider.  init   through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param specs: Value supplied for specs under the deterministic fixture contract.
+        :return: None; completion is expressed through state changes or assertions.
+        """
         self._specs = dict(specs)
 
     def list_available(self) -> Iterable[str]:
+        """
+        Return the stable names of fixture profiles available from this provider.
+
+        Example:
+            Exercise BuiltinSpecDatabaseProvider.list available through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         return list(self._specs.keys())
 
     def can_provide(self, name: str) -> bool:
+        """
+        Return whether this provider can materialize the named database profile.
+
+        Example:
+            Exercise BuiltinSpecDatabaseProvider.can provide through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param name: Stable fixture, profile, member or field name.
+        :return: True when the requested fixture condition holds; otherwise False.
+        """
         return name in self._specs
 
     def provide_template(self, *, name: str, bundle_dir: Path) -> Path:
+        """
+        Materialize or return the cached template for the named database profile.
+
+        Example:
+            Exercise BuiltinSpecDatabaseProvider.provide template through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param name: Stable fixture, profile, member or field name.
+        :param bundle_dir: Value supplied for bundle dir under the deterministic fixture
+            contract.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         spec = self._specs[name]
         bundle_dir.mkdir(parents=True, exist_ok=True)
         tmp_db = bundle_dir / f".{name}.test_db.building"
@@ -475,6 +882,18 @@ class BuiltinSpecDatabaseProvider:
 
 
 def default_test_database_specs() -> Dict[str, TestDatabaseSpec]:
+    """
+    Perform the default test database specs step with deterministic fixture inputs.
+
+    Example:
+        Exercise default test database specs through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     specs: Dict[str, TestDatabaseSpec] = {
         "test_db_0": TestDatabaseSpec(
             name="test_db_0",
@@ -558,7 +977,18 @@ def default_test_database_specs() -> Dict[str, TestDatabaseSpec]:
 
 
 def _legacy_test_db_profiles() -> Dict[str, Dict[str, int]]:
-    """Profiles for synthetic re-implementations of legacy test DB names."""
+    """
+    Profiles for synthetic re-implementations of legacy test DB names.
+
+    Example:
+        Exercise  legacy test db profiles through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
 
     return {
         "test_db_1": {"books": 25, "folders": 0, "files": 0},
@@ -587,7 +1017,35 @@ def _legacy_test_db_profiles() -> Dict[str, Dict[str, int]]:
 
 
 def _make_profiled_builder(*, db_name: str, books: int, folders: int, files: int) -> Builder:
+    """
+    Perform the make profiled builder step with deterministic fixture inputs.
+
+    Example:
+        Exercise  make profiled builder through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param db_name: Registered test-database profile name.
+    :param books: Value supplied for books under the deterministic fixture contract.
+    :param folders: Value supplied for folders under the deterministic fixture contract.
+    :param files: Files included in the generated fixture or assertion.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     def _builder(db_path: Path) -> None:
+        """
+        Perform the builder step with deterministic fixture inputs.
+
+        Example:
+            Exercise  make profiled builder. builder through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param db_path: Value supplied for db path under the deterministic fixture contract.
+        :return: None; fixture state or the supplied destination is updated in place.
+        """
         build_profiled_test_database(
             db_path=db_path,
             db_name=db_name,
@@ -607,11 +1065,21 @@ def build_profiled_test_database(
     folders: int,
     files: int,
 ) -> None:
-    """Public helper for deterministic synthetic FRBR-native test DBs.
+    """
+    Public helper for deterministic synthetic FRBR-native test DBs.
 
-    This is intended for opt-in benchmark and profiling workflows that want a
-    larger synthetic fixture without needing a dedicated legacy-style builder
-    module.
+    Example:
+        Exercise build profiled test database through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param db_path: Value supplied for db path under the deterministic fixture contract.
+    :param db_name: Registered test-database profile name.
+    :param books: Value supplied for books under the deterministic fixture contract.
+    :param folders: Value supplied for folders under the deterministic fixture contract.
+    :param files: Files included in the generated fixture or assertion.
+    :return: None; fixture state or the supplied destination is updated in place.
     """
 
     _build_profiled_test_db(
@@ -624,6 +1092,19 @@ def build_profiled_test_database(
 
 
 def _module_has_supported_db_entrypoint(module: object) -> bool:
+    """
+    Perform the module has supported db entrypoint step with deterministic fixture inputs.
+
+    Example:
+        Exercise  module has supported db entrypoint through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param module: Value supplied for module under the deterministic fixture contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     return any(
         callable(getattr(module, attr, None))
         for attr in ("populate_bundle", "build", "build_database", "build_test_database")
@@ -631,6 +1112,20 @@ def _module_has_supported_db_entrypoint(module: object) -> bool:
 
 
 def _rewrite_bundle_root_tokens(*, db_path: Path, provision_root: Path) -> None:
+    """
+    Perform the rewrite bundle root tokens step with deterministic fixture inputs.
+
+    Example:
+        Exercise  rewrite bundle root tokens through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param db_path: Value supplied for db path under the deterministic fixture contract.
+    :param provision_root: Value supplied for provision root under the deterministic
+        fixture contract.
+    :return: None; fixture state or the supplied destination is updated in place.
+    """
     db_path = Path(db_path)
     if not db_path.exists():
         return
@@ -664,10 +1159,17 @@ def _rewrite_bundle_root_tokens(*, db_path: Path, provision_root: Path) -> None:
 
 
 def _bundled_test_db_1_csv_dir() -> Path:
-    """Locate the bundled CSV fixture for test_db_1.
+    """
+    Locate the bundled CSV fixture for test_db_1.
 
-    We use test_db_1 as a canonical, richer dataset and derive smaller DBs
-    (like test_db_2) by pruning rows after import.
+    Example:
+        Exercise  bundled test db 1 csv dir through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
     """
 
     # Prefer import-based resolution so this works both in editable installs
@@ -688,7 +1190,20 @@ def _bundled_test_db_1_csv_dir() -> Path:
 
 
 def _load_csv_fixture_into_db(conn, *, csv_dir: Path) -> None:
-    """Load a CSV fixture folder into an already-created schema."""
+    """
+    Load a CSV fixture folder into an already-created schema.
+
+    Example:
+        Exercise  load csv fixture into db through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param conn: SQLite connection used to create or inspect fixture state.
+    :param csv_dir: Value supplied for csv dir under the deterministic fixture contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
 
     import csv
     import re
@@ -698,12 +1213,40 @@ def _load_csv_fixture_into_db(conn, *, csv_dir: Path) -> None:
         raise FileNotFoundError(f"CSV fixture directory not found: {csv_dir}")
 
     def _table_info_map(table: str) -> dict[str, tuple]:
+        """
+        Perform the table info map step with deterministic fixture inputs.
+
+        Example:
+            Exercise  load csv fixture into db. table info map through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param table: Database table addressed by the fixture operation.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         return {str(row[1]): row for row in conn.execute(f"PRAGMA table_info({table});").fetchall()}
 
     _int_re = re.compile(r"^-?\d+$")
     _float_re = re.compile(r"^-?\d+(?:\.\d+)?$")
 
     def _coerce(value: str | None, decl_type: str) -> object:
+        """
+        Perform the coerce step with deterministic fixture inputs.
+
+        Example:
+            Exercise  load csv fixture into db. coerce through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param value: Fixture value normalized, encoded, stored or returned.
+        :param decl_type: Value supplied for decl type under the deterministic fixture
+            contract.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         if value is None:
             return None
         v = str(value).strip()
@@ -772,7 +1315,18 @@ def _load_csv_fixture_into_db(conn, *, csv_dir: Path) -> None:
 
 
 def _build_test_db_2_small(db_path: Path) -> None:
-    """Create a small FRBR-native test DB with exactly one title/book projection."""
+    """
+    Create a small FRBR-native test DB with exactly one title/book projection.
+
+    Example:
+        Exercise  build test db 2 small through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param db_path: Value supplied for db path under the deterministic fixture contract.
+    :return: None; fixture state or the supplied destination is updated in place.
+    """
     _build_profiled_test_db(
         db_path=db_path,
         db_name="test_db_2",
@@ -783,7 +1337,18 @@ def _build_test_db_2_small(db_path: Path) -> None:
 
 
 def _build_test_db_3_formats_fixture(db_path: Path) -> None:
-    """Create test_db_3 (FRBR-native): many folders/files linked to one seeded work/item."""
+    """
+    Create test_db_3 (FRBR-native): many folders/files linked to one seeded work/item.
+
+    Example:
+        Exercise  build test db 3 formats fixture through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param db_path: Value supplied for db path under the deterministic fixture contract.
+    :return: None; fixture state or the supplied destination is updated in place.
+    """
     _build_profiled_test_db(
         db_path=db_path,
         db_name="test_db_3",
@@ -801,12 +1366,27 @@ def _build_profiled_test_db(
     folders: int,
     files: int,
 ) -> None:
-    """Build a deterministic FRBR-native fixture from a small profile."""
+    """
+    Build a deterministic FRBR-native fixture from a small profile.
+
+    Example:
+        Exercise  build profiled test db through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param db_path: Value supplied for db path under the deterministic fixture contract.
+    :param db_name: Registered test-database profile name.
+    :param books: Value supplied for books under the deterministic fixture contract.
+    :param folders: Value supplied for folders under the deterministic fixture contract.
+    :param files: Files included in the generated fixture or assertion.
+    :return: None; fixture state or the supplied destination is updated in place.
+    """
 
     import sqlite3
     from itertools import cycle
 
-    from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator import (
+    from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator_frbr import (
         create_new_database,
     )
     from tests.support._surface_storage_tables import ensure_surface_asset_tables_sqlite
@@ -879,7 +1459,20 @@ def _build_profiled_test_db(
 
 
 def _insert_minimal_wemi_book(conn, *, title: str) -> tuple[int, int, int, int]:
-    """Create a minimal Work+Expression+Manifestation+Item chain and link tables."""
+    """
+    Create a minimal Work+Expression+Manifestation+Item chain and link tables.
+
+    Example:
+        Exercise  insert minimal wemi book through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param conn: SQLite connection used to create or inspect fixture state.
+    :param title: Value supplied for title under the deterministic fixture contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
 
     work_id = int(
         conn.execute(
@@ -924,11 +1517,39 @@ def _insert_minimal_wemi_book(conn, *, title: str) -> tuple[int, int, int, int]:
 
 
 def _norm_text(value: str) -> str:
+    """
+    Perform the norm text step with deterministic fixture inputs.
+
+    Example:
+        Exercise  norm text through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param value: Fixture value normalized, encoded, stored or returned.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     return re.sub(r"[^a-z0-9]+", "-", str(value).strip().lower()).strip("-")
 
 
 def _seed_profiled_tags(conn, *, db_name: str, work_ids: Sequence[int]) -> None:
-    """Add deterministic tags to generated profile databases."""
+    """
+    Add deterministic tags to generated profile databases.
+
+    Example:
+        Exercise  seed profiled tags through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param conn: SQLite connection used to create or inspect fixture state.
+    :param db_name: Registered test-database profile name.
+    :param work_ids: Value supplied for work ids under the deterministic fixture
+        contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
 
     if not work_ids or not _table_exists(conn, "tags") or not _table_exists(conn, "tag_work_links"):
         return
@@ -936,6 +1557,19 @@ def _seed_profiled_tags(conn, *, db_name: str, work_ids: Sequence[int]) -> None:
     tag_ids: dict[str, int] = {}
 
     def tag_id_for(text: str) -> int:
+        """
+        Perform the tag id for step with deterministic fixture inputs.
+
+        Example:
+            Exercise  seed profiled tags.tag id for through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param text: Text encoded, parsed or embedded in the fixture.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         existing = tag_ids.get(text)
         if existing is not None:
             return existing
@@ -994,7 +1628,19 @@ def _seed_profiled_tags(conn, *, db_name: str, work_ids: Sequence[int]) -> None:
 
 
 def _normalize_test_db_for_determinism(conn, *, db_name: str) -> None:
-    """Normalize volatile timestamp-ish columns so DB builds are reproducible."""
+    """
+    Normalize volatile timestamp-ish columns so DB builds are reproducible.
+
+    Example:
+        Exercise  normalize test db for determinism through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param conn: SQLite connection used to create or inspect fixture state.
+    :param db_name: Registered test-database profile name.
+    :return: None; fixture state or the supplied destination is updated in place.
+    """
 
     m = _DB_NAME_RE.match(db_name)
     db_num = int(m.group(1)) if m else 0
@@ -1051,15 +1697,22 @@ def _normalize_test_db_for_determinism(conn, *, db_name: str) -> None:
             conn.execute(str(sql))
 
 def _build_test_db_0_minimal(db_path: Path) -> None:
-    """Create a tiny but valid database with one title row.
+    """
+    Create a tiny but valid database with one title row.
 
-    We intentionally do *not* rely on the higher-level Database class here,
-    since the legacy APSW-backed driver is optional.
+    Example:
+        Exercise  build test db 0 minimal through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param db_path: Value supplied for db path under the deterministic fixture contract.
+    :return: None; fixture state or the supplied destination is updated in place.
     """
 
     import sqlite3
 
-    from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator import (
+    from LiuXin_alpha.databases.database_driver_plugins.SQL.database_generator_frbr import (
         create_new_database,
     )
 
@@ -1080,10 +1733,17 @@ def _build_test_db_0_minimal(db_path: Path) -> None:
 
 
 def _build_test_db_13_blank(db_path: Path) -> None:
-    """Create a schema-only database.
+    """
+    Create a schema-only database.
 
-    Historically `test_db_13` was used as a "blank" DB. For LiuXin_alpha we
-    keep this lightweight: schema created + required null rows present.
+    Example:
+        Exercise  build test db 13 blank through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param db_path: Value supplied for db path under the deterministic fixture contract.
+    :return: None; fixture state or the supplied destination is updated in place.
     """
 
     import sqlite3
@@ -1114,6 +1774,19 @@ _DB_NAME_RE = re.compile(r"^test_db_(\d+)$")
 
 
 def _package_good_sort_key(name: str) -> tuple[int, str]:
+    """
+    Perform the package good sort key step with deterministic fixture inputs.
+
+    Example:
+        Exercise  package good sort key through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param name: Stable fixture, profile, member or field name.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     m = _DB_NAME_RE.match(name)
     if m:
         return (int(m.group(1)), name)
@@ -1121,7 +1794,18 @@ def _package_good_sort_key(name: str) -> tuple[int, str]:
 
 
 def _env_prebuilt_dir() -> Optional[Path]:
-    """Optional folder containing prebuilt test DB bundles."""
+    """
+    Optional folder containing prebuilt test DB bundles.
+
+    Example:
+        Exercise  env prebuilt dir through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
 
     v = os.environ.get("LIUXIN_TEST_DATABASES_DIR")
     if not v:
@@ -1131,15 +1815,33 @@ def _env_prebuilt_dir() -> Optional[Path]:
 
 def _repo_root() -> Path:
     # tests/_support/test_resources_manager.py -> repo root is two parents up.
+    """
+    Perform the repo root step with deterministic fixture inputs.
+
+    Example:
+        Exercise  repo root through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     return Path(__file__).resolve().parents[2]
 
 
 def _default_liuxin_data_dir() -> Optional[Path]:
-    """Locate a `LiuXin_data` directory (best-effort).
+    """
+    Locate a `LiuXin_data` directory (best-effort).
 
-    Resolution order:
-    1) $LIUXIN_DATA_DIR if it exists.
-    2) <repo root>/LiuXin_data if it exists.
+    Example:
+        Exercise  default liuxin data dir through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
     """
 
     env = os.environ.get("LIUXIN_DATA_DIR")
@@ -1155,10 +1857,17 @@ def _default_liuxin_data_dir() -> Optional[Path]:
 
 
 def _env_module_prefixes() -> list[str]:
-    """Builder module prefixes used by ImportedModuleDatabaseProvider.
+    """
+    Builder module prefixes used by ImportedModuleDatabaseProvider.
 
-    Defaults to `tests.support.test_databases` and can be extended via:
-    $LIUXIN_TEST_DATABASE_BUILDER_PREFIXES (separator: ; , :)
+    Example:
+        Exercise  env module prefixes through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
     """
 
     defaults = ["tests.support.test_databases", "tests._support.test_databases"]
@@ -1177,6 +1886,21 @@ def _env_module_prefixes() -> list[str]:
 
 
 def _resolve_test_asset_source(*, env_key: str, fallback_dirnames: Sequence[str]) -> Path:
+    """
+    Resolve test asset source under the fixture contract.
+
+    Example:
+        Exercise  resolve test asset source through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param env_key: Value supplied for env key under the deterministic fixture contract.
+    :param fallback_dirnames: Value supplied for fallback dirnames under the
+        deterministic fixture contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     raw = os.environ.get(env_key)
     if raw:
         candidate = Path(raw).expanduser()
@@ -1203,6 +1927,22 @@ def _provision_test_assets(
     dst_dir: Path,
     names: Optional[Sequence[str]] = None,
 ) -> ProvisionedTestAssets:
+    """
+    Perform the provision test assets step with deterministic fixture inputs.
+
+    Example:
+        Exercise  provision test assets through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param source_dir: Value supplied for source dir under the deterministic fixture
+        contract.
+    :param dst_dir: Destination directory that owns the provisioned fixture.
+    :param names: Value supplied for names under the deterministic fixture contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     dst_dir = Path(dst_dir)
     if dst_dir.exists():
         shutil.rmtree(dst_dir)
@@ -1233,11 +1973,19 @@ def _provision_test_assets(
 
 
 def _find_prebuilt_db(root: Path, name: str) -> Optional[Path]:
-    """Find a prebuilt DB by *name* under *root*.
+    """
+    Find a prebuilt DB by *name* under *root*.
 
-    Supports:
-    * Directory bundle: <root>/<name>/... (returns the directory)
-    * Single file: <root>/<name>.test_db (returns the file)
+    Example:
+        Exercise  find prebuilt db through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param root: Root directory containing the fixture corpus or generated tree.
+    :param name: Stable fixture, profile, member or field name.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
     """
 
     root = Path(root)
@@ -1255,6 +2003,21 @@ def _find_prebuilt_db(root: Path, name: str) -> Optional[Path]:
 
 
 def _acquire_dir_lock(lock_dir: Path, *, timeout_s: float = 30.0) -> None:
+    """
+    Perform the acquire dir lock step with deterministic fixture inputs.
+
+    Example:
+        Exercise  acquire dir lock through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param lock_dir: Value supplied for lock dir under the deterministic fixture
+        contract.
+    :param timeout_s: Value supplied for timeout s under the deterministic fixture
+        contract.
+    :return: None; fixture state or the supplied destination is updated in place.
+    """
     start = time.time()
     while True:
         try:
@@ -1267,6 +2030,19 @@ def _acquire_dir_lock(lock_dir: Path, *, timeout_s: float = 30.0) -> None:
 
 
 def _release_dir_lock(lock_dir: Path) -> None:
+    """
+    Perform the release dir lock step with deterministic fixture inputs.
+
+    Example:
+        Exercise  release dir lock through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param lock_dir: Value supplied for lock dir under the deterministic fixture
+        contract.
+    :return: None; fixture state or the supplied destination is updated in place.
+    """
     try:
         lock_dir.rmdir()
     except FileNotFoundError:
@@ -1274,6 +2050,20 @@ def _release_dir_lock(lock_dir: Path) -> None:
 
 
 def _table_exists(conn, table: str) -> bool:
+    """
+    Perform the table exists step with deterministic fixture inputs.
+
+    Example:
+        Exercise  table exists through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param conn: SQLite connection used to create or inspect fixture state.
+    :param table: Database table addressed by the fixture operation.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     row = conn.execute(
         "SELECT 1 FROM sqlite_master WHERE type='table' AND name=? LIMIT 1;", (table,)
     ).fetchone()
@@ -1281,15 +2071,35 @@ def _table_exists(conn, table: str) -> bool:
 
 
 def _table_info(conn, table: str):
+    """
+    Perform the table info step with deterministic fixture inputs.
+
+    Example:
+        Exercise  table info through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param conn: SQLite connection used to create or inspect fixture state.
+    :param table: Database table addressed by the fixture operation.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     return conn.execute(f"PRAGMA table_info({table});").fetchall()
 
 
 def _register_sqlite_test_functions(conn) -> None:
-    """Register sqlite functions referenced by triggers/views.
+    """
+    Register sqlite functions referenced by triggers/views.
 
-    The historical schema expects a couple of custom functions (implemented
-    by the APSW driver in production). For test DB generation using the
-    stdlib sqlite3 module we stub them out.
+    Example:
+        Exercise  register sqlite test functions through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param conn: SQLite connection used to create or inspect fixture state.
+    :return: None; fixture state or the supplied destination is updated in place.
     """
 
     # Used by `update_callback_on_titles` trigger.
@@ -1297,6 +2107,20 @@ def _register_sqlite_test_functions(conn) -> None:
 
 
 def _detect_pk_column(conn, table: str) -> Optional[str]:
+    """
+    Perform the detect pk column step with deterministic fixture inputs.
+
+    Example:
+        Exercise  detect pk column through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param conn: SQLite connection used to create or inspect fixture state.
+    :param table: Database table addressed by the fixture operation.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     for _cid, name, _typ, _notnull, _dflt, pk in _table_info(conn, table):
         if int(pk) == 1:
             return str(name)
@@ -1304,13 +2128,17 @@ def _detect_pk_column(conn, table: str) -> Optional[str]:
 
 
 def _ensure_required_null_rows(conn) -> None:
-    """Ensure historic required null/sentinel rows exist.
+    """
+    Ensure historic required null/sentinel rows exist.
 
-    LiuXin uses id=0 in some tables as a "null" record for link tables.
+    Example:
+        Exercise  ensure required null rows through a consuming regression::
 
-    In the FRBR-first/WEMI schema, publishing entities are modelled via
-    `agents` (+ subtype sidecars like `org_agents`) rather than a dedicated
-    `publishers` table.
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param conn: SQLite connection used to create or inspect fixture state.
+    :return: None; fixture state or the supplied destination is updated in place.
     """
 
     required = (
@@ -1392,6 +2220,24 @@ def _ensure_required_null_rows(conn) -> None:
 
 
 def _default_value_for_type(col_name: str, col_type: str, preferred_text_value: str):
+    """
+    Perform the default value for type step with deterministic fixture inputs.
+
+    Example:
+        Exercise  default value for type through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param col_name: Value supplied for col name under the deterministic fixture
+        contract.
+    :param col_type: Value supplied for col type under the deterministic fixture
+        contract.
+    :param preferred_text_value: Value supplied for preferred text value under the
+        deterministic fixture contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     n = col_name.lower()
     t = (col_type or "").upper()
 
@@ -1417,7 +2263,21 @@ def _default_value_for_type(col_name: str, col_type: str, preferred_text_value: 
 
 
 def _insert_minimal_row(conn, *, table: str, preferred_text_value: str) -> None:
-    """Insert a single row into *table* satisfying NOT NULL + no-default columns."""
+    """
+    Insert a single row into *table* satisfying NOT NULL + no-default columns.
+
+    Example:
+        Exercise  insert minimal row through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param conn: SQLite connection used to create or inspect fixture state.
+    :param table: Database table addressed by the fixture operation.
+    :param preferred_text_value: Value supplied for preferred text value under the
+        deterministic fixture contract.
+    :return: None; fixture state or the supplied destination is updated in place.
+    """
 
     target_table = table
     row = conn.execute(

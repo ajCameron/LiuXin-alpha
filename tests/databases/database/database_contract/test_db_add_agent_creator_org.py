@@ -1,4 +1,13 @@
-"""Database contract: agent/creator/organisation/publisher adders write FRBR agent tables."""
+"""
+Check creator, organisation, publisher, and spelling-alias adders against FRBR agent tables.
+
+Each check skips when agents is absent; the shared open_db fixture owns cleanup.
+
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/database/database_contract/test_db_add_agent_creator_org.py
+"""
 
 from __future__ import annotations
 
@@ -8,6 +17,19 @@ from LiuXin_alpha.catalog.metadata_tools import Add
 
 
 def test_add_creator_writes_agent_and_human_sidecar_with_links(open_db) -> None:
+    """
+    Check creator identity, human sidecar dates/family name, language and biography links, and required identifier schemes.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_add_agent_creator_org.py::test_add_creator_writes_agent_and_human_sidecar_with_links
+
+
+    :param open_db: Open Database for the selected driver; the fixture attempts close
+        and suppresses ordinary close errors at teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     tables = set(open_db.get_tables())
     if "agents" not in tables:
         pytest.skip("Schema does not expose FRBR agent tables")
@@ -53,6 +75,19 @@ def test_add_creator_writes_agent_and_human_sidecar_with_links(open_db) -> None:
 
 
 def test_add_organisation_and_publisher_write_org_sidecars_and_relations(open_db) -> None:
+    """
+    Check organisation sidecars, publisher website/description, an imprint_of parent relation, and required identifier schemes.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_add_agent_creator_org.py::test_add_organisation_and_publisher_write_org_sidecars_and_relations
+
+
+    :param open_db: Open Database for the selected driver; the fixture attempts close
+        and suppresses ordinary close errors at teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     tables = set(open_db.get_tables())
     if "agents" not in tables:
         pytest.skip("Schema does not expose FRBR agent tables")
@@ -108,6 +143,19 @@ def test_add_organisation_and_publisher_write_org_sidecars_and_relations(open_db
 
 
 def test_add_organization_alias_works(open_db) -> None:
+    """
+    Check the American-spelling adder creates the expected organisation agent and canonical name.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_add_agent_creator_org.py::test_add_organization_alias_works
+
+
+    :param open_db: Open Database for the selected driver; the fixture attempts close
+        and suppresses ordinary close errors at teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     tables = set(open_db.get_tables())
     if "agents" not in tables:
         pytest.skip("Schema does not expose FRBR agent tables")

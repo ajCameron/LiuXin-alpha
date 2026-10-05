@@ -1,4 +1,6 @@
-"""Agent, creator, and organization catalogue-addition workflows."""
+"""
+Create Agent aggregates from modern and legacy Creator/Publisher inputs.
+"""
 
 from __future__ import unicode_literals
 
@@ -19,16 +21,34 @@ from LiuXin_alpha.utils.logging import default_log
 
 class AgentCreatorOrgMixin:
     """
-    Add methods for authoring entities.
+    Supply Agent aggregate creation to a host with database and peer helpers.
 
-    In FRBR-first schemas:
-     - ``agents`` stores common identity fields
-     - ``human_agents`` stores person-specific sidecar fields
-     - ``org_agents`` stores organisation/group-specific sidecar fields
+    Methods call shared helpers through self; a composing class can override
+    coercion behavior. Add uses WEMI date coercion through its MRO. Sequential
+    sidecar, link and identifier writes are not wrapped in a transaction.
+
+    Example:
+        A legacy Creator call builds a person Agent, a human sidecar and optional
+        language/biography/image links.
     """
 
     @staticmethod
     def _coerce_iso_date(value: Optional[Union[str, datetime.date, datetime.datetime]]) -> Optional[str]:
+        """
+        Convert dates to ISO day strings and strip other values.
+
+        Strings are not validated as dates. Add overrides this method through its
+        MRO, using the WEMI variant which preserves string whitespace.
+
+        Example:
+            >>> AgentCreatorOrgMixin._coerce_iso_date(" 2026-01-02 ")
+            '2026-01-02'
+
+
+        :param value: Date/datetime, arbitrary stringifiable value, or None.
+        :return: ISO date, stripped text, or None for absent/blank values.
+        """
+
         if value is None:
             return None
         if isinstance(value, datetime.datetime):
@@ -40,6 +60,21 @@ class AgentCreatorOrgMixin:
 
     @staticmethod
     def _coerce_epoch_ms(value: Optional[Union[int, float, datetime.date, datetime.datetime, str]]) -> Optional[int]:
+        """
+        Coerce timestamps using the Agent mixin's permissive legacy rules.
+
+        Integer inputs including bool pass through; floats truncate. Datetimes use
+        timestamp(), and dates use local midnight. Naive values therefore depend on
+        local timezone. Conversion errors can propagate. Add uses its WEMI override.
+
+        Example:
+            A negative numeric string is unsupported, whereas a negative integer is returned unchanged.
+
+
+        :param value: Integer/float epoch milliseconds, date/datetime, digit string, or None.
+        :return: Integer milliseconds, or None for unsupported input.
+        """
+
         if value is None:
             return None
         if isinstance(value, int):
@@ -59,6 +94,20 @@ class AgentCreatorOrgMixin:
 
     @staticmethod
     def _normalize_aliases(agent_aliases: Optional[Union[str, Sequence[str]]]) -> Optional[str]:
+        """
+        Strip aliases and deduplicate by lowercase spelling in encounter order.
+
+        Embedded (#BREAK#) text is not escaped or split; None entries are ignored.
+
+        Example:
+            >>> AgentCreatorOrgMixin._normalize_aliases([" A ", "a", None, "B"])
+            'A(#BREAK#)B'
+
+
+        :param agent_aliases: String treated as one alias, or sequence of stringifiable values; None allowed.
+        :return: (#BREAK#)-joined first spellings, or None when empty.
+        """
+
         if agent_aliases is None:
             return None
 
@@ -86,6 +135,17 @@ class AgentCreatorOrgMixin:
         return "(#BREAK#)".join(normalized)
 
     def _has_insertable_table(self, table_name: str) -> bool:
+        """
+        Check table presence and reject views, treating inspection errors as absence.
+
+        Example:
+            A failed get_tables call returns False here rather than propagating its Exception.
+
+
+        :param table_name: Exact table name.
+        :return: True only for a listed non-view table.
+        """
+
         try:
             if table_name not in set(self.db.get_tables()):
                 return False
@@ -94,18 +154,56 @@ class AgentCreatorOrgMixin:
             return False
 
     def _require_insertable_table(self, table_name: str, *, for_method: str) -> None:
+        """
+        Require a table that capability inspection considers writable.
+
+        Example:
+            A view named agents is rejected even though it appears in get_tables().
+
+
+        :param table_name: Exact table name.
+        :param for_method: Operation name included in the error message.
+        :return: None when available.
+        :raises InputIntegrityError: The table is absent, a view, or inspection failed.
+        """
+
         if not self._has_insertable_table(table_name):
             raise InputIntegrityError(
                 "Cannot run `{}`: schema does not expose insertable `{}`.".format(for_method, table_name)
             )
 
     def _set_row_values(self, row: RowAPI, payload: dict[str, Any]) -> None:
+        """
+        Assign allowed payload columns, then sync the Row once.
+
+        Example:
+            A None value for an allowed column is written rather than filtered out.
+
+
+        :param row: Mutable Row exposing allowed_columns.
+        :param payload: Column/value mapping; unknown columns are ignored.
+        :return: None; synchronizes even an empty accepted payload.
+        """
+
         for col, value in payload.items():
             if col in row.allowed_columns:
                 row[col] = value
         row.sync()
 
     def _first_row_for_value(self, table: str, column: str, value: Any) -> Optional[RowAPI]:
+        """
+        Search one column and select the first returned Row.
+
+        Example:
+            Multiple matches are not treated as ambiguous; database order selects one.
+
+
+        :param table: Table name passed to search.
+        :param column: Column name passed to search.
+        :param value: Exact search value passed unchanged.
+        :return: First Row, or None for a false-valued result collection.
+        """
+
         rows = self.db.search(table=table, column=column, search_term=value)
         if rows:
             return rows[0]
@@ -119,6 +217,22 @@ class AgentCreatorOrgMixin:
         fk_value: int,
         payload: dict[str, Any],
     ) -> RowAPI:
+        """
+        Update the first matching sidecar or insert a new payload.
+
+        No uniqueness lock or transaction protects the lookup/insertion interval.
+
+        Example:
+            An existing row ignores unknown payload columns, while insertion passes the payload to Row creation.
+
+
+        :param table: Sidecar table to search/insert.
+        :param fk_column: Foreign-key column used to find an existing sidecar.
+        :param fk_value: Owner ID used in lookup and as the insertion default.
+        :param payload: Payload; can override the foreign-key default on insertion.
+        :return: Existing updated Row or new Row.
+        """
+
         current = self._first_row_for_value(table=table, column=fk_column, value=fk_value)
         if current is not None:
             self._set_row_values(current, payload)
@@ -129,6 +243,20 @@ class AgentCreatorOrgMixin:
         return Row.from_idless_row_dict(self.db, row_dict=row_dict, table=table)
 
     def _extract_agent_id(self, row: RowAPI) -> Optional[int]:
+        """
+        Try supported Agent and sidecar ID columns in priority order.
+
+        Access exceptions are skipped; int conversion TypeError/ValueError are
+        skipped too. Other conversion failures can propagate, and bool can become an ID.
+
+        Example:
+            agent_id precedes human_agent_agent_id, org_agent_agent_id and publisher_agent_id.
+
+
+        :param row: Row-like object inspected without validating its table.
+        :return: First value convertible with int(), or None.
+        """
+
         for key in (
             "agent_id",
             "human_agent_agent_id",
@@ -156,6 +284,24 @@ class AgentCreatorOrgMixin:
         type: Optional[str] = None,
         **col_value_pairs: Any,
     ) -> RowAPI:
+        """
+        Retry with reversed endpoints after an InputIntegrityError.
+
+        The first failed attempt may already have side effects; no rollback or
+        transaction is provided. Errors from the second attempt propagate.
+
+        Example:
+            A backend DatabaseIntegrityError is not retried.
+
+
+        :param primary_row: Initial primary Row.
+        :param secondary_row: Initial secondary Row.
+        :param priority: Priority passed unchanged to both attempts.
+        :param type: Relationship type passed unchanged.
+        :param col_value_pairs: Additional link columns passed unchanged.
+        :return: Result of the first successful interlink attempt.
+        """
+
         try:
             return self.db.interlink_rows(
                 primary_row=primary_row,
@@ -174,6 +320,21 @@ class AgentCreatorOrgMixin:
             )
 
     def _language_to_row(self, language: Union[RowAPI, str, int]) -> RowAPI:
+        """
+        Resolve a concrete Language Row, ID or text for Agent linking.
+
+        Without Ensure, search language then language_code. Unresolved inputs use
+        best_effort_language_id with strict=False before a final InputIntegrityError.
+
+        Example:
+            When Ensure is wired, text is delegated to ensure.language with its default name mode.
+
+
+        :param language: Concrete Row returned directly, integer ID, or language text.
+        :return: Resolved Row; a concrete Row is not checked for its table.
+        :raises InputIntegrityError: No Language Row can be resolved.
+        """
+
         if isinstance(language, Row):
             return language
 
@@ -208,6 +369,18 @@ class AgentCreatorOrgMixin:
         raise InputIntegrityError(err_str)
 
     def _note_to_row(self, note: Union[RowAPI, str]) -> RowAPI:
+        """
+        Reuse a concrete Row or insert text into notes.
+
+        Example:
+            A concrete Row is returned without checking its table; text requires an insertable table.
+
+
+        :param note: Concrete Row or text; no blank-string validation.
+        :return: Original Row or newly inserted text Row.
+        :raises InputIntegrityError: Input is unsupported or the target table is not insertable.
+        """
+
         if isinstance(note, Row):
             return note
         if isinstance(note, string_types):
@@ -223,6 +396,18 @@ class AgentCreatorOrgMixin:
         raise InputIntegrityError(err_str)
 
     def _synopsis_to_row(self, synopsis: Union[RowAPI, str]) -> RowAPI:
+        """
+        Reuse a concrete Row or insert text into synopses.
+
+        Example:
+            A concrete Row is returned without checking its table; text requires an insertable table.
+
+
+        :param synopsis: Concrete Row or text; no blank-string validation.
+        :return: Original Row or newly inserted text Row.
+        :raises InputIntegrityError: Input is unsupported or the target table is not insertable.
+        """
+
         if isinstance(synopsis, Row):
             return synopsis
         if isinstance(synopsis, string_types):
@@ -246,6 +431,23 @@ class AgentCreatorOrgMixin:
         is_primary: Optional[int] = None,
         provenance: str = "add_agent_mixin",
     ) -> Optional[RowAPI]:
+        """
+        Insert an Agent identifier when value and table capability permit it.
+
+        No normalization, reuse lookup or enclosing transaction is performed.
+
+        Example:
+            An unavailable entity_identifiers table silently skips the optional identifier.
+
+
+        :param agent_id: Agent ID coerced with int().
+        :param scheme: Scheme stored unchanged.
+        :param value: False-valued input skips insertion.
+        :param is_primary: Primary flag stored unchanged.
+        :param provenance: Provenance string stored unchanged.
+        :return: New identifier Row, or None for absent value/table capability.
+        """
+
         if not value:
             return None
         if not self._has_insertable_table("entity_identifiers"):
@@ -281,7 +483,31 @@ class AgentCreatorOrgMixin:
         linked_images: Optional[Iterable[RowAPI]] = None,
     ) -> RowAPI:
         """
-        Create a generic agent row plus optional subtype sidecars.
+        Insert an Agent, then optional sidecars and related metadata.
+
+        The agents table is checked before type validation. Sidecar capability checks
+        and attachment resolution occur after Agent insertion; failures can leave a
+        partial aggregate. Add resolves shared date helpers through WEMIAdderMixin
+        before AgentCreatorOrgMixin. No encompassing transaction is opened.
+
+        Example:
+            Adding both sidecar payloads attempts both independently of the selected Agent type.
+
+
+        :param agent_canonical_name: Canonical name stored unchanged; no local nonempty check.
+        :param agent_type: Case/whitespace-normalized type; common person/organisation aliases are accepted.
+        :param agent_sort_name: Sort name stored unchanged.
+        :param agent_aliases: String or sequence; strip and deduplicate case-insensitively, joining with (#BREAK#).
+        :param agent_note: Note stored unchanged.
+        :param agent_created_timestamp_ep_k: Creation timestamp via the active coercion helper; also sets modification time.
+        :param human_sidecar: Truthy person-sidecar payload to upsert after Agent insertion.
+        :param org_sidecar: Truthy organisation-sidecar payload to upsert after Agent insertion.
+        :param linked_languages: Language Rows, strings or IDs resolved and linked with native type/priority zero.
+        :param linked_notes: Concrete Rows or strings inserted as Notes and linked at priority zero.
+        :param linked_synopses: Concrete Rows or strings inserted as Synopses and linked at priority zero.
+        :param linked_images: Only concrete Rows are linked as agent_photo; other values are ignored.
+        :return: Created database Row; synchronization and schema errors propagate.
+        :raises InputIntegrityError: Required tables, type or attachment inputs are unsupported.
         """
         self._require_insertable_table("agents", for_method="agent")
 
@@ -389,7 +615,36 @@ class AgentCreatorOrgMixin:
         creator_image=None,
     ):
         """
-        Create a creator as an ``agents`` row with a ``human_agents`` sidecar.
+        Translate legacy Creator fields into a person Agent and attachments.
+
+        Requires insertable agents and human_agents before role validation. Missing
+        identifier-table capability silently omits identifiers. All aggregate writes
+        follow agent() without an encompassing transaction.
+
+        Example:
+            A multiword name is split heuristically into first, middle and last names.
+
+
+        :param creator: Name converted to stripped text.
+        :param creator_sort: Sort name; None derives it with author_to_author_sort.
+        :param creator_short_name: Preferred name and optional alias.
+        :param creator_last_name: Explicit family name; None uses the final split name part.
+        :param creator_phash: Truthy phonetic value retained as an alias and optional identifier.
+        :param creator_legal_name: Truthy legal name retained as an alias when different from canonical text.
+        :param creator_birth_date: Birth date through active ISO-date coercion.
+        :param creator_death_date: Death date through active ISO-date coercion.
+        :param creator_type: Normalized role checked against CREATOR_TYPES, then retained in Agent notes.
+        :param creator_seminal_work: Truthy seminal-work description retained in Agent notes.
+        :param creator_one_person: Flag encoded as 0/1 in notes; Agent type remains person.
+        :param creator_wikipedia: Optional wikipedia_url identifier.
+        :param creator_imdb: Optional imdb_id identifier.
+        :param creator_link: Optional url identifier.
+        :param creator_created_datestamp: Truthy creation date preferred over creator_datestamp.
+        :param creator_datestamp: Fallback timestamp when creation date is false-valued.
+        :param creator_language: Optional Language Row/string/ID to link.
+        :param creator_bio: Text stored in biography and also linked as a Note; a Row is only linked.
+        :param creator_image: Concrete image Row to link; other values are ignored.
+        :return: Created database Row; synchronization and schema errors propagate.
         """
         self._require_insertable_table("agents", for_method="creator")
         self._require_insertable_table("human_agents", for_method="creator")
@@ -489,7 +744,37 @@ class AgentCreatorOrgMixin:
         organisation_synopsis=None,
     ) -> RowAPI:
         """
-        Create an organisation as an ``agents`` row with an ``org_agents`` sidecar.
+        Insert an organisation Agent with a sidecar and optional parent relation.
+
+        Required Agent/sidecar tables are checked before insertion. Parent ID
+        validation occurs after creation when the relation table is available.
+        DatabaseIntegrityError while inserting the parent relation is suppressed;
+        other failures propagate after earlier writes. No enclosing transaction
+        is opened.
+
+        Example:
+            If org_agent_relations is unavailable, a supplied parent is silently ignored.
+
+
+        :param organisation: Name converted to stripped text.
+        :param organisation_sort: Sort name; None uses the stripped name.
+        :param organisation_aliases: Aliases normalized by agent().
+        :param organisation_note: Agent note text.
+        :param organisation_legal_name: Legal name stored in the organisation sidecar.
+        :param organisation_trading_name: Trading name stored in the sidecar.
+        :param organisation_registration_id: Registration ID stored unchanged.
+        :param organisation_jurisdiction: Jurisdiction stored unchanged.
+        :param organisation_founded_date: Foundation date through active ISO-date coercion.
+        :param organisation_dissolved_date: Dissolution date through active ISO-date coercion.
+        :param organisation_website: Website stored in the sidecar and optionally as a primary url identifier.
+        :param organisation_contact_email: Contact email stored unchanged.
+        :param organisation_description: Description text stored unchanged.
+        :param organisation_parent: Concrete parent Row or integer Agent ID; evaluated only if the relation table is insertable.
+        :param organisation_relation_type: Relation type, default imprint_of, stored unchanged.
+        :param organisation_relation_note: Relation note stored on the edge and appended to Agent notes.
+        :param organisation_language: Optional Language Row/string/ID to link.
+        :param organisation_synopsis: Optional Synopsis Row/string to link.
+        :return: Created database Row; synchronization and schema errors propagate.
         """
         self._require_insertable_table("agents", for_method="organisation")
         self._require_insertable_table("org_agents", for_method="organisation")
@@ -561,7 +846,18 @@ class AgentCreatorOrgMixin:
 
     def organization(self, *args, **kwargs) -> RowAPI:
         """
-        US spelling alias for :meth:`organisation`.
+        Forward the US-spelled alias with only two keyword translations.
+
+        If both spellings of one translated key are supplied, the US key remains
+        and may fail at the organisation call.
+
+        Example:
+            Use UK-spelled organisation_aliases for additional options; organization_aliases is not translated.
+
+
+        :param args: Positional arguments forwarded to organisation.
+        :param kwargs: Keywords forwarded after translating organization and organization_sort when their UK keys are absent.
+        :return: Result of organisation; unsupported/conflicting keywords can raise TypeError.
         """
         if "organization" in kwargs and "organisation" not in kwargs:
             kwargs["organisation"] = kwargs.pop("organization")
@@ -582,7 +878,25 @@ class AgentCreatorOrgMixin:
         publisher_full=None,
     ):
         """
-        Add a publisher as an ``organisation``-typed agent.
+        Translate legacy Publisher values into an organisation Agent.
+
+        Unsupported non-text/non-Row descriptions are ignored. Aggregate and later
+        identifier writes are sequential, with no encompassing transaction.
+
+        Example:
+            A description Row from synopses is linked as a Synopsis; other Row tables use the Note-link path.
+
+
+        :param publisher: Publisher name forwarded to organisation.
+        :param publisher_sort: Optional sort name.
+        :param publisher_phash: Truthy hash encoded as an alias and optional identifier.
+        :param publisher_description: Text for sidecar description, or Row linked as Synopsis/Note by its table.
+        :param publisher_wikipedia: Optional primary wikipedia_url identifier.
+        :param publisher_website: Website forwarded to organisation for sidecar and url identifier.
+        :param publisher_parent: Parent organisation Row/ID forwarded with imprint_of relation type.
+        :param publishr_position: Legacy misspelled position parameter; non-None is encoded as an alias.
+        :param publisher_full: Truthy full name encoded as an alias.
+        :return: Created database Row; synchronization and schema errors propagate.
         """
         self._require_insertable_table("agents", for_method="publisher")
         self._require_insertable_table("org_agents", for_method="publisher")

@@ -1,10 +1,15 @@
 
 """
-Tools to standardize metadata fields.
+Normalize display fields and derive lossy comparison keys using legacy creator/title heuristics and genre adapters.
 
-For comparison, for searching, for neatness and for sanity being able to bring metadata objects
-into a standard form is very useful.
-This module provides tools to do that.
+Name formatting uses ASCII-oriented rules, comparison keys can collide, and language
+lookup may return canonical names rather than codes. Genre classification delegates
+to the ordered modern genre mappings.
+
+Example:
+    Exercise the owning behavior with pytest::
+
+        python -m pytest -q tests/metadata/test_standardize_coverage.py
 """
 
 from __future__ import unicode_literals, print_function
@@ -49,9 +54,21 @@ __author__ = "Cameron"
 # Todo: Hilariously unicode/multi-language unsafe
 def standardize_creator_name(input_string):
     """
-    Takes a string - does it's level best to mangle it into standard form.
-    :param input_string:
-    :return:
+    Apply legacy name-order, initial-spacing, capitalization, and Mc/Mac joining heuristics.
+
+    Reverse a single comma-separated surname/given-name pair; preserve multi-comma
+    ordering. Normalize whitespace, separate adjacent ASCII capitals, add periods to
+    initial-like tokens, and capitalize token starts. The rules are heuristic and are
+    not a general multilingual name parser.
+
+    Example:
+        >>> standardize_creator_name('Clarke, Arthur C')
+        'Arthur C. Clarke'
+
+
+    :param input_string: Creator-name string; comma order and ASCII-oriented
+        initial/capitalization heuristics are applied.
+    :return: Normalized creator string; an empty string stays empty.
     """
     input_string = deepcopy(input_string)
     input_string_tokenized = input_string.split(",")
@@ -150,10 +167,18 @@ DROP_CHARACTERS = (".", ",", '"', "'")
 
 def standardize_title(target_string):
     """
-    Takes a title - tries to bring it into a standard form.
-    If the title is None then returns an empty string.
-    :param target_string:
-    :return:
+    Replace configured punctuation with spaces, drop bracketed text, and normalize separators before title-casing.
+
+    The first underscore, hyphen, colon, semicolon, or vertical bar becomes a colon;
+    later separators become hyphens. Collapse whitespace before applying titlecase.
+
+    Example:
+        >>> standardize_title('the_book-part')
+        'The : Book - Part'
+
+
+    :param target_string: Title string, or None for an empty result.
+    :return: Normalized title, or empty string for None.
     """
     if target_string is None:
         return ""
@@ -221,11 +246,20 @@ ALL_DROP_CHARACTERS = (
 
 def gen_title_author_phash(author_string, title_string):
     """
-    Takes an author string and a title string. From them produces a title_author phash which can be used to search the
-    titles table for existing title_creator combinations.
-    :param author_string: The name of the first author associated with a title
-    :param title_string: The title of the work
-    :return title_author_phash: Something which should hopefully be usefully unique given any author-title pair
+    Combine the first author’s standardized final name token with a simplified title key.
+
+    Split author text at the first ampersand, then join the lowercased surname token and
+    title key with an underscore. This lossy key is not guaranteed unique.
+
+    Example:
+        >>> gen_title_author_phash('Ada Lovelace', 'The Book')
+        'lovelace_book'
+
+
+    :param author_string: Author string; only the part before the first ampersand
+        contributes.
+    :param title_string: Title string used to derive a lossy search key.
+    :return: Surname/title search key.
     """
     author_string = deepcopy(author_string).strip()
     title_string = deepcopy(title_string).strip()
@@ -246,18 +280,33 @@ def gen_title_author_phash(author_string, title_string):
 
 def make_title_search_term(title_string):
     """
-    Makes a simplified form of the title (a title hash, if you will) for easier searching.
-    :param title_string:
-    :return:
+    Delegate title-key generation to make_simpler_search_term.
+
+    Example:
+        >>> make_title_search_term('The Left Hand of Darkness')
+        'left_hand_darkness'
+
+
+    :param title_string: Title string used to derive a lossy search key.
+    :return: Lossy underscore-separated search key.
     """
     return make_simpler_search_term(title_string)
 
 
 def make_simpler_search_term(search_string):
     """
-    Makes a simplified form of the title (a title hash, if you will) for easier searching.
-    :param search_string:
-    :return:
+    Keep text before the first hyphen, remove configured punctuation, lowercase, and omit six common words.
+
+    Join remaining whitespace-delimited tokens with underscores. The removed words are
+    on, the, a, at, of, and and; other punctuation can remain.
+
+    Example:
+        >>> make_simpler_search_term('The Book of Stars - Volume Two')
+        'book_stars'
+
+
+    :param search_string: String to reduce to a search key.
+    :return: Lossy search key; distinct original strings can collide.
     """
     # Based on how the title string is normalized in the standardize_title method this should drop everything after the
     # second separator
@@ -312,9 +361,19 @@ _COMPILED_GENRE_SHORTENED_MAPPING = _genre_std.compile_genre_mapping(GENRE_SHORT
 
 
 def standardize_genre(genre_string):
-    """Normalize a genre-ish string into a canonical shelf label.
+    """
+    Return an empty string for None, otherwise match the compiled genre mapping with titlecase as fallback.
 
-    Backwards compatible wrapper around :func:`LiuXin_alpha.metadata.standardize_genre.standardize_genre`.
+    The mapping is compiled at module import, so later raw mapping edits do not refresh
+    it automatically.
+
+    Example:
+        >>> standardize_genre('space opera')
+        'Space Opera'
+
+
+    :param genre_string: Genre-label string to standardize.
+    :return: First matching canonical label or title-cased original input.
     """
     if genre_string is None:
         return ""
@@ -324,10 +383,21 @@ def standardize_genre(genre_string):
 
 
 def classify_fiction_genre(genre_string, *, multi_leaf=False, default_branch=None, default_leaf=None):
-    """Classify a genre-ish string into (branch, leaf) for fiction.
+    """
+    Forward branch/leaf classification options to the genre classifier.
 
-    Returns a FictionGenreClassification (dataclass) from
-    :func:`LiuXin_alpha.metadata.standardize_genre.classify_fiction_genre`.
+    Example:
+        >>> classify_fiction_genre('space opera').leaf
+        'Space Opera'
+
+
+    :param genre_string: Genre-label string to standardize.
+    :param multi_leaf: Whether to collect and prune all matching leaves within the
+        chosen branch.
+    :param default_branch: Fallback branch when no branch expression matches.
+    :param default_leaf: Fallback leaf when no matching leaf is selected.
+    :return: FictionGenreClassification carrying the selected branch, representative
+        leaf, leaf set, and normalized text.
     """
     return _genre_std.classify_fiction_genre(
         genre_string,
@@ -339,9 +409,16 @@ def classify_fiction_genre(genre_string, *, multi_leaf=False, default_branch=Non
 
 def standardize_language(language_string):
     """
-    Tries to bring the language name into an iso639 recognized form.
-    :param language_string:
-    :return:
+    Stringify and lowercase the input, then try the bundled language canonicalizer.
+
+    Example:
+        >>> standardize_language('zho')
+        'Chinese'
+
+
+    :param language_string: Value stringified and lowercased before language lookup.
+    :return: Canonicalizer result when known, otherwise title-cased input text; the
+        result need not be an ISO code.
     """
     language_string = six_unicode(deepcopy(language_string)).lower()
     candidate_language = canonicalize_lang(language_string)
@@ -353,10 +430,15 @@ def standardize_language(language_string):
 
 def make_tag_search_term(tag_string):
     """
-    Two tags are considered to be the same if they are the same up to the placement of spaces and capitalization.
-    This method takes a tag in the form of a string and produces something which can be used to search the tags table.
-    :param tag_string:
-    :return:
+    Remove all whitespace and lowercase a tag without other punctuation or Unicode normalization.
+
+    Example:
+        >>> make_tag_search_term(' Space  Opera ')
+        'spaceopera'
+
+
+    :param tag_string: Tag string to normalize.
+    :return: Compact case-insensitive comparison string.
     """
     tag_string = deepcopy(tag_string)
     tag_string = re.sub(r"\s+", "", tag_string)
@@ -366,9 +448,15 @@ def make_tag_search_term(tag_string):
 
 def standardize_tag(tag_string):
     """
-    Tries to bring a tag into standard form (currently just applies titlecase). Mostly here for symmetry.
-    :param tag_string:
-    :return:
+    Apply titlecase to the supplied tag without additional cleanup.
+
+    Example:
+        >>> standardize_tag('space opera')
+        'Space Opera'
+
+
+    :param tag_string: Tag string to normalize.
+    :return: Title-cased tag.
     """
     return titlecase(tag_string)
 
@@ -376,9 +464,16 @@ def standardize_tag(tag_string):
 # Todo: Extend this to as many forms of identifier as can be found
 def standardize_identifier(identifier_string):
     """
-    Does it's best to bring any given identifier into a standard form.
-    :param identifier_string:
-    :return:
+    Try fixed-position ISBN normalization and otherwise return a copy of the original identifier.
+
+    Example:
+        >>> standardize_identifier('abc-123')
+        'abc-123'
+
+
+    :param identifier_string: Identifier value passed to the ISBN helpers.
+    :return: Formatted ISBN or unchanged copied input; does not generally strip
+        arbitrary identifiers.
     """
     identifier_string = deepcopy(identifier_string)
     isbn_string = standardize_isbn(identifier_string)
@@ -390,9 +485,15 @@ def standardize_identifier(identifier_string):
 
 def standardize_isbn(isbn_string):
     """
-    Brings an identifier into standard form.
-    :param isbn_string:
-    :return:
+    Validate the candidate and use fixed-position ISBN formatting when valid.
+
+    Example:
+        >>> standardize_isbn('not an isbn') is False
+        True
+
+
+    :param isbn_string: ISBN candidate passed to the checksum helpers.
+    :return: Formatted ISBN string, or False when validation fails.
     """
     if not check_isbn(isbn_string):
         return False
@@ -402,9 +503,15 @@ def standardize_isbn(isbn_string):
 
 def standardize_publisher(publisher_string):
     """
-    Brings a publisher string into standard form.
-    :param publisher_string:
-    :return:
+    Title-case a publisher string, treating None as empty.
+
+    Example:
+        >>> standardize_publisher(None)
+        ''
+
+
+    :param publisher_string: Publisher string, or None for an empty result.
+    :return: Title-cased publisher or empty string.
     """
     if publisher_string is None:
         return ""
@@ -414,10 +521,15 @@ def standardize_publisher(publisher_string):
 
 def standardize_series(series_string):
     """
-    Brings a series string into standard form.
-    If the series string is None, then return the empty string.
-    :param series_string:
-    :return:
+    Title-case a series string, treating None as empty.
+
+    Example:
+        >>> standardize_series('earthsea cycle')
+        'Earthsea Cycle'
+
+
+    :param series_string: Series string to normalize.
+    :return: Title-cased series or empty string.
     """
     if series_string is None:
         return ""
@@ -427,12 +539,19 @@ def standardize_series(series_string):
 
 def make_series_phash(creator_string, series_string):
     """
-    Takes a creator string, and a series string - and uses them to generate a phash which can be used to search the
-    series table for the particular series.
-    (attempt to get round the problem that series and names might be written inconsistently.)
-    :param creator_string: The given name of the creator of the series
-    :param series_string: The given name of the series
-    :return :
+    Combine the standardized creator’s final token with a simplified series key.
+
+    Use an empty surname when creator tokenization is empty. Join the two components
+    with an underscore; the result is a lossy comparison key.
+
+    Example:
+        >>> make_series_phash('', 'The Wheel of Time')
+        '_wheel_time'
+
+
+    :param creator_string: Creator-name string contributing to a search key.
+    :param series_string: Series string to normalize.
+    :return: Surname/series key, potentially beginning with an underscore.
     """
     creator_string = deepcopy(creator_string)
     series_string = deepcopy(series_string)
@@ -451,9 +570,15 @@ def make_series_phash(creator_string, series_string):
 
 def make_creator_phash(creator_string):
     """
-    Make a creator hash string out of a creator string.
-    :param creator_string:
-    :return:
+    Remove whitespace from a creator string and lowercase it through the ICU helper.
+
+    Example:
+        >>> make_creator_phash(' Ada Lovelace ')
+        'adalovelace'
+
+
+    :param creator_string: Creator-name string contributing to a search key.
+    :return: Compact name key without punctuation removal or uniqueness guarantees.
     """
     # 1) remove all the whitespace
     creator_string = re.sub(r"\s+", r"", creator_string)
@@ -465,9 +590,20 @@ def make_creator_phash(creator_string):
 # Todo: Make sure that this is used everywhere it should be
 def cleanup_tags(tags):
     """
-    Render an iterable of tags safe/sane for inclusion in the database.
-    :param tags:
-    :return:
+    Decode or stringify tags, trim and collapse whitespace, replace commas with semicolons, and deduplicate by lowercase form.
+
+    Preserve the first surviving spelling and input order. Ignore None and empty values;
+    decode bytes/bytearray with the preferred encoding and replacement errors. The input
+    iterable is consumed without mutation.
+
+    Example:
+        >>> cleanup_tags([' Space  Opera ', 'space opera', None, 'a,b'])
+        ['Space Opera', 'a;b']
+
+
+    :param tags: Iterable of tags; None elements are skipped, bytes are decoded, and
+        other values are stringified.
+    :return: New ordered list of cleaned tags.
     """
     normalized_tags = []
     for tag in tags:

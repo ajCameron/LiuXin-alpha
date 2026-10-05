@@ -1,3 +1,14 @@
+"""
+Provide test lit conversion unicode framework utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test lit conversion unicode framework through a consuming regression::
+
+        python -m pytest -q tests/file_formats/lit/test_lit_conversion_unicode_framework.py
+"""
 from __future__ import annotations
 
 import importlib
@@ -28,12 +39,38 @@ from tests.support.file_format_unicode import (
 
 
 def _lit_writer(monkeypatch):
+    """
+    Perform the lit writer operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  lit writer through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_conversion_unicode_framework.py
+
+
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     writer = importlib.import_module("LiuXin_alpha.file_formats.lit.writer")
     monkeypatch.setattr(writer, "Stylizer", NullStylizer)
     return writer
 
 
 def _lit_output_book(*, include_image: bool = False):
+    """
+    Perform the lit output book operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  lit output book through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_conversion_unicode_framework.py
+
+
+    :param include_image: Value supplied for include image under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     book = build_rich_oeb_output_book(include_image=include_image)
     book.logger = LitLog()
 
@@ -61,12 +98,39 @@ def _lit_output_book(*, include_image: bool = False):
 
 
 def _extract_directory_payload(writer, entry_name: str) -> bytes:
+    """
+    Extract directory payload under the format's safety and compatibility rules.
+
+    Example:
+        Exercise  extract directory payload through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_conversion_unicode_framework.py
+
+
+    :param writer: Value supplied for writer under the utility contract.
+    :param entry_name: Value supplied for entry name under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     entry = next(entry for entry in writer._directory if entry.name == entry_name)
     section = writer._sections[entry.section].getvalue()
     return section[entry.offset : entry.offset + entry.size]
 
 
 def test_lit_rebinary_output_preserves_multiscript_xhtml(monkeypatch) -> None:
+    """
+    Perform the test lit rebinary output preserves multiscript xhtml operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test lit rebinary output preserves multiscript xhtml through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_conversion_unicode_framework.py
+
+
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     writer = _lit_writer(monkeypatch)
     book = _lit_output_book(include_image=False)
     item = book.spine[0]
@@ -86,6 +150,19 @@ def test_lit_rebinary_output_preserves_multiscript_xhtml(monkeypatch) -> None:
 
 
 def test_lit_writer_manifest_preserves_unicode_ids_and_paths(monkeypatch) -> None:
+    """
+    Perform the test lit writer manifest preserves unicode ids and paths operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test lit writer manifest preserves unicode ids and paths through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_conversion_unicode_framework.py
+
+
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     writer = _lit_writer(monkeypatch)
     book = _lit_output_book(include_image=True)
 
@@ -124,6 +201,20 @@ def test_lit_writer_manifest_preserves_unicode_ids_and_paths(monkeypatch) -> Non
 
 
 def test_lit_writer_reports_unavailable_lzx_before_opening_output(monkeypatch, tmp_path) -> None:
+    """
+    Perform the test lit writer reports unavailable lzx before opening output operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test lit writer reports unavailable lzx before opening output through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_conversion_unicode_framework.py
+
+
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     writer = _lit_writer(monkeypatch)
     monkeypatch.setattr(writer, "Compressor", None)
     out_path = tmp_path / "blocked.lit"
@@ -135,6 +226,18 @@ def test_lit_writer_reports_unavailable_lzx_before_opening_output(monkeypatch, t
 
 
 def test_lit_input_postprocess_preserves_multiscript_pre_text() -> None:
+    """
+    Perform the test lit input postprocess preserves multiscript pre text operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test lit input postprocess preserves multiscript pre text through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lit/test_lit_conversion_unicode_framework.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     lit_input_mod = importlib.import_module("LiuXin_alpha.file_formats.conversion.plugins.lit_input")
     from LiuXin_alpha.file_formats.oeb.base import XHTML
     from LiuXin_alpha.utils.libraries.liuxin_etree import etree as liuxin_etree

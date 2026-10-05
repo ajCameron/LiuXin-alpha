@@ -1,3 +1,14 @@
+"""
+Provide test markdown unicode framework utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test markdown unicode framework through a consuming regression::
+
+        python -m pytest -q tests/file_formats/markdown/test_markdown_unicode_framework.py
+"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -15,6 +26,18 @@ from tests.support.file_format_unicode import (
 
 
 def test_markdown_preserves_shared_multiscript_corpus() -> None:
+    """
+    Perform the test markdown preserves shared multiscript corpus operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test markdown preserves shared multiscript corpus through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_unicode_framework.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats import markdown
 
     source = "# Shared Corpus\n\n" + MULTISCRIPT_TEXT
@@ -40,6 +63,19 @@ def test_markdown_preserves_shared_multiscript_corpus() -> None:
     ids=("bytes", "bytearray", "memoryview"),
 )
 def test_markdown_convert_preserves_shared_corpus_from_bytes_like_inputs(payload) -> None:
+    """
+    Perform the test markdown convert preserves shared corpus from bytes like inputs operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test markdown convert preserves shared corpus from bytes like inputs through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_unicode_framework.py
+
+
+    :param payload: Value supplied for payload under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.markdown import Markdown
 
     rendered = Markdown().convert(payload)
@@ -50,6 +86,20 @@ def test_markdown_convert_preserves_shared_corpus_from_bytes_like_inputs(payload
 
 @pytest.mark.parametrize("case", encoded_unicode_cases("# Shared Corpus\n\n" + MULTISCRIPT_TEXT), ids=lambda case: case.case_id)
 def test_markdown_from_file_handles_shared_encoded_unicode_cases(tmp_path: Path, case) -> None:
+    """
+    Perform the test markdown from file handles shared encoded unicode cases operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test markdown from file handles shared encoded unicode cases through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_unicode_framework.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param case: Value supplied for case under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.markdown import markdownFromFile
 
     source = tmp_path / f"{case.case_id}.md"

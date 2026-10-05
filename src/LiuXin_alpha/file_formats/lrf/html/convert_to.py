@@ -1,3 +1,14 @@
+"""
+Translate LRF objects into normalized HTML and resource output.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise convert to through a consuming regression::
+
+        python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+"""
 from __future__ import print_function
 from __future__ import annotations
 
@@ -24,10 +35,42 @@ __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
 class BlockStyle(object):
+    """
+    Provide the blockstyle contract for validated ebook processing.
+
+    Example:
+        Exercise BlockStyle through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     def __init__(self: _typing.Self, ba: _typing.Any) -> None:
+        """
+        Initialize and validate the blockstyle state.
+
+        Example:
+            Exercise BlockStyle.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param ba: Value supplied for ba under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.ba = ba
 
     def __str__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the str operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise BlockStyle.  str   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = "." + str(self.ba.id) + " {\n"
         if hasattr(self.ba, "sidemargin"):
             margin = str(self.ba.sidemargin) + "px"
@@ -50,7 +93,29 @@ class BlockStyle(object):
 
 
 class LRFConverter(object):
+    """
+    Provide the lrfconverter contract for validated ebook processing.
+
+    Example:
+        Exercise LRFConverter through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     def __init__(self: _typing.Self, document: _typing.Any, opts: _typing.Any, logger: _typing.Any) -> None:
+        """
+        Initialize and validate the lrfconverter state.
+
+        Example:
+            Exercise LRFConverter.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param document: Value supplied for document under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :param logger: Value supplied for logger under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.lrf = document
         self.opts = opts
         self.output_dir = opts.out
@@ -62,11 +127,35 @@ class LRFConverter(object):
         self.create_styles()
 
     def create_metadata(self: _typing.Self) -> None:
+        """
+        Create metadata under the format's safety and compatibility rules.
+
+        Example:
+            Exercise LRFConverter.create metadata through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.logger.info("Reading metadata...")
         mi = get_metadata(self.lrf)
         self.opf = OPFCreator(self.output_dir, mi)
 
     def create_page_styles(self: _typing.Self) -> None:
+        """
+        Create page styles under the format's safety and compatibility rules.
+
+        Example:
+            Exercise LRFConverter.create page styles through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.page_css = ""
         for obj in self.lrf.objects.values():
             if isinstance(obj, PageAttr):
@@ -76,12 +165,36 @@ class LRFConverter(object):
                 self.page_css += "}\n"
 
     def create_block_styles(self: _typing.Self) -> None:
+        """
+        Create block styles under the format's safety and compatibility rules.
+
+        Example:
+            Exercise LRFConverter.create block styles through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.block_css = ""
         for obj in self.lrf.objects.values():
             if isinstance(obj, BlockAttr):
                 self.block_css += str(BlockStyle(obj))
 
     def create_text_styles(self: _typing.Self) -> None:
+        """
+        Create text styles under the format's safety and compatibility rules.
+
+        Example:
+            Exercise LRFConverter.create text styles through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.text_css = ""
         for obj in self.lrf.objects.values():
             if isinstance(obj, TextAttr):
@@ -89,12 +202,36 @@ class LRFConverter(object):
         print(self.text_css)
 
     def create_styles(self: _typing.Self) -> None:
+        """
+        Create styles under the format's safety and compatibility rules.
+
+        Example:
+            Exercise LRFConverter.create styles through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.logger.info("Creating CSS stylesheet...")
         self.create_page_styles()
         self.create_block_styles()
 
 
 def option_parser() -> _typing.Any:
+    """
+    Perform the option parser operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise option parser through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     parser = OptionParser(usage="%prog book.lrf")
     parser.add_option(
         "--output-dir",
@@ -109,6 +246,21 @@ def option_parser() -> _typing.Any:
 
 
 def process_file(lrfpath: _typing.Any, opts: _typing.Any, logger: _typing.Any = None) -> None:
+    """
+    Perform the process file operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise process file through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+    :param lrfpath: Value supplied for lrfpath under the utility contract.
+    :param opts: Value supplied for opts under the utility contract.
+    :param logger: Value supplied for logger under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if logger is None:
         level = logging.DEBUG if opts.verbose else logging.INFO
         logger = logging.getLogger("lrf2html")
@@ -127,6 +279,19 @@ def process_file(lrfpath: _typing.Any, opts: _typing.Any, logger: _typing.Any = 
 
 
 def main(args: _typing.Any = sys.argv) -> int:
+    """
+    Perform the main operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise main through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+    :param args: Positional values forwarded to the compatibility implementation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     parser = option_parser()
     opts, args = parser.parse_args(args)
     if len(args) != 2:

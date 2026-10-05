@@ -1,3 +1,15 @@
+"""
+Exercise portable macros using SQLite connections with SQLite and PostgreSQL-shaped hosts.
+
+Both fixture variants execute on SQLite. The PostgreSQL variant tests generated
+behavior where SQLite can support it; its pg_temp lifecycle case skips after
+checking BYTEA spelling. Live PostgreSQL coverage lives in a separate module.
+
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/api/test_portable_macros.py
+"""
 from __future__ import annotations
 
 from dataclasses import replace
@@ -23,39 +35,168 @@ from LiuXin_alpha.errors import DatabaseIntegrityError, InputIntegrityError
 
 
 def _pynocase(left, right) -> int:
+    """
+    Compare stringified operands lexically after Unicode case folding.
+
+    Example:
+        >>> _pynocase('Straße', 'STRASSE')
+        0
+
+
+    :param left: Left operand converted with str.
+    :param right: Right operand converted with str.
+    :return: Negative one, zero, or one according to the folded ordering.
+    """
     left = str(left).casefold()
     right = str(right).casefold()
     return (left > right) - (left < right)
 
 
 class _Driver:
+    """
+    Expose a caller-owned SQLite connection, optional schema name, and invalidation counter.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/api/test_portable_macros.py
+    """
     def __init__(self, conn: sqlite3.Connection, *, postgres_shaped: bool) -> None:
+        """
+        Retain the connection, start the invalidation count at zero, and optionally expose schema main.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/api/test_portable_macros.py
+
+
+        :param conn: Caller-owned SQLite connection; this helper does not close it.
+        :param postgres_shaped: Whether to expose a main schema attribute for PostgreSQL
+            macro SQL; the connection still uses SQLite.
+        :return: None; the caller remains responsible for closing conn.
+        """
         self.conn = conn
         self.invalidations = 0
         if postgres_shaped:
             self.schema = "main"
 
     def _table_sql(self, table: str) -> str:
+        """
+        Format a trusted test table as a double-quoted main-schema reference.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/api/test_portable_macros.py
+
+
+        :param table: Trusted test table name, interpolated into SQL where needed.
+        :return: SQL identifier text; embedded quotes are not escaped.
+        """
         return f'"main"."{table}"'
 
     def _zero_prop_cache(self) -> None:
+        """
+        Increment the invalidation counter without maintaining a real property cache.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/api/test_portable_macros.py
+
+
+        :return: None; mutates invalidations.
+        """
         self.invalidations += 1
 
 
 class _Wrapper:
+    """
+    Provide the narrow SQL and schema adapter needed by portable macro tests.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/api/test_portable_macros.py
+    """
     def __init__(self, driver: _Driver) -> None:
+        """
+        Retain the supplied driver without creating or taking ownership of a connection.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/api/test_portable_macros.py
+
+
+        :param driver: Driver double whose SQLite connection is shared by wrapper
+            operations.
+        :return: None.
+        """
         self.driver = driver
 
     def execute(self, sql, values=None):
+        """
+        Execute one statement with the supplied bindings on the shared connection.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/api/test_portable_macros.py
+
+
+        :param sql: SQL statement passed directly to the owned SQLite connection.
+        :param values: Bound parameter sequence or batch; false values are replaced by an
+            empty tuple.
+        :return: SQLite cursor; does not explicitly commit or close it.
+        """
         return self.driver.conn.execute(sql, values or ())
 
     def executemany(self, sql, values=None):
+        """
+        Execute a parameter batch on the shared connection.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/api/test_portable_macros.py
+
+
+        :param sql: SQL statement passed directly to the owned SQLite connection.
+        :param values: Bound parameter sequence or batch; false values are replaced by an
+            empty tuple.
+        :return: SQLite cursor; does not explicitly commit or close it.
+        """
         return self.driver.conn.executemany(sql, values or ())
 
     def get_column_headings(self, table: str) -> list[str]:
+        """
+        Read column names in SQLite PRAGMA declaration order.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/api/test_portable_macros.py
+
+
+        :param table: Trusted test table name, interpolated into SQL where needed.
+        :return: List of names, empty when the table has no reported columns.
+        """
         return [row[1] for row in self.driver.conn.execute(f'PRAGMA table_info("{table}")')]
 
     def get_tables(self) -> tuple[str, ...]:
+        """
+        List main-schema table names in alphabetical order, including SQLite internal tables.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/api/test_portable_macros.py
+
+
+        :return: Tuple of table names from sqlite_master.
+        """
         return tuple(
             row[0]
             for row in self.driver.conn.execute(
@@ -64,6 +205,21 @@ class _Wrapper:
         )
 
     def get_id_column(self, table: str) -> str:
+        """
+        Choose the first primary-key column, otherwise the first name ending in _id.
+
+        Composite keys are reduced to the first column in PRAGMA order. Raise
+        InputIntegrityError if neither candidate exists.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/api/test_portable_macros.py
+
+
+        :param table: Trusted test table name, interpolated into SQL where needed.
+        :return: Chosen column name.
+        """
         info = list(self.driver.conn.execute(f'PRAGMA table_info("{table}")'))
         primary = [row[1] for row in info if row[5]]
         if primary:
@@ -74,15 +230,52 @@ class _Wrapper:
         return candidates[0]
 
     def get_column_base(self, table: str) -> str:
+        """
+        Remove a single trailing s from the table name if present.
+
+        Example:
+            >>> _Wrapper(None).get_column_base('books')
+            'book'
+
+
+        :param table: Trusted test table name, interpolated into SQL where needed.
+        :return: Resulting name; this is a spelling shortcut, not general singularization.
+        """
         return table[:-1] if table.endswith("s") else table
 
     def get_record_count(self, table: str) -> int:
+        """
+        Count all rows in a trusted quoted table.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/api/test_portable_macros.py
+
+
+        :param table: Trusted test table name, interpolated into SQL where needed.
+        :return: Integer row count; SQLite lookup errors propagate.
+        """
         return int(self.driver.conn.execute(f'SELECT COUNT(*) FROM "{table}"').fetchone()[0])
 
     def get_allowed_link_types(
         self,
         link_spec: StorageLinkSpec,
     ) -> tuple[str, ...] | None:
+        """
+        Read sorted type values from the configured allowed-types table.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/api/test_portable_macros.py
+
+
+        :param link_spec: Link specification with an optional trusted allowed_types_table
+            name.
+        :return: Tuple of stored type values, or None if no allowed-types table is
+            configured.
+        """
         if link_spec.allowed_types_table is None:
             return None
         return tuple(
@@ -94,6 +287,22 @@ class _Wrapper:
         )
 
     def get_column_metadata(self, table: str, column: str):
+        """
+        Infer column metadata from the matching SQLite declared type.
+
+        Pass None as the declaration if the column is not found; primary-key and foreign-key
+        flags are not supplied.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/api/test_portable_macros.py
+
+
+        :param table: Trusted test table name, interpolated into SQL where needed.
+        :param column: Column name matched exactly against PRAGMA results.
+        :return: Result returned by infer_column_metadata.
+        """
         declaration = next(
             (
                 row[2]
@@ -106,7 +315,30 @@ class _Wrapper:
 
 
 class _DB:
+    """
+    Own an in-memory SQLite macro host with foreign keys, PYNOCASE collation, and a reentrant lock.
+
+    Callers close driver.conn explicitly; this double has no close method.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/api/test_portable_macros.py
+    """
     def __init__(self, *, postgres_shaped: bool) -> None:
+        """
+        Create the SQLite connection, enable foreign keys, and attach driver, wrapper, and lock.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/api/test_portable_macros.py
+
+
+        :param postgres_shaped: Whether to expose a main schema attribute for PostgreSQL
+            macro SQL; the connection still uses SQLite.
+        :return: None; creates a connection the caller must close.
+        """
         conn = sqlite3.connect(":memory:")
         conn.create_collation("PYNOCASE", _pynocase)
         conn.execute("PRAGMA foreign_keys=ON")
@@ -116,6 +348,21 @@ class _DB:
 
 
 def _column(name: str, ordinal: int, *, primary: bool = False) -> StorageColumnSpec:
+    """
+    Build a column descriptor using INTEGER for _id suffixes and TEXT for other names.
+
+    Example:
+        >>> _column('left_id', 0, primary=True).declared_type
+        'INTEGER'
+        >>> _column('priority', 1).declared_type
+        'TEXT'
+
+
+    :param name: Resource or schema object name, as described above.
+    :param ordinal: Zero-based column position.
+    :param primary: Primary-key flag, defaulting to False.
+    :return: New StorageColumnSpec with the requested ordinal and primary-key flag.
+    """
     return StorageColumnSpec(
         name=name,
         ordinal=ordinal,
@@ -125,6 +372,16 @@ def _column(name: str, ordinal: int, *, primary: bool = False) -> StorageColumnS
 
 
 def _strict_link_spec() -> StorageLinkSpec:
+    """
+    Describe ordered typed strict_links between left_rows and right_rows, including ID and note extras.
+
+    Example:
+        >>> _strict_link_spec().link_table
+        'strict_links'
+
+
+    :return: New StorageLinkSpec for the strict-link test schema.
+    """
     return StorageLinkSpec(
         primary_table="left_rows",
         secondary_table="right_rows",
@@ -145,6 +402,17 @@ def _strict_link_spec() -> StorageLinkSpec:
 
 
 def _role_link_spec() -> StorageLinkSpec:
+    """
+    Adapt the strict-link descriptor so role type participates in link identity.
+
+    Example:
+        >>> _role_link_spec().type_part_of_identity
+        True
+
+
+    :return: New role_links specification with a role_link_id extra column and no note
+        extra.
+    """
     return replace(
         _strict_link_spec(),
         link_table="role_links",
@@ -154,6 +422,16 @@ def _role_link_spec() -> StorageLinkSpec:
 
 
 def _owned_link_spec() -> StorageLinkSpec:
+    """
+    Describe a one-to-one link between owned_sources and owned_values.
+
+    Example:
+        >>> _owned_link_spec().cardinality == LinkCardinality.ONE_TO_ONE
+        True
+
+
+    :return: New StorageLinkSpec naming both endpoint and link columns.
+    """
     return StorageLinkSpec(
         primary_table="owned_sources",
         secondary_table="owned_values",
@@ -167,6 +445,22 @@ def _owned_link_spec() -> StorageLinkSpec:
 
 
 def _create_schema(conn: sqlite3.Connection) -> None:
+    """
+    Create and seed the SQLite tables, constraints, and triggers used by macro tests.
+
+    Execute the embedded SQL script on the supplied connection; SQLite executescript
+    transaction semantics apply. The caller owns connection cleanup and schema errors
+    propagate.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/api/test_portable_macros.py
+
+
+    :param conn: Caller-owned SQLite connection; this helper does not close it.
+    :return: None; mutates the connection database.
+    """
     conn.executescript(
         """
         CREATE TABLE left_rows (
@@ -257,6 +551,23 @@ def _create_schema(conn: sqlite3.Connection) -> None:
 
 @pytest.fixture(params=("sqlite", "postgres"), ids=("sqlite", "postgres-shaped"))
 def macro_db(request):
+    """
+    Yield a seeded macro implementation and database double for each host shape.
+
+    Both variants use SQLite. After successful setup, close the connection in the
+    fixture finalizer when the test finishes.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/api/test_portable_macros.py
+
+
+    :param request: Pytest request whose param selects the sqlite or postgres-shaped
+        macro host.
+    :return: Iterator yielding one (macros, database) tuple per parametrized fixture
+        invocation.
+    """
     postgres_shaped = request.param == "postgres"
     db = _DB(postgres_shaped=postgres_shaped)
     _create_schema(db.driver.conn)
@@ -272,6 +583,19 @@ def macro_db(request):
 
 
 def test_link_upsert_bulk_read_and_atomic_replace(macro_db):
+    """
+    Check link upserts, priorities, preserved extras, empty bulk groups, replacement, and rollback after a foreign-key failure.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/api/test_portable_macros.py::test_link_upsert_bulk_read_and_atomic_replace
+
+
+    :param macro_db: Parametrized (macros, database double) fixture backed by SQLite;
+        its finalizer closes the connection.
+    :return: None; failed expectations raise AssertionError.
+    """
     macros, _db = macro_db
     spec = _strict_link_spec()
 
@@ -335,6 +659,19 @@ def test_link_upsert_bulk_read_and_atomic_replace(macro_db):
 
 
 def test_link_writes_enforce_static_and_live_allowed_types(macro_db):
+    """
+    Check static and live type restrictions reject invalid links without writes, then accept an added live type and None.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/api/test_portable_macros.py::test_link_writes_enforce_static_and_live_allowed_types
+
+
+    :param macro_db: Parametrized (macros, database double) fixture backed by SQLite;
+        its finalizer closes the connection.
+    :return: None; failed expectations raise AssertionError.
+    """
     macros, db = macro_db
     db.driver.conn.executescript(
         """
@@ -383,6 +720,19 @@ def test_link_writes_enforce_static_and_live_allowed_types(macro_db):
 
 
 def test_owned_one_to_one_values_update_create_unlink_and_rollback(macro_db):
+    """
+    Check owned values are created, updated in place, and unlinked without deletion, and that a failed bulk operation rolls back.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/api/test_portable_macros.py::test_owned_one_to_one_values_update_create_unlink_and_rollback
+
+
+    :param macro_db: Parametrized (macros, database double) fixture backed by SQLite;
+        its finalizer closes the connection.
+    :return: None; failed expectations raise AssertionError.
+    """
     macros, db = macro_db
     spec = _owned_link_spec()
 
@@ -433,6 +783,19 @@ def test_owned_one_to_one_values_update_create_unlink_and_rollback(macro_db):
 
 
 def test_typed_link_replacement_can_be_scoped(macro_db):
+    """
+    Check a role-scoped replacement preserves another role and rejects scoping when type is outside link identity.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/api/test_portable_macros.py::test_typed_link_replacement_can_be_scoped
+
+
+    :param macro_db: Parametrized (macros, database double) fixture backed by SQLite;
+        its finalizer closes the connection.
+    :return: None; failed expectations raise AssertionError.
+    """
     macros, _db = macro_db
     spec = _role_link_spec()
     macros.upsert_links(
@@ -467,6 +830,19 @@ def test_typed_link_replacement_can_be_scoped(macro_db):
 
 
 def test_policy_aware_ensure_uses_comparison_column_and_preserves_display_text(macro_db):
+    """
+    Check canonical matching reuses tag and work identities while preserving display text and rejecting blank values.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/api/test_portable_macros.py::test_policy_aware_ensure_uses_comparison_column_and_preserves_display_text
+
+
+    :param macro_db: Parametrized (macros, database double) fixture backed by SQLite;
+        its finalizer closes the connection.
+    :return: None; failed expectations raise AssertionError.
+    """
     macros, db = macro_db
     first = macros.ensure_table_value("tags", "tag", "Science Fiction")
     second = macros.ensure_table_value("tags", "tag", " sciencefiction ")
@@ -522,6 +898,19 @@ def test_policy_aware_ensure_uses_comparison_column_and_preserves_display_text(m
 
 
 def test_policy_aware_find_uses_ensure_matching_without_creating_rows(macro_db):
+    """
+    Check find agrees with ensure for existing identities and returns None for missing identities without adding rows.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/api/test_portable_macros.py::test_policy_aware_find_uses_ensure_matching_without_creating_rows
+
+
+    :param macro_db: Parametrized (macros, database double) fixture backed by SQLite;
+        its finalizer closes the connection.
+    :return: None; failed expectations raise AssertionError.
+    """
     macros, db = macro_db
     tag_id = macros.ensure_table_value("tags", "tag", "Science Fiction")
     before = db.driver_wrapper.get_record_count("tags")
@@ -536,6 +925,19 @@ def test_policy_aware_find_uses_ensure_matching_without_creating_rows(macro_db):
 
 
 def test_scoped_identity_lookup_and_ensure(macro_db):
+    """
+    Check genre identity reuse within a parent, separation across parents, and errors for unscoped identity lookup.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/api/test_portable_macros.py::test_scoped_identity_lookup_and_ensure
+
+
+    :param macro_db: Parametrized (macros, database double) fixture backed by SQLite;
+        its finalizer closes the connection.
+    :return: None; failed expectations raise AssertionError.
+    """
     macros, db = macro_db
     db.driver.conn.executemany(
         "INSERT INTO genres(genre_id, genre, genre_phash) VALUES (?, ?, ?)",
@@ -596,6 +998,19 @@ def test_scoped_identity_lookup_and_ensure(macro_db):
 
 
 def test_normalized_identity_migration_reports_collisions_then_backfills():
+    """
+    Check collision reporting prevents migration, then remove the duplicate and verify registry and comparison-column backfills.
+
+    This case owns a SQLite double and closes it at the end of the successful path.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/api/test_portable_macros.py::test_normalized_identity_migration_reports_collisions_then_backfills
+
+
+    :return: None; failed expectations raise AssertionError.
+    """
     db = _DB(postgres_shaped=False)
     _create_schema(db.driver.conn)
     macros = SQLiteDatabaseMacros(db)
@@ -641,6 +1056,22 @@ def test_normalized_identity_migration_reports_collisions_then_backfills():
 
 
 def test_temporary_value_and_id_tables_are_scoped_and_removed(macro_db):
+    """
+    Check temporary rows, ID totals, prefix validation, and cleanup after iteration failure.
+
+    For the PostgreSQL-shaped SQLite host, assert BYTEA spelling and skip the remaining
+    pg_temp lifecycle checks.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/api/test_portable_macros.py::test_temporary_value_and_id_tables_are_scoped_and_removed
+
+
+    :param macro_db: Parametrized (macros, database double) fixture backed by SQLite;
+        its finalizer closes the connection.
+    :return: None; failed expectations raise AssertionError.
+    """
     macros, db = macro_db
     if isinstance(macros, PostgresDatabaseMacros):
         assert macros._macro_temporary_declared_type("BLOB") == "BYTEA"
@@ -667,6 +1098,18 @@ def test_temporary_value_and_id_tables_are_scoped_and_removed(macro_db):
     prefix = "failing_values"
 
     def failing_values():
+        """
+        Yield one temporary-table row, then raise to exercise cleanup after a source failure.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/api/test_portable_macros.py::test_temporary_value_and_id_tables_are_scoped_and_removed
+
+
+        :return: Iterator yielding one row before raising RuntimeError with the
+            source-failed message.
+        """
         yield "first"
         raise RuntimeError("source failed")
 
@@ -680,6 +1123,19 @@ def test_temporary_value_and_id_tables_are_scoped_and_removed(macro_db):
 
 
 def test_orphan_pruning_requires_real_links_and_honours_protected_ids(macro_db):
+    """
+    Check orphan pruning requires a real link specification, preserves protected IDs, and removes eligible rows.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/api/test_portable_macros.py::test_orphan_pruning_requires_real_links_and_honours_protected_ids
+
+
+    :param macro_db: Parametrized (macros, database double) fixture backed by SQLite;
+        its finalizer closes the connection.
+    :return: None; failed expectations raise AssertionError.
+    """
     macros, db = macro_db
     spec = _strict_link_spec()
     macros.upsert_link(spec, 1, LinkValue(10, link_type="author", priority=1))
@@ -709,6 +1165,19 @@ def test_orphan_pruning_requires_real_links_and_honours_protected_ids(macro_db):
 
 
 def test_table_fingerprint_is_stable_filtered_and_sensitive_to_content(macro_db):
+    """
+    Check fingerprint repeatability, filtering, content sensitivity, and the SQLite legacy hash length.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/api/test_portable_macros.py::test_table_fingerprint_is_stable_filtered_and_sensitive_to_content
+
+
+    :param macro_db: Parametrized (macros, database double) fixture backed by SQLite;
+        its finalizer closes the connection.
+    :return: None; failed expectations raise AssertionError.
+    """
     macros, db = macro_db
     first = macros.fingerprint_table("right_rows", ("right_id", "name"))
     assert first == macros.fingerprint_table("right_rows", ("right_id", "name"))
@@ -726,6 +1195,20 @@ def test_table_fingerprint_is_stable_filtered_and_sensitive_to_content(macro_db)
 
 
 def test_legacy_macro_correctness_repairs_and_temp_table_safety():
+    """
+    Check direct updates, per-source bulk priorities, database-version replacement, safe temporary clones, and rejection of an unsafe table name.
+
+    Keep the main table when destroying its temporary clone. Close the owned SQLite
+    connection at the end of the successful path.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/api/test_portable_macros.py::test_legacy_macro_correctness_repairs_and_temp_table_safety
+
+
+    :return: None; failed expectations raise AssertionError.
+    """
     db = _DB(postgres_shaped=False)
     _create_schema(db.driver.conn)
     macros = SQLiteDatabaseMacros(db)

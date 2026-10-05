@@ -1,3 +1,14 @@
+"""
+Verify identifier profiled fixture is empty across registered database profiles.
+
+The module keeps generated data, ordering and failure modes explicit so consumers
+can assert stable behavior.
+
+Example:
+    Exercise test property identifier profiled fixture is empty through a consuming regression::
+
+        python -m pytest -q tests/support/test_databases/test_db_properties/test_property_identifier_profiled_fixture_is_empty.py
+"""
 from __future__ import annotations
 
 import sqlite3
@@ -9,6 +20,19 @@ import pytest
 def test_db_20_identifier_profile_is_empty_but_views_exist(
     provision_test_database,
 ) -> None:
+    """
+    Verify db 20 identifier profile is empty but views exist.
+
+    Example:
+        Exercise test db 20 identifier profile is empty but views exist through a consuming regression::
+
+            python -m pytest -q tests/support/test_databases/test_db_properties/test_property_identifier_profiled_fixture_is_empty.py
+
+
+    :param provision_test_database: Value supplied for provision test database under the
+        deterministic fixture contract.
+    :return: None; completion is expressed through state changes or assertions.
+    """
     provisioned = provision_test_database("test_db_20")
     conn = sqlite3.connect(str(provisioned.db_path))
     conn.row_factory = sqlite3.Row

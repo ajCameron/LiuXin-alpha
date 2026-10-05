@@ -1,6 +1,14 @@
 
 """
-System level constants - can be overridden by preferences.
+Expose the supported constants compatibility surface.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/test_constants.py
 """
 
 from __future__ import print_function
@@ -52,7 +60,14 @@ def get_portable_base() -> Optional[str]:
     """
     Return path to the directory that contains calibre-portable.exe or None.
 
-    :return:
+    Example:
+        Exercise get portable base through a consuming regression::
+
+            python -m pytest -q tests/test_constants.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if isportable:
         return os.path.dirname(os.path.dirname(os.environ["CALIBRE_PORTABLE_BUILD"]))
@@ -100,11 +115,43 @@ DEBUG = True
 
 
 class Resource_Error(Exception):
+    """
+    Report a resource error encountered while processing an ebook format.
+
+    Example:
+        Exercise Resource Error through a consuming regression::
+
+            python -m pytest -q tests/test_constants.py
+    """
     def __init__(self, argument):
+        """
+        Initialize and validate the resource error state.
+
+        Example:
+            Exercise Resource Error.  init   through a consuming regression::
+
+                python -m pytest -q tests/test_constants.py
+
+
+        :param argument: Value supplied for argument under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.argument = argument
         LiuXin_print(self.argument)
 
     def __str__(self):
+        """
+        Perform the str operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Resource Error.  str   through a consuming regression::
+
+                python -m pytest -q tests/test_constants.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return repr(self.argument)
 
 
@@ -132,10 +179,37 @@ except:
 
 # Todo: Only here because I fear recursive imports
 def isbytestring(obj):
+    """
+    Perform the isbytestring operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise isbytestring through a consuming regression::
+
+            python -m pytest -q tests/test_constants.py
+
+
+    :param obj: Value supplied for obj under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return isinstance(obj, (str, bytes))
 
 
 def force_unicode(obj, enc=preferred_encoding):
+    """
+    Perform the force unicode operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise force unicode through a consuming regression::
+
+            python -m pytest -q tests/test_constants.py
+
+
+    :param obj: Value supplied for obj under the utility contract.
+    :param enc: Value supplied for enc under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if isinstance(obj, str):
         return obj
     if isinstance(obj, bytes):
@@ -171,6 +245,20 @@ else:
 
 
 def as_unicode(obj, enc: Optional[None] = preferred_encoding):
+    """
+    Perform the as unicode operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise as unicode through a consuming regression::
+
+            python -m pytest -q tests/test_constants.py
+
+
+    :param obj: Value supplied for obj under the utility contract.
+    :param enc: Value supplied for enc under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if not isbytestring(obj):
         try:
             obj = str(obj)
@@ -182,7 +270,18 @@ def as_unicode(obj, enc: Optional[None] = preferred_encoding):
     return force_unicode(obj, enc=enc)
 
 def is_ext_compressed(extension):
-    """Takes the extension of a potentially compressed file. Works out if it's compressed."""
+    """
+    Takes the extension of a potentially compressed file. Works out if it's compressed.
+
+    Example:
+        Exercise is ext compressed through a consuming regression::
+
+            python -m pytest -q tests/test_constants.py
+
+
+    :param extension: Value supplied for extension under the utility contract.
+    :return: True when the documented condition holds; otherwise False.
+    """
     ext_local = str(extension)
 
     if ext_local in COMPRESSED_FILE_EXTENSIONS:
@@ -198,7 +297,18 @@ def is_ext_compressed(extension):
 
 
 def get_os_type():
-    """Returns the type of OS we are dealing with. Currently, working for Windows and Linux."""
+    """
+    Returns the type of OS we are dealing with. Currently, working for Windows and Linux.
+
+    Example:
+        Exercise get os type through a consuming regression::
+
+            python -m pytest -q tests/test_constants.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if iswindows:
         return "windows"
     else:
@@ -206,7 +316,18 @@ def get_os_type():
 
 
 def get_windows_drive_letters():
-    """Returns an index of windows drive letters."""
+    """
+    Returns an index of windows drive letters.
+
+    Example:
+        Exercise get windows drive letters through a consuming regression::
+
+            python -m pytest -q tests/test_constants.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     drive_letters = []
     CAPITALS = string.ascii_uppercase
 
@@ -237,10 +358,17 @@ import os
 # returns True or False, with an error message
 def check_image_tuple(image_tuple):
     """
-    Takes a cover tuple - checks to see if all is as it should be, and returns True or False
-    depending on if it is on not
-    :param cover_tupple:
-    :return: True or False, and error message (blank if True)
+    Takes a cover tuple - checks to see if all is as it should be, and returns True or False depending on if it is on not
+
+    Example:
+        Exercise check image tuple through a consuming regression::
+
+            python -m pytest -q tests/test_constants.py
+
+
+    :param image_tuple: Value supplied for image tuple under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
 
     # checking that the tuple is of the right length
@@ -397,7 +525,10 @@ python_plugins = []
 
 # config_dir {{{
 
-if "CALIBRE_CONFIG_DIRECTORY" in os.environ:
+if "LIUXIN_CONFIG_DIR" in os.environ:
+    config_dir = os.path.abspath(os.environ["LIUXIN_CONFIG_DIR"])
+
+elif "CALIBRE_CONFIG_DIRECTORY" in os.environ:
     config_dir = os.path.abspath(os.environ["CALIBRE_CONFIG_DIRECTORY"])
 
 elif iswindows:
@@ -428,6 +559,18 @@ else:
         config_dir = tempfile.mkdtemp(prefix="calibre-config-")
 
         def cleanup_cdir():
+            """
+            Perform the cleanup cdir operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise cleanup cdir through a consuming regression::
+
+                    python -m pytest -q tests/test_constants.py
+
+
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             try:
                 import shutil
 
@@ -449,7 +592,15 @@ __author__ = "Alex Cameron"
 def get_version():
     """
     Returns the version in a human readable string.
-    :return:
+
+    Example:
+        Exercise get version through a consuming regression::
+
+            python -m pytest -q tests/test_constants.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return str(__version__)
 
@@ -475,6 +626,20 @@ fcntl = None if iswindows else importlib.import_module("fcntl")
 
 
 def load_library(name, cdll):
+    """
+    Perform the load library operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise load library through a consuming regression::
+
+            python -m pytest -q tests/test_constants.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :param cdll: Value supplied for cdll under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if iswindows:
         return cdll.LoadLibrary(name)
     if isosx:
@@ -486,6 +651,18 @@ def load_library(name, cdll):
 
 
 def cache_dir():
+    """
+    Perform the cache dir operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise cache dir through a consuming regression::
+
+            python -m pytest -q tests/test_constants.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return LiuXin_calibre_caches
 
 
@@ -493,12 +670,31 @@ def get_windows_username():
     """
     Why is this even here?
 
-    :return:
+    Example:
+        Exercise get windows username through a consuming regression::
+
+            python -m pytest -q tests/test_constants.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     raise NotImplementedError("winutil is not supported")
 
 
 def get_windows_temp_path():
+    """
+    Return windows temp path under the format's safety and compatibility rules.
+
+    Example:
+        Exercise get windows temp path through a consuming regression::
+
+            python -m pytest -q tests/test_constants.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     import ctypes
 
     n = ctypes.windll.kernel32.GetTempPathW(0, None)
@@ -511,6 +707,19 @@ def get_windows_temp_path():
 
 
 def get_unicode_windows_env_var(name):
+    """
+    Return unicode windows env var under the format's safety and compatibility rules.
+
+    Example:
+        Exercise get unicode windows env var through a consuming regression::
+
+            python -m pytest -q tests/test_constants.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     import ctypes
 
     name = str(name)

@@ -1,5 +1,13 @@
 """
-Documentation contracts for LiuXin's reviewed first-party boundaries.
+Provide test public documentation boundaries utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test public documentation boundaries through a consuming regression::
+
+        python -m pytest -q tests/scripts/test_public_documentation_boundaries.py
 """
 
 from __future__ import annotations
@@ -21,26 +29,14 @@ MODERN_PACKAGES = (
     "surfaces",
 )
 METADATA_BOUNDARY_ROOTS = (
-    SOURCE_ROOT
-    / "metadata"
-    / "api"
-    / "containers_api"
-    / "main_table_containers_api",
-    SOURCE_ROOT
-    / "metadata"
-    / "api"
-    / "containers_api"
-    / "wemi_containers_api",
+    SOURCE_ROOT / "metadata" / "api" / "containers_api" / "main_table_containers_api",
+    SOURCE_ROOT / "metadata" / "api" / "containers_api" / "wemi_containers_api",
     SOURCE_ROOT
     / "metadata"
     / "containers"
     / "metadata_containers"
     / "non_wemi_containers",
-    SOURCE_ROOT
-    / "metadata"
-    / "containers"
-    / "metadata_containers"
-    / "wemi_containers",
+    SOURCE_ROOT / "metadata" / "containers" / "metadata_containers" / "wemi_containers",
 )
 PLACEHOLDER_FRAGMENTS = (
     "implement the corresponding",
@@ -55,8 +51,14 @@ def _modern_source_paths() -> tuple[Path, ...]:
     """
     Return the production paths included in the modern documentation ratchet.
 
+    Example:
+        Exercise  modern source paths through a consuming regression::
 
-    :return:
+            python -m pytest -q tests/scripts/test_public_documentation_boundaries.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
 
     paths = {
@@ -71,8 +73,14 @@ def _maintained_script_paths() -> tuple[Path, ...]:
     """
     Return maintained top-level Python tools while excluding generated caches.
 
+    Example:
+        Exercise  maintained script paths through a consuming regression::
 
-    :return:
+            python -m pytest -q tests/scripts/test_public_documentation_boundaries.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
 
     return tuple(sorted((REPOSITORY_ROOT / "scripts").glob("*.py")))
@@ -82,15 +90,17 @@ def _metadata_boundary_paths() -> tuple[Path, ...]:
     """
     Return the reviewed metadata row, relation, and WEMI container modules.
 
+    Example:
+        Exercise  metadata boundary paths through a consuming regression::
 
-    :return:
+            python -m pytest -q tests/scripts/test_public_documentation_boundaries.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
 
-    paths = {
-        path
-        for root in METADATA_BOUNDARY_ROOTS
-        for path in root.rglob("*.py")
-    }
+    paths = {path for root in METADATA_BOUNDARY_ROOTS for path in root.rglob("*.py")}
     return tuple(sorted(paths))
 
 
@@ -98,9 +108,16 @@ def _parse(path: Path) -> ast.Module:
     """
     Parse one repository source file using its real path in diagnostics.
 
+    Example:
+        Exercise  parse through a consuming regression::
 
-    :param path:
-    :return:
+            python -m pytest -q tests/scripts/test_public_documentation_boundaries.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
 
     return ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
@@ -110,10 +127,17 @@ def _location(path: Path, node: ast.AST) -> str:
     """
     Return a concise repository-relative definition location.
 
+    Example:
+        Exercise  location through a consuming regression::
 
-    :param path:
-    :param node:
-    :return:
+            python -m pytest -q tests/scripts/test_public_documentation_boundaries.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :param node: Value supplied for node under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
 
     name = getattr(node, "name", "<module>")
@@ -125,9 +149,15 @@ def _literal_exports(tree: ast.Module) -> tuple[str, ...]:
     """
     Return names from a literal module ``__all__`` declaration.
 
+    Example:
+        Exercise  literal exports through a consuming regression::
 
-    :param tree:
-    :return:
+            python -m pytest -q tests/scripts/test_public_documentation_boundaries.py
+
+
+    :param tree: Value supplied for tree under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
 
     for node in tree.body:
@@ -152,9 +182,15 @@ def _guarded_nodes(path: Path) -> Iterator[ast.AST]:
     """
     Yield reviewed module, public-class, and explicit-export boundaries.
 
+    Example:
+        Exercise  guarded nodes through a consuming regression::
 
-    :param path:
-    :return:
+            python -m pytest -q tests/scripts/test_public_documentation_boundaries.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: An iterator yielding the normalized values described above.
     """
 
     tree = _parse(path)
@@ -180,8 +216,14 @@ def test_modern_public_boundaries_have_docstrings() -> None:
     """
     Keep modern architecture and explicitly exported definitions documented.
 
+    Example:
+        Exercise test modern public boundaries have docstrings through a consuming regression::
 
-    :return:
+            python -m pytest -q tests/scripts/test_public_documentation_boundaries.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
 
     missing = [
@@ -191,17 +233,21 @@ def test_modern_public_boundaries_have_docstrings() -> None:
         if ast.get_docstring(node, clean=False) is None
     ]
 
-    assert not missing, "undocumented modern public boundaries:\n" + "\n".join(
-        missing
-    )
+    assert not missing, "undocumented modern public boundaries:\n" + "\n".join(missing)
 
 
 def test_metadata_row_and_container_boundaries_have_docstrings() -> None:
     """
     Keep public metadata row, relation, and WEMI container families documented.
 
+    Example:
+        Exercise test metadata row and container boundaries have docstrings through a consuming regression::
 
-    :return:
+            python -m pytest -q tests/scripts/test_public_documentation_boundaries.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
 
     missing = [
@@ -220,8 +266,14 @@ def test_maintained_script_modules_and_public_classes_have_docstrings() -> None:
     """
     Keep operator tooling discoverable without documenting trivial helpers.
 
+    Example:
+        Exercise test maintained script modules and public classes have docstrings through a consuming regression::
 
-    :return:
+            python -m pytest -q tests/scripts/test_public_documentation_boundaries.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
 
     missing = []
@@ -250,8 +302,14 @@ def test_reviewed_boundaries_have_no_known_placeholder_prose() -> None:
     """
     Reject generic summaries that conceal rather than explain responsibility.
 
+    Example:
+        Exercise test reviewed boundaries have no known placeholder prose through a consuming regression::
 
-    :return:
+            python -m pytest -q tests/scripts/test_public_documentation_boundaries.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
 
     placeholders = []

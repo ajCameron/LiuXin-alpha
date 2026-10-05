@@ -1,3 +1,14 @@
+"""
+Exercise EPUB container, OPF, encryption and malformed-package edge cases.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test epub edge cases through its owning regression module::
+
+        python -m pytest -q tests/metadata/file_sources/test_epub_edge_cases.py
+"""
 from __future__ import annotations
 
 import io
@@ -13,6 +24,18 @@ from LiuXin_alpha.metadata.utils import calibreMetaInformation
 
 
 def _values(raw):
+    """
+    Perform the values test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise values through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_edge_cases.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     if raw is None:
         return []
     if isinstance(raw, dict):
@@ -26,33 +49,158 @@ def _values(raw):
 
 
 class _Bytesable:
+    """
+    Provide the Bytesable test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise Bytesable through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_edge_cases.py
+    """
     def __bytes__(self):
+        """
+        Perform the bytes test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise Bytesable.bytes through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_epub_edge_cases.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return b"bytesable"
 
 
 class _BadCoverDict(dict):
+    """
+    Provide the BadCoverDict test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise BadCoverDict through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_edge_cases.py
+    """
     def keys(self):
+        """
+        Perform the keys test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise BadCoverDict.keys through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_epub_edge_cases.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         raise RuntimeError("cover keys unavailable")
 
 
 class _ToCalibre:
+    """
+    Provide the ToCalibre test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise ToCalibre through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_edge_cases.py
+    """
     def __init__(self, converted):
+        """
+        Initialize the ToCalibre test double.
+
+        Example:
+            Exercise ToCalibre.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_epub_edge_cases.py
+
+
+        :param converted: Value supplied for converted in the focused test operation.
+        :return: None; the function records state or raises through its assertions.
+        """
         self._converted = converted
 
     def to_calibre(self):
+        """
+        Perform the to calibre test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise ToCalibre.to calibre through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_epub_edge_cases.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return self._converted
 
 
 class _FakeEncryption:
+    """
+    Provide the FakeEncryption test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise FakeEncryption through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_edge_cases.py
+    """
     def __init__(self, encrypted=()):
+        """
+        Initialize the FakeEncryption test double.
+
+        Example:
+            Exercise FakeEncryption.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_epub_edge_cases.py
+
+
+        :param encrypted: Value supplied for encrypted in the focused test operation.
+        :return: None; the function records state or raises through its assertions.
+        """
         self.encrypted = set(encrypted)
 
     def is_encrypted(self, uri):
+        """
+        Perform the is encrypted test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise FakeEncryption.is encrypted through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_epub_edge_cases.py
+
+
+        :param uri: Value supplied for uri in the focused test operation.
+        :return: True when the tested condition is satisfied; otherwise False.
+        """
         return uri in self.encrypted
 
 
 class _FakeCoverReader:
+    """
+    Provide the FakeCoverReader test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise FakeCoverReader through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_edge_cases.py
+    """
     def __init__(self, *, encrypted=(), payloads=None, extract_raises=False, write_spine=False):
+        """
+        Initialize the FakeCoverReader test double.
+
+        Example:
+            Exercise FakeCoverReader.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_epub_edge_cases.py
+
+
+        :param encrypted: Value supplied for encrypted in the focused test operation.
+        :param payloads: Value supplied for payloads in the focused test operation.
+        :param extract_raises: Value supplied for extract raises in the focused test
+            operation.
+        :param write_spine: Value supplied for write spine in the focused test operation.
+        :return: None; the function records state or raises through its assertions.
+        """
         self.encryption_meta = _FakeEncryption(encrypted)
         self.payloads = payloads or {}
         self.archive = SimpleNamespace(extractall=self._extractall)
@@ -60,11 +208,35 @@ class _FakeCoverReader:
         self.write_spine = write_spine
 
     def read_bytes(self, name):
+        """
+        Perform the read bytes test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise FakeCoverReader.read bytes through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_epub_edge_cases.py
+
+
+        :param name: Value supplied for name in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         if name not in self.payloads:
             raise KeyError(name)
         return self.payloads[name]
 
     def _extractall(self, path):
+        """
+        Perform the extractall test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise FakeCoverReader.extractall through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_epub_edge_cases.py
+
+
+        :param path: Value supplied for path in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         if self.extract_raises:
             raise RuntimeError("extract failed")
         if self.write_spine:
@@ -73,48 +245,190 @@ class _FakeCoverReader:
 
 
 class _TellBrokenBytes(io.BytesIO):
+    """
+    Provide the TellBrokenBytes test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise TellBrokenBytes through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_edge_cases.py
+    """
     def tell(self):
+        """
+        Perform the tell test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise TellBrokenBytes.tell through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_epub_edge_cases.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         raise OSError("tell unavailable")
 
 
 class _RestoreBrokenBytes(io.BytesIO):
+    """
+    Provide the RestoreBrokenBytes test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise RestoreBrokenBytes through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_edge_cases.py
+    """
     def seek(self, pos, whence=os.SEEK_SET):
+        """
+        Perform the seek test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise RestoreBrokenBytes.seek through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_epub_edge_cases.py
+
+
+        :param pos: Value supplied for pos in the focused test operation.
+        :param whence: Value supplied for whence in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         if getattr(self, "_break_restore", False) and pos != 0:
             raise OSError("restore unavailable")
         return super().seek(pos, whence)
 
 
 class _FakeOCFReader(epub.OCFReader):
+    """
+    Provide the FakeOCFReader test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise FakeOCFReader through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_edge_cases.py
+    """
     def __init__(self, files):
+        """
+        Initialize the FakeOCFReader test double.
+
+        Example:
+            Exercise FakeOCFReader.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_epub_edge_cases.py
+
+
+        :param files: Value supplied for files in the focused test operation.
+        :return: None; the function records state or raises through its assertions.
+        """
         self.files = files
         super().__init__()
 
     def open(self, name, *_args, **_kwargs):
+        """
+        Perform the open test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise FakeOCFReader.open through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_epub_edge_cases.py
+
+
+        :param name: Value supplied for name in the focused test operation.
+        :param _args: Value supplied for args in the focused test operation.
+        :param _kwargs: Value supplied for kwargs in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         if name not in self.files:
             raise KeyError(name)
         return io.BytesIO(epub._ensure_bytes(self.files[name]))
 
 
 class _FakeOPF:
+    """
+    Provide the FakeOPF test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise FakeOPF through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_edge_cases.py
+    """
     raw_languages = ["de"]
 
     def __init__(self):
+        """
+        Initialize the FakeOPF test double.
+
+        Example:
+            Exercise FakeOPF.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_epub_edge_cases.py
+
+
+        :return: None; the function records state or raises through its assertions.
+        """
         self.smart_updates = []
         self.identifiers = {"old": "keep"}
         self.application_id = None
         self.timestamp = None
 
     def smart_update(self, mi, apply_null=False):
+        """
+        Perform the smart update test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise FakeOPF.smart update through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_epub_edge_cases.py
+
+
+        :param mi: Value supplied for mi in the focused test operation.
+        :param apply_null: Value supplied for apply null in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.smart_updates.append((mi, apply_null))
 
     def get_identifiers(self):
+        """
+        Return identifiers from deterministic test state.
+
+        Example:
+            Exercise FakeOPF.get identifiers through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_epub_edge_cases.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return dict(self.identifiers)
 
     def set_identifiers(self, identifiers):
+        """
+        Perform the set identifiers test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise FakeOPF.set identifiers through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_epub_edge_cases.py
+
+
+        :param identifiers: Value supplied for identifiers in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.identifiers = identifiers
 
 
 def _container_xml(opf_path="OEBPS/content.opf", media_type="application/oebps-package+xml") -> bytes:
+    """
+    Perform the container xml test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise container xml through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_edge_cases.py
+
+
+    :param opf_path: Value supplied for opf path in the focused test operation.
+    :param media_type: Value supplied for media type in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     media = f' media-type="{media_type}"' if media_type else ""
     return (
         b'<?xml version="1.0" encoding="utf-8"?>'
@@ -127,6 +441,17 @@ def _container_xml(opf_path="OEBPS/content.opf", media_type="application/oebps-p
 
 
 def _opf_payload() -> bytes:
+    """
+    Perform the opf payload test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise opf payload through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_edge_cases.py
+
+
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return """<?xml version="1.0" encoding="utf-8"?>
 <package xmlns="http://www.idpf.org/2007/opf"
          xmlns:dc="http://purl.org/dc/elements/1.1/"
@@ -148,6 +473,20 @@ def _opf_payload() -> bytes:
 
 
 def _epub_bytes(*, opf_path="OEBPS/content.opf", include_cover=True) -> bytes:
+    """
+    Perform the epub bytes test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise epub bytes through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_edge_cases.py
+
+
+    :param opf_path: Value supplied for opf path in the focused test operation.
+    :param include_cover: Value supplied for include cover in the focused test
+        operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     out = io.BytesIO()
     with zipfile.ZipFile(out, "w") as zf:
         zf.writestr("mimetype", "application/epub+zip")
@@ -159,6 +498,20 @@ def _epub_bytes(*, opf_path="OEBPS/content.opf", include_cover=True) -> bytes:
 
 
 def test_epub_private_helpers_cover_payloads_and_type_edges(tmp_path: Path, monkeypatch) -> None:
+    """
+    Verify epub private helpers cover payloads and type edges.
+
+    Example:
+        Exercise test epub private helpers cover payloads and type edges through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_edge_cases.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     assert epub._is_path_like("book.epub")
     assert epub._is_path_like(Path("book.epub"))
     assert epub._source_name(tmp_path / "book.epub").endswith("book.epub")
@@ -202,6 +555,19 @@ def test_epub_private_helpers_cover_payloads_and_type_edges(tmp_path: Path, monk
 
 
 def test_epub_container_encryption_and_ocf_reader_edges(monkeypatch) -> None:
+    """
+    Verify epub container encryption and ocf reader edges.
+
+    Example:
+        Exercise test epub container encryption and ocf reader edges through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_edge_cases.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     assert epub.Container() == {}
     with pytest.raises(epub.OCFException):
         epub.Container(io.BytesIO(b""))
@@ -279,6 +645,19 @@ def test_epub_container_encryption_and_ocf_reader_edges(monkeypatch) -> None:
 
 
 def test_epub_get_metadata_inline_zip_cover_liuxin_and_error_paths(monkeypatch) -> None:
+    """
+    Verify epub get metadata inline zip cover liuxin and error paths.
+
+    Example:
+        Exercise test epub get metadata inline zip cover liuxin and error paths through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_edge_cases.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     mi = calibreMetaInformation("Inline EPUB — δοκιμή 😀", ["Author Ω"])
     calls = []
 
@@ -331,6 +710,19 @@ def test_epub_get_metadata_inline_zip_cover_liuxin_and_error_paths(monkeypatch) 
 
 
 def test_epub_cover_helpers_render_and_encryption_edges(monkeypatch) -> None:
+    """
+    Verify epub cover helpers render and encryption edges.
+
+    Example:
+        Exercise test epub cover helpers render and encryption edges through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_edge_cases.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     reader = _FakeCoverReader(payloads={"cover.png": b"cover-bytes"})
     assert epub._extract_cover_from_member(reader, None) is None
     assert epub._extract_cover_from_member(reader, "cover.png") == b"cover-bytes"
@@ -356,6 +748,20 @@ def test_epub_cover_helpers_render_and_encryption_edges(monkeypatch) -> None:
 
 
 def test_epub_update_metadata_and_set_metadata_fake_writer(monkeypatch, tmp_path: Path) -> None:
+    """
+    Verify epub update metadata and set metadata fake writer.
+
+    Example:
+        Exercise test epub update metadata and set metadata fake writer through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_edge_cases.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     opf_obj = _FakeOPF()
     mi = calibreMetaInformation("Updated EPUB", ["Writer"])
     mi.languages = ["fr"]
@@ -375,14 +781,45 @@ def test_epub_update_metadata_and_set_metadata_fake_writer(monkeypatch, tmp_path
     assert opf_obj.identifiers == {"new": "id"}
 
     class _FakeWriterReader:
+        """
+        Provide the FakeWriterReader test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test epub update metadata and set metadata fake writer.FakeWriterReader through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_epub_edge_cases.py
+        """
         opf_path = "OEBPS/content.opf"
         container = {epub.OPF.MIMETYPE: "OEBPS/content.opf"}
 
         def __init__(self):
+            """
+            Initialize the FakeWriterReader test double.
+
+            Example:
+                Exercise test epub update metadata and set metadata fake writer.FakeWriterReader.init through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_epub_edge_cases.py
+
+
+            :return: None; the function records state or raises through its assertions.
+            """
             self.encryption_meta = _FakeEncryption()
             self.archive = object()
 
         def read_bytes(self, name):
+            """
+            Perform the read bytes test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test epub update metadata and set metadata fake writer.FakeWriterReader.read bytes through its owning regression module::
+
+                    python -m pytest -q tests/metadata/file_sources/test_epub_edge_cases.py
+
+
+            :param name: Value supplied for name in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             assert name == self.opf_path
             return _opf_payload()
 

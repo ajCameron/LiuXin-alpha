@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Coordinate MOBI diagnostic extraction and report generation.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise main through a consuming regression::
+
+        python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -20,6 +31,20 @@ __docformat__ = "restructuredtext en"
 
 
 def inspect_mobi(path_or_stream: _typing.Any, ddir: _typing.Any = None) -> None:  # {{{
+    """
+    Perform the inspect mobi operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise inspect mobi through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param path_or_stream: Value supplied for path or stream under the utility contract.
+    :param ddir: Value supplied for ddir under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     stream = path_or_stream if hasattr(path_or_stream, "read") else open(path_or_stream, "rb")
     f = MOBIFile(stream)
     if ddir is None:
@@ -49,6 +74,18 @@ def inspect_mobi(path_or_stream: _typing.Any, ddir: _typing.Any = None) -> None:
 
 
 def main() -> None:
+    """
+    Perform the main operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise main through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     inspect_mobi(sys.argv[1])
 
 

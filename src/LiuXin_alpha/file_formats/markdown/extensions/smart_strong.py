@@ -1,3 +1,14 @@
+"""
+Apply unambiguous Markdown strong-emphasis matching.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise smart strong through a consuming regression::
+
+        python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+"""
 from __future__ import unicode_literals
 from __future__ import absolute_import
 from __future__ import annotations
@@ -36,13 +47,46 @@ STRONG_RE = r"(\*{2})(.+?)\2"
 
 
 class SmartEmphasisExtension(Extension):
-    """Add smart_emphasis extension to Markdown class."""
+    """
+    Add smart_emphasis extension to Markdown class.
+
+    Example:
+        Exercise SmartEmphasisExtension through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+    """
 
     def extendMarkdown(self: _typing.Self, md: _typing.Any, md_globals: _typing.Any) -> None:
-        """Modify inline patterns."""
+        """
+        Modify inline patterns.
+
+        Example:
+            Exercise SmartEmphasisExtension.extendMarkdown through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param md: Value supplied for md under the utility contract.
+        :param md_globals: Value supplied for md globals under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         md.inlinePatterns["strong"] = SimpleTagPattern(STRONG_RE, "strong")
         md.inlinePatterns.add("strong2", SimpleTagPattern(SMART_STRONG_RE, "strong"), ">emphasis2")
 
 
 def makeExtension(configs: _typing.Any = None) -> _typing.Any:
+    """
+    Perform the makeExtension operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise makeExtension through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+    :param configs: Value supplied for configs under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return SmartEmphasisExtension(configs=dict(configs or {}))

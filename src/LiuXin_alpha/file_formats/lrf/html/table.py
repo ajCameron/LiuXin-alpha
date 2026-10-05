@@ -1,3 +1,14 @@
+"""
+Lay out HTML table structure within LRF page constraints.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise table through a consuming regression::
+
+        python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+"""
 from __future__ import print_function
 from __future__ import annotations
 
@@ -28,10 +39,36 @@ __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
 def ceil(num: _typing.Any) -> _typing.Any:
+    """
+    Perform the ceil operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise ceil through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+    :param num: Value supplied for num under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return int(math.ceil(num))
 
 
 def print_xml(elem: _typing.Any) -> None:
+    """
+    Perform the print xml operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise print xml through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+    :param elem: Value supplied for elem under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.lrf.pylrs.pylrs import ElementWriter
 
     elem = elem.toElement("utf8")
@@ -41,6 +78,20 @@ def print_xml(elem: _typing.Any) -> None:
 
 
 def cattrs(base: _typing.Any, extra: _typing.Any) -> _typing.Any:
+    """
+    Perform the cattrs operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise cattrs through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+    :param base: Value supplied for base under the utility contract.
+    :param extra: Value supplied for extra under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     new = base.copy()
     new.update(extra)
     return new
@@ -48,14 +99,32 @@ def cattrs(base: _typing.Any, extra: _typing.Any) -> _typing.Any:
 
 def tokens(tb: _typing.Any) -> _typing.Iterator[_typing.Any]:
     """
-    Return the next token. A token is :
-    1. A string
-    a block of text that has the same style
-    :param tb:
-    :return:
+    Return the next token. A token is : 1. A string a block of text that has the same style
+
+    Example:
+        Exercise tokens through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+    :param tb: Value supplied for tb under the utility contract.
+    :return: An iterator yielding the normalized values described above.
     """
 
     def process_element(x: _typing.Any, attrs: _typing.Any) -> _typing.Iterator[_typing.Any]:
+        """
+        Perform the process element operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise tokens.process element through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param x: Value supplied for x under the utility contract.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: An iterator yielding the normalized values described above.
+        """
         if isinstance(x, CR):
             yield 2, None
         elif isinstance(x, Text):
@@ -90,7 +159,29 @@ def tokens(tb: _typing.Any) -> _typing.Iterator[_typing.Any]:
 
 
 class Cell(object):
+    """
+    Provide the cell contract for validated ebook processing.
+
+    Example:
+        Exercise Cell through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     def __init__(self: _typing.Self, conv: _typing.Any, tag: _typing.Any, css: _typing.Any) -> None:
+        """
+        Initialize and validate the cell state.
+
+        Example:
+            Exercise Cell.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param conv: Value supplied for conv under the utility contract.
+        :param tag: Value supplied for tag under the utility contract.
+        :param css: Value supplied for css under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.conv = conv
         self.tag = tag
         self.css = css
@@ -144,13 +235,51 @@ class Cell(object):
                     tb.contents[-1].append(" ")
 
     def pts_to_pixels(self: _typing.Self, pts: _typing.Any) -> _typing.Any:
+        """
+        Perform the pts to pixels operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Cell.pts to pixels through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param pts: Value supplied for pts under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         pts = int(pts)
         return ceil((float(self.conv.profile.dpi) / 72.0) * (pts / 10.0))
 
     def minimum_width(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the minimum width operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Cell.minimum width through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return max([self.minimum_tb_width(tb) for tb in self.text_blocks])
 
     def minimum_tb_width(self: _typing.Self, tb: _typing.Any) -> _typing.Any:
+        """
+        Perform the minimum tb width operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Cell.minimum tb width through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tb: Value supplied for tb under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ts = tb.textStyle.attrs
         default_font = get_font(ts["fontfacename"], self.pts_to_pixels(ts["fontsize"]))
         parindent = self.pts_to_pixels(ts["parindent"])
@@ -175,12 +304,47 @@ class Cell(object):
         return parindent + mwidth + 2
 
     def text_block_size(self: _typing.Self, tb: _typing.Any, maxwidth: _typing.Any = sys.maxsize, debug: bool = False) -> tuple[_typing.Any, ...]:
+        """
+        Perform the text block size operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Cell.text block size through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tb: Value supplied for tb under the utility contract.
+        :param maxwidth: Value supplied for maxwidth under the utility contract.
+        :param debug: Value supplied for debug under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ts = tb.textStyle.attrs
         default_font = get_font(ts["fontfacename"], self.pts_to_pixels(ts["fontsize"]))
         parindent = self.pts_to_pixels(ts["parindent"])
         top, bottom, left, right = 0, 0, parindent, parindent
 
         def add_word(width: _typing.Any, height: _typing.Any, left: _typing.Any, right: _typing.Any, top: _typing.Any, bottom: _typing.Any, ls: _typing.Any, ws: _typing.Any) -> tuple[_typing.Any, ...]:
+            """
+            Perform the add word operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Cell.text block size.add word through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+            :param width: Value supplied for width under the utility contract.
+            :param height: Value supplied for height under the utility contract.
+            :param left: Value supplied for left under the utility contract.
+            :param right: Value supplied for right under the utility contract.
+            :param top: Value supplied for top under the utility contract.
+            :param bottom: Value supplied for bottom under the utility contract.
+            :param ls: Value supplied for ls under the utility contract.
+            :param ws: Value supplied for ws under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             if left + width > maxwidth:
                 left = width + ws
                 top += ls
@@ -221,17 +385,80 @@ class Cell(object):
         return right + 3 + max(parindent, 10), bottom
 
     def text_block_preferred_width(self: _typing.Self, tb: _typing.Any, debug: bool = False) -> _typing.Any:
+        """
+        Perform the text block preferred width operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Cell.text block preferred width through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tb: Value supplied for tb under the utility contract.
+        :param debug: Value supplied for debug under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.text_block_size(tb, sys.maxsize, debug=debug)[0]
 
     def preferred_width(self: _typing.Self, debug: bool = False) -> _typing.Any:
+        """
+        Perform the preferred width operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Cell.preferred width through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param debug: Value supplied for debug under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return ceil(max([self.text_block_preferred_width(i, debug=debug) for i in self.text_blocks]))
 
     def height(self: _typing.Self, width: _typing.Any) -> _typing.Any:
+        """
+        Perform the height operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Cell.height through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param width: Value supplied for width under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return sum([self.text_block_size(i, width)[1] for i in self.text_blocks])
 
 
 class Row(object):
+    """
+    Provide the row contract for validated ebook processing.
+
+    Example:
+        Exercise Row through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     def __init__(self: _typing.Self, conv: _typing.Any, row: _typing.Any, css: _typing.Any, colpad: _typing.Any) -> None:
+        """
+        Initialize and validate the row state.
+
+        Example:
+            Exercise Row.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param conv: Value supplied for conv under the utility contract.
+        :param row: Value supplied for row under the utility contract.
+        :param css: Value supplied for css under the utility contract.
+        :param colpad: Value supplied for colpad under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.cells = []
         self.colpad = colpad
         cells = row.findAll(re.compile("td|th", re.IGNORECASE))
@@ -247,7 +474,15 @@ class Row(object):
     def number_of_cells(self: _typing.Self) -> _typing.Any:
         """
         Number of cells in this row. Respects colspan
-        :return:
+
+        Example:
+            Exercise Row.number of cells through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         ans = 0
         for cell in self.cells:
@@ -255,6 +490,19 @@ class Row(object):
         return ans
 
     def height(self: _typing.Self, widths: _typing.Any) -> _typing.Any:
+        """
+        Perform the height operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Row.height through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param widths: Value supplied for widths under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         i, heights = 0, []
         for cell in self.cells:
             width = sum(widths[i : i + cell.colspan])
@@ -265,6 +513,19 @@ class Row(object):
         return max(heights)
 
     def cell_from_index(self: _typing.Self, col: _typing.Any) -> _typing.Any:
+        """
+        Perform the cell from index operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Row.cell from index through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param col: Value supplied for col under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         i = -1
         cell = None
         for cell in self.cells:
@@ -277,30 +538,104 @@ class Row(object):
         return cell
 
     def minimum_width(self: _typing.Self, col: _typing.Any) -> _typing.Any:
+        """
+        Perform the minimum width operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Row.minimum width through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param col: Value supplied for col under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         cell = self.cell_from_index(col)
         if not cell:
             return 0
         return cell.minimum_width()
 
     def preferred_width(self: _typing.Self, col: _typing.Any) -> _typing.Any:
+        """
+        Perform the preferred width operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Row.preferred width through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param col: Value supplied for col under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         cell = self.cell_from_index(col)
         if not cell:
             return 0
         return 0 if cell.colspan > 1 else cell.preferred_width()
 
     def width_percent(self: _typing.Self, col: _typing.Any) -> _typing.Any:
+        """
+        Perform the width percent operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Row.width percent through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param col: Value supplied for col under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         cell = self.cell_from_index(col)
         if not cell:
             return -1
         return -1 if cell.colspan > 1 else cell.pwidth
 
     def cell_iterator(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
+        """
+        Perform the cell iterator operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Row.cell iterator through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         for c in self.cells:
             yield c
 
 
 class Table(object):
+    """
+    Provide the table contract for validated ebook processing.
+
+    Example:
+        Exercise Table through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     def __init__(self: _typing.Self, conv: _typing.Any, table: _typing.Any, css: _typing.Any, rowpad: int = 10, colpad: int = 10) -> None:
+        """
+        Initialize and validate the table state.
+
+        Example:
+            Exercise Table.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param conv: Value supplied for conv under the utility contract.
+        :param table: Value supplied for table under the utility contract.
+        :param css: Value supplied for css under the utility contract.
+        :param rowpad: Value supplied for rowpad under the utility contract.
+        :param colpad: Value supplied for colpad under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.rows = []
         self.conv = conv
         self.rowpad = rowpad
@@ -313,34 +648,100 @@ class Table(object):
         conv.in_table = False
 
     def number_of_columns(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the number of columns operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Table.number of columns through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         col_max = 0
         for row in self.rows:
             col_max = row.number_of_cells() if row.number_of_cells() > col_max else col_max
         return col_max
 
     def number_or_rows(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the number or rows operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Table.number or rows through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return len(self.rows)
 
     def height(self: _typing.Self, maxwidth: _typing.Any) -> _typing.Any:
         """
         Return row heights + self.rowpad
-        :param maxwidth:
-        :return:
+
+        Example:
+            Exercise Table.height through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param maxwidth: Value supplied for maxwidth under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         widths = self.get_widths(maxwidth)
         return sum([row.height(widths) + self.rowpad for row in self.rows]) - self.rowpad
 
     def minimum_width(self: _typing.Self, col: _typing.Any) -> _typing.Any:
+        """
+        Perform the minimum width operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Table.minimum width through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param col: Value supplied for col under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return max([row.minimum_width(col) for row in self.rows])
 
     def width_percent(self: _typing.Self, col: _typing.Any) -> _typing.Any:
+        """
+        Perform the width percent operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Table.width percent through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param col: Value supplied for col under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return max([row.width_percent(col) for row in self.rows])
 
     def get_widths(self: _typing.Self, maxwidth: _typing.Any) -> _typing.Any:
         """
         Return widths of columns + self.colpad
-        :param maxwidth:
-        :return:
+
+        Example:
+            Exercise Table.get widths through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param maxwidth: Value supplied for maxwidth under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         rows, cols = self.number_or_rows(), self.number_of_columns()
         widths = range(cols)
@@ -374,6 +775,19 @@ class Table(object):
         return [i + self.colpad for i in widths]
 
     def blocks(self: _typing.Self, maxwidth: _typing.Any, maxheight: _typing.Any) -> _typing.Iterator[_typing.Any]:
+        """
+        Perform the blocks operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Table.blocks through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param maxwidth: Value supplied for maxwidth under the utility contract.
+        :param maxheight: Value supplied for maxheight under the utility contract.
+        :return: An iterator yielding the normalized values described above.
+        """
         rows, cols = self.number_or_rows(), self.number_of_columns()
         cellmatrix = [[None for c in range(cols)] for r in range(rows)]
         rowpos = [0 for i in range(rows)]

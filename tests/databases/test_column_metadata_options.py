@@ -1,4 +1,15 @@
-"""Unit coverage for immutable column presentation options."""
+"""
+Check immutable presentation options and stable JSON serialization.
+
+Covers nested freezing, Unicode preservation, deterministic encoding and rejection
+of values outside the supported JSON shape. These tests construct metadata in memory
+without a database.
+
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/test_column_metadata_options.py
+"""
 
 from __future__ import annotations
 
@@ -16,6 +27,18 @@ from LiuXin_alpha.databases.column_metadata import (
 
 
 def test_column_metadata_presentation_options_are_deeply_immutable() -> None:
+    """
+    Freeze list and nested mapping options while retaining display values.
+
+    Checks the list-to-tuple conversion, Unicode display metadata and TypeError on both
+    outer and nested assignment.
+
+    Example:
+        >>> test_column_metadata_presentation_options_are_deeply_immutable()
+
+
+    :return: None; failed expectations raise AssertionError.
+    """
     metadata = replace(
         default_column_metadata("works", "work_title"),
         formatting_options={
@@ -48,6 +71,18 @@ def test_column_metadata_presentation_options_are_deeply_immutable() -> None:
 
 
 def test_column_options_json_roundtrip_is_stable_and_unicode_safe() -> None:
+    """
+    Check exact compact JSON ordering and lossless Unicode round trips.
+
+    Retains None and nested rule mappings while decoding list structure into tuples.
+    Re-encoding must reproduce the same JSON bytes as text.
+
+    Example:
+        >>> test_column_options_json_roundtrip_is_stable_and_unicode_safe()
+
+
+    :return: None; failed expectations raise AssertionError.
+    """
     options = {
         "label": "Tïtle 🚀",
         "rules": [{"visible": True}, {"width": 42}],
@@ -83,10 +118,33 @@ def test_column_options_reject_non_json_values(
     options: Any,
     error: str,
 ) -> None:
+    """
+    Reject one unsupported options value with the expected diagnostic.
+
+    Pytest supplies integer keys, sets, NaN and infinity. Accepts either TypeError or
+    ValueError while requiring the selected message pattern.
+
+    Example:
+        >>> test_column_options_reject_non_json_values({1: 'bad'}, 'keys must be strings')
+
+
+    :param options: Invalid presentation-options value from the parameter table.
+    :param error: Regular expression expected in the TypeError or ValueError message.
+    :return: None; missing or mismatched exceptions fail the test.
+    """
     with pytest.raises((TypeError, ValueError), match=error):
         freeze_column_options(options, field_name="display_options")
 
 
 def test_column_options_json_requires_an_object_root() -> None:
+    """
+    Reject a JSON array root with an object-required ValueError.
+
+    Example:
+        >>> test_column_options_json_requires_an_object_root()
+
+
+    :return: None; missing or mismatched exceptions fail the test.
+    """
     with pytest.raises(ValueError, match="must contain an object"):
         column_options_from_json('["not", "an", "object"]')

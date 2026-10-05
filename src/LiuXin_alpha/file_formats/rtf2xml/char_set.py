@@ -1,3 +1,14 @@
+"""
+Resolve RTF character sets and code-page declarations.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise char set through a consuming regression::
+
+        python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+"""
 from __future__ import annotations
 char_set = """
 <ms_standard>

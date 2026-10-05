@@ -1,8 +1,10 @@
-"""Public root surface for modern cache access.
+"""
+Expose the application cache, storage contracts and bundled backends.
 
-Ordinary callers should construct :class:`Cache` with :func:`create_cache`.
-Storage plugins remain available through the plugin registry for backend
-development and focused tests.
+Use create_cache(database) to construct and load the default schema-backed
+facade, or Cache(database) to defer loading. Storage backends provide the
+row/field machinery; Cache owns structured queries and Catalog-mediated writes.
+The exported classes and plugin helpers retain their defining-module identities.
 """
 
 from LiuXin_alpha.caches.api import (
@@ -19,15 +21,15 @@ from LiuXin_alpha.caches.api import (
     CachePredicate,
     CacheQuery,
     CacheQueryResult,
-    CacheRecord,
     CacheReconciliationError,
+    CacheRecord,
     CacheRelation,
     CacheSort,
     CacheState,
     FieldBasicInterfaceAPI,
-    StorageCacheCapabilities,
     StorageCacheAPI,
     StorageCacheBaseTableAPI,
+    StorageCacheCapabilities,
     StorageCacheSingleTableAPI,
     TableTypes,
     UnknownCacheFieldError,
@@ -49,7 +51,7 @@ from LiuXin_alpha.caches.cache_plugins.database_backed import (
 from LiuXin_alpha.caches.cache_plugins.numpy_vectorized import (
     NumpyVectorizedStorageCache,
 )
-from LiuXin_alpha.caches.schema_backed import (
+from LiuXin_alpha.caches.cache_plugins.schema_backed import (
     SchemaBackedLinkTable,
     SchemaBackedMainTableCache,
     SchemaBackedManyManyField,

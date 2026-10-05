@@ -1,7 +1,13 @@
 """
-Plugins which are run on certain file types whenever they are imported.
+Register built-in post-import processing plugins.
 
-E.g. Used to bundle html files and all their resources into a single zip file.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise on import through a consuming regression::
+
+        python -m pytest -q tests/customize/test_customize_base.py
 """
 
 
@@ -33,6 +39,11 @@ else:
     class PML2PMLZ(FileTypePlugin):
         """
         Constructs a PMLZ (a zipped file containing a PML file and all linked resources.
+
+        Example:
+            Exercise PML2PMLZ through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
         """
 
         name = "PML to PMLZ"
@@ -52,8 +63,15 @@ else:
             """
             Returns a zipped PML file containing all the resources of the PML file.
 
-            :param pmlfile:
-            :return file_path: ... I think? A path to the temporary file where the processed file is being stored.
+            Example:
+                Exercise PML2PMLZ.run through a consuming regression::
+
+                    python -m pytest -q tests/customize/test_customize_base.py
+
+
+            :param pmlfile: Value supplied for pmlfile under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
             """
             of = self.temporary_file("_plugin_pml2pmlz.pmlz")
             pmlz = zipfile.ZipFile(of.name, "w")
@@ -103,6 +121,11 @@ else:
     class TXT2TXTZ(FileTypePlugin):
         """
         Takes a txt file and zipes it all linked resources.
+
+        Example:
+            Exercise TXT2TXTZ through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
         """
 
         name = "TXT to TXTZ"
@@ -122,9 +145,16 @@ else:
             """
             Returns a list of all the images linked to in the base txt file.
 
-            :param txt:
-            :param base_dir:
-            :return:
+            Example:
+                Exercise TXT2TXTZ. get image references through a consuming regression::
+
+                    python -m pytest -q tests/customize/test_customize_base.py
+
+
+            :param txt: Value supplied for txt under the utility contract.
+            :param base_dir: Value supplied for base dir under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
             """
 
             images = []
@@ -186,8 +216,15 @@ else:
             """
             Preforms a conversion - turning a txt file into a txtz.
 
-            :param path_to_ebook:
-            :return:
+            Example:
+                Exercise TXT2TXTZ.run through a consuming regression::
+
+                    python -m pytest -q tests/customize/test_customize_base.py
+
+
+            :param path_to_ebook: Value supplied for path to ebook under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
             """
 
             with open(path_to_ebook, "rb") as ebf:
@@ -236,8 +273,13 @@ def get_file_type_plugins():
     """
     Return all the file type plugins loaded in this context.
 
-    These are plugins intended to be run at the import phase of running a book.
-    (Turns a html file into a compressed archive including all the assets referenced by the web page, for example.
-    :return:
+    Example:
+        Exercise get file type plugins through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return file_type_plugins

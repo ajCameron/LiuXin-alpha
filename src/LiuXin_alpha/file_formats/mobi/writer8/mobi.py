@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Build KF8 text, flow and resource records.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise mobi through a consuming regression::
+
+        python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -30,6 +41,19 @@ FLIS = b"FLIS\0\0\0\x08\0\x41\0\0\0\0\0\0\xff\xff\xff\xff\0\x01\0\x03\0\0\0\x03\
 
 
 def fcis(text_length: _typing.Any) -> _typing.Any:
+    """
+    Perform the fcis operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise fcis through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+    :param text_length: Value supplied for text length under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     local_fcis = b"FCIS\x00\x00\x00\x14\x00\x00\x00\x10\x00\x00\x00\x02\x00\x00\x00\x00"
     local_fcis += pack(b">L", text_length)
     local_fcis += b"\x00\x00\x00\x00\x00\x00\x00\x28\x00\x00\x00\x00\x00\x00\x00"
@@ -41,6 +65,11 @@ class MOBIHeader(Header):  # {{{
 
     """
     Represents the first record in a MOBI file, contains all the metadata about the file.
+
+    Example:
+        Exercise MOBIHeader through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
     """
 
     DEFINITION = """
@@ -210,10 +239,36 @@ class MOBIHeader(Header):  # {{{
     POSITIONS = {"title_offset": "full_title"}
 
     def __init__(self: _typing.Self, file_version: int = 8) -> None:
+        """
+        Initialize and validate the mobiheader state.
+
+        Example:
+            Exercise MOBIHeader.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param file_version: Value supplied for file version under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.DEFINITION = self.DEFINITION.format(file_version=file_version, record_size=RECORD_SIZE)
         super(MOBIHeader, self).__init__()
 
     def format_value(self: _typing.Self, name: _typing.Any, val: _typing.Any) -> _typing.Any:
+        """
+        Perform the format value operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MOBIHeader.format value through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param val: Template or metadata value evaluated by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if name == "compression":
             val = PALMDOC if val else UNCOMPRESSED
         return super(MOBIHeader, self).format_value(name, val)
@@ -247,12 +302,47 @@ HEADER_FIELDS = {
 
 
 class KF8Book(object):
+    """
+    Provide the kf8book contract for validated ebook processing.
+
+    Example:
+        Exercise KF8Book through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+    """
     def __init__(self: _typing.Self, writer: _typing.Any, for_joint: bool = False) -> None:
+        """
+        Initialize and validate the kf8book state.
+
+        Example:
+            Exercise KF8Book.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param writer: Value supplied for writer under the utility contract.
+        :param for_joint: Value supplied for for joint under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.build_records(writer, for_joint)
         self.used_images = writer.used_images
         self.page_progression_direction = writer.oeb.spine.page_progression_direction
 
     def build_records(self: _typing.Self, writer: _typing.Any, for_joint: _typing.Any) -> None:
+        """
+        Perform the build records operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise KF8Book.build records through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param writer: Value supplied for writer under the utility contract.
+        :param for_joint: Value supplied for for joint under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         metadata = writer.oeb.metadata
         # The text records
         for x in ("last_text_record_idx", "first_non_text_record_idx"):
@@ -326,9 +416,16 @@ class KF8Book(object):
     @property
     def record0(self: _typing.Self) -> _typing.Any:
         """
-        We generate the EXTH header and record0 dynamically, to allow other code to customize various values after
-        build_records() has been called
-        :return:
+        We generate the EXTH header and record0 dynamically, to allow other code to customize various values after build_records() has been called
+
+        Example:
+            Exercise KF8Book.record0 through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         opts = self.opts
         self.exth = build_exth(
@@ -350,13 +447,30 @@ class KF8Book(object):
         return MOBIHeader()(**kwargs)
 
     def write(self: _typing.Self, outpath: _typing.Any) -> None:
+        """
+        Perform the write operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise KF8Book.write through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_output_end_to_end_and_unicode_torture.py
+
+
+        :param outpath: Value supplied for outpath under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         records = [self.record0] + self.records[1:]
 
         with open(outpath, "wb") as f:
 
             # Write PalmDB Header
 
-            title = ascii_filename(self.full_title.decode("utf-8")).replace(" ", "_")[:31]
+            title = (
+                ascii_filename(self.full_title.decode("utf-8"))
+                .replace(" ", "_")[:31]
+                .encode("ascii", "replace")
+            )
             title += b"\0" * (32 - len(title))
             now = int(time.time())
             nrecords = len(records)

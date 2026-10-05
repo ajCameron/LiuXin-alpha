@@ -1,4 +1,14 @@
-"""Tkinter application controller for the LiuXin GUI surface."""
+"""
+Coordinate Tk application actions and state.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise controller through a consuming regression::
+
+        python -m pytest -q tests/surfaces/test_tkinter_gui.py
+"""
 
 from __future__ import annotations
 
@@ -23,8 +33,14 @@ def open_tk_modules():
     """
     Import Tkinter modules lazily and report platform availability clearly.
 
+    Example:
+        Exercise open tk modules through a consuming regression::
 
-    :return:
+            python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     try:
         import tkinter as tk
@@ -35,9 +51,30 @@ def open_tk_modules():
 
 
 class TkGuiApplication:
-    """Tkinter widgets and event handling."""
+    """
+    Tkinter widgets and event handling.
+
+    Example:
+        Exercise TkGuiApplication through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_tkinter_gui.py
+    """
 
     def __init__(self, root: Any, *, config: TkGuiConfig, backend: Optional[TkGuiBackend] = None) -> None:
+        """
+        Initialize and validate the tkguiapplication state.
+
+        Example:
+            Exercise TkGuiApplication.  init   through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :param root: Root directory that bounds path resolution or traversal.
+        :param config: Value supplied for config under the utility contract.
+        :param backend: Value supplied for backend under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         tk, ttk, filedialog, messagebox = open_tk_modules()
         self.tk = tk
         self.ttk = ttk
@@ -78,6 +115,18 @@ class TkGuiApplication:
             self.refresh_tables()
 
     def _build_widgets(self) -> None:
+        """
+        Perform the build widgets operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TkGuiApplication. build widgets through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         tk = self.tk
         ttk = self.ttk
         self.root.title(self.config.title)
@@ -155,6 +204,18 @@ class TkGuiApplication:
         self.status_bar.label.pack(side=tk.BOTTOM, fill=tk.X)
 
     def choose_database(self) -> None:
+        """
+        Perform the choose database operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TkGuiApplication.choose database through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         filename = self.filedialog.askopenfilename(
             title="Open LiuXin database",
             filetypes=(("Database files", "*.sqlite *.db *.test_db"), ("All files", "*.*")),
@@ -163,9 +224,34 @@ class TkGuiApplication:
             self.open_database(Path(filename))
 
     def reload_database(self) -> None:
+        """
+        Perform the reload database operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TkGuiApplication.reload database through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.open_database(Path(self.database_var.get()))
 
     def _status_with_core(self, message: str) -> str:
+        """
+        Perform the status with core operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TkGuiApplication. status with core through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :param message: Value supplied for message under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         parts = [str(message)]
         if self.backend is None:
             return " | ".join(parts)
@@ -184,12 +270,40 @@ class TkGuiApplication:
         return " | ".join(parts)
 
     def _show_task_error(self, title: str, result: TkGuiTaskResult) -> None:
+        """
+        Perform the show task error operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TkGuiApplication. show task error through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :param title: Value supplied for title under the utility contract.
+        :param result: Value supplied for result under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self._closing:
             return
         self.status_var.set(f"{title} failed")
         self.messagebox.showerror(f"{title} failed", result.error or "Unknown error")
 
     def _set_busy(self, task_name: str, busy: bool) -> None:
+        """
+        Perform the set busy operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TkGuiApplication. set busy through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :param task_name: Value supplied for task name under the utility contract.
+        :param busy: Value supplied for busy under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if busy:
             self._busy_tasks.add(str(task_name))
         else:
@@ -197,21 +311,70 @@ class TkGuiApplication:
         self._update_control_state()
 
     def _is_busy(self, *task_names: str) -> bool:
+        """
+        Perform the is busy operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TkGuiApplication. is busy through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :param task_names: Value supplied for task names under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not task_names:
             return bool(self._busy_tasks)
         return any(str(name) in self._busy_tasks for name in task_names)
 
     def _selected_row_has_item_id(self) -> bool:
+        """
+        Perform the selected row has item id operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TkGuiApplication. selected row has item id through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.current_page is None or self.current_row is None or self.backend is None:
             return False
         return self.backend.row_item_id(self.current_page.table, self.current_row) is not None
 
     def _selected_row_supports_metadata_write(self) -> bool:
+        """
+        Perform the selected row supports metadata write operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TkGuiApplication. selected row supports metadata write through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not self._selected_row_has_item_id() or self.backend is None:
             return False
         return self.backend.supports_metadata_writes()
 
     def _update_control_state(self) -> None:
+        """
+        Perform the update control state operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TkGuiApplication. update control state through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         opening = self._is_busy("open_database")
         loading_tables = self._is_busy("load_tables")
         loading_rows = self._is_busy("load_rows")
@@ -249,11 +412,37 @@ class TkGuiApplication:
 
     @staticmethod
     def _schema_text(schema: TableSchema | None) -> str:
+        """
+        Perform the schema text operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TkGuiApplication. schema text through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :param schema: Value supplied for schema under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if schema is None:
             return ""
         return "\n".join(schema.display_lines())
 
     def open_database(self, database_path: Path) -> None:
+        """
+        Perform the open database operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TkGuiApplication.open database through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :param database_path: Value supplied for database path under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self._closing:
             return
         self._set_busy("open_database", True)
@@ -292,11 +481,36 @@ class TkGuiApplication:
         self._update_control_state()
 
         def _open_backend() -> TkGuiBackend:
+            """
+            Perform the open backend operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise TkGuiApplication.open database. open backend through a consuming regression::
+
+                    python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             if old_backend is not None:
                 old_backend.close()
             return TkGuiBackend.open_database(config)
 
         def _opened(result: TkGuiTaskResult) -> None:
+            """
+            Perform the opened operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise TkGuiApplication.open database. opened through a consuming regression::
+
+                    python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+            :param result: Value supplied for result under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             backend = result.result
             if token != self._open_generation or self._closing:
                 if isinstance(backend, TkGuiBackend):
@@ -318,6 +532,18 @@ class TkGuiApplication:
         )
 
     def refresh_tables(self) -> None:
+        """
+        Perform the refresh tables operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TkGuiApplication.refresh tables through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.backend is None:
             return
         self._set_busy("load_tables", True)
@@ -327,6 +553,19 @@ class TkGuiApplication:
         self.status_var.set(self._status_with_core("Loading tables..."))
 
         def _tables_loaded(result: TkGuiTaskResult) -> None:
+            """
+            Perform the tables loaded operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise TkGuiApplication.refresh tables. tables loaded through a consuming regression::
+
+                    python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+            :param result: Value supplied for result under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if token != self._table_generation or backend is not self.backend or self._closing:
                 return
             self._set_busy("load_tables", False)
@@ -346,15 +585,52 @@ class TkGuiApplication:
         )
 
     def refresh_table_list(self) -> None:
+        """
+        Perform the refresh table list operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TkGuiApplication.refresh table list through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.table_sidebar.set_tables(
             self._table_summaries,
             filter_text=self.table_filter_var.get(),
         )
 
     def selected_table(self) -> str | None:
+        """
+        Perform the selected table operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TkGuiApplication.selected table through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.table_sidebar.selected_table()
 
     def on_table_selected(self, _event: object | None = None) -> None:
+        """
+        Perform the on table selected operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TkGuiApplication.on table selected through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :param _event: Value supplied for event under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         table = self.selected_table()
         if table is None:
             return
@@ -368,6 +644,22 @@ class TkGuiApplication:
         search_column: str = "",
         search_text: str = "",
     ) -> None:
+        """
+        Perform the load table operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TkGuiApplication.load table through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :param table: Value supplied for table under the utility contract.
+        :param offset: Value supplied for offset under the utility contract.
+        :param search_column: Value supplied for search column under the utility contract.
+        :param search_text: Value supplied for search text under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.backend is None:
             return
         self._set_busy("load_rows", True)
@@ -383,6 +675,18 @@ class TkGuiApplication:
         self.status_var.set(self._status_with_core(f"Loading {table}..."))
 
         def _load_page_and_schema() -> tuple[RowPage, TableSchema]:
+            """
+            Perform the load page and schema operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise TkGuiApplication.load table. load page and schema through a consuming regression::
+
+                    python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             page = backend.page_rows(
                 table,
                 offset=offset,
@@ -394,6 +698,19 @@ class TkGuiApplication:
             return page, schema
 
         def _page_loaded(result: TkGuiTaskResult) -> None:
+            """
+            Perform the page loaded operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise TkGuiApplication.load table. page loaded through a consuming regression::
+
+                    python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+            :param result: Value supplied for result under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if token != self._page_generation or backend is not self.backend or self._closing:
                 return
             page, schema = result.result
@@ -419,6 +736,18 @@ class TkGuiApplication:
         )
 
     def refresh_read_source(self) -> None:
+        """
+        Perform the refresh read source operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TkGuiApplication.refresh read source through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.backend is None or self._closing:
             return
         self._set_busy("refresh_read_source", True)
@@ -429,6 +758,18 @@ class TkGuiApplication:
         self.status_var.set(self._status_with_core("Refreshing read source..."))
 
         def _configure_or_refresh_source() -> tuple[bool, bool]:
+            """
+            Perform the configure or refresh source operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise TkGuiApplication.refresh read source. configure or refresh source through a consuming regression::
+
+                    python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             changed = backend.configure_read_source(
                 mode=read_source_mode,
                 cache_type=cache_type,
@@ -438,6 +779,19 @@ class TkGuiApplication:
             return changed, refreshed
 
         def _source_refreshed(result: TkGuiTaskResult) -> None:
+            """
+            Perform the source refreshed operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise TkGuiApplication.refresh read source. source refreshed through a consuming regression::
+
+                    python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+            :param result: Value supplied for result under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if backend is not self.backend or self._closing:
                 return
             changed, refreshed = result.result
@@ -463,9 +817,35 @@ class TkGuiApplication:
         )
 
     def render_rows(self, page: RowPage) -> None:
+        """
+        Perform the render rows operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TkGuiApplication.render rows through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :param page: Value supplied for page under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.row_grid.render_rows(page, backend=self.backend)
 
     def on_row_selected(self, _event: object | None = None) -> None:
+        """
+        Perform the on row selected operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TkGuiApplication.on row selected through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :param _event: Value supplied for event under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.current_page is None or self.backend is None:
             return
         index = self.row_grid.selected_index()
@@ -486,6 +866,18 @@ class TkGuiApplication:
         self._update_control_state()
 
     def search_current_table(self) -> None:
+        """
+        Perform the search current table operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TkGuiApplication.search current table through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         table = self.selected_table()
         if table is None:
             return
@@ -497,12 +889,36 @@ class TkGuiApplication:
         )
 
     def clear_search(self) -> None:
+        """
+        Perform the clear search operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TkGuiApplication.clear search through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.search_text_var.set("")
         table = self.selected_table()
         if table is not None:
             self.load_table(table, offset=0)
 
     def previous_page(self) -> None:
+        """
+        Perform the previous page operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TkGuiApplication.previous page through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.current_page is None:
             return
         self.load_table(
@@ -513,6 +929,18 @@ class TkGuiApplication:
         )
 
     def next_page(self) -> None:
+        """
+        Perform the next page operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TkGuiApplication.next page through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.current_page is None or not self.current_page.has_next:
             return
         self.load_table(
@@ -523,6 +951,18 @@ class TkGuiApplication:
         )
 
     def hydrate_selected_metadata(self) -> None:
+        """
+        Perform the hydrate selected metadata operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TkGuiApplication.hydrate selected metadata through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.current_page is None or self.current_row is None or self.backend is None:
             return
         if not self._selected_row_has_item_id():
@@ -539,6 +979,19 @@ class TkGuiApplication:
             update_idletasks()
 
         def _metadata_loaded(result: TkGuiTaskResult) -> None:
+            """
+            Perform the metadata loaded operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise TkGuiApplication.hydrate selected metadata. metadata loaded through a consuming regression::
+
+                    python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+            :param result: Value supplied for result under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if (
                 token != self._metadata_generation
                 or backend is not self.backend
@@ -561,6 +1014,18 @@ class TkGuiApplication:
         )
 
     def replace_selected_metadata_field(self) -> None:
+        """
+        Perform the replace selected metadata field operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TkGuiApplication.replace selected metadata field through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.current_page is None or self.current_row is None or self.backend is None:
             return
         if not self._selected_row_supports_metadata_write():
@@ -579,6 +1044,19 @@ class TkGuiApplication:
             update_idletasks()
 
         def _metadata_written(result: TkGuiTaskResult) -> None:
+            """
+            Perform the metadata written operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise TkGuiApplication.replace selected metadata field. metadata written through a consuming regression::
+
+                    python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+            :param result: Value supplied for result under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if (
                 token != self._metadata_generation
                 or backend is not self.backend
@@ -605,6 +1083,18 @@ class TkGuiApplication:
         )
 
     def close(self) -> None:
+        """
+        Perform the close operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TkGuiApplication.close through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self._closing:
             return
         self._closing = True
@@ -625,6 +1115,18 @@ class TkGuiApplication:
         self.task_runner.close(wait=True, cancel_pending=False)
 
     def close_window(self) -> None:
+        """
+        Perform the close window operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TkGuiApplication.close window through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.close()
         destroy = getattr(self.root, "destroy", None)
         if callable(destroy):

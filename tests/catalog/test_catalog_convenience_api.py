@@ -1,4 +1,11 @@
-"""Database-backed coverage for the Catalog convenience surface."""
+"""
+Exercise Catalog convenience composition, relationships, metadata replacement, and annotations.
+
+Use real schema-backed rows and writer operations for a branched WEMI graph,
+primary/origin metadata, group clear/replace behavior, rollback observation, and
+Item/user/kind filtering. Private helpers generate isolated labels, create stacks,
+and interpret primary flags; runtime protocol assertions cover structural presence.
+"""
 
 from __future__ import annotations
 
@@ -27,10 +34,40 @@ from LiuXin_alpha.catalog.api.retrieval import (
 
 
 def _token(prefix: str) -> str:
+    """
+    Build a readable fixture label with a fresh UUID4 hexadecimal suffix.
+
+    Format the prefix directly and append one hyphen plus 32 hexadecimal UUID characters. Each call
+    is independent; the helper does not query the database or enforce absolute uniqueness.
+
+    Example:
+        >>> value = _token("label")
+        >>> value.startswith("label-"), len(value[6:]), uuid.UUID(value[6:]).version
+        (True, 32, 4)
+
+
+    :param prefix: Readable label prepended to a new UUID4 hex string.
+    :return: Prefix and UUID4 hex joined by a hyphen.
+    """
     return f"{prefix}-{uuid.uuid4().hex}"
 
 
 def _stack(catalog: Catalog):
+    """
+    Create a one-Item WEMI stack for the convenience integration tests.
+
+    Call the coordinated writer with fresh Work title, Expression label, Manifestation subtitle, and
+    Item inventory code. Mark the operation with catalog-convenience-test origin and return the
+    writer's creation receipt unchanged. This helper performs real persistence, not a stand-in
+    construction.
+
+    Example:
+        >>> created = _stack(catalog)  # doctest: +SKIP
+
+
+    :param catalog: Catalog whose mutation writer creates the linked WEMI test entities.
+    :return: Writer creation receipt carrying the Work, Expression, Manifestation, and Item IDs.
+    """
     return catalog.mutations.writer.create_wemi_stack(
         work={"title": _token("Convenience work")},
         expression={"label": _token("Convenience expression")},
@@ -41,6 +78,23 @@ def _stack(catalog: Catalog):
 
 
 def _link_primary(row) -> bool:
+    """
+    Report whether any primary-marker extra field has a truthy value.
+
+    Inspect row["_catalog_link"]["extra"] keys ending in _primary and apply bool to their values.
+    Return False when there are no such keys or all are false. This is a test assertion helper, not
+    a schema/type validator or a comparison of the link priority.
+
+    Example:
+        >>> _link_primary({"_catalog_link": {"extra": {"credit_primary": 1}}})
+        True
+        >>> _link_primary({"_catalog_link": {"extra": {}}})
+        False
+
+
+    :param row: Traversed row mapping containing _catalog_link and an extra mapping with string keys.
+    :return: True if any matching extra-field value is truthy, otherwise False.
+    """
     link = row["_catalog_link"]
     return any(
         bool(value)
@@ -50,7 +104,22 @@ def _link_primary(row) -> bool:
 
 
 def test_convenience_contracts_and_repository_lookup_are_public(db) -> None:
-    """Concrete services satisfy every convenience protocol and name lookup."""
+    """
+    Check selected convenience services satisfy protocols and resolve public aliases.
+
+    Verify runtime protocol presence on the repository group, mutation writer, retrieval
+    group/hierarchy/graph, and eight specialized repositories. Require Work, Item-Identifier, and
+    synopsis lookups to return the existing shortcut instances, and reject books with KeyError.
+    Structural isinstance checks do not establish signature compatibility or exercise every declared
+    operation.
+
+    Example:
+        >>> test_convenience_contracts_and_repository_lookup_are_public(db)  # doctest: +SKIP
+
+
+    :param db: Provisioned schema-backed test database receiving real Catalog, relationship, and mutation operations.
+    :return: None after the stated regression assertions pass.
+    """
 
     catalog = Catalog(db)
 
@@ -77,7 +146,26 @@ def test_convenience_contracts_and_repository_lookup_are_public(db) -> None:
 
 
 def test_wemi_link_unlink_hierarchy_and_graph_conveniences(db) -> None:
-    """WEMI relationship helpers retain metadata and return bounded graphs."""
+    """
+    Preserve WEMI link metadata while traversing, bounding, and unlinking a branched stack.
+
+    Create a second Expression/Manifestation/Item branch and make its Work link primary at priority
+    seven with origin metadata. Verify the original branch loses primary status, hierarchy
+    parents/children contain the expected IDs, and a full graph contains both branches and six links
+    without truncation.
+
+    Limit Expressions to one and require descendant truncation markers; zero limits yield no
+    descendants or links. Unlink the second Item, observe its unassigned parent and a false
+    repeated-unlink result, then reject a nonadjacent Work-to-Item link. No assertion here requires
+    deleting the detached Item.
+
+    Example:
+        >>> test_wemi_link_unlink_hierarchy_and_graph_conveniences(db)  # doctest: +SKIP
+
+
+    :param db: Provisioned schema-backed test database receiving real Catalog, relationship, and mutation operations.
+    :return: None after the stated regression assertions pass.
+    """
 
     catalog = Catalog(db)
     created = _stack(catalog)
@@ -207,7 +295,25 @@ def test_wemi_link_unlink_hierarchy_and_graph_conveniences(db) -> None:
 
 
 def test_replace_metadata_has_complete_group_and_rollback_semantics(db) -> None:
-    """Selected metadata groups replace atomically while omitted groups persist."""
+    """
+    Exercise populated metadata replacement, explicit clearing, and a later rollback.
+
+    Replace Work fields/title, one Agent credit, two identifier schemes, Note, Comment, and Synopsis
+    groups, then verify their stored projections. Clear all these groups explicitly; title=None also
+    clears the canonical title despite omitting a separate fields payload in that call.
+
+    Restore a canonical title through fields, attempt another field update followed by an invalid
+    Note member, and verify the earlier title survives the TypeError. That final assertion observes
+    field rollback; it is not a full-table snapshot or proof that every omitted group is independent
+    of title conveniences.
+
+    Example:
+        >>> test_replace_metadata_has_complete_group_and_rollback_semantics(db)  # doctest: +SKIP
+
+
+    :param db: Provisioned schema-backed test database receiving real Catalog, relationship, and mutation operations.
+    :return: None after the stated regression assertions pass.
+    """
 
     catalog = Catalog(db)
     created = _stack(catalog)
@@ -325,7 +431,21 @@ def test_replace_metadata_has_complete_group_and_rollback_semantics(db) -> None:
 
 
 def test_annotation_listing_is_item_scoped_and_filterable(db) -> None:
-    """Annotation listing validates Item ownership and applies both filters."""
+    """
+    Select one Item Annotation by user and kind, and reject a blank kind filter.
+
+    Create two differently classified annotations on one Item and a same-user/kind annotation on
+    another Item. Check unfiltered results are ID ordered, then require combined user/kind filtering
+    to return only the expected first-Item ID. A whitespace-only kind must raise ValueError. This
+    test uses existing Items and does not exercise the missing-Item or invalid-user-ID error paths.
+
+    Example:
+        >>> test_annotation_listing_is_item_scoped_and_filterable(db)  # doctest: +SKIP
+
+
+    :param db: Provisioned schema-backed test database receiving real Catalog, relationship, and mutation operations.
+    :return: None after the stated regression assertions pass.
+    """
 
     catalog = Catalog(db)
     created = _stack(catalog)

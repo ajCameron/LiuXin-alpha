@@ -1,8 +1,13 @@
 """
-Google Images cover source.
+Discover cover candidates from Google Images markup or an optional rendered-browser fallback.
 
-This plugin searches Google Images for likely cover URLs, then downloads one or
-more candidates.
+The module keeps network, parsing, caching, cancellation and result-order behavior
+explicit for callers.
+
+Example:
+    Exercise google images with the owning regression module::
+
+        python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
 """
 
 from __future__ import annotations
@@ -38,6 +43,19 @@ _RENDERED_BROWSER_USER_AGENT = (
 
 
 def _as_text(raw) -> str:
+    """
+    Convert optional or hostile input to text without propagating conversion failures.
+
+    Example:
+        Exercise  as text with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     if isinstance(raw, bytes):
         return raw.decode("utf-8", "replace")
     try:
@@ -47,10 +65,37 @@ def _as_text(raw) -> str:
 
 
 def _log(log, level: str, *parts) -> None:
+    """
+    Forward a structured provider message through the shared logging adapter.
+
+    Example:
+        Exercise  log with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+    :param log: Logger receiving structured provider diagnostics.
+    :param level: Log severity name used for the message.
+    :param parts: Message fragments and structured context to emit.
+    :return: None.
+    """
     _shared_log_message(log, level, *parts)
 
 
 def _normalize_candidate_url(raw: str) -> str | None:
+    """
+    Normalize normalize candidate url into the provider's canonical safe representation.
+
+    Example:
+        Exercise  normalize candidate url with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     text = _as_text(raw).strip()
     if not text:
         return None
@@ -73,6 +118,19 @@ def _normalize_candidate_url(raw: str) -> str | None:
 
 
 def _extract_imgurl_query_values(raw_html: str):
+    """
+    Extract imgurl query values with stable ordering and malformed-input tolerance.
+
+    Example:
+        Exercise  extract imgurl query values with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+    :param raw_html: Provider HTML response to parse without executing content.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     needle = "imgurl="
     start = 0
     while True:
@@ -89,6 +147,18 @@ def _extract_imgurl_query_values(raw_html: str):
 
 
 def _looks_like_direct_image_url(url: str) -> bool:
+    """
+    Perform the google images looks like direct image url operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  looks like direct image url with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+    :param url: Provider URL to normalize, request or associate with cached data.
+    :return: True when the described condition is satisfied; otherwise False.
+    """
     parsed = urlparse(url)
     host = (parsed.hostname or "").lower()
     path_query = (parsed.path + "?" + parsed.query).lower()
@@ -102,6 +172,19 @@ def _looks_like_direct_image_url(url: str) -> bool:
 
 
 def _wsl_path_to_windows(path: str) -> str:
+    """
+    Perform the google images wsl path to windows operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  wsl path to windows with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+    :param path: Filesystem, URL or cookie path used by the operation.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     text = _as_text(path)
     match = re.match(r"^/mnt/([a-zA-Z])/(.*)$", text)
     if not match:
@@ -111,6 +194,19 @@ def _wsl_path_to_windows(path: str) -> str:
 
 
 def _extract_direct_image_urls(raw_html: str):
+    """
+    Extract direct image urls with stable ordering and malformed-input tolerance.
+
+    Example:
+        Exercise  extract direct image urls with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+    :param raw_html: Provider HTML response to parse without executing content.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     pattern = r"""https?(?::|\\u003a)(?:(?:/|\\/|\\u002f){2})[^"'<>\s]+"""
     for match in re.finditer(pattern, raw_html, re.IGNORECASE):
         candidate = _normalize_candidate_url(match.group(0))
@@ -119,6 +215,19 @@ def _extract_direct_image_urls(raw_html: str):
 
 
 def _extract_google_image_ids(raw_html: str):
+    """
+    Extract google image ids with stable ordering and malformed-input tolerance.
+
+    Example:
+        Exercise  extract google image ids with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+    :param raw_html: Provider HTML response to parse without executing content.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     seen = OrderedDict()
     for match in re.finditer(r"""data-(?:tbnid|docid)=["']([^"']+)["']""", raw_html, re.IGNORECASE):
         image_id = unescape(match.group(1)).strip()
@@ -128,6 +237,20 @@ def _extract_google_image_ids(raw_html: str):
 
 
 def _image_url_from_google_id(raw_html: str, image_id: str) -> str | None:
+    """
+    Perform the google images image url from google id operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  image url from google id with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+    :param raw_html: Provider HTML response to parse without executing content.
+    :param image_id: Provider image identifier used to locate its direct URL.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     needle = json.dumps(_as_text(image_id), ensure_ascii=False) + ",["
     try:
         start = raw_html.index(needle)
@@ -151,6 +274,18 @@ def _image_url_from_google_id(raw_html: str, image_id: str) -> str | None:
 
 
 def _google_consent_cookie_values():
+    """
+    Perform the google images google consent cookie values operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  google consent cookie values with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     yield "CONSENT", "PENDING+987", ".google.com", "/"
     template = (
         b"\x08\x01\x128\x08\x14\x12+boq_identityfrontenduiserver_20231107.05_p0"
@@ -162,7 +297,17 @@ def _google_consent_cookie_values():
 
 def parse_google_markup(raw):
     """
-    Parse candidate image URLs from Google image search HTML.
+    Extract ordered direct-image candidates from Google Images response markup.
+
+    Example:
+        Exercise parse google markup with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
     """
     html = _as_text(raw)
     if not html:
@@ -198,6 +343,19 @@ def parse_google_markup(raw):
 
 
 def _html_title(raw_html: str) -> str | None:
+    """
+    Perform the google images html title operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  html title with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+    :param raw_html: Provider HTML response to parse without executing content.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     match = re.search(r"<title[^>]*>(.*?)</title>", raw_html, re.IGNORECASE | re.DOTALL)
     if not match:
         return None
@@ -206,6 +364,19 @@ def _html_title(raw_html: str) -> str | None:
 
 
 def _diagnostic_markers(raw_html: str) -> dict:
+    """
+    Perform the google images diagnostic markers operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  diagnostic markers with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+    :param raw_html: Provider HTML response to parse without executing content.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     lowered = raw_html.lower()
     direct_urls = list(_extract_direct_image_urls(raw_html))
     google_thumbnails = [url for url in direct_urls if "encrypted-tbn" in (urlparse(url).hostname or "").lower()]
@@ -231,6 +402,14 @@ def _diagnostic_markers(raw_html: str) -> dict:
 
 
 class GoogleImages(Source):
+    """
+    Implement the google images metadata-source integration and its explicit recovery policy.
+
+    Example:
+        Exercise GoogleImages with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+    """
     name = "Google Images"
     version = (1, 0, 7)
     description = _("Downloads covers from a Google Image search. Useful to find larger/alternate covers.")
@@ -273,6 +452,18 @@ class GoogleImages(Source):
     RENDERED_SEARCH_TIMEOUT_SECONDS = 45
 
     def _retry_policy(self) -> RetryPolicy:
+        """
+        Build the bounded retry policy used by this provider's HTTP requests.
+
+        Example:
+            Exercise GoogleImages. retry policy with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         return RetryPolicy(
             attempts=int(self.HTTP_RETRY_ATTEMPTS),
             base_delay=float(self.HTTP_RETRY_BASE_SECONDS),
@@ -280,6 +471,19 @@ class GoogleImages(Source):
         )
 
     def _retry_backoff(self, attempt: int) -> float:
+        """
+        Compute the capped delay for one provider retry attempt.
+
+        Example:
+            Exercise GoogleImages. retry backoff with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+        :param attempt: Zero-based retry attempt used to calculate backoff.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         return compute_backoff_delay(
             attempt=attempt,
             base_delay=float(self.HTTP_RETRY_BASE_SECONDS),
@@ -287,9 +491,40 @@ class GoogleImages(Source):
         )
 
     def _wait_for_backoff(self, abort, delay: float) -> bool:
+        """
+        Wait interruptibly for a retry delay and report whether it completed.
+
+        Example:
+            Exercise GoogleImages. wait for backoff with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param delay: Backoff duration in seconds.
+        :return: True when the described condition is satisfied; otherwise False.
+        """
         return wait_for_backoff(abort, delay)
 
     def _open_with_backoff(self, browser_obj, log, abort, url: str, timeout: int, context: str) -> bytes:
+        """
+        Run the open operation with bounded retry, diagnostics and cancellation.
+
+        Example:
+            Exercise GoogleImages. open with backoff with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+        :param browser_obj: Browser instance used for one retried request.
+        :param log: Logger receiving structured provider diagnostics.
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param url: Provider URL to normalize, request or associate with cached data.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :param context: Short operation label included in retry diagnostics.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         return call_with_backoff(
             lambda: browser_obj.open_novisit(url, timeout=timeout).read(),
             log=log,
@@ -306,6 +541,18 @@ class GoogleImages(Source):
         )
 
     def _rendered_browser_path(self) -> str | None:
+        """
+        Perform the google images rendered browser path operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise GoogleImages. rendered browser path with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         override = os.environ.get("LIUXIN_GOOGLE_IMAGES_BROWSER")
         if override:
             return override
@@ -332,10 +579,35 @@ class GoogleImages(Source):
 
     @staticmethod
     def _is_wsl_windows_browser(path: str) -> bool:
+        """
+        Perform the google images is wsl windows browser operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise GoogleImages. is wsl windows browser with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+        :param path: Filesystem, URL or cookie path used by the operation.
+        :return: True when the described condition is satisfied; otherwise False.
+        """
         lowered = _as_text(path).lower()
         return lowered.endswith(".exe") and lowered.startswith("/mnt/")
 
     def _rendered_browser_profile_root(self, browser_path: str) -> Path:
+        """
+        Perform the google images rendered browser profile root operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise GoogleImages. rendered browser profile root with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+        :param browser_path: Configured rendered-browser executable path.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         candidates = [Path.cwd()]
         try:
             candidates.append(Path(__file__).resolve().parents[4])
@@ -349,6 +621,19 @@ class GoogleImages(Source):
         return (Path.cwd() / ".tmp" / "google-images-rendered-browser").resolve()
 
     def _rendered_browser_profile_dir(self, browser_path: str) -> str:
+        """
+        Perform the google images rendered browser profile dir operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise GoogleImages. rendered browser profile dir with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+        :param browser_path: Configured rendered-browser executable path.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         configured = os.environ.get("LIUXIN_GOOGLE_IMAGES_BROWSER_PROFILE_DIR")
         if configured:
             raw = str(Path(configured).expanduser())
@@ -361,6 +646,22 @@ class GoogleImages(Source):
         return raw
 
     def _render_search_page(self, log, abort, url: str, timeout: int) -> str:
+        """
+        Perform the google images render search page operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise GoogleImages. render search page with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+        :param log: Logger receiving structured provider diagnostics.
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param url: Provider URL to normalize, request or associate with cached data.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         if abort is not None and getattr(abort, "is_set", lambda: False)():
             return ""
 
@@ -436,6 +737,20 @@ class GoogleImages(Source):
         return ""
 
     def _build_search_url(self, title: str, author: str) -> str:
+        """
+        Build search url from normalized identifiers and search inputs.
+
+        Example:
+            Exercise GoogleImages. build search url with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+        :param title: Book title used to construct or rank the provider query.
+        :param author: Author text used in a provider cover query.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         query_text = f"{title} {author}".strip()
         query = urlencode({"as_q": query_text})
         size_filter = self._size_filter()
@@ -446,6 +761,18 @@ class GoogleImages(Source):
         )
 
     def _size_filter(self) -> str:
+        """
+        Perform the google images size filter operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise GoogleImages. size filter with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         size = _as_text(self.prefs.get("size", "svga") or "svga")
         if size == "any":
             return ""
@@ -454,6 +781,20 @@ class GoogleImages(Source):
         return f"isz:lt,islt:{size},"
 
     def _build_search_urls(self, title: str, author: str) -> list[str]:
+        """
+        Build search urls from normalized identifiers and search inputs.
+
+        Example:
+            Exercise GoogleImages. build search urls with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+        :param title: Book title used to construct or rank the provider query.
+        :param author: Author text used in a provider cover query.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         primary = self._build_search_url(title, author)
         query_text = f"{title} {author}".strip()
         query = urlencode({"q": query_text})
@@ -471,6 +812,20 @@ class GoogleImages(Source):
         return list(OrderedDict((url, True) for url in candidates))
 
     def _build_rendered_search_urls(self, title: str, author: str) -> list[str]:
+        """
+        Build rendered search urls from normalized identifiers and search inputs.
+
+        Example:
+            Exercise GoogleImages. build rendered search urls with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+        :param title: Book title used to construct or rank the provider query.
+        :param author: Author text used in a provider cover query.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         query_text = f"{title} {author}".strip()
         query = urlencode({"q": query_text})
         tbs = f"{self._size_filter()}iar:t,ift:jpg"
@@ -481,6 +836,23 @@ class GoogleImages(Source):
         ]
 
     def _get_rendered_image_urls(self, title, author, log, abort, timeout) -> list[str]:
+        """
+        Return rendered image urls under this provider's cache and fallback policy.
+
+        Example:
+            Exercise GoogleImages. get rendered image urls with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+        :param title: Book title used to construct or rank the provider query.
+        :param author: Author text used in a provider cover query.
+        :param log: Logger receiving structured provider diagnostics.
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         search_urls = self._build_rendered_search_urls(title, author)
         for index, url in enumerate(search_urls, start=1):
             _log(
@@ -505,6 +877,23 @@ class GoogleImages(Source):
         return []
 
     def get_image_urls(self, title, author, log, abort, timeout):
+        """
+        Return image urls under this provider's cache and fallback policy.
+
+        Example:
+            Exercise GoogleImages.get image urls with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+        :param title: Book title used to construct or rank the provider query.
+        :param author: Author text used in a provider cover query.
+        :param log: Logger receiving structured provider diagnostics.
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         br = self.browser()
         set_cookie = getattr(br, "set_simple_cookie", None)
         if callable(set_cookie):
@@ -555,6 +944,21 @@ class GoogleImages(Source):
         return self._get_rendered_image_urls(title, author, log, abort, timeout)
 
     def download_image(self, url, timeout, log, result_queue):
+        """
+        Resolve and download cover candidates, honor cancellation and enqueue valid image bytes.
+
+        Example:
+            Exercise GoogleImages.download image with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+        :param url: Provider URL to normalize, request or associate with cached data.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :param log: Logger receiving structured provider diagnostics.
+        :param result_queue: Queue receiving normalized metadata or cover results.
+        :return: None.
+        """
         data = self._open_with_backoff(
             browser_obj=self.browser(),
             log=log,
@@ -578,6 +982,26 @@ class GoogleImages(Source):
         timeout=30,
         get_best_cover=False,
     ):
+        """
+        Resolve and download cover candidates, honor cancellation and enqueue valid image bytes.
+
+        Example:
+            Exercise GoogleImages.download cover with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_google_images.py
+
+
+        :param log: Logger receiving structured provider diagnostics.
+        :param result_queue: Queue receiving normalized metadata or cover results.
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param title: Book title used to construct or rank the provider query.
+        :param authors: Author names used to construct or rank the provider query.
+        :param identifiers: Metadata identifier mapping used for direct lookup and cache
+            resolution.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :param get_best_cover: Stop after the best usable cover when true.
+        :return: None.
+        """
         del identifiers
         if not title:
             return

@@ -1,5 +1,9 @@
 """
-Replica lifecycle, ingest-result, and verification values.
+Represent Replica claims, recorded observations, and lifecycle result values.
+
+Constructors validate selected fields without probing storage. Report predicates
+consume the supplied states and errors; they do not independently verify bytes or
+enforce consistency between all evidence fields.
 """
 
 from __future__ import annotations
@@ -24,7 +28,11 @@ from LiuXin_alpha.storage.api.storage_manager_api.models.identifiers import (
 
 class ReplicaMode(StrEnum):
     """
-    Operational purpose of one concrete Replica.
+    Name the operational purpose of a concrete Asset copy.
+
+    Active, backup, archive, cache, transient, and unmanaged are string-valued policy labels.
+    Choosing a mode does not itself establish availability, verification, placement eligibility, or
+    lifecycle behavior.
 
     Example:
         >>> ReplicaMode.BACKUP.value
@@ -41,7 +49,12 @@ class ReplicaMode(StrEnum):
 
 class ReplicaState(StrEnum):
     """
-    Observed or expected availability state of one Replica claim.
+    Name a recorded or expected availability state for a Replica claim.
+
+    The values distinguish staging, presence without complete verification, verified bytes,
+    missing/corrupt/unavailable observations, and deleted claims. An enum value alone is recorded
+    evidence, not a fresh Store probe; consumers decide which states qualify for selection or policy
+    counts.
 
     Example:
         >>> ReplicaState("verified") is ReplicaState.VERIFIED
@@ -61,7 +74,11 @@ class ReplicaState(StrEnum):
 @dataclasses.dataclass(slots=True, frozen=True)
 class ReplicaObservation:
     """
-    Latest observed physical state for a Replica claim.
+    Retain the latest supplied physical-state evidence for a Replica.
+
+    Construction checks optional size, unique digest algorithms, timestamp awareness, and nonblank
+    failure text. State/evidence consistency and state type are not checked. Original values remain
+    shared; creating VERIFIED evidence does not perform verification.
 
     Example:
         >>> observation = ReplicaObservation(
@@ -69,6 +86,13 @@ class ReplicaObservation:
         ... )
         >>> observation.state is ReplicaState.VERIFIED
         True
+
+
+    :ivar state: Supplied lifecycle state; construction does not coerce it to ReplicaState.
+    :ivar observed_size_bytes: Observed byte count, or None; only values comparing below zero reject.
+    :ivar observed_digests: Possibly empty digest evidence with unique algorithm attributes.
+    :ivar checked_at: Optional aware timestamp, retained without conversion to UTC.
+    :ivar failure_reason: Optional nonblank explanation, retained without stripping.
     """
 
     state: ReplicaState
@@ -79,7 +103,12 @@ class ReplicaObservation:
 
     def __post_init__(self) -> None:
         """
-        Validate observation size, digests, and timestamp.
+        Check size negativity, duplicate digest algorithms, timestamp awareness, and blank failure
+        text.
+
+        The state is not validated or reconciled with evidence. No integer/type coercion or
+        defensive copying occurs; malformed objects can fail their comparison, attribute, or string
+        operations.
 
         Example:
             >>> ReplicaObservation(
@@ -90,7 +119,7 @@ class ReplicaObservation:
             ValueError: observed_size_bytes must not be negative.
 
 
-        :return:
+        :return: None after the selected evidence checks pass; validation and malformed-input errors propagate.
         """
 
         if self.observed_size_bytes is not None and self.observed_size_bytes < 0:
@@ -101,10 +130,16 @@ class ReplicaObservation:
             raise ValueError("failure_reason must not be empty when supplied.")
 
 
+# Todo: Should this include a callback function so we can recheck the existence of the replica later?
 @dataclasses.dataclass(slots=True, frozen=True)
 class ReplicaDeclaration:
     """
-    Input for registering one concrete copy of a Digital Asset.
+    Describe a Replica claim to register for an existing Asset at a concrete Location.
+
+    The default observation is a new UNVERIFIED record. Direct construction only checks Asset-ID
+    positivity; Asset/Store existence, Location ownership, mode, and observation validity belong to
+    later operations. Placement hints remain caller-supplied advisory data, included in equality but
+    excluded from generated hashing.
 
     Example:
         >>> declaration = ReplicaDeclaration(
@@ -112,6 +147,12 @@ class ReplicaDeclaration:
         ... )
         >>> declaration.mode is ReplicaMode.ACTIVE
         True
+
+    :ivar digital_asset_id: Asset ID rejected when it compares at or below zero, without integer-type or repository checks.
+    :ivar location: Claimed concrete Store Location; this constructor does not inspect it.
+    :ivar mode: Requested operational purpose, defaulting to ACTIVE without coercion.
+    :ivar observation: Initial evidence, defaulting to a new UNVERIFIED observation.
+    :ivar placement_hints: Optional retained placement metadata; construction does not snapshot nested values.
     """
 
     digital_asset_id: DigitalAssetID
@@ -127,7 +168,9 @@ class ReplicaDeclaration:
 
     def __post_init__(self) -> None:
         """
-        Require a positive Digital Asset identifier.
+        Reject an Asset ID that compares at or below zero, leaving all other fields unchecked.
+
+        This is a direct comparison, not integer coercion or a catalogue existence check.
 
         Example:
             >>> ReplicaDeclaration(
@@ -138,7 +181,7 @@ class ReplicaDeclaration:
             ValueError: digital_asset_id must be positive.
 
 
-        :return:
+        :return: None for an ID that does not compare at or below zero; invalid comparisons or nonpositive values raise.
         """
 
         if self.digital_asset_id <= 0:
@@ -148,12 +191,11 @@ class ReplicaDeclaration:
 @dataclasses.dataclass(slots=True, frozen=True)
 class ReplicaRecord:
     """
-    Manager-maintained claim about one concrete Asset copy.
+    Retain a manager-assigned claim linking one Asset identity to one Store Location.
 
-    ``placement_hints`` is the advisory metadata snapshot requested when this
-    Replica was allocated and published. It belongs to the placement, not to
-    the byte identity, and can seed later replication even when the original
-    Store did not interpret rich hints.
+    Placement hints carry the advisory metadata recorded for that placement and can seed later
+    replication. They remain separate from byte identity, participate in equality, and are excluded
+    from generated hashing. The frozen record does not copy nested values or probe physical storage.
 
     Example:
         >>> record = ReplicaRecord(
@@ -163,6 +205,15 @@ class ReplicaRecord:
         ... )
         >>> record.state is ReplicaState.VERIFIED
         True
+
+
+    :ivar replica_id: Manager-assigned Replica ID, rejected when it compares at or below zero.
+    :ivar digital_asset_id: Claimed owning Asset ID, rejected when it compares at or below zero.
+    :ivar location: Retained concrete Location without constructor-level ownership validation.
+    :ivar mode: Retained operational purpose without enum coercion.
+    :ivar observation: Retained state/evidence object exposed by the state property.
+    :ivar revision: Optional truthy optimistic-lock token; whitespace is retained.
+    :ivar placement_hints: Optional advisory placement metadata retained without a defensive copy.
     """
 
     replica_id: ReplicaID
@@ -178,7 +229,10 @@ class ReplicaRecord:
 
     def __post_init__(self) -> None:
         """
-        Validate identifiers and optional optimistic-lock revision.
+        Reject Replica/Asset IDs that compare at or below zero and false revisions when supplied.
+
+        No integer-type, Location, mode, observation, placement, or repository consistency checks
+        occur here. A whitespace-only revision remains accepted.
 
         Example:
             >>> ReplicaRecord(
@@ -191,7 +245,7 @@ class ReplicaRecord:
             ValueError: replica_id must be positive.
 
 
-        :return:
+        :return: None when the selected ID/revision checks pass; nonpositive IDs or a false supplied revision reject.
         """
 
         if self.replica_id <= 0:
@@ -204,14 +258,15 @@ class ReplicaRecord:
     @property
     def state(self) -> ReplicaState:
         """
-        Return the latest observed state of this Replica.
+        Return the state attribute of the retained observation without probing storage or validating
+        its type.
 
         Example:
             >>> replica.state is replica.observation.state  # doctest: +SKIP
             True
 
 
-        :return:
+        :return: The exact state value currently exposed by observation.
         """
 
         return self.observation.state
@@ -220,11 +275,25 @@ class ReplicaRecord:
 @dataclasses.dataclass(slots=True, frozen=True)
 class DigitalAssetIngestResult:
     """
-    Outcome of publishing bytes and registering manager records.
+    Collect publication outcome records and flags for one ingest operation.
+
+    Construction checks the operation UUID and agreement of the Asset IDs carried by both records.
+    Creation, deduplication, verification, and warning values are retained as reported; the
+    constructor does not establish their consistency or repeat any ingest work.
 
     Example:
         >>> result.location == result.replica_record.location  # doctest: +SKIP
         True
+
+
+    :ivar operation_id: Required UUID identifying the reported ingest operation.
+    :ivar asset_record: Resulting Asset record whose ID must match the Replica owner.
+    :ivar replica_record: Resulting Replica record supplying the concrete Location.
+    :ivar asset_created: Reported indication that the operation created the Asset record.
+    :ivar replica_created: Reported indication that the operation created the Replica record.
+    :ivar deduplicated: Reported reuse outcome, not recomputed from the records.
+    :ivar verified: Reported verification outcome, independent of constructor validation.
+    :ivar warnings: Retained nonfatal diagnostics without content validation.
     """
 
     operation_id: UUID
@@ -238,7 +307,10 @@ class DigitalAssetIngestResult:
 
     def __post_init__(self) -> None:
         """
-        Require a UUID and matching Asset and Replica records.
+        Require a UUID operation ID and equal owning Asset IDs on the two records.
+
+        Record attributes are read directly without record-type checks. Flags, warnings, and
+        relationships between reported outcomes remain unchecked.
 
         Example:
             >>> result = DigitalAssetIngestResult(  # doctest: +SKIP
@@ -246,7 +318,7 @@ class DigitalAssetIngestResult:
             ... )
 
 
-        :return:
+        :return: None when UUID and Asset ownership checks pass; invalid identity or record access raises.
         """
 
         if not isinstance(self.operation_id, UUID):
@@ -260,14 +332,14 @@ class DigitalAssetIngestResult:
     @property
     def location(self) -> Location:
         """
-        Return the concrete Location carried by the resulting Replica.
+        Project the Location from the retained result Replica without lookup or copying.
 
         Example:
             >>> result.location.key  # doctest: +SKIP
             'objects/7'
 
 
-        :return:
+        :return: The exact Location held by replica_record.
         """
 
         return self.replica_record.location
@@ -276,7 +348,12 @@ class DigitalAssetIngestResult:
 @dataclasses.dataclass(slots=True, frozen=True)
 class ReplicaVerificationReport:
     """
-    Observed comparison of one Replica with its Asset identity.
+    Retain a comparison report for one Replica and its expected Asset identity.
+
+    Only observed-size negativity, digest algorithm uniqueness, and optional timestamp awareness are
+    validated. IDs, state, tri-state comparison flags, and their consistency are not checked. The
+    healthy property trusts VERIFIED enum identity and an empty errors collection rather than
+    recomputing agreement from those flags.
 
     Example:
         >>> report = ReplicaVerificationReport(
@@ -285,6 +362,17 @@ class ReplicaVerificationReport:
         ... )
         >>> report.healthy
         True
+
+    :ivar replica_id: Attributed Replica ID, without positivity or repository validation here.
+    :ivar digital_asset_id: Attributed Asset ID, without ownership verification here.
+    :ivar state: Reported Replica state used by the healthy predicate.
+    :ivar exists: Reported existence: True, False, or None when unknown.
+    :ivar size_matches: Reported size comparison, or None when not established.
+    :ivar digest_matches: Reported digest comparison, or None when not established.
+    :ivar observed_size_bytes: Optional observed byte count checked only for negativity.
+    :ivar observed_digests: Possibly empty observed digests with unique algorithm attributes.
+    :ivar checked_at: Optional aware observation time, retained without timezone conversion.
+    :ivar errors: Reported failure messages; any nonempty collection prevents healthy.
     """
 
     replica_id: ReplicaID
@@ -300,7 +388,10 @@ class ReplicaVerificationReport:
 
     def __post_init__(self) -> None:
         """
-        Validate observed size, digests, and verification timestamp.
+        Validate selected evidence fields without interpreting the reported outcome.
+
+        Reject negative-comparing observed sizes, duplicate digest algorithms, and naive supplied
+        timestamps. IDs, existence/comparison flags, state, and error contents remain unchecked.
 
         Example:
             >>> ReplicaVerificationReport(
@@ -312,7 +403,7 @@ class ReplicaVerificationReport:
             ValueError: observed_size_bytes must not be negative.
 
 
-        :return:
+        :return: None after the evidence checks succeed; validation or malformed-input errors propagate.
         """
 
         if self.observed_size_bytes is not None and self.observed_size_bytes < 0:
@@ -323,7 +414,10 @@ class ReplicaVerificationReport:
     @property
     def healthy(self) -> bool:
         """
-        Return whether verification confirmed the expected bytes.
+        Return whether state is the VERIFIED enum singleton and errors is empty.
+
+        Existence, size/digest agreement, timestamps, and evidence are not consulted. An equal
+        string state is insufficient because the comparison uses identity.
 
         Example:
             >>> ReplicaVerificationReport(
@@ -333,7 +427,7 @@ class ReplicaVerificationReport:
             True
 
 
-        :return:
+        :return: True only for ReplicaState.VERIFIED with no errors, independent of the other report fields.
         """
 
         return self.state is ReplicaState.VERIFIED and not self.errors
@@ -342,7 +436,11 @@ class ReplicaVerificationReport:
 @dataclasses.dataclass(slots=True, frozen=True)
 class DigitalAssetVerificationReport:
     """
-    Aggregate verification results for one Digital Asset.
+    Group the reports produced by one Asset verification request.
+
+    The tuple may describe a selected subset, an early-stopped scan, or no Replicas. Construction
+    adds no validation that the reports belong to the named Asset. Readability is derived only from
+    their healthy properties.
 
     Example:
         >>> report = DigitalAssetVerificationReport(
@@ -350,6 +448,9 @@ class DigitalAssetVerificationReport:
         ... )
         >>> report.readable
         False
+
+    :ivar digital_asset_id: Asset attributed to the aggregate without constructor validation.
+    :ivar replica_reports: Ordered retained reports, potentially representing only part of the Asset population.
     """
 
     digital_asset_id: DigitalAssetID
@@ -358,7 +459,10 @@ class DigitalAssetVerificationReport:
     @property
     def readable(self) -> bool:
         """
-        Return whether at least one checked Replica was healthy.
+        Return whether any retained report is healthy, stopping at the first true result.
+
+        An empty report collection returns False. The property does not inspect unreported Replicas
+        or perform a new read.
 
         Example:
             >>> DigitalAssetVerificationReport(
@@ -367,7 +471,7 @@ class DigitalAssetVerificationReport:
             False
 
 
-        :return:
+        :return: True when at least one contained report has a truthy healthy property.
         """
 
         return any(report.healthy for report in self.replica_reports)
@@ -376,7 +480,11 @@ class DigitalAssetVerificationReport:
 @dataclasses.dataclass(slots=True, frozen=True)
 class ReplicaRemovalReport:
     """
-    Outcome of coordinated byte deletion and record mutation.
+    Carry the reported outcome of byte deletion and Replica-record mutation.
+
+    This value adds no post-construction validation or outcome consistency checks. Flags reflect the
+    producing workflow; bytes_deleted is not independent proof of storage absence, and a retained
+    tombstone can coexist with preserved bytes.
 
     Example:
         >>> report = ReplicaRemovalReport(
@@ -384,6 +492,12 @@ class ReplicaRemovalReport:
         ... )
         >>> report.tombstone_retained
         True
+
+    :ivar replica_id: Replica identity attributed to the removal.
+    :ivar bytes_deleted: Whether the workflow reports executing its byte-deletion step.
+    :ivar replica_forgotten: Whether the workflow reports removing the record.
+    :ivar tombstone_retained: Whether a deleted-state record was requested and retained.
+    :ivar warnings: Reported nonfatal diagnostics, retained without validation.
     """
 
     replica_id: ReplicaID
@@ -393,17 +507,21 @@ class ReplicaRemovalReport:
     warnings: tuple[str, ...] = ()
 
 
+# Todo: Again, not an API thing...
 def _require_aware_datetime(value: datetime | None, field_name: str) -> None:
     """
-    Reject a timestamp without an unambiguous timezone.
+    Accept None or require both a timezone attribute and a non-None UTC offset.
+
+    The supplied value is not converted to UTC or checked with isinstance(datetime). Missing
+    attributes and offset-call failures propagate.
 
     Example:
         >>> _require_aware_datetime(None, "checked_at")
 
 
-    :param value:
-    :param field_name:
-    :return:
+    :param value: Optional timestamp-like object to inspect without copying or conversion.
+    :param field_name: Field label interpolated into the naive-timestamp ValueError.
+    :return: None for absent or aware values; naive values raise ValueError and malformed objects can raise their own errors.
     """
 
     if value is not None and (

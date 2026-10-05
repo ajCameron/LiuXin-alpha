@@ -1,3 +1,14 @@
+"""
+Build deterministic FB2 fixtures and test doubles.
+
+The module keeps generated data, ordering and failure modes explicit so consumers
+can assert stable behavior.
+
+Example:
+    Exercise file format fb2 through a consuming regression::
+
+        python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+"""
 from __future__ import annotations
 
 import base64
@@ -40,6 +51,14 @@ FB2_ZIP_MEMBER = "fictionbook/Καλημέρα_世界/book.fb2"
 
 @dataclass(frozen=True)
 class FB2Fixture:
+    """
+    Carry the deterministic FB2Fixture inputs and expected values used by format tests.
+
+    Example:
+        Exercise FB2Fixture through a consuming regression::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+    """
     path: Path
     encoding: str
     binary_ids: tuple[str, ...]
@@ -49,6 +68,14 @@ class FB2Fixture:
 
 @dataclass(frozen=True)
 class FB2ZipFixture:
+    """
+    Carry the deterministic FB2ZipFixture inputs and expected values used by format tests.
+
+    Example:
+        Exercise FB2ZipFixture through a consuming regression::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+    """
     path: Path
     fb2_member: str
     encoding: str
@@ -59,34 +86,160 @@ class FB2ZipFixture:
 
 
 class NullLog:
+    """
+    Record or discard NullLog messages without requiring the production logging stack.
+
+    Example:
+        Exercise NullLog through a consuming regression::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+    """
     def __init__(self) -> None:
+        """
+        Initialize and validate the NullLog test-support state.
+
+        Example:
+            Exercise NullLog.  init   through a consuming regression::
+
+                python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+        :return: None; completion is expressed through state changes or assertions.
+        """
         self.messages: list[str] = []
 
     def __call__(self, message: str = "", *args) -> None:
+        """
+        Execute the configured fixture builder or test double operation.
+
+        Example:
+            Exercise NullLog.  call   through a consuming regression::
+
+                python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+        :param message: Diagnostic message recorded or discarded by the test logger.
+        :param args: Positional arguments forwarded to the bounded test double.
+        :return: None; fixture state or the supplied destination is updated in place.
+        """
         self.messages.append(message % args if args else message)
 
     def debug(self, message: str = "", *args) -> None:
+        """
+        Record or discard a debug message for assertions without external logging.
+
+        Example:
+            Exercise NullLog.debug through a consuming regression::
+
+                python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+        :param message: Diagnostic message recorded or discarded by the test logger.
+        :param args: Positional arguments forwarded to the bounded test double.
+        :return: None; fixture state or the supplied destination is updated in place.
+        """
         self(message, *args)
 
     def info(self, message: str = "", *args) -> None:
+        """
+        Record or discard a info message for assertions without external logging.
+
+        Example:
+            Exercise NullLog.info through a consuming regression::
+
+                python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+        :param message: Diagnostic message recorded or discarded by the test logger.
+        :param args: Positional arguments forwarded to the bounded test double.
+        :return: None; fixture state or the supplied destination is updated in place.
+        """
         self(message, *args)
 
     def warning(self, message: str = "", *args) -> None:
+        """
+        Record or discard a warning message for assertions without external logging.
+
+        Example:
+            Exercise NullLog.warning through a consuming regression::
+
+                python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+        :param message: Diagnostic message recorded or discarded by the test logger.
+        :param args: Positional arguments forwarded to the bounded test double.
+        :return: None; fixture state or the supplied destination is updated in place.
+        """
         self(message, *args)
 
     warn = warning
 
     def error(self, message: str = "", *args) -> None:
+        """
+        Record or discard a error message for assertions without external logging.
+
+        Example:
+            Exercise NullLog.error through a consuming regression::
+
+                python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+        :param message: Diagnostic message recorded or discarded by the test logger.
+        :param args: Positional arguments forwarded to the bounded test double.
+        :return: None; fixture state or the supplied destination is updated in place.
+        """
         self(message, *args)
 
     def exception(self, message: str = "", *args) -> None:
+        """
+        Record or discard a exception message for assertions without external logging.
+
+        Example:
+            Exercise NullLog.exception through a consuming regression::
+
+                python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+        :param message: Diagnostic message recorded or discarded by the test logger.
+        :param args: Positional arguments forwarded to the bounded test double.
+        :return: None; fixture state or the supplied destination is updated in place.
+        """
         self(message, *args)
 
 
 def png_bytes(width: int = 16, height: int = 16, rgb: tuple[int, int, int] = (95, 120, 175)) -> bytes:
+    """
+    Return deterministic PNG bytes for the requested dimensions and colour.
+
+    Example:
+        Exercise png bytes through a consuming regression::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param width: Image width in pixels.
+    :param height: Image height in pixels.
+    :param rgb: RGB colour embedded in the generated image.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     signature = b"\x89PNG\r\n\x1a\n"
 
     def chunk(tag: bytes, payload: bytes) -> bytes:
+        """
+        Return the encoded binary chunk required by the fixture container.
+
+        Example:
+            Exercise png bytes.chunk through a consuming regression::
+
+                python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+        :param tag: Value supplied for tag under the deterministic fixture contract.
+        :param payload: Binary or structured payload encoded into the fixture.
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         return (
             struct.pack(">I", len(payload))
             + tag
@@ -101,10 +254,36 @@ def png_bytes(width: int = 16, height: int = 16, rgb: tuple[int, int, int] = (95
 
 
 def _xml_text(text: str) -> str:
+    """
+    Perform the xml text step with deterministic fixture inputs.
+
+    Example:
+        Exercise  xml text through a consuming regression::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param text: Text encoded, parsed or embedded in the fixture.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     return escape(text, {'"': "&quot;"})
 
 
 def _author_markup(author: tuple[str, str, str]) -> str:
+    """
+    Perform the author markup step with deterministic fixture inputs.
+
+    Example:
+        Exercise  author markup through a consuming regression::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param author: Value supplied for author under the deterministic fixture contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     first, middle, last = author
     middle_markup = f"<middle-name>{_xml_text(middle)}</middle-name>" if middle else ""
     return (
@@ -117,10 +296,40 @@ def _author_markup(author: tuple[str, str, str]) -> str:
 
 
 def _paragraph_markup(lines: Sequence[str]) -> str:
+    """
+    Perform the paragraph markup step with deterministic fixture inputs.
+
+    Example:
+        Exercise  paragraph markup through a consuming regression::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param lines: Value supplied for lines under the deterministic fixture contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     return "\n".join(f"<p>{_xml_text(line)}</p>" for line in lines)
 
 
 def _binary_markup(binary_id: str, content_type: str, payload: bytes) -> str:
+    """
+    Perform the binary markup step with deterministic fixture inputs.
+
+    Example:
+        Exercise  binary markup through a consuming regression::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param binary_id: Value supplied for binary id under the deterministic fixture
+        contract.
+    :param content_type: Value supplied for content type under the deterministic fixture
+        contract.
+    :param payload: Binary or structured payload encoded into the fixture.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     encoded = base64.b64encode(payload).decode("ascii")
     wrapped = "\n".join(textwrap.wrap(encoded, width=76))
     return (
@@ -140,6 +349,30 @@ def fb2_bytes(
     cover_data: bytes | None = None,
     extra_binaries: Mapping[str, tuple[str, bytes]] | None = None,
 ) -> bytes:
+    """
+    Perform the fb2 bytes step with deterministic fixture inputs.
+
+    Example:
+        Exercise fb2 bytes through a consuming regression::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param lines: Value supplied for lines under the deterministic fixture contract.
+    :param encoding: Character encoding used for deterministic fixture bytes.
+    :param title: Value supplied for title under the deterministic fixture contract.
+    :param authors: Value supplied for authors under the deterministic fixture contract.
+    :param include_cover: Value supplied for include cover under the deterministic
+        fixture contract.
+    :param cover_id: Value supplied for cover id under the deterministic fixture
+        contract.
+    :param cover_data: Value supplied for cover data under the deterministic fixture
+        contract.
+    :param extra_binaries: Value supplied for extra binaries under the deterministic
+        fixture contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     body_lines = tuple(lines or MULTISCRIPT_TEXT.splitlines())
     extra_binaries = dict(extra_binaries or {})
     cover_payload = png_bytes() if cover_data is None else cover_data
@@ -233,6 +466,36 @@ def fb2_zip_bytes(
     extra_members: Mapping[str, bytes] | None = None,
     compression: int = zipfile.ZIP_DEFLATED,
 ) -> bytes:
+    """
+    Perform the fb2 zip bytes step with deterministic fixture inputs.
+
+    Example:
+        Exercise fb2 zip bytes through a consuming regression::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param member_name: Value supplied for member name under the deterministic fixture
+        contract.
+    :param lines: Value supplied for lines under the deterministic fixture contract.
+    :param encoding: Character encoding used for deterministic fixture bytes.
+    :param title: Value supplied for title under the deterministic fixture contract.
+    :param authors: Value supplied for authors under the deterministic fixture contract.
+    :param include_cover: Value supplied for include cover under the deterministic
+        fixture contract.
+    :param cover_id: Value supplied for cover id under the deterministic fixture
+        contract.
+    :param cover_data: Value supplied for cover data under the deterministic fixture
+        contract.
+    :param extra_binaries: Value supplied for extra binaries under the deterministic
+        fixture contract.
+    :param extra_members: Value supplied for extra members under the deterministic
+        fixture contract.
+    :param compression: Value supplied for compression under the deterministic fixture
+        contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     members = {
         member_name: fb2_bytes(
             lines=lines,
@@ -259,6 +522,29 @@ def build_unicode_fb2(
     cover_data: bytes | None = None,
     extra_binaries: Mapping[str, tuple[str, bytes]] | None = None,
 ) -> FB2Fixture:
+    """
+    Build unicode fb2 for deterministic fixture consumers.
+
+    Example:
+        Exercise build unicode fb2 through a consuming regression::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param path: Filesystem path read, written or validated by the fixture operation.
+    :param lines: Value supplied for lines under the deterministic fixture contract.
+    :param encoding: Character encoding used for deterministic fixture bytes.
+    :param include_cover: Value supplied for include cover under the deterministic
+        fixture contract.
+    :param cover_id: Value supplied for cover id under the deterministic fixture
+        contract.
+    :param cover_data: Value supplied for cover data under the deterministic fixture
+        contract.
+    :param extra_binaries: Value supplied for extra binaries under the deterministic
+        fixture contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     extra_binaries = dict(extra_binaries or {})
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(
@@ -294,6 +580,35 @@ def build_zipped_fb2(
     extra_members: Mapping[str, bytes] | None = None,
     compression: int = zipfile.ZIP_DEFLATED,
 ) -> FB2ZipFixture:
+    """
+    Build zipped fb2 for deterministic fixture consumers.
+
+    Example:
+        Exercise build zipped fb2 through a consuming regression::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param path: Filesystem path read, written or validated by the fixture operation.
+    :param member_name: Value supplied for member name under the deterministic fixture
+        contract.
+    :param lines: Value supplied for lines under the deterministic fixture contract.
+    :param encoding: Character encoding used for deterministic fixture bytes.
+    :param include_cover: Value supplied for include cover under the deterministic
+        fixture contract.
+    :param cover_id: Value supplied for cover id under the deterministic fixture
+        contract.
+    :param cover_data: Value supplied for cover data under the deterministic fixture
+        contract.
+    :param extra_binaries: Value supplied for extra binaries under the deterministic
+        fixture contract.
+    :param extra_members: Value supplied for extra members under the deterministic
+        fixture contract.
+    :param compression: Value supplied for compression under the deterministic fixture
+        contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     extra_binaries = dict(extra_binaries or {})
     extra_members = dict(extra_members or {})
     members = {
@@ -321,10 +636,37 @@ def build_zipped_fb2(
 
 
 def zipped_fb2_members(path: Path) -> tuple[str, ...]:
+    """
+    Perform the zipped fb2 members step with deterministic fixture inputs.
+
+    Example:
+        Exercise zipped fb2 members through a consuming regression::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param path: Filesystem path read, written or validated by the fixture operation.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     return zip_member_names(path)
 
 
 def read_zipped_fb2_member(path: Path, member: str) -> bytes:
+    """
+    Read zipped fb2 member under the fixture contract.
+
+    Example:
+        Exercise read zipped fb2 member through a consuming regression::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param path: Filesystem path read, written or validated by the fixture operation.
+    :param member: Archive or container member addressed by the operation.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     return read_zip_member(path, member)
 
 
@@ -337,6 +679,24 @@ def rewrite_zipped_fb2(
     add: Mapping[str, bytes] | None = None,
     add_compression: int = zipfile.ZIP_STORED,
 ) -> None:
+    """
+    Perform the rewrite zipped fb2 step with deterministic fixture inputs.
+
+    Example:
+        Exercise rewrite zipped fb2 through a consuming regression::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param src: Source path or value copied into the fixture.
+    :param dst: Destination path or object receiving generated fixture data.
+    :param remove: Value supplied for remove under the deterministic fixture contract.
+    :param replace: Value supplied for replace under the deterministic fixture contract.
+    :param add: Value supplied for add under the deterministic fixture contract.
+    :param add_compression: Value supplied for add compression under the deterministic
+        fixture contract.
+    :return: None; fixture state or the supplied destination is updated in place.
+    """
     rewrite_zip_archive(
         src,
         dst,
@@ -348,18 +708,71 @@ def rewrite_zipped_fb2(
 
 
 def parse_fb2_bytes(payload: bytes) -> ET.Element:
+    """
+    Parse fb2 bytes under the fixture contract.
+
+    Example:
+        Exercise parse fb2 bytes through a consuming regression::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param payload: Binary or structured payload encoded into the fixture.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     return ET.fromstring(payload)
 
 
 def parse_zipped_fb2(path: Path, member: str = FB2_ZIP_MEMBER) -> ET.Element:
+    """
+    Parse zipped fb2 under the fixture contract.
+
+    Example:
+        Exercise parse zipped fb2 through a consuming regression::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param path: Filesystem path read, written or validated by the fixture operation.
+    :param member: Archive or container member addressed by the operation.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     return parse_fb2_bytes(read_zipped_fb2_member(path, member))
 
 
 def parse_fb2(path: Path) -> ET.Element:
+    """
+    Parse fb2 under the fixture contract.
+
+    Example:
+        Exercise parse fb2 through a consuming regression::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param path: Filesystem path read, written or validated by the fixture operation.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     return parse_fb2_bytes(path.read_bytes())
 
 
 def fb2_body_text(path: Path) -> str:
+    """
+    Perform the fb2 body text step with deterministic fixture inputs.
+
+    Example:
+        Exercise fb2 body text through a consuming regression::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param path: Filesystem path read, written or validated by the fixture operation.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     root = parse_fb2(path)
     body = root.find(f"{{{FB2_NS}}}body")
     if body is None:
@@ -368,6 +781,21 @@ def fb2_body_text(path: Path) -> str:
 
 
 def read_fb2_binary(path: Path, binary_id: str) -> bytes:
+    """
+    Read fb2 binary under the fixture contract.
+
+    Example:
+        Exercise read fb2 binary through a consuming regression::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param path: Filesystem path read, written or validated by the fixture operation.
+    :param binary_id: Value supplied for binary id under the deterministic fixture
+        contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     root = parse_fb2(path)
     for elem in root.iter(f"{{{FB2_NS}}}binary"):
         if elem.attrib.get("id") != binary_id:
@@ -386,6 +814,24 @@ def rewrite_fb2_text(
     append: str = "",
     encoding: str = "utf-8",
 ) -> bytes:
+    """
+    Perform the rewrite fb2 text step with deterministic fixture inputs.
+
+    Example:
+        Exercise rewrite fb2 text through a consuming regression::
+
+            python -m pytest -q tests/metadata/file_sources/test_fb2_metadata_source.py
+
+
+    :param source: Value supplied for source under the deterministic fixture contract.
+    :param target: Value supplied for target under the deterministic fixture contract.
+    :param remove: Value supplied for remove under the deterministic fixture contract.
+    :param replace: Value supplied for replace under the deterministic fixture contract.
+    :param append: Value supplied for append under the deterministic fixture contract.
+    :param encoding: Character encoding used for deterministic fixture bytes.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     text = source.read_bytes().decode(encoding)
     for fragment in remove:
         text = text.replace(fragment, "")

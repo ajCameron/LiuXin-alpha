@@ -1,5 +1,11 @@
 """
-Private orchestration values shared by storage-manager mixins.
+Define private ingest requests, completed results, replay branches, and helper type aliases.
+
+Request dataclasses retain equality evidence without performing normalization,
+validation, or deep copying. Five persisted request/result classes deliberately
+have stable journal identifiers supplied by the database codec. ID conversion
+and backed-Store UUID helpers are internal implementation details; type aliases
+describe factory, registration, target, and metadata-key shapes without runtime checks.
 """
 
 from __future__ import annotations
@@ -10,6 +16,24 @@ from typing import Literal, Protocol
 from uuid import NAMESPACE_URL, uuid5
 
 import LiuXin_alpha.storage.api as api
+
+# Explicit exports within the private mixin implementation package.
+__all__ = [
+    "StoreFactory",
+    "StoreRegistration",
+    "_AdoptIngestRequest",
+    "_Hasher",
+    "_IdentifiedStreamIngestRequest",
+    "_IngestOperation",
+    "_IngestRequest",
+    "_ItemTarget",
+    "_ItemTargetID",
+    "_ItemTargetKind",
+    "_MetadataRecordKind",
+    "_RecreationBranch",
+    "_StoreObjectIngestRequest",
+    "_StreamIngestRequest",
+]
 
 type StoreFactory = Callable[[api.StoreConfiguration], api.StoreAPI]
 type StoreRegistration = tuple[api.StoreConfiguration, api.StoreAPI]
@@ -29,7 +53,31 @@ type _MetadataRecordKind = Literal[
 @dataclasses.dataclass(slots=True, frozen=True)
 class _StreamIngestRequest:
     """
-    Normalized semantics bound to one stream-ingest operation UUID.
+    Retain normalized ordinary-stream input and caller intent for completed-operation equality.
+
+    The ingest caller computes and sorts identity evidence before constructing this value. This
+    dataclass neither normalizes nor validates fields. Equality includes expectations and all
+    options, so equal bytes with a changed expected_size can be a different request. Frozen fields
+    retain nested objects; the database codec supplies the stable journal type identifier.
+
+    Example:
+        >>> request = _StreamIngestRequest(  # doctest: +SKIP
+        ...     size, observed, None, (), None, None, api.DigitalAssetMetadata(),
+        ...     None, None, api.ReplicaMode.ACTIVE, True,
+        ... )
+
+
+    :ivar size_bytes: Measured remaining stream length supplied by the ingest caller.
+    :ivar observed_digests: Computed input digests, normally including SHA-256 in stable algorithm order.
+    :ivar expected_size: Original optional size expectation; None remains distinct from an explicit size.
+    :ivar expected_digests: Original digest expectations normalized by the caller, not by construction.
+    :ivar item_id: Optional Item identity retained for completion-time linking and retry equality.
+    :ivar role: Requested role retained before the linking layer applies its None default.
+    :ivar metadata: Retained Asset description; this value performs no copying or metadata update.
+    :ivar replica_mode: Requested Replica purpose, compared as part of the request without validation here.
+    :ivar verify: Requested verification flag, distinct from a completed verification result.
+    :ivar placement_hints: Optional advisory placement record, retained in request equality.
+    :ivar preferred_store_ref: Requested destination UUID or None for deferred manager-default selection.
     """
 
     size_bytes: int
@@ -48,7 +96,26 @@ class _StreamIngestRequest:
 @dataclasses.dataclass(slots=True, frozen=True)
 class _AdoptIngestRequest:
     """
-    Normalized semantics bound to one adopt operation UUID.
+    Retain the existing Location and adoption options used to recognize a completed retry.
+
+    Identity excludes freshly observed bytes or a Store version. A completed equal request can
+    therefore return its recorded result without stat or hashing. Construction performs no
+    validation or deep copy; its legacy module identity is retained for persisted journal values.
+
+    Example:
+        >>> request = _AdoptIngestRequest(  # doctest: +SKIP
+        ...     location, None, None, None, api.DigitalAssetMetadata(),
+        ...     api.ReplicaMode.UNMANAGED, False,
+        ... )
+
+
+    :ivar location: Existing concrete Store address to adopt.
+    :ivar digital_asset_id: Optional explicitly requested Asset identity, retained before byte comparison.
+    :ivar item_id: Optional Item identity retained for completion-time linking and retry equality.
+    :ivar role: Requested role retained before the linking layer applies its None default.
+    :ivar metadata: Retained Asset description; this value performs no copying or metadata update.
+    :ivar replica_mode: Requested Replica purpose, compared as part of the request without validation here.
+    :ivar verify: Requested verification flag, distinct from a completed verification result.
     """
 
     location: api.Location
@@ -63,7 +130,29 @@ class _AdoptIngestRequest:
 @dataclasses.dataclass(slots=True, frozen=True)
 class _IdentifiedStreamIngestRequest:
     """
-    Normalized semantics bound to one trusted-identity stream ingest.
+    Retain authoritative stream identity and options without storing or verifying source bytes.
+
+    Callers validate size/digest structure and normalize ordering before construction. Equality uses
+    this request class and its fields; it does not equate an ordinary-stream or native-transfer
+    request with similar content. Completed matching requests can be reused without consuming the
+    source. Nested values remain shared and legacy journal naming is preserved.
+
+    Example:
+        >>> request = _IdentifiedStreamIngestRequest(  # doctest: +SKIP
+        ...     size, digests, None, None, api.DigitalAssetMetadata(),
+        ...     None, None, api.ReplicaMode.ACTIVE, True,
+        ... )
+
+
+    :ivar size_bytes: Trusted remaining byte count supplied to the identified ingest path.
+    :ivar authoritative_digests: Trusted digest tuple, normally validated to contain unique algorithms and SHA-256.
+    :ivar item_id: Optional Item identity retained for completion-time linking and retry equality.
+    :ivar role: Requested role retained before the linking layer applies its None default.
+    :ivar metadata: Retained Asset description; this value performs no copying or metadata update.
+    :ivar replica_mode: Requested Replica purpose, compared as part of the request without validation here.
+    :ivar verify: Requested verification flag, distinct from a completed verification result.
+    :ivar placement_hints: Optional advisory placement record, retained in request equality.
+    :ivar preferred_store_ref: Requested destination UUID or None for deferred manager-default selection.
     """
 
     size_bytes: int
@@ -80,7 +169,30 @@ class _IdentifiedStreamIngestRequest:
 @dataclasses.dataclass(slots=True, frozen=True)
 class _StoreObjectIngestRequest:
     """
-    Normalized semantics for one Store-to-Store object ingest.
+    Retain native Store-transfer source evidence and ingest options for retry comparison.
+
+    Source version is part of request equality; retaining it does not enforce a version-pinned
+    transfer. The value neither probes Stores nor validates digests, and it retains caller-owned
+    nested values. The database codec owns its stable serialization identifier.
+
+    Example:
+        >>> request = _StoreObjectIngestRequest(  # doctest: +SKIP
+        ...     location, version, size, digests, None, None, api.DigitalAssetMetadata(),
+        ...     None, None, api.ReplicaMode.ACTIVE, True,
+        ... )
+
+
+    :ivar source_location: Concrete source address supplied to the native transfer path.
+    :ivar source_version: Optional observed source-version token retained without comparison to live bytes.
+    :ivar size_bytes: Expected source byte count supplied by stat or preparation.
+    :ivar authoritative_digests: Trusted identity used by native publication, normally a single SHA-256.
+    :ivar item_id: Optional Item identity retained for completion-time linking and retry equality.
+    :ivar role: Requested role retained before the linking layer applies its None default.
+    :ivar metadata: Retained Asset description; this value performs no copying or metadata update.
+    :ivar replica_mode: Requested Replica purpose, compared as part of the request without validation here.
+    :ivar verify: Requested verification flag, distinct from a completed verification result.
+    :ivar placement_hints: Optional advisory placement record, retained in request equality.
+    :ivar preferred_store_ref: Requested destination UUID or None for deferred manager-default selection.
     """
 
     source_location: api.Location
@@ -107,7 +219,19 @@ type _IngestRequest = (
 @dataclasses.dataclass(slots=True, frozen=True)
 class _IngestOperation:
     """
-    A completed idempotent ingest and its complete request fingerprint.
+    Pair a completed ingest request with the result returned for a matching retry.
+
+    No relationship between request and result is validated, and both remain retained references.
+    The operation UUID belongs to the surrounding repository key, not this value. The database
+    codec retains stable journal identifiers independently of this class import path.
+
+    Example:
+        >>> _IngestOperation.__module__
+        'LiuXin_alpha.storage.storage_manager.mixins._types'
+
+
+    :ivar request: Completed request whose class and field equality identify a retry.
+    :ivar result: Recorded ingest result returned on a matching completed request without reconstruction.
     """
 
     request: _IngestRequest
@@ -117,7 +241,25 @@ class _IngestOperation:
 @dataclasses.dataclass(slots=True, frozen=True)
 class _RecreationBranch:
     """
-    Internal exact-replay route for one requested Digital Asset.
+    Carry one recursive replay proposal and its availability evidence between policy helpers.
+
+    Construction does not validate consistency, unique IDs, step ordering, exactness, or
+    availability. Callers own those decisions and may memoize the value under an Asset ID. Frozen
+    fields do not copy supplied containers; viable is evidence for a branch, not proof of execution.
+
+    Example:
+        >>> branch = _RecreationBranch(False, unavailable_digital_asset_ids=frozenset({api.DigitalAssetID(7)}))
+        >>> branch.viable
+        False
+
+
+    :ivar viable: Caller-computed feasibility flag, independent of constructor validation.
+    :ivar steps: Proposed prerequisite-before-consumer derivation records, retained in supplied order.
+    :ivar available_digital_asset_ids: Supplied Asset IDs considered currently readable.
+    :ivar unavailable_digital_asset_ids: Supplied Asset IDs for which no viable route was found.
+    :ivar selected_derivation_id: Optional chosen recipe for the branch root, not checked against steps here.
+    :ivar alternative_derivation_ids: Other viable recipe IDs accumulated by recursive planning.
+    :ivar warnings: Retained diagnostics from branch selection and rejected alternatives.
     """
 
     viable: bool
@@ -131,26 +273,45 @@ class _RecreationBranch:
 
 class _Hasher(Protocol):
     """
-    Small structural view of a ``hashlib`` hash object.
+    Describe the two hashlib operations used by incremental manager digest calculation.
+
+    The protocol supplies typing structure only and is not runtime-checkable. Concrete hash objects
+    own algorithm support, digest state, and input validation.
+
+    Example:
+        >>> import hashlib
+        >>> hasher: _Hasher = hashlib.sha256(b"data")
+        >>> len(hasher.hexdigest())
+        64
     """
 
     def update(self, data: bytes, /) -> None:
         """
-        Add bytes to the running digest.
+        Feed one byte chunk into the concrete hash object's accumulated state.
+
+        Example:
+            >>> import hashlib
+            >>> hasher = hashlib.sha256()
+            >>> hasher.update(b"data")
 
 
-        :param data:
-        :return:
+        :param data: Next positional byte chunk to incorporate in the digest.
+        :return: None after updating the concrete hash state.
         """
 
         ...
 
     def hexdigest(self) -> str:
         """
-        Return the lowercase hexadecimal digest.
+        Read the current digest as hexadecimal text without finalizing or resetting the hash state.
+
+        Example:
+            >>> import hashlib
+            >>> hashlib.sha256(b"data").hexdigest()[:8]
+            '3a6eb079'
 
 
-        :return:
+        :return: Lowercase hexadecimal digest produced by the concrete hash implementation.
         """
 
         ...
@@ -160,11 +321,21 @@ def _replication_policy_id(
     value: api.ReplicationPolicyID | api.ReplicationPolicyRecord | None,
 ) -> api.ReplicationPolicyID | None:
     """
-    Extract an optional replication-policy identity.
+    Accept None, extract a replication-policy record ID, or coerce another value with int.
+
+    The record branch returns its stored ID without a positivity check. Other values must convert to
+    an integer greater than zero; this can admit numeric strings, booleans, and truncated positive
+    floats. No registry lookup or record-content validation occurs.
+
+    Example:
+        >>> _replication_policy_id(api.ReplicationPolicyID(4))
+        4
+        >>> _replication_policy_id(None) is None
+        True
 
 
-    :param value:
-    :return:
+    :param value: Optional policy ID or record; non-record inputs use int conversion.
+    :return: None, the record ID as retained, or a positive nominal ID; nonpositive converted IDs raise TypeError and conversion errors propagate.
     """
 
     if value is None:
@@ -181,11 +352,21 @@ def _backup_policy_id(
     value: api.BackupPolicyID | api.BackupPolicyRecord | None,
 ) -> api.BackupPolicyID | None:
     """
-    Extract an optional backup-policy identity.
+    Accept None, extract a backup-policy record ID, or coerce another value with int.
+
+    Record IDs bypass the positive comparison applied to converted values. This helper does not
+    query registered policies or validate the policy definition; int conversion can accept values
+    outside the annotated input types.
+
+    Example:
+        >>> _backup_policy_id(api.BackupPolicyID(5))
+        5
+        >>> _backup_policy_id(None) is None
+        True
 
 
-    :param value:
-    :return:
+    :param value: Optional backup-policy ID or record; non-record values are converted with int.
+    :return: None, the unvalidated stored record ID, or a positive nominal ID; nonpositive converted IDs raise TypeError.
     """
 
     if value is None:
@@ -204,13 +385,25 @@ def _backed_store_uuid(
     options: tuple[tuple[str, object], ...],
 ) -> api.StoreUUID:
     """
-    Derive globally stable Store-view identity from content identity.
+    Derive a UUID5 Store-view key from size, one preferred digest, normalized kind, and option
+    representation.
+
+    Prefer SHA-256, otherwise the lexically first algorithm/value pair. Asset ID, metadata, and
+    extra digests do not enter the key. Kind is stripped, lowercased, and has hyphens replaced with
+    underscores. Options are sorted only by their top-level names, then serialized with repr; nested
+    ordering, duplicate-name order, or unstable object representations can change the UUID. This is
+    deterministic only when those representations are stable.
+
+    Example:
+        >>> asset = api.DigitalAssetRecord(api.DigitalAssetID(1), 4, (api.Digest("sha256", "abcd"),))
+        >>> _backed_store_uuid(asset, " ZIP ", ()) == _backed_store_uuid(asset, "zip", ())
+        True
 
 
-    :param asset_record:
-    :param kind:
-    :param options:
-    :return:
+    :param asset_record: Expected byte identity supplying size and a nonempty digest sequence; no bytes are read.
+    :param kind: Store-view kind normalized for identity without registry validation.
+    :param options: Option name/value pairs sorted by name and represented with repr, without deep canonicalization.
+    :return: UUID5 in NAMESPACE_URL using the versioned backed-Store identity string; empty digests or malformed options can raise.
     """
 
     ordered_digests = sorted(
@@ -231,17 +424,3 @@ def _backed_store_uuid(
         f"{normalized_options}"
     )
     return uuid5(NAMESPACE_URL, identity)
-
-
-# Ingest journals written before the mixin extraction contain these qualified
-# names. Preserve that wire identity so existing durable operations remain
-# readable and new envelopes do not churn solely because code moved modules.
-_LEGACY_MANAGER_MODULE = "LiuXin_alpha.storage.storage_manager.manager"
-for _persisted_type in (
-    _StreamIngestRequest,
-    _AdoptIngestRequest,
-    _IdentifiedStreamIngestRequest,
-    _StoreObjectIngestRequest,
-    _IngestOperation,
-):
-    _persisted_type.__module__ = _LEGACY_MANAGER_MODULE

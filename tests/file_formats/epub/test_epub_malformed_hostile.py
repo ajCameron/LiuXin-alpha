@@ -1,3 +1,14 @@
+"""
+Provide test epub malformed hostile utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test epub malformed hostile through a consuming regression::
+
+        python -m pytest -q tests/file_formats/epub/test_epub_malformed_hostile.py
+"""
 from __future__ import annotations
 
 import re
@@ -17,6 +28,23 @@ def _assert_epub_input_rejects_without_partial_output(
     match: str,
     input_cls=None,
 ) -> None:
+    """
+    Perform the assert epub input rejects without partial output operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  assert epub input rejects without partial output through a consuming regression::
+
+            python -m pytest -q tests/file_formats/epub/test_epub_malformed_hostile.py
+
+
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :param archive: Value supplied for archive under the utility contract.
+    :param workdir: Value supplied for workdir under the utility contract.
+    :param match: Value supplied for match under the utility contract.
+    :param input_cls: Value supplied for input cls under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.conversion.plugins.epub_input import EPUBInput
 
     workdir.mkdir()
@@ -38,14 +66,61 @@ def _assert_epub_input_rejects_without_partial_output(
 
 
 class WarnOnlyLog:
+    """
+    Provide the warnonlylog contract for validated ebook processing.
+
+    Example:
+        Exercise WarnOnlyLog through a consuming regression::
+
+            python -m pytest -q tests/file_formats/epub/test_epub_malformed_hostile.py
+    """
     def __init__(self) -> None:
+        """
+        Initialize and validate the warnonlylog state.
+
+        Example:
+            Exercise WarnOnlyLog.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/epub/test_epub_malformed_hostile.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         self.messages: list[str] = []
 
     def warn(self, message: str = "", *args) -> None:
+        """
+        Perform the warn operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise WarnOnlyLog.warn through a consuming regression::
+
+                python -m pytest -q tests/file_formats/epub/test_epub_malformed_hostile.py
+
+
+        :param message: Value supplied for message under the utility contract.
+        :param args: Positional values forwarded to the compatibility implementation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.messages.append(message % args if args else message)
 
 
 def _container_xml(opf_path: str = "OPS/content.opf", media_type: str = "application/oebps-package+xml") -> bytes:
+    """
+    Perform the container xml operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  container xml through a consuming regression::
+
+            python -m pytest -q tests/file_formats/epub/test_epub_malformed_hostile.py
+
+
+    :param opf_path: Value supplied for opf path under the utility contract.
+    :param media_type: Value supplied for media type under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     media_attr = f' media-type="{media_type}"' if media_type else ""
     return (
         '<?xml version="1.0" encoding="utf-8"?>'
@@ -58,6 +133,18 @@ def _container_xml(opf_path: str = "OPS/content.opf", media_type: str = "applica
 
 
 def _opf_without_manifest() -> bytes:
+    """
+    Perform the opf without manifest operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  opf without manifest through a consuming regression::
+
+            python -m pytest -q tests/file_formats/epub/test_epub_malformed_hostile.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return (
         '<?xml version="1.0" encoding="utf-8"?>'
         '<package xmlns="http://www.idpf.org/2007/opf" version="2.0">'
@@ -68,6 +155,18 @@ def _opf_without_manifest() -> bytes:
 
 
 def _opf_without_spine() -> bytes:
+    """
+    Perform the opf without spine operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  opf without spine through a consuming regression::
+
+            python -m pytest -q tests/file_formats/epub/test_epub_malformed_hostile.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return (
         '<?xml version="1.0" encoding="utf-8"?>'
         '<package xmlns="http://www.idpf.org/2007/opf" version="2.0">'
@@ -78,6 +177,18 @@ def _opf_without_spine() -> bytes:
 
 
 def _opf_without_manifest_items() -> bytes:
+    """
+    Perform the opf without manifest items operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  opf without manifest items through a consuming regression::
+
+            python -m pytest -q tests/file_formats/epub/test_epub_malformed_hostile.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return (
         '<?xml version="1.0" encoding="utf-8"?>'
         '<package xmlns="http://www.idpf.org/2007/opf" version="2.0">'
@@ -89,6 +200,18 @@ def _opf_without_manifest_items() -> bytes:
 
 
 def _opf_without_spine_itemrefs() -> bytes:
+    """
+    Perform the opf without spine itemrefs operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  opf without spine itemrefs through a consuming regression::
+
+            python -m pytest -q tests/file_formats/epub/test_epub_malformed_hostile.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return (
         '<?xml version="1.0" encoding="utf-8"?>'
         '<package xmlns="http://www.idpf.org/2007/opf" version="2.0">'
@@ -164,6 +287,24 @@ def test_epub_input_rejects_malformed_container_before_extraction(
     replace: dict[str, bytes],
     match: str,
 ) -> None:
+    """
+    Perform the test epub input rejects malformed container before extraction operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test epub input rejects malformed container before extraction through a consuming regression::
+
+            python -m pytest -q tests/file_formats/epub/test_epub_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :param case_id: Value supplied for case id under the utility contract.
+    :param remove: Value supplied for remove under the utility contract.
+    :param replace: Value supplied for replace under the utility contract.
+    :param match: Value supplied for match under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     base = build_unicode_epub(tmp_path / "base.epub")
     hostile = tmp_path / f"{case_id}.epub"
     rewrite_epub_zip(base.path, hostile, remove=remove, replace=replace)
@@ -177,6 +318,20 @@ def test_epub_input_rejects_malformed_container_before_extraction(
 
 
 def test_epub_input_rejects_non_zip_payload_before_extraction(tmp_path: Path, monkeypatch) -> None:
+    """
+    Perform the test epub input rejects non zip payload before extraction operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test epub input rejects non zip payload before extraction through a consuming regression::
+
+            python -m pytest -q tests/file_formats/epub/test_epub_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     hostile = tmp_path / "not_an_epub.epub"
     hostile.write_bytes("not an EPUB zip: Καλημέρα".encode("utf-8"))
 
@@ -189,6 +344,20 @@ def test_epub_input_rejects_non_zip_payload_before_extraction(tmp_path: Path, mo
 
 
 def test_epub_input_preflight_rejection_uses_warn_fallback(tmp_path: Path, monkeypatch) -> None:
+    """
+    Perform the test epub input preflight rejection uses warn fallback operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test epub input preflight rejection uses warn fallback through a consuming regression::
+
+            python -m pytest -q tests/file_formats/epub/test_epub_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.conversion.plugins.epub_input import EPUBInput
 
     hostile = tmp_path / "not_an_epub.epub"
@@ -223,6 +392,22 @@ def test_epub_input_rejects_unsafe_archive_member_paths_before_extraction(
     case_id: str,
     member_name: str,
 ) -> None:
+    """
+    Perform the test epub input rejects unsafe archive member paths before extraction operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test epub input rejects unsafe archive member paths before extraction through a consuming regression::
+
+            python -m pytest -q tests/file_formats/epub/test_epub_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :param case_id: Value supplied for case id under the utility contract.
+    :param member_name: Value supplied for member name under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     base = build_unicode_epub(tmp_path / "base.epub")
     hostile = tmp_path / f"{case_id}.epub"
     rewrite_epub_zip(base.path, hostile, add={member_name: b"unsafe"})
@@ -236,9 +421,31 @@ def test_epub_input_rejects_unsafe_archive_member_paths_before_extraction(
 
 
 def test_epub_input_rejects_too_many_archive_members_without_partial_output(tmp_path: Path, monkeypatch) -> None:
+    """
+    Perform the test epub input rejects too many archive members without partial output operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test epub input rejects too many archive members without partial output through a consuming regression::
+
+            python -m pytest -q tests/file_formats/epub/test_epub_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.conversion.plugins.epub_input import EPUBInput
 
     class StrictEPUBInput(EPUBInput):
+        """
+        Convert strictepubinput sources into the normalized OEB pipeline model.
+
+        Example:
+            Exercise test epub input rejects too many archive members without partial output.StrictEPUBInput through a consuming regression::
+
+                python -m pytest -q tests/file_formats/epub/test_epub_malformed_hostile.py
+        """
         max_archive_members = 8
 
     base = build_unicode_epub(tmp_path / "small.epub")
@@ -259,9 +466,31 @@ def test_epub_input_rejects_too_many_archive_members_without_partial_output(tmp_
 
 
 def test_epub_input_rejects_oversized_archive_member_without_partial_output(tmp_path: Path, monkeypatch) -> None:
+    """
+    Perform the test epub input rejects oversized archive member without partial output operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test epub input rejects oversized archive member without partial output through a consuming regression::
+
+            python -m pytest -q tests/file_formats/epub/test_epub_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.conversion.plugins.epub_input import EPUBInput
 
     class StrictEPUBInput(EPUBInput):
+        """
+        Convert strictepubinput sources into the normalized OEB pipeline model.
+
+        Example:
+            Exercise test epub input rejects oversized archive member without partial output.StrictEPUBInput through a consuming regression::
+
+                python -m pytest -q tests/file_formats/epub/test_epub_malformed_hostile.py
+        """
         max_member_uncompressed_size = 10 * 1024
 
     base = build_unicode_epub(tmp_path / "small.epub")
@@ -278,9 +507,31 @@ def test_epub_input_rejects_oversized_archive_member_without_partial_output(tmp_
 
 
 def test_epub_input_rejects_excessive_total_expansion_without_partial_output(tmp_path: Path, monkeypatch) -> None:
+    """
+    Perform the test epub input rejects excessive total expansion without partial output operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test epub input rejects excessive total expansion without partial output through a consuming regression::
+
+            python -m pytest -q tests/file_formats/epub/test_epub_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.conversion.plugins.epub_input import EPUBInput
 
     class StrictEPUBInput(EPUBInput):
+        """
+        Convert strictepubinput sources into the normalized OEB pipeline model.
+
+        Example:
+            Exercise test epub input rejects excessive total expansion without partial output.StrictEPUBInput through a consuming regression::
+
+                python -m pytest -q tests/file_formats/epub/test_epub_malformed_hostile.py
+        """
         max_member_uncompressed_size = 100 * 1024
         max_total_uncompressed_size = 30 * 1024
 
@@ -305,9 +556,31 @@ def test_epub_input_rejects_suspicious_compression_ratio_without_partial_output(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    """
+    Perform the test epub input rejects suspicious compression ratio without partial output operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test epub input rejects suspicious compression ratio without partial output through a consuming regression::
+
+            python -m pytest -q tests/file_formats/epub/test_epub_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.conversion.plugins.epub_input import EPUBInput
 
     class StrictEPUBInput(EPUBInput):
+        """
+        Convert strictepubinput sources into the normalized OEB pipeline model.
+
+        Example:
+            Exercise test epub input rejects suspicious compression ratio without partial output.StrictEPUBInput through a consuming regression::
+
+                python -m pytest -q tests/file_formats/epub/test_epub_malformed_hostile.py
+        """
         max_compression_ratio = 20
         min_compression_ratio_check_size = 32 * 1024
 

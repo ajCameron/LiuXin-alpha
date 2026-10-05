@@ -1,5 +1,16 @@
 # tests/metadata/containers/calibre_like_book_metadata/test_metadata_to_from_calibre.py
 
+"""
+Verify conversion to and from Calibre metadata preserves supported values.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test metadata to from calibre through its owning regression module::
+
+        python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_to_from_calibre.py
+"""
 from __future__ import annotations
 
 import sys
@@ -14,6 +25,16 @@ from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import CalibreL
 def _install_fake_calibre(monkeypatch: pytest.MonkeyPatch) -> None:
     """
     Provide a minimal fake calibre module tree so to_calibre() can run even if calibre isn't installed.
+
+    Example:
+        Exercise install fake calibre through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_to_from_calibre.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: The deterministic value, row, identity or collection described above.
     """
     calibre = types.ModuleType("calibre")
     ebooks = types.ModuleType("calibre.ebooks")
@@ -22,7 +43,28 @@ def _install_fake_calibre(monkeypatch: pytest.MonkeyPatch) -> None:
     base = types.ModuleType("calibre.ebooks.metadata.book.base")
 
     class MetaInformation:
+        """
+        Provide the MetaInformation test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise install fake calibre.MetaInformation through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_to_from_calibre.py
+        """
         def __init__(self, title=None, authors=None):
+            """
+            Initialize the MetaInformation test double.
+
+            Example:
+                Exercise install fake calibre.MetaInformation.init through its owning regression module::
+
+                    python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_to_from_calibre.py
+
+
+            :param title: Value supplied for title in the focused test operation.
+            :param authors: Value supplied for authors in the focused test operation.
+            :return: None; the function records state or raises through its assertions.
+            """
             self.title = title
             self.authors = authors
 
@@ -37,6 +79,14 @@ def _install_fake_calibre(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 class _FakeCalibreMd:
+    """
+    Provide the FakeCalibreMd test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise FakeCalibreMd through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_to_from_calibre.py
+    """
     def __init__(
         self,
         *,
@@ -51,6 +101,29 @@ class _FakeCalibreMd:
         application_id=None,
         applicationid=None,
     ):
+        """
+        Initialize the FakeCalibreMd test double.
+
+        Example:
+            Exercise FakeCalibreMd.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_to_from_calibre.py
+
+
+        :param title: Value supplied for title in the focused test operation.
+        :param authors: Value supplied for authors in the focused test operation.
+        :param author_sort: Value supplied for author sort in the focused test operation.
+        :param creator_sort: Value supplied for creator sort in the focused test operation.
+        :param pubdate: Value supplied for pubdate in the focused test operation.
+        :param pub_date: Value supplied for pub date in the focused test operation.
+        :param identifiers: Value supplied for identifiers in the focused test operation.
+        :param languages: Value supplied for languages in the focused test operation.
+        :param application_id: Value supplied for application id in the focused test
+            operation.
+        :param applicationid: Value supplied for applicationid in the focused test
+            operation.
+        :return: None; the function records state or raises through its assertions.
+        """
         self.title = title
         self.authors = list(authors) if authors is not None else None
         if author_sort is not None:
@@ -71,10 +144,32 @@ class _FakeCalibreMd:
         self._identifiers = identifiers or {}
 
     def get_identifiers(self):
+        """
+        Return identifiers from deterministic test state.
+
+        Example:
+            Exercise FakeCalibreMd.get identifiers through its owning regression module::
+
+                python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_to_from_calibre.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         return dict(self._identifiers)
 
 
 def test_from_calibre_author_sort_preference_and_pubdate_choice() -> None:
+    """
+    Verify from calibre author sort preference and pubdate choice.
+
+    Example:
+        Exercise test from calibre author sort preference and pubdate choice through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_to_from_calibre.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     now = datetime.utcnow()
 
     # both present -> prefer creator_sort if set, else author_sort
@@ -90,6 +185,17 @@ def test_from_calibre_author_sort_preference_and_pubdate_choice() -> None:
 
 def test_from_calibre_identifier_rekey_scheme_smoke() -> None:
     # Pull the scheme from the module so we always pick a known alias.
+    """
+    Verify from calibre identifier rekey scheme smoke.
+
+    Example:
+        Exercise test from calibre identifier rekey scheme smoke through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/calibre_like_book_metadata/test_metadata_to_from_calibre.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.containers.calibre_like_book_metadata.calibre_to_and_from_mixin import (
         EXTERNAL_EBOOK_REKEY_SCHEME,
     )

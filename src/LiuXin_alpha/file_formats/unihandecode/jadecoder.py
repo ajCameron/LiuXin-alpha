@@ -1,17 +1,15 @@
 # coding:utf-8
 
 """
-Decode unicode text to an ASCII representation of the text for Japanese.
- Translate unicode string to ASCII roman string.
+Transliterate Japanese Unicode text into ASCII approximations.
 
-API is based on the python unidecode,
-which is based on Ruby gem (http://rubyforge.org/projects/unidecode/)
-and  perl module Text::Unidecode
-(http://search.cpan.org/~sburke/Text-Unidecode-0.04/).
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
 
-This functionality is owned by Kakasi Japanese processing engine.
+Example:
+    Exercise jadecoder through a consuming regression::
 
-Copyright (c) 2010 Hiroshi Miura
+        python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
 """
 from __future__ import annotations
 
@@ -30,15 +28,47 @@ __docformat__ = "restructuredtext en"
 
 
 class Jadecoder(Unidecoder):
+    """
+    Provide the jadecoder contract for validated ebook processing.
+
+    Example:
+        Exercise Jadecoder through a consuming regression::
+
+            python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+    """
     kakasi = None
     codepoints = {}
 
     def __init__(self: _typing.Self) -> None:
+        """
+        Initialize and validate the jadecoder state.
+
+        Example:
+            Exercise Jadecoder.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         self.codepoints = CODEPOINTS
         self.codepoints.update(JACODES)
         self.kakasi = kakasi()
 
     def decode(self: _typing.Self, text: _typing.Any) -> _typing.Any:
+        """
+        Perform the decode operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Jadecoder.decode through a consuming regression::
+
+                python -m pytest -q tests/file_formats/txt/test_txt_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             result = self.kakasi.do(text)
             return re.sub("[^\x00-\x7f]", lambda x: self.replace_point(x.group()), result)

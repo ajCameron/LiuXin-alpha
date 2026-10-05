@@ -1,4 +1,11 @@
-"""Metadata SQL macros for language-to-title relationships."""
+"""
+Provide metadata SQL operations for language title links.
+
+These helpers target the stored schema named in their SQL. The host supplies db
+and/or execution methods. Per-method notes distinguish explicit live-connection
+commits from delegated transaction handling; filesystem assets are never moved by
+these helpers.
+"""
 
 
 
@@ -6,7 +13,15 @@ from LiuXin_alpha.errors import DatabaseIntegrityError
 
 
 class CMLanguageTitleLinks:
-    """Implement language-to-title relationship macros."""
+    """
+    Implement the language title links operations used by MetadataSQL.
+
+    Requires a compatible owner database or host query methods. Backend/schema errors
+    propagate except where a method explicitly documents suppression.
+
+    Example:
+        >>> metadata_sql.set_title_primary_language(1, 1)  # doctest: +SKIP
+    """
 
 
 
@@ -14,11 +29,23 @@ class CMLanguageTitleLinks:
     # Todo: Tests how this responds when you set the land_id to None - should be fine, but check
     def set_title_primary_language(self, title_id, lang_id):
         """
-        Set the primary title of a work. The primary language of the title is scrubbed and replaced with the given
-        language id.
-        :param title_id: Id of the title to set the primary language for
-        :param lang_id: The id of the language to set primary for the given title
-        :return:
+        Remove primary language links, then create a highest-priority primary link.
+
+        Loads title/language rows after deletion. On DatabaseIntegrityError during linking,
+        deletes all links for that pair and retries once. Earlier deletions may persist if
+        loading or retrying fails; no atomic boundary is added.
+
+        Transaction and cache behavior for delegated SQL follows the host
+        execute/executemany implementation; this method adds no separate transaction guard.
+
+        Example:
+            >>> metadata_sql.set_title_primary_language(1, 1)  # doctest: +SKIP
+
+
+        :param title_id: Title identifier bound to the operation; batch handling, where
+            supported, is described above.
+        :param lang_id: Language row ID to link as primary.
+        :return: None.
         """
         # There can only be one primary language link between the title and the languages table
         del_stmt = (

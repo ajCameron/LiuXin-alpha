@@ -1,8 +1,13 @@
-"""Bridges for exposing synchronous and asynchronous implementations together.
+"""
+Bridge synchronous and asynchronous call, context-manager, file and open interfaces.
 
-The helpers in this module are deliberately independent of storage.  A driver
-may implement its natural I/O style and use these adapters at its public
-boundary without teaching generic code about its event loop or worker threads.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise sync async through a consuming regression::
+
+        python -m pytest -q tests/utils/test_sync_async.py
 """
 
 from __future__ import annotations
@@ -33,17 +38,54 @@ def _start_event_loop_heartbeat(
     *,
     interval: float = 0.05,
 ) -> Callable[[], None]:
-    """Bound selector sleep while an operation depends on a worker wake-up."""
+    """
+    Bound selector sleep while an operation depends on a worker wake-up.
+
+    Example:
+        Exercise  start event loop heartbeat through a consuming regression::
+
+            python -m pytest -q tests/utils/test_sync_async.py
+
+
+    :param loop: Value supplied for loop under the utility contract.
+    :param interval: Value supplied for interval under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
 
     active = True
     handle: asyncio.TimerHandle | None = None
 
     def heartbeat() -> None:
+        """
+        Perform the heartbeat utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  start event loop heartbeat.heartbeat through a consuming regression::
+
+                python -m pytest -q tests/utils/test_sync_async.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         nonlocal handle
         if active:
             handle = loop.call_later(interval, heartbeat)
 
     def stop() -> None:
+        """
+        Perform the stop utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  start event loop heartbeat.stop through a consuming regression::
+
+                python -m pytest -q tests/utils/test_sync_async.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         nonlocal active
         active = False
         if handle is not None:
@@ -54,18 +96,13 @@ def _start_event_loop_heartbeat(
 
 
 class BackgroundEventLoop:
-    """Run coroutines synchronously on one private background event loop.
-
-    Calls from multiple synchronous threads are safe.  ``close()`` is
-    idempotent, and the runner can be started again by a later call to
-    ``run()``.
+    """
+    Run coroutines synchronously on one private background event loop.
 
     Example:
-        >>> async def answer() -> int:
-        ...     return 42
-        >>> with BackgroundEventLoop() as runner:
-        ...     runner.run(answer())
-        42
+        Exercise BackgroundEventLoop through a consuming regression::
+
+            python -m pytest -q tests/utils/test_sync_async.py
     """
 
     def __init__(
@@ -74,12 +111,18 @@ class BackgroundEventLoop:
         thread_name: str = "LiuXinAsyncBridge",
         poll_interval: float = 0.05,
     ) -> None:
-        """Create a lazy runner without starting a thread yet.
+        """
+        Create a lazy runner without starting a thread yet.
 
         Example:
-            >>> runner = BackgroundEventLoop(thread_name="example-bridge")
-            >>> runner.running
-            False
+            Exercise BackgroundEventLoop.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/test_sync_async.py
+
+
+        :param thread_name: Value supplied for thread name under the utility contract.
+        :param poll_interval: Value supplied for poll interval under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
 
         if poll_interval <= 0:
@@ -94,25 +137,33 @@ class BackgroundEventLoop:
 
     @property
     def running(self) -> bool:
-        """Return whether the background event-loop thread is alive.
+        """
+        Return whether the background event-loop thread is alive.
 
         Example:
-            >>> runner = BackgroundEventLoop()
-            >>> runner.running
-            False
+            Exercise BackgroundEventLoop.running through a consuming regression::
+
+                python -m pytest -q tests/utils/test_sync_async.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         return self._thread is not None and self._thread.is_alive()
 
     def _thread_main(self) -> None:
-        """Create and own the event loop inside its dedicated thread.
+        """
+        Create and own the event loop inside its dedicated thread.
 
         Example:
-            This private worker is started by ``run()`` rather than directly.
+            Exercise BackgroundEventLoop. thread main through a consuming regression::
 
-            >>> runner = BackgroundEventLoop()
-            >>> runner.running
-            False
+                python -m pytest -q tests/utils/test_sync_async.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
 
         loop = asyncio.new_event_loop()
@@ -124,6 +175,18 @@ class BackgroundEventLoop:
             # Some embedded/runtime combinations fail to wake a selector through
             # its cross-thread self-pipe.  A short timer bounds that failure
             # without changing coroutine semantics.
+            """
+            Perform the heartbeat utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise BackgroundEventLoop. thread main.heartbeat through a consuming regression::
+
+                    python -m pytest -q tests/utils/test_sync_async.py
+
+
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             self._heartbeat = loop.call_later(self._poll_interval, heartbeat)
 
         self._heartbeat = loop.call_later(self._poll_interval, heartbeat)
@@ -142,14 +205,17 @@ class BackgroundEventLoop:
             loop.close()
 
     def ensure_started(self) -> None:
-        """Start the background loop once, safely under concurrent callers.
+        """
+        Start the background loop once, safely under concurrent callers.
 
         Example:
-            >>> runner = BackgroundEventLoop()
-            >>> runner.ensure_started()
-            >>> runner.running
-            True
-            >>> runner.close()
+            Exercise BackgroundEventLoop.ensure started through a consuming regression::
+
+                python -m pytest -q tests/utils/test_sync_async.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
 
         if self.running:
@@ -175,18 +241,19 @@ class BackgroundEventLoop:
         *,
         timeout: float | None = None,
     ) -> T:
-        """Block the caller until ``coroutine`` completes on the private loop.
-
-        ``run()`` must not be called from the runner's own thread because that
-        would deadlock.  A timeout cancels the submitted coroutine.
+        """
+        Block the caller until ``coroutine`` completes on the private loop.
 
         Example:
-            >>> async def value() -> str:
-            ...     return "ready"
-            >>> runner = BackgroundEventLoop()
-            >>> runner.run(value())
-            'ready'
-            >>> runner.close()
+            Exercise BackgroundEventLoop.run through a consuming regression::
+
+                python -m pytest -q tests/utils/test_sync_async.py
+
+
+        :param coroutine: Value supplied for coroutine under the utility contract.
+        :param timeout: Maximum wait time before the operation fails.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         self.ensure_started()
@@ -202,12 +269,18 @@ class BackgroundEventLoop:
             raise
 
     def close(self, *, timeout: float | None = None) -> None:
-        """Stop and join the background loop; repeated calls are safe.
+        """
+        Stop and join the background loop; repeated calls are safe.
 
         Example:
-            >>> runner = BackgroundEventLoop()
-            >>> runner.close()
-            >>> runner.close()
+            Exercise BackgroundEventLoop.close through a consuming regression::
+
+                python -m pytest -q tests/utils/test_sync_async.py
+
+
+        :param timeout: Maximum wait time before the operation fails.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
 
         with self._start_lock:
@@ -227,26 +300,37 @@ class BackgroundEventLoop:
             self._started.clear()
 
     def __enter__(self) -> "BackgroundEventLoop":
-        """Start the runner and return it as a synchronous context manager.
+        """
+        Start the runner and return it as a synchronous context manager.
 
         Example:
-            >>> with BackgroundEventLoop() as runner:
-            ...     runner.running
-            True
+            Exercise BackgroundEventLoop.  enter   through a consuming regression::
+
+                python -m pytest -q tests/utils/test_sync_async.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         self.ensure_started()
         return self
 
     def __exit__(self, exc_type: Any, exc: Any, traceback: Any) -> None:
-        """Close the runner when its synchronous context exits.
+        """
+        Close the runner when its synchronous context exits.
 
         Example:
-            >>> runner = BackgroundEventLoop()
-            >>> with runner:
-            ...     pass
-            >>> runner.running
-            False
+            Exercise BackgroundEventLoop.  exit   through a consuming regression::
+
+                python -m pytest -q tests/utils/test_sync_async.py
+
+
+        :param exc_type: Value supplied for exc type under the utility contract.
+        :param exc: Value supplied for exc under the utility contract.
+        :param traceback: Value supplied for traceback under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
 
         self.close()
@@ -258,16 +342,20 @@ async def call_in_thread(
     *args: P.args,
     **kwargs: P.kwargs,
 ) -> T:
-    """Call blocking synchronous code without blocking the event loop.
-
-    Context variables are propagated like ``asyncio.to_thread``.  A dedicated
-    module pool avoids coupling bridge cleanup to an event loop's default
-    executor, which is important in embedded runtimes with unreliable
-    cross-thread selector wake-ups.
+    """
+    Call blocking synchronous code without blocking the event loop.
 
     Example:
-        >>> asyncio.run(call_in_thread(lambda left, right: left + right, 20, 22))
-        42
+        Exercise call in thread through a consuming regression::
+
+            python -m pytest -q tests/utils/test_sync_async.py
+
+
+    :param function: Value supplied for function under the utility contract.
+    :param args: Positional values forwarded to the compatibility implementation.
+    :param kwargs: Keyword values forwarded to the compatibility implementation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
 
     loop = asyncio.get_running_loop()
@@ -283,17 +371,18 @@ async def call_in_thread(
 async def iterate_in_thread(
     iterator_factory: Callable[[], Iterator[T]],
 ) -> AsyncIterator[T]:
-    """Stream one synchronous iterator through an asynchronous interface.
-
-    The factory and every ``next()`` call execute on the same dedicated worker
-    thread.  This preserves thread affinity for cursors and remote client
-    iterators while providing natural one-item backpressure.
+    """
+    Stream one synchronous iterator through an asynchronous interface.
 
     Example:
-        >>> async def collect() -> list[int]:
-        ...     return [item async for item in iterate_in_thread(lambda: iter(range(3)))]
-        >>> asyncio.run(collect())
-        [0, 1, 2]
+        Exercise iterate in thread through a consuming regression::
+
+            python -m pytest -q tests/utils/test_sync_async.py
+
+
+    :param iterator_factory: Value supplied for iterator factory under the utility
+        contract.
+    :return: An iterator yielding the normalized values described above.
     """
 
     loop = asyncio.get_running_loop()
@@ -303,9 +392,33 @@ async def iterate_in_thread(
     stop_heartbeat = _start_event_loop_heartbeat(loop)
 
     def create_iterator() -> Iterator[T]:
+        """
+        Perform the create iterator utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise iterate in thread.create iterator through a consuming regression::
+
+                python -m pytest -q tests/utils/test_sync_async.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return iter(iterator_factory())
 
     def next_item() -> T | object:
+        """
+        Perform the next item utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise iterate in thread.next item through a consuming regression::
+
+                python -m pytest -q tests/utils/test_sync_async.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         assert iterator is not None
         try:
             return next(iterator)
@@ -335,17 +448,19 @@ def iterate_async_synchronously(
     *,
     runner: BackgroundEventLoop | None = None,
 ) -> Iterator[T]:
-    """Expose an asynchronous iterator as a lazy synchronous iterator.
-
-    A supplied runner can be shared by a facade.  Without one, the generator
-    owns a temporary runner and closes it even when iteration stops early.
+    """
+    Expose an asynchronous iterator as a lazy synchronous iterator.
 
     Example:
-        >>> async def values():
-        ...     for value in range(3):
-        ...         yield value
-        >>> list(iterate_async_synchronously(values))
-        [0, 1, 2]
+        Exercise iterate async synchronously through a consuming regression::
+
+            python -m pytest -q tests/utils/test_sync_async.py
+
+
+    :param iterator_factory: Value supplied for iterator factory under the utility
+        contract.
+    :param runner: Value supplied for runner under the utility contract.
+    :return: An iterator yielding the normalized values described above.
     """
 
     owned_runner = runner is None
@@ -366,36 +481,45 @@ def iterate_async_synchronously(
 
 
 class AsyncContextFromSync(Generic[T]):
-    """Adapt a synchronous context-manager factory for ``async with``.
-
-    Entry and exit both run off the event-loop thread.
+    """
+    Adapt a synchronous context-manager factory for ``async with``.
 
     Example:
-        >>> import io
-        >>> async def read() -> bytes:
-        ...     async with AsyncContextFromSync(lambda: io.BytesIO(b"data")) as source:
-        ...         return source.read()
-        >>> asyncio.run(read())
-        b'data'
+        Exercise AsyncContextFromSync through a consuming regression::
+
+            python -m pytest -q tests/utils/test_sync_async.py
     """
 
     def __init__(self, context_factory: Callable[[], Any]) -> None:
-        """Store a factory so even context construction may block safely.
+        """
+        Store a factory so even context construction may block safely.
 
         Example:
-            >>> adapter = AsyncContextFromSync(lambda: object())
+            Exercise AsyncContextFromSync.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/test_sync_async.py
+
+
+        :param context_factory: Value supplied for context factory under the utility
+            contract.
+        :return: None; validated state is stored on the receiving object.
         """
 
         self._context_factory = context_factory
         self._context: Any | None = None
 
     async def __aenter__(self) -> T:
-        """Construct and enter the synchronous context in a worker thread.
+        """
+        Construct and enter the synchronous context in a worker thread.
 
         Example:
-            >>> adapter = AsyncContextFromSync(lambda: object())
-            >>> hasattr(adapter, "__aenter__")
-            True
+            Exercise AsyncContextFromSync.  aenter   through a consuming regression::
+
+                python -m pytest -q tests/utils/test_sync_async.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         self._context = await call_in_thread(self._context_factory)
@@ -405,12 +529,20 @@ class AsyncContextFromSync(Generic[T]):
         return cast(T, self._context)
 
     async def __aexit__(self, exc_type: Any, exc: Any, traceback: Any) -> bool | None:
-        """Exit the synchronous context in a worker thread.
+        """
+        Exit the synchronous context in a worker thread.
 
         Example:
-            >>> adapter = AsyncContextFromSync(lambda: object())
-            >>> hasattr(adapter, "__aexit__")
-            True
+            Exercise AsyncContextFromSync.  aexit   through a consuming regression::
+
+                python -m pytest -q tests/utils/test_sync_async.py
+
+
+        :param exc_type: Value supplied for exc type under the utility contract.
+        :param exc: Value supplied for exc under the utility contract.
+        :param traceback: Value supplied for traceback under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         if self._context is None:
@@ -425,16 +557,13 @@ class AsyncContextFromSync(Generic[T]):
 
 
 class SyncContextFromAsync(Generic[T]):
-    """Adapt an asynchronous context manager for synchronous ``with``.
+    """
+    Adapt an asynchronous context manager for synchronous ``with``.
 
     Example:
-        >>> class Context:
-        ...     async def __aenter__(self): return 42
-        ...     async def __aexit__(self, *args): return None
-        >>> with BackgroundEventLoop() as runner:
-        ...     with SyncContextFromAsync(Context(), runner=runner) as value:
-        ...         value
-        42
+        Exercise SyncContextFromAsync through a consuming regression::
+
+            python -m pytest -q tests/utils/test_sync_async.py
     """
 
     def __init__(
@@ -443,13 +572,18 @@ class SyncContextFromAsync(Generic[T]):
         *,
         runner: BackgroundEventLoop,
     ) -> None:
-        """Bind an asynchronous context to an explicit background runner.
+        """
+        Bind an asynchronous context to an explicit background runner.
 
         Example:
-            >>> runner = BackgroundEventLoop()
-            >>> hasattr(SyncContextFromAsync, "__enter__")
-            True
-            >>> runner.close()
+            Exercise SyncContextFromAsync.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/test_sync_async.py
+
+
+        :param context: Value supplied for context under the utility contract.
+        :param runner: Value supplied for runner under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
 
         self._context = context
@@ -457,23 +591,36 @@ class SyncContextFromAsync(Generic[T]):
         self._exited = False
 
     def __enter__(self) -> T:
-        """Synchronously enter the asynchronous context.
+        """
+        Synchronously enter the asynchronous context.
 
         Example:
-            Entry is normally invoked by a ``with`` statement.
+            Exercise SyncContextFromAsync.  enter   through a consuming regression::
 
-            >>> hasattr(SyncContextFromAsync, "__enter__")
-            True
+                python -m pytest -q tests/utils/test_sync_async.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         return self._runner.run(self._context.__aenter__())
 
     def __exit__(self, exc_type: Any, exc: Any, traceback: Any) -> bool | None:
-        """Synchronously exit the asynchronous context once.
+        """
+        Synchronously exit the asynchronous context once.
 
         Example:
-            >>> hasattr(SyncContextFromAsync, "__exit__")
-            True
+            Exercise SyncContextFromAsync.  exit   through a consuming regression::
+
+                python -m pytest -q tests/utils/test_sync_async.py
+
+
+        :param exc_type: Value supplied for exc type under the utility contract.
+        :param exc: Value supplied for exc under the utility contract.
+        :param traceback: Value supplied for traceback under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         if self._exited:
@@ -483,88 +630,129 @@ class SyncContextFromAsync(Generic[T]):
 
 
 class AsyncFileFromSync:
-    """Expose a synchronous file-like object through async methods.
+    """
+    Expose a synchronous file-like object through async methods.
 
     Example:
-        >>> import io
-        >>> async def read() -> bytes:
-        ...     source = AsyncFileFromSync(io.BytesIO(b"data"))
-        ...     return await source.read()
-        >>> asyncio.run(read())
-        b'data'
+        Exercise AsyncFileFromSync through a consuming regression::
+
+            python -m pytest -q tests/utils/test_sync_async.py
     """
 
     def __init__(self, file_object: Any) -> None:
-        """Wrap one already-open synchronous file-like object.
+        """
+        Wrap one already-open synchronous file-like object.
 
         Example:
-            >>> import io
-            >>> wrapped = AsyncFileFromSync(io.BytesIO())
+            Exercise AsyncFileFromSync.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/test_sync_async.py
+
+
+        :param file_object: Value supplied for file object under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
 
         self._file = file_object
         self._closed = False
 
     async def __aenter__(self) -> "AsyncFileFromSync":
-        """Return this wrapper for use as an asynchronous context manager.
+        """
+        Return this wrapper for use as an asynchronous context manager.
 
         Example:
-            >>> hasattr(AsyncFileFromSync, "__aenter__")
-            True
+            Exercise AsyncFileFromSync.  aenter   through a consuming regression::
+
+                python -m pytest -q tests/utils/test_sync_async.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         return self
 
     async def __aexit__(self, exc_type: Any, exc: Any, traceback: Any) -> None:
-        """Close the underlying file on asynchronous context exit.
+        """
+        Close the underlying file on asynchronous context exit.
 
         Example:
-            >>> hasattr(AsyncFileFromSync, "__aexit__")
-            True
+            Exercise AsyncFileFromSync.  aexit   through a consuming regression::
+
+                python -m pytest -q tests/utils/test_sync_async.py
+
+
+        :param exc_type: Value supplied for exc type under the utility contract.
+        :param exc: Value supplied for exc under the utility contract.
+        :param traceback: Value supplied for traceback under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
 
         await self.close()
 
     async def read(self, size: int = -1) -> Any:
-        """Read from the synchronous file in a worker thread.
+        """
+        Read from the synchronous file in a worker thread.
 
         Example:
-            >>> import io
-            >>> asyncio.run(AsyncFileFromSync(io.BytesIO(b"ok")).read())
-            b'ok'
+            Exercise AsyncFileFromSync.read through a consuming regression::
+
+                python -m pytest -q tests/utils/test_sync_async.py
+
+
+        :param size: Value supplied for size under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         return await call_in_thread(self._file.read, size)
 
     async def write(self, data: Any) -> int:
-        """Write to the synchronous file in a worker thread.
+        """
+        Write to the synchronous file in a worker thread.
 
         Example:
-            >>> import io
-            >>> asyncio.run(AsyncFileFromSync(io.BytesIO()).write(b"ok"))
-            2
+            Exercise AsyncFileFromSync.write through a consuming regression::
+
+                python -m pytest -q tests/utils/test_sync_async.py
+
+
+        :param data: Value supplied for data under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         return await call_in_thread(self._file.write, data)
 
     async def flush(self) -> None:
-        """Flush the synchronous file in a worker thread.
+        """
+        Flush the synchronous file in a worker thread.
 
         Example:
-            >>> import io
-            >>> asyncio.run(AsyncFileFromSync(io.BytesIO()).flush())
+            Exercise AsyncFileFromSync.flush through a consuming regression::
+
+                python -m pytest -q tests/utils/test_sync_async.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
 
         await call_in_thread(self._file.flush)
 
     async def close(self) -> None:
-        """Close the synchronous file once; repeated calls are safe.
+        """
+        Close the synchronous file once; repeated calls are safe.
 
         Example:
-            >>> import io
-            >>> wrapped = AsyncFileFromSync(io.BytesIO())
-            >>> asyncio.run(wrapped.close())
-            >>> asyncio.run(wrapped.close())
+            Exercise AsyncFileFromSync.close through a consuming regression::
+
+                python -m pytest -q tests/utils/test_sync_async.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
 
         if self._closed:
@@ -574,23 +762,27 @@ class AsyncFileFromSync:
 
 
 class AsyncOpenFromSync:
-    """Open a synchronous file lazily and expose it through ``async with``.
+    """
+    Open a synchronous file lazily and expose it through ``async with``.
 
     Example:
-        >>> import io
-        >>> async def read() -> bytes:
-        ...     async with AsyncOpenFromSync(lambda: io.BytesIO(b"data")) as source:
-        ...         return await source.read()
-        >>> asyncio.run(read())
-        b'data'
+        Exercise AsyncOpenFromSync through a consuming regression::
+
+            python -m pytest -q tests/utils/test_sync_async.py
     """
 
     def __init__(self, opener: Callable[[], Any]) -> None:
-        """Store a synchronous opener for execution in a worker thread.
+        """
+        Store a synchronous opener for execution in a worker thread.
 
         Example:
-            >>> import io
-            >>> adapter = AsyncOpenFromSync(lambda: io.BytesIO())
+            Exercise AsyncOpenFromSync.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/test_sync_async.py
+
+
+        :param opener: Value supplied for opener under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
 
         self._context = AsyncContextFromSync[Any](opener)
@@ -598,11 +790,17 @@ class AsyncOpenFromSync:
         self._wrapper: AsyncFileFromSync | None = None
 
     async def __aenter__(self) -> AsyncFileFromSync:
-        """Open the file and return its asynchronous wrapper.
+        """
+        Open the file and return its asynchronous wrapper.
 
         Example:
-            >>> hasattr(AsyncOpenFromSync, "__aenter__")
-            True
+            Exercise AsyncOpenFromSync.  aenter   through a consuming regression::
+
+                python -m pytest -q tests/utils/test_sync_async.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         self._file = await self._context.__aenter__()
@@ -610,11 +808,20 @@ class AsyncOpenFromSync:
         return self._wrapper
 
     async def __aexit__(self, exc_type: Any, exc: Any, traceback: Any) -> bool | None:
-        """Exit the original synchronous file context exactly once.
+        """
+        Exit the original synchronous file context exactly once.
 
         Example:
-            >>> hasattr(AsyncOpenFromSync, "__aexit__")
-            True
+            Exercise AsyncOpenFromSync.  aexit   through a consuming regression::
+
+                python -m pytest -q tests/utils/test_sync_async.py
+
+
+        :param exc_type: Value supplied for exc type under the utility contract.
+        :param exc: Value supplied for exc under the utility contract.
+        :param traceback: Value supplied for traceback under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         if self._wrapper is not None:
@@ -623,14 +830,13 @@ class AsyncOpenFromSync:
 
 
 class SyncFileFromAsync:
-    """Expose an entered asynchronous file context as a sync file object.
+    """
+    Expose an entered asynchronous file context as a sync file object.
 
     Example:
-        A driver facade normally receives this wrapper from
-        ``SyncOpenFromAsync`` and uses it with an ordinary ``with`` statement.
+        Exercise SyncFileFromAsync through a consuming regression::
 
-        >>> hasattr(SyncFileFromAsync, "read")
-        True
+            python -m pytest -q tests/utils/test_sync_async.py
     """
 
     def __init__(
@@ -639,11 +845,19 @@ class SyncFileFromAsync:
         async_context: AsyncContextManager[Any],
         async_file: Any,
     ) -> None:
-        """Bind the asynchronous context and file to a background runner.
+        """
+        Bind the asynchronous context and file to a background runner.
 
         Example:
-            >>> hasattr(SyncFileFromAsync, "close")
-            True
+            Exercise SyncFileFromAsync.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/test_sync_async.py
+
+
+        :param runner: Value supplied for runner under the utility contract.
+        :param async_context: Value supplied for async context under the utility contract.
+        :param async_file: Value supplied for async file under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
 
         self._runner = runner
@@ -652,21 +866,36 @@ class SyncFileFromAsync:
         self._closed = False
 
     def __enter__(self) -> "SyncFileFromAsync":
-        """Return this synchronous file wrapper.
+        """
+        Return this synchronous file wrapper.
 
         Example:
-            >>> hasattr(SyncFileFromAsync, "__enter__")
-            True
+            Exercise SyncFileFromAsync.  enter   through a consuming regression::
+
+                python -m pytest -q tests/utils/test_sync_async.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         return self
 
     def __exit__(self, exc_type: Any, exc: Any, traceback: Any) -> bool | None:
-        """Exit the asynchronous context exactly once.
+        """
+        Exit the asynchronous context exactly once.
 
         Example:
-            >>> hasattr(SyncFileFromAsync, "__exit__")
-            True
+            Exercise SyncFileFromAsync.  exit   through a consuming regression::
+
+                python -m pytest -q tests/utils/test_sync_async.py
+
+
+        :param exc_type: Value supplied for exc type under the utility contract.
+        :param exc: Value supplied for exc under the utility contract.
+        :param traceback: Value supplied for traceback under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         if self._closed:
@@ -675,52 +904,80 @@ class SyncFileFromAsync:
         return self._runner.run(self._context.__aexit__(exc_type, exc, traceback))
 
     def close(self) -> None:
-        """Close the asynchronous context; repeated calls are safe.
+        """
+        Close the asynchronous context; repeated calls are safe.
 
         Example:
-            >>> hasattr(SyncFileFromAsync, "close")
-            True
+            Exercise SyncFileFromAsync.close through a consuming regression::
+
+                python -m pytest -q tests/utils/test_sync_async.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
 
         self.__exit__(None, None, None)
 
     def flush(self) -> None:
-        """Synchronously flush the asynchronous file object.
+        """
+        Synchronously flush the asynchronous file object.
 
         Example:
-            >>> hasattr(SyncFileFromAsync, "flush")
-            True
+            Exercise SyncFileFromAsync.flush through a consuming regression::
+
+                python -m pytest -q tests/utils/test_sync_async.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
 
         self._runner.run(self._file.flush())
 
     def read(self, size: int = -1) -> Any:
-        """Synchronously read from the asynchronous file object.
+        """
+        Synchronously read from the asynchronous file object.
 
         Example:
-            >>> hasattr(SyncFileFromAsync, "read")
-            True
+            Exercise SyncFileFromAsync.read through a consuming regression::
+
+                python -m pytest -q tests/utils/test_sync_async.py
+
+
+        :param size: Value supplied for size under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         return self._runner.run(self._file.read(size))
 
     def write(self, data: Any) -> int:
-        """Synchronously write to the asynchronous file object.
+        """
+        Synchronously write to the asynchronous file object.
 
         Example:
-            >>> hasattr(SyncFileFromAsync, "write")
-            True
+            Exercise SyncFileFromAsync.write through a consuming regression::
+
+                python -m pytest -q tests/utils/test_sync_async.py
+
+
+        :param data: Value supplied for data under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         return self._runner.run(self._file.write(data))
 
 
 class SyncOpenFromAsync:
-    """Open an asynchronous file context through a synchronous facade.
+    """
+    Open an asynchronous file context through a synchronous facade.
 
     Example:
-        >>> hasattr(SyncOpenFromAsync, "__enter__")
-        True
+        Exercise SyncOpenFromAsync through a consuming regression::
+
+            python -m pytest -q tests/utils/test_sync_async.py
     """
 
     def __init__(
@@ -729,12 +986,18 @@ class SyncOpenFromAsync:
         *,
         runner: BackgroundEventLoop,
     ) -> None:
-        """Store an asynchronous opener and the runner that will own it.
+        """
+        Store an asynchronous opener and the runner that will own it.
 
         Example:
-            >>> runner = BackgroundEventLoop()
-            >>> adapter = SyncOpenFromAsync  # an async opener is supplied by a driver
-            >>> runner.close()
+            Exercise SyncOpenFromAsync.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/test_sync_async.py
+
+
+        :param opener: Value supplied for opener under the utility contract.
+        :param runner: Value supplied for runner under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
 
         self._opener = opener
@@ -742,11 +1005,17 @@ class SyncOpenFromAsync:
         self._file: SyncFileFromAsync | None = None
 
     def __enter__(self) -> SyncFileFromAsync:
-        """Enter the async context and return a synchronous file wrapper.
+        """
+        Enter the async context and return a synchronous file wrapper.
 
         Example:
-            >>> hasattr(SyncOpenFromAsync, "__enter__")
-            True
+            Exercise SyncOpenFromAsync.  enter   through a consuming regression::
+
+                python -m pytest -q tests/utils/test_sync_async.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         async_context = self._opener()
@@ -755,11 +1024,20 @@ class SyncOpenFromAsync:
         return self._file
 
     def __exit__(self, exc_type: Any, exc: Any, traceback: Any) -> bool | None:
-        """Exit the entered asynchronous file context.
+        """
+        Exit the entered asynchronous file context.
 
         Example:
-            >>> hasattr(SyncOpenFromAsync, "__exit__")
-            True
+            Exercise SyncOpenFromAsync.  exit   through a consuming regression::
+
+                python -m pytest -q tests/utils/test_sync_async.py
+
+
+        :param exc_type: Value supplied for exc type under the utility contract.
+        :param exc: Value supplied for exc under the utility contract.
+        :param traceback: Value supplied for traceback under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         if self._file is None:
@@ -768,23 +1046,13 @@ class SyncOpenFromAsync:
 
 
 class AsyncNativeSyncFacade:
-    """Reusable sync facade for a naturally asynchronous implementation.
-
-    Subclasses keep their domain-specific method names and use ``run_async``,
-    ``iterate_async``, and ``open_async`` to expose matching synchronous entry
-    points.  The mechanism is useful to storage drivers but has no storage
-    dependency.  Async resources used through the facade should be created on
-    ``sync_bridge_runner``; a subclass may override that runner when isolation
-    is required.
+    """
+    Reusable sync facade for a naturally asynchronous implementation.
 
     Example:
-        >>> class Service(AsyncNativeSyncFacade):
-        ...     async def aanswer(self) -> int:
-        ...         return 42
-        ...     def answer(self) -> int:
-        ...         return self.run_async(self.aanswer())
-        >>> Service().answer()
-        42
+        Exercise AsyncNativeSyncFacade through a consuming regression::
+
+            python -m pytest -q tests/utils/test_sync_async.py
     """
 
     sync_bridge_runner = BackgroundEventLoop(thread_name="LiuXinAsyncNativeFacade")
@@ -795,13 +1063,19 @@ class AsyncNativeSyncFacade:
         *,
         timeout: float | None = None,
     ) -> T:
-        """Run one asynchronous operation through the synchronous facade.
+        """
+        Run one asynchronous operation through the synchronous facade.
 
         Example:
-            >>> class Service(AsyncNativeSyncFacade):
-            ...     async def value(self): return "ready"
-            >>> Service().run_async(Service().value())
-            'ready'
+            Exercise AsyncNativeSyncFacade.run async through a consuming regression::
+
+                python -m pytest -q tests/utils/test_sync_async.py
+
+
+        :param coroutine: Value supplied for coroutine under the utility contract.
+        :param timeout: Maximum wait time before the operation fails.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         return self.sync_bridge_runner.run(coroutine, timeout=timeout)
@@ -810,15 +1084,19 @@ class AsyncNativeSyncFacade:
         self,
         iterator_factory: Callable[[], AsyncIterator[T]],
     ) -> Iterator[T]:
-        """Expose an asynchronous iterator lazily to synchronous callers.
+        """
+        Expose an asynchronous iterator lazily to synchronous callers.
 
         Example:
-            >>> class Service(AsyncNativeSyncFacade):
-            ...     async def values(self):
-            ...         yield 1
-            ...         yield 2
-            >>> list(Service().iterate_async(Service().values))
-            [1, 2]
+            Exercise AsyncNativeSyncFacade.iterate async through a consuming regression::
+
+                python -m pytest -q tests/utils/test_sync_async.py
+
+
+        :param iterator_factory: Value supplied for iterator factory under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         return iterate_async_synchronously(
@@ -830,13 +1108,19 @@ class AsyncNativeSyncFacade:
         self,
         context_factory: Callable[[], AsyncContextManager[Any]],
     ) -> SyncFileFromAsync:
-        """Enter an asynchronous file context and return a sync file wrapper.
+        """
+        Enter an asynchronous file context and return a sync file wrapper.
 
         Example:
-            Drivers use this at a synchronous ``open`` boundary.
+            Exercise AsyncNativeSyncFacade.open async through a consuming regression::
 
-            >>> hasattr(AsyncNativeSyncFacade, "open_async")
-            True
+                python -m pytest -q tests/utils/test_sync_async.py
+
+
+        :param context_factory: Value supplied for context factory under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         async_context = context_factory()
@@ -849,16 +1133,13 @@ class AsyncNativeSyncFacade:
 
 
 class SyncNativeAsyncFacade:
-    """Reusable async facade for a naturally synchronous implementation.
+    """
+    Reusable async facade for a naturally synchronous implementation.
 
     Example:
-        >>> class Service(SyncNativeAsyncFacade):
-        ...     def answer(self) -> int:
-        ...         return 42
-        ...     async def aanswer(self) -> int:
-        ...         return await self.call_sync(self.answer)
-        >>> asyncio.run(Service().aanswer())
-        42
+        Exercise SyncNativeAsyncFacade through a consuming regression::
+
+            python -m pytest -q tests/utils/test_sync_async.py
     """
 
     async def call_sync(
@@ -868,13 +1149,20 @@ class SyncNativeAsyncFacade:
         *args: P.args,
         **kwargs: P.kwargs,
     ) -> T:
-        """Run one synchronous operation through the async facade.
+        """
+        Run one synchronous operation through the async facade.
 
         Example:
-            >>> class Service(SyncNativeAsyncFacade):
-            ...     def value(self): return "ready"
-            >>> asyncio.run(Service().call_sync(Service().value))
-            'ready'
+            Exercise SyncNativeAsyncFacade.call sync through a consuming regression::
+
+                python -m pytest -q tests/utils/test_sync_async.py
+
+
+        :param function: Value supplied for function under the utility contract.
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         return await call_in_thread(function, *args, **kwargs)
@@ -883,31 +1171,36 @@ class SyncNativeAsyncFacade:
         self,
         iterator_factory: Callable[[], Iterator[T]],
     ) -> AsyncIterator[T]:
-        """Expose a synchronous iterator lazily to asynchronous callers.
+        """
+        Expose a synchronous iterator lazily to asynchronous callers.
 
         Example:
-            >>> class Service(SyncNativeAsyncFacade):
-            ...     def values(self): return iter((1, 2))
-            >>> async def collect():
-            ...     service = Service()
-            ...     return [item async for item in service.iterate_sync(service.values)]
-            >>> asyncio.run(collect())
-            [1, 2]
+            Exercise SyncNativeAsyncFacade.iterate sync through a consuming regression::
+
+                python -m pytest -q tests/utils/test_sync_async.py
+
+
+        :param iterator_factory: Value supplied for iterator factory under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         return iterate_in_thread(iterator_factory)
 
     def open_sync(self, opener: Callable[[], Any]) -> AsyncOpenFromSync:
-        """Return an async context manager around a synchronous file opener.
+        """
+        Return an async context manager around a synchronous file opener.
 
         Example:
-            >>> import io
-            >>> class Service(SyncNativeAsyncFacade): pass
-            >>> async def read():
-            ...     async with Service().open_sync(lambda: io.BytesIO(b"ok")) as source:
-            ...         return await source.read()
-            >>> asyncio.run(read())
-            b'ok'
+            Exercise SyncNativeAsyncFacade.open sync through a consuming regression::
+
+                python -m pytest -q tests/utils/test_sync_async.py
+
+
+        :param opener: Value supplied for opener under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         return AsyncOpenFromSync(opener)

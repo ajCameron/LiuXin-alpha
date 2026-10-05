@@ -1,4 +1,14 @@
-"""Shared compact string formatting for metadata containers."""
+"""
+Format compact diagnostic strings for metadata values, bundles and collections.
+
+Attribute and method probes tolerate ordinary exceptions, but iteration and value
+rendering can still propagate failures. These helpers may invoke lazy accessors;
+their output is a diagnostic summary rather than a serialization format.
+
+Example:
+    >>> compact_mapping_string(object(), {'name': 'Example'})
+    "object(name='Example')"
+"""
 
 from __future__ import annotations
 
@@ -29,6 +39,20 @@ _SKIP_EXTRA_KEY_SUFFIXES = (
 
 
 def _is_empty(value: Any) -> bool:
+    """
+    Recognize None, empty strings and empty built-in collection values.
+
+    Zero and False are retained as meaningful values; arbitrary Mapping implementations
+    are not treated as empty solely by length.
+
+    Example:
+        >>> [_is_empty(x) for x in (None, "", [], 0, False)]
+        [True, True, True, False, False]
+
+
+    :param value: Value to test for diagnostic omission.
+    :return: True for a recognized empty value.
+    """
     if value is None:
         return True
     if value == "":
@@ -39,6 +63,19 @@ def _is_empty(value: Any) -> bool:
 
 
 def _safe_getattr(obj: object, name: str, default: Any = None) -> Any:
+    """
+    Read an attribute, returning a fallback if ordinary attribute access fails.
+
+    Example:
+        >>> _safe_getattr(object(), "missing", "fallback")
+        'fallback'
+
+
+    :param obj: Object whose attribute is accessed.
+    :param name: Attribute name passed to getattr.
+    :param default: Fallback for missing attributes or access errors.
+    :return: Attribute value or default when an Exception is raised.
+    """
     try:
         return getattr(obj, name)
     except Exception:
@@ -46,6 +83,20 @@ def _safe_getattr(obj: object, name: str, default: Any = None) -> Any:
 
 
 def _safe_call(method: Any, *args: Any, default: Any = None, **kwargs: Any) -> Any:
+    """
+    Invoke a callable and suppress ordinary call failures.
+
+    Example:
+        >>> _safe_call(int, "bad", default=7)
+        7
+
+
+    :param method: Candidate callable to invoke.
+    :param args: Positional arguments forwarded to the callable.
+    :param default: Fallback returned when the call cannot produce a result.
+    :param kwargs: Keyword arguments forwarded to the callable.
+    :return: Call result, or default for a non-callable or an Exception.
+    """
     if not callable(method):
         return default
     try:
@@ -55,6 +106,23 @@ def _safe_call(method: Any, *args: Any, default: Any = None, **kwargs: Any) -> A
 
 
 def _format_value(value: Any, *, max_length: int = 96, max_items: int = 4) -> str:
+    """
+    Render a bounded diagnostic value, recursively formatting mappings and sequences.
+
+    Enums use their underlying values; strings and bytes use repr. Nested containers
+    inherit max_length but use the default item limit.
+
+    Example:
+        >>> _format_value({"a": 1, "b": 2}, max_items=1)
+        '{a=1, ...}'
+
+
+    :param value: Value to render.
+    :param max_length: Character budget applied to the rendered string; use at least
+        three characters.
+    :param max_items: Maximum entries shown at the current mapping or sequence level.
+    :return: Rendered value, truncated with an ellipsis when it exceeds max_length.
+    """
     if isinstance(value, Enum):
         value = value.value
 
@@ -83,6 +151,18 @@ def _format_value(value: Any, *, max_length: int = 96, max_items: int = 4) -> st
 
 
 def _target_piece(obj: object) -> str | None:
+    """
+    Build a target-id label when both target_kind and target_id are nonempty.
+
+    Example:
+        >>> from types import SimpleNamespace
+        >>> _target_piece(SimpleNamespace(target_kind="work", target_id=2))
+        'work_id=2'
+
+
+    :param obj: Object exposing optional target_kind and target_id attributes.
+    :return: Target-kind id fragment, or None.
+    """
     target_kind = _safe_getattr(obj, "target_kind")
     target_id = _safe_getattr(obj, "target_id")
     if _is_empty(target_kind) or _is_empty(target_id):
@@ -91,6 +171,19 @@ def _target_piece(obj: object) -> str | None:
 
 
 def _payload_for(obj: object) -> Mapping[str, Any]:
+    """
+    Prefer a mapping from to_mapping, then try as_write_payload.
+
+    Failed or non-mapping results fall through without propagating ordinary call errors.
+
+    Example:
+        >>> _payload_for(object())
+        {}
+
+
+    :param obj: Metadata value with optional serialization methods.
+    :return: First mapping returned by a supported method, or an empty dictionary.
+    """
     to_mapping = _safe_getattr(obj, "to_mapping")
     payload = _safe_call(to_mapping)
     if isinstance(payload, Mapping):
@@ -105,6 +198,17 @@ def _payload_for(obj: object) -> Mapping[str, Any]:
 
 
 def _container_count(obj: object) -> int | None:
+    """
+    Try len first, then count a sequence returned by as_write_payload.
+
+    Example:
+        >>> _container_count([1, 2])
+        2
+
+
+    :param obj: Object with an optional length or sequence write payload.
+    :return: Container length, or None when neither count is available.
+    """
     try:
         return len(obj)  # type: ignore[arg-type]
     except Exception:
@@ -125,6 +229,25 @@ def compact_mapping_string(
     display_keys: Sequence[str] = (),
     max_fields: int = 4,
 ) -> str:
+    """
+    Summarize a mapping using target ids, requested ids, display text and extra fields.
+
+    Empty values and bookkeeping suffixes are omitted from extra fields. max_fields
+    limits the extra-field loop; mandatory id and display pieces can already exceed it.
+
+    Example:
+        >>> compact_mapping_string(object(), {"id": 1, "name": "Book"}, id_keys=("id",))
+        "object(id=1, name='Book')"
+
+
+    :param obj: Object supplying the class name and optional target identity.
+    :param mapping: Column or payload mapping to summarize in its iteration order.
+    :param id_keys: Id keys to include before display text and extra fields.
+    :param display_keys: Preferred text keys; an empty sequence uses the module
+        defaults.
+    :param max_fields: Piece count at which optional extra fields stop being appended.
+    :return: Class-named diagnostic string.
+    """
     pieces: list[str] = []
     used_keys: set[str] = set()
 
@@ -167,6 +290,23 @@ def compact_container_string(
     text_methods: Sequence[str] = ("to_text", "full_title"),
     text_attributes: Sequence[str] = ("display_title", "display_name", "display_genre"),
 ) -> str:
+    """
+    Summarize a collection with target identity, count and available display text.
+
+    Text probes try attributes, methods, recognized entry iterators and a write payload.
+    Calling accessors or iterators can materialize deferred data.
+
+    Example:
+        >>> compact_container_string([1, 2], count_label="entries")
+        'list(2 entries)'
+
+
+    :param obj: Collection or metadata container to describe.
+    :param count_label: Noun appended to a discovered count.
+    :param text_methods: Zero-argument text method names tried after attributes.
+    :param text_attributes: Display attribute names tried before methods.
+    :return: Class-named diagnostic string, with empty when no pieces are available.
+    """
     pieces: list[str] = []
 
     target = _target_piece(obj)
@@ -250,6 +390,19 @@ def relation_count_summary(
     relation_names: Sequence[str],
     get_links: Any,
 ) -> str:
+    """
+    Count nonempty relation buckets while tolerating lookup or length failures.
+
+    Example:
+        >>> relation_count_summary(("tags", "notes"), lambda key: [1] if key == "tags" else [])
+        'tags:1'
+
+
+    :param relation_names: Relation names to query in display order.
+    :param get_links: Callable accepting a relation name and returning a sized
+        collection.
+    :return: Comma-separated name:count fragments in the requested order.
+    """
     counts: list[str] = []
     for relation in relation_names:
         links = _safe_call(get_links, relation, default=())
@@ -269,6 +422,20 @@ def metadata_bundle_string(
     relation_names: Sequence[str],
     get_links: Any,
 ) -> str:
+    """
+    Summarize a bundle identity and its nonempty relation counts.
+
+    Example:
+        >>> metadata_bundle_string(object(), identity_name="work", relation_names=(), get_links=None)
+        'object(empty)'
+
+
+    :param obj: Bundle exposing the named identity attribute.
+    :param identity_name: Attribute name of the identity to render.
+    :param relation_names: Relation buckets to count in order.
+    :param get_links: Callable returning links for one relation name.
+    :return: Class-named diagnostic string.
+    """
     pieces: list[str] = []
     identity = _safe_getattr(obj, identity_name)
     if identity is not None:
@@ -284,7 +451,16 @@ def metadata_bundle_string(
 
 
 class MetadataValueStringMixin:
-    """Compact ``str()`` for value objects with mapping/write payloads."""
+    """
+    Provide compact string output for values with mapping or write-payload methods.
+
+    Subclasses can choose STRING_ID_KEYS and STRING_DISPLAY_KEYS; no instance state is
+    added.
+
+    Example:
+        >>> str(MetadataValueStringMixin())
+        'MetadataValueStringMixin(empty)'
+    """
 
     __slots__ = ()
 
@@ -292,6 +468,16 @@ class MetadataValueStringMixin:
     STRING_ID_KEYS: ClassVar[Sequence[str]] = ()
 
     def __str__(self) -> str:
+        """
+        Format the value payload using configured id and display-key priorities.
+
+        Example:
+            >>> str(MetadataValueStringMixin())
+            'MetadataValueStringMixin(empty)'
+
+
+        :return: Compact class-named value description.
+        """
         payload = _payload_for(self)
         target_kind = _safe_getattr(self, "target_kind")
         target_id_key = f"{target_kind}_id" if not _is_empty(target_kind) else ""
@@ -307,13 +493,31 @@ class MetadataValueStringMixin:
 
 
 class MetadataSequenceStringMixin:
-    """Compact ``str()`` for grouped metadata containers."""
+    """
+    Provide compact string output for grouped metadata collections.
+
+    Subclasses can set STRING_COUNT_LABEL to name counted entries.
+
+    Example:
+        >>> str(MetadataSequenceStringMixin())
+        'MetadataSequenceStringMixin(empty)'
+    """
 
     __slots__ = ()
 
     STRING_COUNT_LABEL: ClassVar[str] = "items"
 
     def __str__(self) -> str:
+        """
+        Describe the collection using its configured count label and text probes.
+
+        Example:
+            >>> str(MetadataSequenceStringMixin())
+            'MetadataSequenceStringMixin(empty)'
+
+
+        :return: Compact class-named collection description.
+        """
         return compact_container_string(
             self,
             count_label=self.STRING_COUNT_LABEL,

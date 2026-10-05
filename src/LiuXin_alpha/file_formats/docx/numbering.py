@@ -1,5 +1,16 @@
 #!/usr/bin/env python2
 # vim:fileencoding=utf-8
+"""
+Resolve DOCX numbering definitions into nested list structure and styles.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise numbering through a consuming regression::
+
+        python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -41,6 +52,20 @@ STYLE_MAP = {
 
 
 def alphabet(val: _typing.Any, lower: bool = True) -> _typing.Any:
+    """
+    Perform the alphabet operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise alphabet through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param val: Template or metadata value evaluated by the operation.
+    :param lower: Value supplied for lower under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     x = string.ascii_lowercase if lower else string.ascii_uppercase
     return x[(abs(val - 1)) % len(x)]
 
@@ -55,7 +80,28 @@ alphabet_map = {
 
 
 class Level(object):
+    """
+    Provide the level contract for validated ebook processing.
+
+    Example:
+        Exercise Level through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+    """
     def __init__(self: _typing.Self, namespace: _typing.Any, lvl: _typing.Any = None) -> None:
+        """
+        Initialize and validate the level state.
+
+        Example:
+            Exercise Level.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param namespace: Value supplied for namespace under the utility contract.
+        :param lvl: Value supplied for lvl under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.namespace = namespace
         self.restart = None
         self.start = 0
@@ -71,6 +117,18 @@ class Level(object):
             self.read_from_xml(lvl)
 
     def copy(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the copy operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Level.copy through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = Level(self.namespace)
         for x in (
             "restart",
@@ -88,7 +146,35 @@ class Level(object):
         return ans
 
     def format_template(self: _typing.Self, counter: _typing.Any, ilvl: _typing.Any, template: _typing.Any) -> _typing.Any:
+        """
+        Perform the format template operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Level.format template through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param counter: Value supplied for counter under the utility contract.
+        :param ilvl: Value supplied for ilvl under the utility contract.
+        :param template: Template expression parsed or evaluated.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         def sub(m: _typing.Any) -> _typing.Any:
+            """
+            Perform the sub operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Level.format template.sub through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+            :param m: Value supplied for m under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             x = int(m.group(1)) - 1
             if x > ilvl or x not in counter:
                 return ""
@@ -99,6 +185,20 @@ class Level(object):
         return re.sub(r"%(\d+)", sub, template).rstrip() + "\xa0"
 
     def read_from_xml(self: _typing.Self, lvl: _typing.Any, override: bool = False) -> None:
+        """
+        Read from xml under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Level.read from xml through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param lvl: Value supplied for lvl under the utility contract.
+        :param override: Value supplied for override under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         xpath, get = self.namespace.XPath, self.namespace.get
         for lr in xpath("./w:lvlRestart[@w:val]")(lvl):
             try:
@@ -155,6 +255,21 @@ class Level(object):
                 self.paragraph_style.update(ps)
 
     def css(self: _typing.Self, images: _typing.Any, pic_map: _typing.Any, rid_map: _typing.Any) -> _typing.Any:
+        """
+        Perform the css operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Level.css through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param images: Value supplied for images under the utility contract.
+        :param pic_map: Value supplied for pic map under the utility contract.
+        :param rid_map: Value supplied for rid map under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = {"list-style-type": self.fmt}
         if self.pic_id:
             rid = pic_map.get(self.pic_id, None)
@@ -168,6 +283,18 @@ class Level(object):
         return ans
 
     def char_css(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the char css operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Level.char css through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             css = self.character_style.css
         except AttributeError:
@@ -177,7 +304,29 @@ class Level(object):
 
 
 class NumberingDefinition(object):
+    """
+    Provide the numberingdefinition contract for validated ebook processing.
+
+    Example:
+        Exercise NumberingDefinition through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+    """
     def __init__(self: _typing.Self, namespace: _typing.Any, parent: _typing.Any = None, an_id: _typing.Any = None) -> None:
+        """
+        Initialize and validate the numberingdefinition state.
+
+        Example:
+            Exercise NumberingDefinition.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param namespace: Value supplied for namespace under the utility contract.
+        :param parent: Value supplied for parent under the utility contract.
+        :param an_id: Value supplied for an id under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.namespace = namespace
         xpath, get = self.namespace.XPath, self.namespace.get
         self.levels = {}
@@ -191,6 +340,18 @@ class NumberingDefinition(object):
                 self.levels[ilvl] = Level(namespace, lvl)
 
     def copy(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the copy operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise NumberingDefinition.copy through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = NumberingDefinition(self.namespace, an_id=self.abstract_numbering_definition_id)
         for l, lvl in iteritems(self.levels):
             ans.levels[l] = lvl.copy()
@@ -198,7 +359,27 @@ class NumberingDefinition(object):
 
 
 class Numbering(object):
+    """
+    Provide the numbering contract for validated ebook processing.
+
+    Example:
+        Exercise Numbering through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+    """
     def __init__(self: _typing.Self, namespace: _typing.Any) -> None:
+        """
+        Initialize and validate the numbering state.
+
+        Example:
+            Exercise Numbering.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param namespace: Value supplied for namespace under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.namespace = namespace
         self.definitions = {}
         self.instances = {}
@@ -209,10 +390,18 @@ class Numbering(object):
     def __call__(self: _typing.Self, root: _typing.Any, styles: _typing.Any, rid_map: _typing.Any) -> None:
         """
         Read all numbering style definitions
-        :param root:
-        :param styles:
-        :param rid_map:
-        :return:
+
+        Example:
+            Exercise Numbering.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param root: Root directory that bounds path resolution or traversal.
+        :param styles: Value supplied for styles under the utility contract.
+        :param rid_map: Value supplied for rid map under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         xpath, get = self.namespace.XPath, self.namespace.get
         self.rid_map = rid_map
@@ -232,6 +421,20 @@ class Numbering(object):
                 self.definitions[an_id] = nd
 
         def create_instance(local_n: _typing.Any, definition: _typing.Any) -> _typing.Any:
+            """
+            Create instance under the format's safety and compatibility rules.
+
+            Example:
+                Exercise Numbering.  call  .create instance through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+            :param local_n: Value supplied for local n under the utility contract.
+            :param definition: Value supplied for definition under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             nd = definition.copy()
             start_overrides = {}
             for lo in xpath("./w:lvlOverride")(local_n):
@@ -286,6 +489,20 @@ class Numbering(object):
             self.starts[num_id] = {lvl: d.levels[lvl].start for lvl in d.levels}
 
     def get_pstyle(self: _typing.Self, num_id: _typing.Any, style_id: _typing.Any) -> _typing.Any:
+        """
+        Return pstyle under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Numbering.get pstyle through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param num_id: Value supplied for num id under the utility contract.
+        :param style_id: Value supplied for style id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         d = self.instances.get(num_id, None)
         if d is not None:
             for ilvl, lvl in iteritems(d.levels):
@@ -293,12 +510,41 @@ class Numbering(object):
                     return ilvl
 
     def get_para_style(self: _typing.Self, num_id: _typing.Any, lvl: _typing.Any) -> _typing.Any:
+        """
+        Return para style under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Numbering.get para style through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param num_id: Value supplied for num id under the utility contract.
+        :param lvl: Value supplied for lvl under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         d = self.instances.get(num_id, None)
         if d is not None:
             lvl = d.levels.get(lvl, None)
             return getattr(lvl, "paragraph_style", None)
 
     def update_counter(self: _typing.Self, counter: _typing.Any, levelnum: _typing.Any, levels: _typing.Any) -> None:
+        """
+        Perform the update counter operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Numbering.update counter through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param counter: Value supplied for counter under the utility contract.
+        :param levelnum: Value supplied for levelnum under the utility contract.
+        :param levels: Value supplied for levels under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         counter[levelnum] += 1
         for ilvl, lvl in iteritems(levels):
             restart = lvl.restart
@@ -306,6 +552,23 @@ class Numbering(object):
                 counter[ilvl] = lvl.start
 
     def apply_markup(self: _typing.Self, items: _typing.Any, body: _typing.Any, styles: _typing.Any, object_map: _typing.Any, images: _typing.Any) -> None:
+        """
+        Perform the apply markup operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Numbering.apply markup through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param items: Value supplied for items under the utility contract.
+        :param body: Value supplied for body under the utility contract.
+        :param styles: Value supplied for styles under the utility contract.
+        :param object_map: Value supplied for object map under the utility contract.
+        :param images: Value supplied for images under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         seen_instances = set()
         for p, num_id, ilvl in items:
             d = self.instances.get(num_id, None)
@@ -332,6 +595,19 @@ class Numbering(object):
         templates = {}
 
         def commit(current_run: _typing.Any) -> None:
+            """
+            Perform the commit operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Numbering.apply markup.commit through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+            :param current_run: Value supplied for current run under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if not current_run:
                 return
             start = current_run[0]

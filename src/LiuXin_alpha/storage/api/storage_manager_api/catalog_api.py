@@ -1,5 +1,9 @@
 """
-Digital Asset identity registry facade.
+Define the public registry contract for expected atomic Asset identities.
+
+Catalogue declarations, metadata replacement, lookup, and forgetting operate on
+domain records. Byte publication, availability observation, and physical deletion
+belong to separate ingest and Replica operations.
 """
 
 import abc
@@ -17,41 +21,37 @@ from LiuXin_alpha.storage.api.storage_manager_api.models import (
 
 class DigitalAssetRegistryAPI(abc.ABC):
     """
-    Domain operations for known atomic byte identities.
+    Define catalogue operations for expected atomic byte identities and descriptive metadata.
 
-    Implementations may use repositories internally, but this facade accepts
-    and returns domain values rather than database records.
-    Registry operations own content identity and descriptive metadata; they do
-    not publish bytes or assert that a physical Replica currently exists.
+    Callers exchange domain declarations and records rather than database rows. These operations do
+    not publish bytes or establish current Replica availability; implementations own repository
+    persistence, deduplication, and reference constraints.
 
     Example:
-        >>> def lookup(
-        ...     registry: DigitalAssetRegistryAPI,
-        ...     asset_id: DigitalAssetID,
-        ... ) -> DigitalAssetRecord:
-        ...     return registry.get_digital_asset_record(asset_id)
+        >>> asset = registry.get_digital_asset_record(asset_id)  # doctest: +SKIP
     """
 
+    # Todo: As a general design principle, "create declare, then add it" is one necessary step.
+    #  Just make the signature of the function the sig of the dataclass?
+    #  Use the declaration internally if it's needed
     @abc.abstractmethod
     def declare_digital_asset(
         self,
         declaration: DigitalAssetDeclaration,
     ) -> DigitalAssetRecord:
         """
-        Register a known expected byte sequence without creating a Replica.
+        Register an expected byte identity without publishing bytes or creating a Replica.
 
-        Ingest is the usual operation when bytes are available. Declaration is
-        useful for manifests, restoration catalogues, or a known-but-missing
-        Asset.
+        This supports manifests, restoration catalogues, and known-but-missing Assets.
+        Implementations may reuse a matching registered identity and enforce policy prerequisites;
+        use ingest when source bytes should also be stored.
 
         Example:
-            >>> record = registry.declare_digital_asset(  # doctest: +SKIP
-            ...     declaration,
-            ... )
+            >>> asset = registry.declare_digital_asset(declaration)  # doctest: +SKIP
 
 
-        :param declaration:
-        :return:
+        :param declaration: Expected size, digests, metadata, and optional registered policy references.
+        :return: Registered or reused Asset record; no physical Replica is implied.
         """
         ...
 
@@ -61,19 +61,19 @@ class DigitalAssetRegistryAPI(abc.ABC):
         digital_asset_id: DigitalAssetID,
     ) -> DigitalAssetRecord:
         """
-        Return the manager record or raise ``DigitalAssetNotFound``.
+        Resolve one catalogue identity or raise DigitalAssetNotFound; repository failures remain
+        visible.
 
         Example:
-            >>> record = registry.get_digital_asset_record(  # doctest: +SKIP
-            ...     DigitalAssetID(7),
-            ... )
+            >>> asset = registry.get_digital_asset_record(DigitalAssetID(7))  # doctest: +SKIP
 
 
-        :param digital_asset_id:
-        :return:
+        :param digital_asset_id: Manager-assigned atomic Asset ID to resolve.
+        :return: Asset domain record for the requested ID, without a physical availability guarantee.
         """
         ...
 
+    # Todo: Methods to update all the metadata individually
     @abc.abstractmethod
     def update_digital_asset_metadata(
         self,
@@ -83,35 +83,36 @@ class DigitalAssetRegistryAPI(abc.ABC):
         if_revision: str | None = None,
     ) -> DigitalAssetRecord:
         """
-        Replace descriptive metadata without changing byte identity.
+        Replace descriptive metadata while retaining Asset size and digests.
 
-        A stale ``if_revision`` raises ``StoragePreconditionFailed``.
+        A stale supplied revision raises StoragePreconditionFailed. The implementation owns revision
+        advancement and persistence; this operation does not rename or rewrite existing Store
+        objects.
 
         Example:
-            >>> record = registry.update_digital_asset_metadata(  # doctest: +SKIP
-            ...     DigitalAssetID(7), metadata, if_revision="v2",
-            ... )
+            >>> updated = registry.update_digital_asset_metadata(asset_id, metadata, if_revision=asset.revision)  # doctest: +SKIP
 
 
-        :param digital_asset_id:
-        :param metadata:
-        :param if_revision:
-        :return:
+        :param digital_asset_id: Manager-assigned atomic Asset ID to resolve.
+        :param metadata: Complete replacement descriptive metadata, not a field merge.
+        :param if_revision: Expected current revision, or None to omit the optimistic precondition.
+        :return: Asset record carrying the replacement metadata and resulting revision.
         """
         ...
 
+    # Todo: Add itterators with different ordering requirements
     @abc.abstractmethod
     def iter_digital_asset_records(self) -> Iterator[DigitalAssetRecord]:
         """
-        Iterate over known Digital Asset records.
+        Iterate known Asset domain records without discovering physical Store contents.
+
+        Ordering and snapshot guarantees belong to the implementation.
 
         Example:
-            >>> records = list(  # doctest: +SKIP
-            ...     registry.iter_digital_asset_records(),
-            ... )
+            >>> assets = tuple(registry.iter_digital_asset_records())  # doctest: +SKIP
 
 
-        :return:
+        :return: Iterator of registered Asset records, including identities with no available Replica.
         """
         ...
 
@@ -123,20 +124,18 @@ class DigitalAssetRegistryAPI(abc.ABC):
         size_bytes: int | None = None,
     ) -> DigitalAssetRecord | None:
         """
-        Find a deduplication candidate by digest and optional exact size.
+        Find a registered deduplication candidate by digest and optional exact byte count.
 
-        Only genuine absence returns ``None``; repository and connection
-        failures remain visible.
+        Only genuine absence returns None; repository or connection failures propagate. A catalogue
+        match does not establish that a readable physical copy remains.
 
         Example:
-            >>> record = registry.find_digital_asset_record_by_digest(  # doctest: +SKIP
-            ...     Digest("sha256", "a" * 64), size_bytes=42,
-            ... )
+            >>> candidate = registry.find_digital_asset_record_by_digest(digest, size_bytes=42)  # doctest: +SKIP
 
 
-        :param digest:
-        :param size_bytes:
-        :return:
+        :param digest: Expected digest whose algorithm and value must match registered identity evidence.
+        :param size_bytes: Optional exact expected byte count; None leaves size unconstrained.
+        :return: Matching Asset record, or None when no catalogue candidate matches.
         """
         ...
 
@@ -149,20 +148,20 @@ class DigitalAssetRegistryAPI(abc.ABC):
         if_revision: str | None = None,
     ) -> bool:
         """
-        Forget an Asset identity without implying physical byte deletion.
+        Forget a catalogue identity without deleting Store bytes.
 
-        The safe default refuses to forget an Asset with Replica claims.
+        The default refuses existing Replica claims. Disabling that check does not waive all other
+        reference constraints; implementations may still reject composite membership, Item links, or
+        derivation provenance. A supplied revision guards the record mutation.
 
         Example:
-            >>> forgotten = registry.forget_digital_asset(  # doctest: +SKIP
-            ...     DigitalAssetID(7), require_no_replicas=True,
-            ... )
+            >>> removed = registry.forget_digital_asset(asset_id, if_revision=asset.revision)  # doctest: +SKIP
 
 
-        :param digital_asset_id:
-        :param require_no_replicas:
-        :param if_revision:
-        :return:
+        :param digital_asset_id: Manager-assigned atomic Asset ID to resolve.
+        :param require_no_replicas: Whether any remaining Replica claim must prevent removal.
+        :param if_revision: Expected current revision, or None to omit the optimistic precondition.
+        :return: True when the record is removed, or False when it is already absent; constraint and repository errors propagate.
         """
         ...
 

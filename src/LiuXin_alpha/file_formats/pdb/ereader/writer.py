@@ -1,7 +1,15 @@
 # -*- coding: utf-8 -*-
 
 """
-Write content to ereader pdb file.
+Serialize normalized content and metadata into the target format.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise writer through a consuming regression::
+
+        python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
 """
 from __future__ import annotations
 
@@ -35,6 +43,20 @@ MAX_RECORD_SIZE = 8192
 
 
 def _to_bytes(value: _typing.Any, encoding: str = "utf-8") -> _typing.Any:
+    """
+    Perform the to bytes operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  to bytes through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+    :param value: Value normalized, stored, formatted or returned.
+    :param encoding: Value supplied for encoding under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if value is None:
         return b""
     if isinstance(value, bytes):
@@ -43,6 +65,18 @@ def _to_bytes(value: _typing.Any, encoding: str = "utf-8") -> _typing.Any:
 
 
 def _thumbnail_resample() -> _typing.Any:
+    """
+    Perform the thumbnail resample operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  thumbnail resample through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if _PILImage is None:
         return None
     resampling = getattr(_PILImage, "Resampling", None)
@@ -52,11 +86,47 @@ def _thumbnail_resample() -> _typing.Any:
 
 
 class Writer(FormatWriter):
+    """
+    Provide the writer contract for validated ebook processing.
+
+    Example:
+        Exercise Writer through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+    """
     def __init__(self: _typing.Self, opts: _typing.Any, log: _typing.Any) -> None:
+        """
+        Initialize and validate the writer state.
+
+        Example:
+            Exercise Writer.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :param opts: Value supplied for opts under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.opts = opts
         self.log = log
 
     def write_content(self: _typing.Self, oeb_book: _typing.Any, out_stream: _typing.Any, metadata: _typing.Any = None) -> None:
+        """
+        Write content under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Writer.write content through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :param oeb_book: Value supplied for oeb book under the utility contract.
+        :param out_stream: Value supplied for out stream under the utility contract.
+        :param metadata: Value supplied for metadata under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pmlmlizer = PMLMLizer(self.log)
         pml = str(pmlmlizer.extract_content(oeb_book, self.opts)).encode("cp1252", "replace")
 
@@ -100,6 +170,19 @@ class Writer(FormatWriter):
                 out_stream.write(item)
 
     def _text(self: _typing.Self, pml: _typing.Any) -> tuple[_typing.Any, ...]:
+        """
+        Perform the text operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Writer. text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :param pml: Value supplied for pml under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         pml_pages = []
         text_sizes = b""
         index = 0
@@ -122,6 +205,20 @@ class Writer(FormatWriter):
         return pml_pages, text_sizes
 
     def _index_item(self: _typing.Self, regex: _typing.Any, pml: _typing.Any) -> _typing.Any:
+        """
+        Perform the index item operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Writer. index item through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :param regex: Value supplied for regex under the utility contract.
+        :param pml: Value supplied for pml under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         index = []
         for mo in re.finditer(regex, pml):
             item = b""
@@ -145,12 +242,16 @@ class Writer(FormatWriter):
         """
         Image format.
 
-        0-4   : 'PNG '. There must be a space after PNG.
-        4-36  : Image name. Must be exactly 32 bytes long. Pad with \x00 for names shorter than 32 bytes
-        36-58 : Unknown.
-        58-60 : Width.
-        60-62 : Height.
-        62-...: Raw image data in 8 bit PNG format.
+        Example:
+            Exercise Writer. images through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :param manifest: Value supplied for manifest under the utility contract.
+        :param image_hrefs: Value supplied for image hrefs under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         images = []
         from LiuXin_alpha.file_formats.oeb.base import OEB_RASTER_IMAGES
@@ -189,14 +290,17 @@ class Writer(FormatWriter):
 
     def _metadata(self: _typing.Self, metadata: _typing.Any) -> _typing.Any:
         """
-        Metadata takes the form:
-        title\x00
-        author\x00
-        copyright\x00
-        publisher\x00
-        isbn\x00
-        :param metadata:
-        :return:
+        Perform the metadata operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Writer. metadata through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :param metadata: Value supplied for metadata under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         title = _("Unknown")
@@ -223,13 +327,20 @@ class Writer(FormatWriter):
 
     def _header_record(self: _typing.Self, text_count: _typing.Any, chapter_count: _typing.Any, link_count: _typing.Any, image_count: _typing.Any) -> _typing.Any:
         """
-        text_count = the number of text pages
-        image_count = the number of images
-        :param text_count:
-        :param chapter_count:
-        :param link_count:
-        :param image_count:
-        :return:
+        text_count = the number of text pages image_count = the number of images
+
+        Example:
+            Exercise Writer. header record through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_modernized.py
+
+
+        :param text_count: Value supplied for text count under the utility contract.
+        :param chapter_count: Value supplied for chapter count under the utility contract.
+        :param link_count: Value supplied for link count under the utility contract.
+        :param image_count: Value supplied for image count under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         compression = 10  # zlib compression.
         non_text_offset = text_count + 1

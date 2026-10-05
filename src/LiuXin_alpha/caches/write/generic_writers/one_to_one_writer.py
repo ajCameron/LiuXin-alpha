@@ -1,8 +1,6 @@
 
 """
-One to one writers are responsible for writing to a single value item.
-
-This may, or many not, be in another table.
+Write scalar legacy fields in owner columns or linked value tables.
 """
 
 from __future__ import division, absolute_import, print_function, unicode_literals
@@ -16,9 +14,27 @@ from LiuXin_alpha.utils.logging import default_log
 
 
 class OneToOneWriter(BaseWriter):
-    """Coordinate database and cache changes for legacy scalar fields."""
+    """
+    Adapt scalar values and coordinate legacy database and cache updates.
+
+    The metadata table selects the owner-column path only when it equals "books"; other tables use linked-row handling. Public writes filter false values for fields named timestamp, uuid or sort before adaptation.
+
+    Example:
+        With metadata table="books", ``OneToOneWriter(field).set_books({7: value}, db)`` updates the resolved owner column.
+    """
 
     def __init__(self, field):
+        """
+        Initialize scalar adaptation, choose the storage hook and set special-value filtering.
+
+        Example:
+            A field named "uuid" gets ``accept_vals = bool``; a field with metadata table="books" binds one_one_in_books.
+
+
+        :param field: Legacy field supplying metadata and the required table/cache hooks.
+        :return: None; stores field state and the selected update hook.
+        """
+
         super(OneToOneWriter, self).__init__(field)
         self.set_books_func = self.one_one_in_books if field.metadata["table"] == "books" else self.one_one_in_other
 
@@ -28,15 +44,19 @@ class OneToOneWriter(BaseWriter):
     # Todo: Cache updates should be handled by a seperate process (with reference to the docstring)
     def one_one_in_books(self, book_id_val_map, db, field, *args):
         """
-        Set fields for a one-one field in the books/title table.
-        Preform an update of the database and cache for a generic database field.
-        :param book_id_val_map: Keyed with the id of the book and valued with the value to set for in the database.
-        :param db: db object to preform the update on
-        :param field: Object representing the field to update (must have a column item - which describes the column to
-                      update)
-                      Typically an in memory store of the item.
-        :param args:
-        :return affects_ids: The book ids which have been changed by this operation
+        Resolve the legacy destination column, persist values and then update a simple cache.
+
+        Choose the updater by writer name, then derive the column from liuxin_table_name when present, otherwise column. metadata.in_table overrides destination inference; otherwise book/title prefixes choose books/titles, defaulting to titles. Add the matching prefix when absent and rewrite title_pubdate to book_pubdate without changing the selected table. Nonempty updates pass sqlite_datetime-converted values to persistence, then merge original values into book_col_map; AttributeError during that merge is suppressed. Metadata is still required for empty updates, and other errors propagate without undoing persistence.
+
+        Example:
+            With metadata {"column": "sort", "in_table": "titles"}, a value for owner 7 is written to title_sort and its original value is cached afterward.
+
+
+        :param book_id_val_map: Owner IDs mapped to scalar values, normally already accepted/adapted by set_books.
+        :param db: Database adapter used by the row/link helpers; collaborator errors propagate.
+        :param field: Field with required metadata and an optional table.book_col_map cache.
+        :param args: Additional arguments, logged but otherwise ignored.
+        :return: Set of all supplied owner IDs, including values equal to existing storage.
         """
         if args:
             info_str = "unexpected args passed to one_one_in_books"
@@ -93,15 +113,19 @@ class OneToOneWriter(BaseWriter):
     #       actualy one_one in other
     def one_one_in_other(self, book_id_val_map, db, field, *args):
         """
-        Set a one-one field in a non-books table.
-        If a field is not one-one, then the new value is guaranteed to be the highest priority of the item type linked
-        to that book record - but old max value won't be deleted by default.
-        This should provide calibre emulation - while retaining data for later use.
-        :param book_id_val_map:
-        :param db:
-        :param field:
-        :param args:
-        :return:
+        Precheck linked scalar updates, process deletions, then write non-null values.
+
+        Pass the original update mapping, an empty ID map and acceptance/adapter functions to table.update_precheck. Select custom-column, comments or generic linked-row persistence. Deletions run first and remove simple cache entries when complex_update exists and is false. Non-comment successful updates merge raw supplied values into that simple cache. If the updater returns an ID map, return its book projection directly; that branch does not merge deletion markers into the projection. Without an ID map, deletions produce a projection containing only deleted IDs mapped to None. No batch rollback covers these steps.
+
+        Example:
+            A comments replacement returns its new comment-ID/value maps; a deletion-only update ``{7: None}`` returns dirtied={7} and book_col_map={7: None}.
+
+
+        :param book_id_val_map: Owner IDs mapped to scalar values; None requests link removal.
+        :param db: Database adapter used by the row/link helpers; collaborator errors propagate.
+        :param field: Legacy field supplying metadata and the required table/cache hooks.
+        :param args: Additional compatibility arguments, logged but otherwise ignored.
+        :return: An affected-ID set when no ID map or deletions exist; otherwise a dictionary with dirtied, id_map and book_col_map.
         """
         field.table.update_precheck(
             book_id_item_id_map=book_id_val_map,
@@ -179,25 +203,38 @@ class OneToOneWriter(BaseWriter):
     @staticmethod
     def generic_one_one_db_updater(db, values_map, field, table):
         """
-        Generic update method - applies the book_id_val_map to the database.
-        :param db:
-        :param values_map:
-        :param field:
-        :param table:
-        :return:
+        Forward a scalar values map to the database column updater.
+
+        Example:
+            ``generic_one_one_db_updater(db, {7: "Example"}, "title_title", "titles")`` forwards those keyword arguments to db.update_columns.
+
+
+        :param db: Database adapter used by the row/link helpers; collaborator errors propagate.
+        :param values_map: Owner IDs mapped to persistence-ready scalar values.
+        :param field: Resolved physical column name.
+        :param table: Resolved destination table name.
+        :return: None; described persistence side effects happen through the supplied adapter.
         """
         db.update_columns(values_map=values_map, field=field, table=table)
 
     @staticmethod
     def series_index_one_one_db_updater(db, values_map, field, table):
         """
-        Do an update on the series_index - this should update the series index for the primary index of all entries in
-        the values_map - creating a link to the null series if required.
-        :param db: The database to do the update on
-        :param values_map: Keyed with the id of the book and valued with the new series index
-        :param field:
-        :param table:
-        :return:
+        Attempt the legacy series-index helper call for each supplied owner.
+
+        This module currently neither defines nor imports library_set_series_index. A nonempty update therefore raises NameError at the first call unless an external caller has injected that global. Empty mappings return normally; no working series-index persistence is implied by this compatibility hook.
+
+        Example:
+            >>> OneToOneWriter.series_index_one_one_db_updater(None, {}, None, None) is None
+            True
+
+
+        :param db: Database adapter used by the row/link helpers; collaborator errors propagate.
+        :param values_map: Owner IDs mapped to new series-index values.
+        :param field: Compatibility argument not used by this helper.
+        :param table: Compatibility argument not used by this helper.
+        :return: None; described persistence side effects happen through the supplied adapter.
+        :raises NameError: A nonempty mapping reaches the unresolved library_set_series_index global.
         """
         for book_id in values_map:
             series_index_val = values_map[book_id]
@@ -206,12 +243,20 @@ class OneToOneWriter(BaseWriter):
     @staticmethod
     def last_modified_one_one_db_updater(db, values_map, field, table):
         """
-        Do an update on the last_modified field in the books table.
-        :param db: The database to do the update on.
-        :param values_map: Keyed with the book id and valued with the new last_modified value.
-        :param field:
-        :param table:
-        :return:
+        Forward each last-modified value to the legacy books projection adapter.
+
+        Call metadata_sql.update_book_last_modified sequentially. No direct cache update or whole-batch rollback is supplied.
+
+        Example:
+            >>> OneToOneWriter.last_modified_one_one_db_updater(None, {}, None, None) is None
+            True
+
+
+        :param db: Database adapter used by the row/link helpers; collaborator errors propagate.
+        :param values_map: Book IDs mapped to new last-modified values.
+        :param field: Compatibility argument not used by this helper.
+        :param table: Compatibility argument not used by this helper.
+        :return: None; described persistence side effects happen through the supplied adapter.
         """
         for book_id in values_map:
             # Last-modified is a legacy ``books`` projection field, so the
@@ -224,11 +269,19 @@ class OneToOneWriter(BaseWriter):
     @staticmethod
     def comments_one_one_in_other_updater(db, field, updated):
         """
-        Updater for the comments table
-        :param db:
-        :param field:
-        :param updated:
-        :return:
+        Replace each Work comment through Catalog and collect the resulting cache maps.
+
+        Create a Catalog wrapper per Work and call comments.replace_for_wemi with level="work" and data={"text": value}. This helper does not mutate the field cache; successful earlier replacements are not rolled back if a later one fails.
+
+        Example:
+            >>> OneToOneWriter.comments_one_one_in_other_updater(None, None, {})
+            ({}, {})
+
+
+        :param db: Database adapter used by the row/link helpers; collaborator errors propagate.
+        :param field: Compatibility argument not used by this helper.
+        :param updated: Work IDs mapped to comment text.
+        :return: Pair (id_map, book_col_map), mapping returned comment IDs to text and Work IDs to comment IDs.
         """
         id_map = dict()
         book_col_map = dict()
@@ -249,8 +302,18 @@ class OneToOneWriter(BaseWriter):
     @staticmethod
     def generic_one_one_in_other_updater(db, field, updated):
         """
-        Generic one-one in other table updater.
-        :return:
+        Create a comments row per supplied value and link it with legacy table metadata.
+
+        Despite the generic name, each row is created in "comments" and assigned through the "comment" key, then synced and linked. Existing links are not explicitly cleared here. Errors can leave an already-synced row or earlier link changes behind.
+
+        Example:
+            For ``updated={7: "note"}``, create and sync a comments row before calling make_generic_link with owner 7 and the new comment_id.
+
+
+        :param db: Database adapter used by the row/link helpers; collaborator errors propagate.
+        :param field: Field whose table supplies the link name, endpoint columns and priority column.
+        :param updated: Owner IDs mapped to values written into new comment rows.
+        :return: (None, None); no replacement cache maps are returned.
         """
         # Update the database - unlinking the records in the other database from the books - they should be fielded by
         # the maintenance bot
@@ -273,11 +336,18 @@ class OneToOneWriter(BaseWriter):
     @staticmethod
     def cc_one_one_updater(db, field, updated):
         """
-        Updater for the comments table
-        :param db:
-        :param field:
-        :param updated:
-        :return:
+        Break each owner custom-column link, then insert its supplied value ID.
+
+        Use break_cc_lt_link followed by add_cc_link_with_extra for each owner. No value-row creation, explicit extra index, cache refresh or transaction rollback is provided here.
+
+        Example:
+            For ``updated={7: 4}``, clear owner 7 links in the configured custom table and add a link to value ID 4.
+
+
+        :param db: Database adapter used by the row/link helpers; collaborator errors propagate.
+        :param field: Field metadata providing the custom link table under "table".
+        :param updated: Owner IDs mapped to custom-column value IDs.
+        :return: (None, None); no replacement cache maps are returned.
         """
         for book_id, val in iteritems(updated):
 

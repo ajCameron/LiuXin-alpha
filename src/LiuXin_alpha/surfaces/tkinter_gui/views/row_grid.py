@@ -1,4 +1,14 @@
-"""Paged row grid view."""
+"""
+Display tabular library rows in Tk.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise row grid through a consuming regression::
+
+        python -m pytest -q tests/surfaces/test_tkinter_gui.py
+"""
 
 from __future__ import annotations
 
@@ -9,7 +19,14 @@ from ..state import RowPage
 
 
 class RowGrid:
-    """Tabular row browser with selection and paging callbacks."""
+    """
+    Tabular row browser with selection and paging callbacks.
+
+    Example:
+        Exercise RowGrid through a consuming regression::
+
+            python -m pytest -q tests/surfaces/test_tkinter_gui.py
+    """
 
     def __init__(
         self,
@@ -25,6 +42,30 @@ class RowGrid:
         on_next: Callable[[], None],
         on_row_selected: Callable[[object | None], None],
     ) -> None:
+        """
+        Initialize and validate the rowgrid state.
+
+        Example:
+            Exercise RowGrid.  init   through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :param tk: Value supplied for tk under the utility contract.
+        :param ttk: Value supplied for ttk under the utility contract.
+        :param search_column_var: Value supplied for search column var under the utility
+            contract.
+        :param search_text_var: Value supplied for search text var under the utility
+            contract.
+        :param on_search: Value supplied for on search under the utility contract.
+        :param on_clear: Value supplied for on clear under the utility contract.
+        :param on_previous: Value supplied for on previous under the utility contract.
+        :param on_next: Value supplied for on next under the utility contract.
+        :param on_row_selected: Value supplied for on row selected under the utility
+            contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.tk = tk
         self.ttk = ttk
 
@@ -63,9 +104,36 @@ class RowGrid:
         self.set_controls_enabled(False)
 
     def set_search_columns(self, columns: tuple[str, ...]) -> None:
+        """
+        Set search columns under the format's safety and compatibility rules.
+
+        Example:
+            Exercise RowGrid.set search columns through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :param columns: Value supplied for columns under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.search_column_combo.configure(values=columns)
 
     def render_rows(self, page: RowPage, *, backend: TkGuiBackend | None) -> None:
+        """
+        Perform the render rows operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise RowGrid.render rows through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :param page: Value supplied for page under the utility contract.
+        :param backend: Value supplied for backend under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.tree.delete(*self.tree.get_children())
         columns = page.columns or ("row",)
         self.tree.configure(columns=columns)
@@ -78,6 +146,18 @@ class RowGrid:
         self.set_page_state(page)
 
     def clear_rows(self) -> None:
+        """
+        Perform the clear rows operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise RowGrid.clear rows through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.tree.delete(*self.tree.get_children())
         self.tree.configure(columns=())
         self.search_column_combo.configure(values=())
@@ -90,6 +170,21 @@ class RowGrid:
         has_previous: bool = False,
         has_next: bool = False,
     ) -> None:
+        """
+        Set controls enabled under the format's safety and compatibility rules.
+
+        Example:
+            Exercise RowGrid.set controls enabled through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :param enabled: Value supplied for enabled under the utility contract.
+        :param has_previous: Value supplied for has previous under the utility contract.
+        :param has_next: Value supplied for has next under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         search_state = "normal" if enabled else "disabled"
         combo_state = "readonly" if enabled else "disabled"
         self.search_column_combo.configure(state=combo_state)
@@ -100,6 +195,19 @@ class RowGrid:
         self.next_button.configure(state="normal" if enabled and has_next else "disabled")
 
     def set_page_state(self, page: RowPage | None) -> None:
+        """
+        Set page state under the format's safety and compatibility rules.
+
+        Example:
+            Exercise RowGrid.set page state through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :param page: Value supplied for page under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if page is None:
             self.set_controls_enabled(False)
             return
@@ -110,6 +218,18 @@ class RowGrid:
         )
 
     def selected_index(self) -> int | None:
+        """
+        Perform the selected index operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise RowGrid.selected index through a consuming regression::
+
+                python -m pytest -q tests/surfaces/test_tkinter_gui.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         selection = self.tree.selection()
         if not selection:
             return None

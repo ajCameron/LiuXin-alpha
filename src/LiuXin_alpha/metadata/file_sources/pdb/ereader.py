@@ -1,5 +1,13 @@
 """
-Read and write metadata from eReader PDB files.
+Read and rewrite eReader PDB metadata records while preserving wrapper sections, cover data and supported compression constraints.
+
+The module makes ordering, fallback, ownership and optional-integration behavior
+explicit for callers.
+
+Example:
+    Exercise ereader with the owning regression module::
+
+        python -m pytest -q tests/metadata/file_sources/test_pdb_subreader_edge_cases.py
 """
 
 from __future__ import annotations
@@ -21,12 +29,36 @@ __docformat__ = "restructuredtext en"
 
 
 def _clean_text(value: str | None) -> str:
+    """
+    Remove XML-invalid NUL content and surrounding whitespace from an optional text value.
+
+    Example:
+        Exercise  clean text with the owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdb_subreader_edge_cases.py
+
+
+    :param value: Input value or identifier used by the operation.
+    :return: The normalized row, metadata object or value described above.
+    """
     if not value:
         return ""
     return clean_xml_chars(str(value)).replace("\x00", "").strip()
 
 
 def _decode_field(raw: bytes) -> str:
+    """
+    Decode an eReader metadata field as UTF-8 with a cp1252 recovery path.
+
+    Example:
+        Exercise  decode field with the owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdb_subreader_edge_cases.py
+
+
+    :param raw: Raw scalar, bytes or markup value to parse or normalize.
+    :return: The normalized row, metadata object or value described above.
+    """
     if not raw:
         return ""
     try:
@@ -36,6 +68,19 @@ def _decode_field(raw: bytes) -> str:
 
 
 def _safe_section(pheader: PdbHeaderReader, index: int) -> bytes:
+    """
+    Return one PDB section or empty bytes when its declared index cannot be read.
+
+    Example:
+        Exercise  safe section with the owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdb_subreader_edge_cases.py
+
+
+    :param pheader: Parsed PDB wrapper header providing indexed section access.
+    :param index: Section or ordering index used by the operation.
+    :return: The normalized row, metadata object or value described above.
+    """
     try:
         return pheader.section_data(index)
     except Exception:
@@ -43,6 +88,18 @@ def _safe_section(pheader: PdbHeaderReader, index: int) -> bytes:
 
 
 def _normalize_authors(value) -> list[str]:
+    """
+    Normalize scalar, mapping or iterable author input into non-empty strings.
+
+    Example:
+        Exercise  normalize authors with the owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdb_subreader_edge_cases.py
+
+
+    :param value: Input value or identifier used by the operation.
+    :return: The normalized row, metadata object or value described above.
+    """
     if value is None:
         return []
     if isinstance(value, str):
@@ -55,6 +112,19 @@ def _normalize_authors(value) -> list[str]:
 
 
 def get_cover(pheader: PdbHeaderReader, eheader: HeaderRecord):
+    """
+    Return the declared eReader cover PNG payload when a valid cover image section exists.
+
+    Example:
+        Exercise get cover with the owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdb_subreader_edge_cases.py
+
+
+    :param pheader: Parsed PDB wrapper header providing indexed section access.
+    :param eheader: Parsed eReader header record describing metadata and image sections.
+    :return: The normalized row, metadata object or value described above.
+    """
     for i in range(eheader.image_count):
         raw = _safe_section(pheader, eheader.image_data_offset + i)
         if len(raw) < 63:
@@ -67,7 +137,18 @@ def get_cover(pheader: PdbHeaderReader, eheader: HeaderRecord):
 
 def get_metadata(stream, extract_cover: bool = True):
     """
-    Return metadata from an eReader PDB stream.
+    Read normalized metadata using this module's format-specific parser and fallback policy.
+
+    Example:
+        Exercise get metadata with the owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdb_subreader_edge_cases.py
+
+
+    :param stream: Caller-owned seekable binary PDB stream.
+    :param extract_cover: Request cover extraction when the underlying format supports
+        it.
+    :return: The normalized row, metadata object or value described above.
     """
     mi = calibreMetaInformation(None, [_("Unknown")])
     stream.seek(0)
@@ -107,6 +188,18 @@ def get_metadata(stream, extract_cover: bool = True):
 
 
 def _metadata_record_bytes(mi) -> bytes:
+    """
+    Serialize supported eReader fields into the NUL-delimited cp1252 metadata record.
+
+    Example:
+        Exercise  metadata record bytes with the owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdb_subreader_edge_cases.py
+
+
+    :param mi: Metadata object supplying fields to clean, cache or write.
+    :return: The normalized row, metadata object or value described above.
+    """
     title = _clean_text(getattr(mi, "title", "")) or _("Unknown")
     authors = _normalize_authors(getattr(mi, "authors", None))
     author = _clean_text(authors_to_string(authors))
@@ -119,7 +212,17 @@ def _metadata_record_bytes(mi) -> bytes:
 
 def set_metadata(stream, mi) -> None:
     """
-    Write metadata into an eReader PDB stream.
+    Rewrite supported metadata while preserving unrelated PDB sections and caller ownership.
+
+    Example:
+        Exercise set metadata with the owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_pdb_subreader_edge_cases.py
+
+
+    :param stream: Caller-owned seekable binary PDB stream.
+    :param mi: Metadata object supplying fields to clean, cache or write.
+    :return: None.
     """
     stream.seek(0)
     pheader = PdbHeaderReader(stream)

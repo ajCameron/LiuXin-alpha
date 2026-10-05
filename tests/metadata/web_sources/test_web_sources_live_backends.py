@@ -1,3 +1,14 @@
+"""
+Define opt-in live-provider smoke tests with explicit reachability and refusal handling.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test web sources live backends through its owning regression module::
+
+        python -m pytest -q tests/metadata/web_sources/test_web_sources_live_backends.py
+"""
 from __future__ import annotations
 
 import os
@@ -40,25 +51,115 @@ _INTERNET_ARCHIVE_LIVE_COVER_ID = "hobbit0000tolk_r0y9"
 
 
 class _LiveLog:
+    """
+    Provide the LiveLog test fixture or double with explicit deterministic behavior.
+
+    Example:
+        Exercise LiveLog through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_live_backends.py
+    """
     def __init__(self):
+        """
+        Initialize the LiveLog test double.
+
+        Example:
+            Exercise LiveLog.init through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_live_backends.py
+
+
+        :return: None; the function records state or raises through its assertions.
+        """
         self.events = []
 
     def __call__(self, *parts):
+        """
+        Perform the call test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise LiveLog.call through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_live_backends.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("call", parts))
 
     def info(self, *parts):
+        """
+        Perform the info test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise LiveLog.info through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_live_backends.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("info", parts))
 
     def warning(self, *parts):
+        """
+        Perform the warning test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise LiveLog.warning through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_live_backends.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("warning", parts))
 
     def error(self, *parts):
+        """
+        Perform the error test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise LiveLog.error through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_live_backends.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("error", parts))
 
     def exception(self, *parts):
+        """
+        Perform the exception test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise LiveLog.exception through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_live_backends.py
+
+
+        :param parts: Value supplied for parts in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         self.events.append(("exception", parts))
 
     def dump(self) -> str:
+        """
+        Perform the dump test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise LiveLog.dump through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_live_backends.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         lines = []
         for level, parts in self.events:
             lines.append(f"[{level}] " + " ".join(str(x) for x in parts))
@@ -67,11 +168,35 @@ class _LiveLog:
 
 @pytest.fixture(autouse=True)
 def _require_live_flag(request):
+    """
+    Perform the require live flag test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise require live flag through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_live_backends.py
+
+
+    :param request: Pytest request object used to inspect parametrization or fixtures.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     if request.node.name.startswith("test_live_") and not _LIVE_ENABLED:
         pytest.skip("Live web backend tests disabled. Set LIUXIN_RUN_LIVE_WEB_TESTS=1 to run them.")
 
 
 def _drain_queue(q: Queue):
+    """
+    Perform the drain queue test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise drain queue through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_live_backends.py
+
+
+    :param q: Value supplied for q in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     out = []
     while True:
         try:
@@ -82,6 +207,20 @@ def _drain_queue(q: Queue):
 
 
 def _run_timed_live_phase(label: str, log: "_LiveLog", callback):
+    """
+    Perform the run timed live phase test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise run timed live phase through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_live_backends.py
+
+
+    :param label: Value supplied for label in the focused test operation.
+    :param log: Value supplied for log in the focused test operation.
+    :param callback: Value supplied for callback in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     started = time.perf_counter()
     try:
         result = callback()
@@ -95,6 +234,19 @@ def _run_timed_live_phase(label: str, log: "_LiveLog", callback):
 
 
 def _probe_host(host: str, port: int = 443) -> tuple[bool, str]:
+    """
+    Perform the probe host test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise probe host through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_live_backends.py
+
+
+    :param host: Value supplied for host in the focused test operation.
+    :param port: Value supplied for port in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     key = (host, int(port))
     cached = _PROBE_CACHE.get(key)
     if cached is not None:
@@ -125,6 +277,18 @@ def _probe_host(host: str, port: int = 443) -> tuple[bool, str]:
 
 
 def _require_hosts(*hosts: str) -> None:
+    """
+    Perform the require hosts test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise require hosts through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_live_backends.py
+
+
+    :param hosts: Value supplied for hosts in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     failures = []
     for host in hosts:
         ok, reason = _probe_host(host, 443)
@@ -141,6 +305,22 @@ def _known_live_exception_reason(
     statuses: set[int] | frozenset[int] = _COMMON_LIVE_REFUSAL_STATUS,
     message_fragments: tuple[str, ...] = _COMMON_LIVE_NETWORK_FRAGMENTS,
 ) -> str | None:
+    """
+    Perform the known live exception reason test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise known live exception reason through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_live_backends.py
+
+
+    :param source_name: Value supplied for source name in the focused test operation.
+    :param err: Value supplied for err in the focused test operation.
+    :param statuses: Value supplied for statuses in the focused test operation.
+    :param message_fragments: Value supplied for message fragments in the focused test
+        operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     status = error_status_code(err)
     text = str(err)
     lowered = text.lower()
@@ -162,6 +342,23 @@ def _skip_known_live_exception(
     statuses: set[int] | frozenset[int] = _COMMON_LIVE_REFUSAL_STATUS,
     message_fragments: tuple[str, ...] = _COMMON_LIVE_NETWORK_FRAGMENTS,
 ) -> None:
+    """
+    Perform the skip known live exception test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise skip known live exception through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_live_backends.py
+
+
+    :param source_name: Value supplied for source name in the focused test operation.
+    :param err: Value supplied for err in the focused test operation.
+    :param log: Value supplied for log in the focused test operation.
+    :param statuses: Value supplied for statuses in the focused test operation.
+    :param message_fragments: Value supplied for message fragments in the focused test
+        operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     reason = _known_live_exception_reason(
         source_name,
         err,
@@ -177,7 +374,26 @@ def _skip_known_live_exception(
 
 
 def test_known_live_exception_reason_matches_status_and_fragments() -> None:
+    """
+    Verify known live exception reason matches status and fragments.
+
+    Example:
+        Exercise test known live exception reason matches status and fragments through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_live_backends.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     class _RateLimited(Exception):
+        """
+        Provide the RateLimited test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test known live exception reason matches status and fragments.RateLimited through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_live_backends.py
+        """
         code = 429
 
     assert "HTTP 429" in (
@@ -193,6 +409,19 @@ def test_known_live_exception_reason_matches_status_and_fragments() -> None:
 
 
 def test_run_timed_live_phase_logs_success_and_failure(monkeypatch) -> None:
+    """
+    Verify run timed live phase logs success and failure.
+
+    Example:
+        Exercise test run timed live phase logs success and failure through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_live_backends.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     ticks = iter([10.0, 12.345, 20.0, 20.5])
     monkeypatch.setattr(time, "perf_counter", lambda: next(ticks))
     log = _LiveLog()
@@ -200,6 +429,17 @@ def test_run_timed_live_phase_logs_success_and_failure(monkeypatch) -> None:
     assert _run_timed_live_phase("success phase", log, lambda: "ok") == "ok"
 
     def fail():
+        """
+        Perform the fail test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test run timed live phase logs success and failure.fail through its owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_live_backends.py
+
+
+        :return: The deterministic value, row, identity or collection described above.
+        """
         raise RuntimeError("boom")
 
     with pytest.raises(RuntimeError, match="boom"):
@@ -211,6 +451,17 @@ def test_run_timed_live_phase_logs_success_and_failure(monkeypatch) -> None:
 
 
 def test_live_openlibrary_download_cover() -> None:
+    """
+    Verify live openlibrary download cover.
+
+    Example:
+        Exercise test live openlibrary download cover through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_live_backends.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     _require_hosts("covers.openlibrary.org")
     plugin = OpenLibrary()
     log = _LiveLog()
@@ -232,6 +483,17 @@ def test_live_openlibrary_download_cover() -> None:
 
 
 def test_live_google_identify_and_cover() -> None:
+    """
+    Verify live google identify and cover.
+
+    Example:
+        Exercise test live google identify and cover through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_live_backends.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     _require_hosts("www.googleapis.com", "books.google.com")
     plugin = GoogleBooks()
     log = _LiveLog()
@@ -278,6 +540,17 @@ def test_live_google_identify_and_cover() -> None:
 
 
 def test_live_google_images_search_and_download() -> None:
+    """
+    Verify live google images search and download.
+
+    Example:
+        Exercise test live google images search and download through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_live_backends.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     _require_hosts("www.google.com")
     plugin = GoogleImages()
     log = _LiveLog()
@@ -305,6 +578,17 @@ def test_live_google_images_search_and_download() -> None:
 
 
 def test_live_library_of_congress_identify() -> None:
+    """
+    Verify live library of congress identify.
+
+    Example:
+        Exercise test live library of congress identify through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_live_backends.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     _require_hosts("www.loc.gov")
     plugin = LibraryOfCongress()
     log = _LiveLog()
@@ -331,6 +615,17 @@ def test_live_library_of_congress_identify() -> None:
 
 
 def test_live_internet_archive_identify() -> None:
+    """
+    Verify live internet archive identify.
+
+    Example:
+        Exercise test live internet archive identify through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_live_backends.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     _require_hosts("archive.org")
     plugin = InternetArchive()
     log = _LiveLog()
@@ -363,6 +658,17 @@ def test_live_internet_archive_identify() -> None:
 
 
 def test_live_internet_archive_cover_by_identifier() -> None:
+    """
+    Verify live internet archive cover by identifier.
+
+    Example:
+        Exercise test live internet archive cover by identifier through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_live_backends.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     _require_hosts("archive.org")
     plugin = InternetArchive()
     log = _LiveLog()
@@ -393,6 +699,17 @@ def test_live_internet_archive_cover_by_identifier() -> None:
 
 
 def test_live_wikidata_identify_direct_qid() -> None:
+    """
+    Verify live wikidata identify direct qid.
+
+    Example:
+        Exercise test live wikidata identify direct qid through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_live_backends.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     _require_hosts("www.wikidata.org")
     plugin = Wikidata()
     log = _LiveLog()
@@ -420,6 +737,17 @@ def test_live_wikidata_identify_direct_qid() -> None:
 
 
 def test_live_big_book_search_query() -> None:
+    """
+    Verify live big book search query.
+
+    Example:
+        Exercise test live big book search query through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_live_backends.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     _require_hosts("www.bigbooksearch.com")
     plugin = BigBookSearch()
     log = _LiveLog()
@@ -436,6 +764,17 @@ def test_live_big_book_search_query() -> None:
 
 
 def test_live_douban_identify_by_isbn() -> None:
+    """
+    Verify live douban identify by isbn.
+
+    Example:
+        Exercise test live douban identify by isbn through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_live_backends.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     _require_hosts("api.douban.com")
     plugin = Douban()
     log = _LiveLog()
@@ -460,6 +799,17 @@ def test_live_douban_identify_by_isbn() -> None:
 
 
 def test_live_amazon_identify_by_asin() -> None:
+    """
+    Verify live amazon identify by asin.
+
+    Example:
+        Exercise test live amazon identify by asin through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_live_backends.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     _require_hosts("www.amazon.com")
     plugin = Amazon()
     log = _LiveLog()
@@ -485,6 +835,17 @@ def test_live_amazon_identify_by_asin() -> None:
 
 
 def test_live_overdrive_identify_and_cover() -> None:
+    """
+    Verify live overdrive identify and cover.
+
+    Example:
+        Exercise test live overdrive identify and cover through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_live_backends.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     _require_hosts("www.overdrive.com")
     plugin = OverDrive()
     log = _LiveLog()
@@ -532,6 +893,17 @@ def test_live_overdrive_identify_and_cover() -> None:
 
 
 def test_live_ozon_identify_and_cover() -> None:
+    """
+    Verify live ozon identify and cover.
+
+    Example:
+        Exercise test live ozon identify and cover through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_live_backends.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     _require_hosts("www.ozon.ru")
     plugin = Ozon()
     log = _LiveLog()
@@ -592,6 +964,17 @@ def test_live_ozon_identify_and_cover() -> None:
 
 @pytest.mark.xfail(reason="xISBN service is decommissioned; best-effort live probe only", strict=False)
 def test_live_xisbn_best_effort_probe() -> None:
+    """
+    Verify live xisbn best effort probe.
+
+    Example:
+        Exercise test live xisbn best effort probe through its owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_live_backends.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     _require_hosts("xisbn.worldcat.org")
     x = xISBN(enable_network=True)
     data = x.fetch_data("9780140328721")

@@ -1,7 +1,15 @@
 # -*- coding: utf-8 -*-
 
 """
-Convert pml markup to and from html
+Convert PML markup and resources into normalized OEB content.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise pmlconverter through a consuming regression::
+
+        python -m pytest -q tests/file_formats/pml/test_pml_modernized.py
 """
 from __future__ import annotations
 
@@ -23,6 +31,14 @@ __docformat__ = "restructuredtext en"
 
 class PML_HTMLizer(object):
 
+    """
+    Provide the pml htmlizer contract for validated ebook processing.
+
+    Example:
+        Exercise PML HTMLizer through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pml/test_pml_modernized.py
+    """
     STATES = [
         "i",
         "u",
@@ -160,6 +176,17 @@ class PML_HTMLizer(object):
     }
 
     def __init__(self: _typing.Self) -> None:
+        """
+        Initialize and validate the pml htmlizer state.
+
+        Example:
+            Exercise PML HTMLizer.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pml/test_pml_modernized.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         self.state = {}
         # toc consists of a tuple
         # (level, (href, id, text))
@@ -169,6 +196,19 @@ class PML_HTMLizer(object):
     def prepare_pml(self: _typing.Self, pml: _typing.Any) -> _typing.Any:
         # Give Chapters the form \\*='text'text\\*. This is used for generating
         # the TOC later.
+        """
+        Perform the prepare pml operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PML HTMLizer.prepare pml through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pml/test_pml_modernized.py
+
+
+        :param pml: Value supplied for pml under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         pml = re.sub(
             r"(?msu)(?P<c>\\x)(?P<text>.*?)(?P=c)",
             lambda match: '%s="%s"%s%s'
@@ -234,6 +274,19 @@ class PML_HTMLizer(object):
         return pml
 
     def strip_pml(self: _typing.Self, pml: _typing.Any) -> _typing.Any:
+        """
+        Perform the strip pml operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PML HTMLizer.strip pml through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pml/test_pml_modernized.py
+
+
+        :param pml: Value supplied for pml under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         pml = re.sub(r'\\C\d=".*"', "", pml)
         pml = re.sub(r'\\Fn=".*"', "", pml)
         pml = re.sub(r'\\Sd=".*"', "", pml)
@@ -252,6 +305,19 @@ class PML_HTMLizer(object):
         return pml
 
     def cleanup_html(self: _typing.Self, html: _typing.Any) -> _typing.Any:
+        """
+        Perform the cleanup html operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PML HTMLizer.cleanup html through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pml/test_pml_modernized.py
+
+
+        :param html: Value supplied for html under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         old = html
         html = self.cleanup_html_remove_redundant(html)
         while html != old:
@@ -261,6 +327,19 @@ class PML_HTMLizer(object):
         return html
 
     def cleanup_html_remove_redundant(self: _typing.Self, html: _typing.Any) -> _typing.Any:
+        """
+        Perform the cleanup html remove redundant operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PML HTMLizer.cleanup html remove redundant through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pml/test_pml_modernized.py
+
+
+        :param html: Value supplied for html under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         for key in self.STATES_TAGS.keys():
             tag_open, tag_close = self.STATES_TAGS[key]
             if key in self.STATES_VALUE_REQ:
@@ -271,6 +350,18 @@ class PML_HTMLizer(object):
         return html
 
     def start_line(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the start line operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PML HTMLizer.start line through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pml/test_pml_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         start = ""
 
         state = deepcopy(self.state)
@@ -303,6 +394,18 @@ class PML_HTMLizer(object):
         return "<p>%s" % start
 
     def end_line(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the end line operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PML HTMLizer.end line through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pml/test_pml_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         end = ""
 
         div = []
@@ -326,6 +429,22 @@ class PML_HTMLizer(object):
         return "%s</p>" % end
 
     def process_code(self: _typing.Self, code: _typing.Any, stream: _typing.Any, pre: str = "") -> _typing.Any:
+        """
+        Perform the process code operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PML HTMLizer.process code through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pml/test_pml_modernized.py
+
+
+        :param code: Value supplied for code under the utility contract.
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param pre: Value supplied for pre under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         text = ""
 
         code = self.CODE_STATES.get(code, None)
@@ -352,6 +471,21 @@ class PML_HTMLizer(object):
 
     def process_code_simple(self: _typing.Self, code: _typing.Any, stream: _typing.Any) -> _typing.Any:
 
+        """
+        Perform the process code simple operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PML HTMLizer.process code simple through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pml/test_pml_modernized.py
+
+
+        :param code: Value supplied for code under the utility contract.
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.state[code][0]:
             if code in self.STATES_CLOSE_VALUE_REQ:
                 text = self.STATES_TAGS[code][1] % self.state[code][1]
@@ -371,6 +505,21 @@ class PML_HTMLizer(object):
         return text
 
     def process_code_div(self: _typing.Self, code: _typing.Any, stream: _typing.Any) -> _typing.Any:
+        """
+        Perform the process code div operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PML HTMLizer.process code div through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pml/test_pml_modernized.py
+
+
+        :param code: Value supplied for code under the utility contract.
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         text = ""
 
         # Close code.
@@ -431,6 +580,21 @@ class PML_HTMLizer(object):
         return text
 
     def process_code_span(self: _typing.Self, code: _typing.Any, stream: _typing.Any) -> _typing.Any:
+        """
+        Perform the process code span operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PML HTMLizer.process code span through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pml/test_pml_modernized.py
+
+
+        :param code: Value supplied for code under the utility contract.
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         text = ""
 
         # Close code.
@@ -472,6 +636,22 @@ class PML_HTMLizer(object):
         return text
 
     def process_code_block(self: _typing.Self, code: _typing.Any, stream: _typing.Any, pre: str = "") -> _typing.Any:
+        """
+        Perform the process code block operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PML HTMLizer.process code block through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pml/test_pml_modernized.py
+
+
+        :param code: Value supplied for code under the utility contract.
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param pre: Value supplied for pre under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         text = ""
 
         # Close all spans
@@ -520,6 +700,20 @@ class PML_HTMLizer(object):
         return text
 
     def code_value(self: _typing.Self, stream: _typing.Any) -> _typing.Any:
+        """
+        Perform the code value operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PML HTMLizer.code value through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pml/test_pml_modernized.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         value = ""
         # state 0 is before =
         # state 1 is before the first "
@@ -564,6 +758,20 @@ class PML_HTMLizer(object):
         return value.strip()
 
     def parse_pml(self: _typing.Self, pml: _typing.Any, file_name: str = "") -> _typing.Any:
+        """
+        Parse pml under the format's safety and compatibility rules.
+
+        Example:
+            Exercise PML HTMLizer.parse pml through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pml/test_pml_modernized.py
+
+
+        :param pml: Value supplied for pml under the utility contract.
+        :param file_name: Value supplied for file name under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         pml = self.prepare_pml(pml)
         output = []
 
@@ -739,12 +947,14 @@ class PML_HTMLizer(object):
         """
         Toc can have up to 5 levels, 0 - 4 inclusive.
 
-        This function will add items to their appropriate
-        depth in the TOC tree. If the specified depth is
-        invalid (item would not have a valid parent) add
-        it to the next valid level above the specified
-        level.
-        :return:
+        Example:
+            Exercise PML HTMLizer.get toc through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pml/test_pml_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # Base toc object all items will be added to.
         n_toc = TOC()
@@ -810,11 +1020,39 @@ class PML_HTMLizer(object):
 
 
 def pml_to_html(pml: _typing.Any) -> _typing.Any:
+    """
+    Perform the pml to html operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise pml to html through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pml/test_pml_modernized.py
+
+
+    :param pml: Value supplied for pml under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     hizer = PML_HTMLizer()
     return hizer.parse_pml(pml)
 
 
 def footnote_sidebar_to_html(pre_id: _typing.Any, id: _typing.Any, pml: _typing.Any) -> _typing.Any:
+    """
+    Perform the footnote sidebar to html operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise footnote sidebar to html through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pml/test_pml_modernized.py
+
+
+    :param pre_id: Value supplied for pre id under the utility contract.
+    :param id: Value supplied for id under the utility contract.
+    :param pml: Value supplied for pml under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     id = id.strip("\x01")
     if id.strip():
         html = (
@@ -827,8 +1065,36 @@ def footnote_sidebar_to_html(pre_id: _typing.Any, id: _typing.Any, pml: _typing.
 
 
 def footnote_to_html(id: _typing.Any, pml: _typing.Any) -> _typing.Any:
+    """
+    Perform the footnote to html operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise footnote to html through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pml/test_pml_modernized.py
+
+
+    :param id: Value supplied for id under the utility contract.
+    :param pml: Value supplied for pml under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return footnote_sidebar_to_html("fn", id, pml)
 
 
 def sidebar_to_html(id: _typing.Any, pml: _typing.Any) -> _typing.Any:
+    """
+    Perform the sidebar to html operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise sidebar to html through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pml/test_pml_modernized.py
+
+
+    :param id: Value supplied for id under the utility contract.
+    :param pml: Value supplied for pml under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return footnote_sidebar_to_html("sb", id, pml)

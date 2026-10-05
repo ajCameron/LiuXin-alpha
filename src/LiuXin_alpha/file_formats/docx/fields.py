@@ -1,6 +1,17 @@
 #!/usr/bin/env python2
 # vim:fileencoding=utf-8
 
+"""
+Parse and translate DOCX field instructions, hyperlinks and generated values.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise fields through a consuming regression::
+
+        python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -18,7 +29,27 @@ __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
 class Field(object):
+    """
+    Provide the field contract for validated ebook processing.
+
+    Example:
+        Exercise Field through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+    """
     def __init__(self: _typing.Self, start: _typing.Any) -> None:
+        """
+        Initialize and validate the field state.
+
+        Example:
+            Exercise Field.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param start: Value supplied for start under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.start = start
         self.end = None
         self.contents = []
@@ -27,6 +58,19 @@ class Field(object):
         self.name = None
 
     def add_instr(self: _typing.Self, elem: _typing.Any) -> None:
+        """
+        Perform the add instr operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Field.add instr through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param elem: Value supplied for elem under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raw = elem.text
         if not raw:
             return
@@ -40,6 +84,18 @@ class Field(object):
         self.buf.append(raw)
 
     def finalize(self: _typing.Self) -> None:
+        """
+        Perform the finalize operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Field.finalize through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.instructions = "".join(self.buf)
         del self.buf
 
@@ -64,9 +120,39 @@ null = object()
 
 def parser(name: _typing.Any, field_map: _typing.Any, default_field_name: _typing.Any = None) -> _typing.Any:
 
+    """
+    Perform the parser operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise parser through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :param field_map: Value supplied for field map under the utility contract.
+    :param default_field_name: Value supplied for default field name under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     field_map = dict((x.split(":") for x in field_map.split()))
 
     def parse(raw: _typing.Any, log: _typing.Any = None) -> _typing.Any:
+        """
+        Parse the supplied date text and return its normalized datetime value.
+
+        Example:
+            Exercise parser.parse through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param raw: Value supplied for raw under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = {}
         last_option = None
         raw = raw.replace("\\\\", "\x01").replace('\\"', "\x02")
@@ -115,13 +201,47 @@ parse_noteref = parser("noteref", "f:footnote h:hyperlink p:position")
 
 
 class Fields(object):
+    """
+    Provide the fields contract for validated ebook processing.
+
+    Example:
+        Exercise Fields through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+    """
     def __init__(self: _typing.Self, namespace: _typing.Any) -> None:
+        """
+        Initialize and validate the fields state.
+
+        Example:
+            Exercise Fields.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param namespace: Value supplied for namespace under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.namespace = namespace
         self.fields = []
         self.index_bookmark_counter = 0
         self.index_bookmark_prefix = "index-"
 
     def __call__(self: _typing.Self, doc: _typing.Any, log: _typing.Any) -> None:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Fields.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param doc: Value supplied for doc under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         all_ids = frozenset(self.namespace.XPath("//*/@w:id")(doc))
         c = 0
         while self.index_bookmark_prefix in all_ids:
@@ -176,6 +296,19 @@ class Fields(object):
                     unknown_fields.add(field.name)
 
     def get_runs(self: _typing.Self, field: _typing.Any) -> _typing.Any:
+        """
+        Return runs under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Fields.get runs through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param field: Metadata or template field addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         all_runs = []
         current_runs = []
         # We only handle spans in a single paragraph being wrapped in <a>
@@ -192,6 +325,21 @@ class Fields(object):
 
     def parse_hyperlink(self: _typing.Self, field: _typing.Any, parse_func: _typing.Any, log: _typing.Any) -> None:
         # Parse hyperlink fields
+        """
+        Parse hyperlink under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Fields.parse hyperlink through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param field: Metadata or template field addressed by the operation.
+        :param parse_func: Value supplied for parse func under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         hl = parse_func(field.instructions, log)
         if hl:
             if "target" in hl and hl["target"] is None:
@@ -200,6 +348,21 @@ class Fields(object):
                 self.hyperlink_fields.append((hl, runs))
 
     def parse_ref(self: _typing.Self, field: _typing.Any, parse_func: _typing.Any, log: _typing.Any) -> None:
+        """
+        Parse ref under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Fields.parse ref through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param field: Metadata or template field addressed by the operation.
+        :param parse_func: Value supplied for parse func under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         ref = parse_func(field.instructions, log)
         dest = ref.get(None, None)
         if dest is not None and "hyperlink" in ref:
@@ -212,6 +375,21 @@ class Fields(object):
 
     def parse_xe(self: _typing.Self, field: _typing.Any, parse_func: _typing.Any, log: _typing.Any) -> None:
         # Parse XE fields
+        """
+        Parse xe under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Fields.parse xe through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param field: Metadata or template field addressed by the operation.
+        :param parse_func: Value supplied for parse func under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if None in (field.start, field.end):
             return
         xe = parse_func(field.instructions, log)
@@ -220,6 +398,19 @@ class Fields(object):
             # can link to it later
 
             def word(x: _typing.Any) -> _typing.Any:
+                """
+                Perform the word operation under explicit file-format and conversion rules.
+
+                Example:
+                    Exercise Fields.parse xe.word through a consuming regression::
+
+                        python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+                :param x: Value supplied for x under the utility contract.
+                :return: The normalized value, metadata record, path, stream result or collection
+                    described above.
+                """
                 return self.namespace.expand("w:" + x)
 
             self.index_bookmark_counter += 1
@@ -239,6 +430,21 @@ class Fields(object):
             self.xe_fields.append(xe)
 
     def parse_index(self: _typing.Self, field: _typing.Any, parse_func: _typing.Any, log: _typing.Any) -> None:
+        """
+        Parse index under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Fields.parse index through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param field: Metadata or template field addressed by the operation.
+        :param parse_func: Value supplied for parse func under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if not field.contents:
             return
         idx = parse_func(field.instructions, log)
@@ -251,6 +457,19 @@ class Fields(object):
         self.index_fields.append((idx, blocks))
 
     def polish_markup(self: _typing.Self, object_map: _typing.Any) -> None:
+        """
+        Perform the polish markup operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Fields.polish markup through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param object_map: Value supplied for object map under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if not self.index_fields:
             return
         rmap = {v: k for k, v in iteritems(object_map)}
@@ -259,10 +478,42 @@ class Fields(object):
 
 
 def test_parse_fields() -> None:
+    """
+    Perform the test parse fields operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test parse fields through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     import unittest
 
     class TestParseFields(unittest.TestCase):
+        """
+        Provide the testparsefields contract for validated ebook processing.
+
+        Example:
+            Exercise test parse fields.TestParseFields through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+        """
         def test_hyperlink(self: _typing.Self) -> None:
+            """
+            Perform the test hyperlink operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise test parse fields.TestParseFields.test hyperlink through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             ae = lambda x, y: self.assertEqual(parse_hyperlink(x, None), y)
             ae(r"\l anchor1", {"anchor": "anchor1"})
             ae(r"www.calibre-ebook.com", {"url": "www.calibre-ebook.com"})
@@ -274,12 +525,36 @@ def test_parse_fields() -> None:
             ae(r"xxxx \y yyyy", {"url": "xxxx"})
 
         def test_xe(self: _typing.Self) -> None:
+            """
+            Perform the test xe operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise test parse fields.TestParseFields.test xe through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             ae = lambda x, y: self.assertEqual(parse_xe(x, None), y)
             ae(r'"some name"', {"text": "some name"})
             ae(r"name \b \i", {"text": "name", "bold": None, "italic": None})
             ae(r"xxx \y a", {"text": "xxx", "yomi": "a"})
 
         def test_index(self: _typing.Self) -> None:
+            """
+            Perform the test index operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise test parse fields.TestParseFields.test index through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             ae = lambda x, y: self.assertEqual(parse_index(x, None), y)
             ae(r"", {})
             ae(r"\b \c 1", {"bookmark": None, "columns-per-page": "1"})

@@ -1,12 +1,14 @@
-"""Writable ZIP archive Store plugin."""
+"""
+Expose the ZIP Store that publishes writes by rebuilding its container.
 
-from LiuXin_alpha.storage.api import Location
+Locations and observed file metadata use the shared storage API values.
+The imported implementation owns backend construction and physical operations.
+"""
+
 from LiuXin_alpha.storage.store_backend_plugins.archive_backends import (
     ZipWritableStorageBackend,
 )
 
-
-ZipWritableStoreLocation = Location
-
-
-__all__ = ["ZipWritableStorageBackend", "ZipWritableStoreLocation"]
+__all__ = [
+    "ZipWritableStorageBackend",
+]

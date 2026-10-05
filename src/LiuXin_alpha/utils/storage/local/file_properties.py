@@ -1,6 +1,14 @@
 
 """
-Macros to get various properties of files more conveniently.
+Read normalized local file size, timestamp and identity properties.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise file properties through a consuming regression::
+
+        python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
 """
 
 
@@ -15,8 +23,15 @@ def get_file_name(file_path: str) -> str:
     """
     Returns the raw name of a file as a string.
 
-    :param file_path:
-    :return:
+    Example:
+        Exercise get file name through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param file_path: Value supplied for file path under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
 
     file_path_local = six_unicode(file_path)
@@ -43,6 +58,19 @@ def get_file_name(file_path: str) -> str:
 
 def get_file_ext(file_in: str) -> str:
 
+    """
+    Return file ext under the documented compatibility and safety rules.
+
+    Example:
+        Exercise get file ext through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param file_in: Value supplied for file in under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     file_in = six_unicode(file_in)
 
     _, file_extension = os.path.splitext(file_in)
@@ -56,8 +84,15 @@ def get_file_name_and_ext(
     """
     Takes the file path and works back to give the file name and extension
 
-    :param file_path:
-    :return:
+    Example:
+        Exercise get file name and ext through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param file_path: Value supplied for file path under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
 
     file_path_local = six_unicode(file_path)
@@ -76,10 +111,16 @@ def get_file_hash(file_path: str, blocksize: int = 64 * 1024) -> str:
     """
     Receives a file path. Returns a hash for that file.
 
-    Now with additional length, due to an observed collision in sha-512.
-    :param file_path: A path to the file in question
-    :param blocksize:
-    :return:
+    Example:
+        Exercise get file hash through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param file_path: Value supplied for file path under the utility contract.
+    :param blocksize: Value supplied for blocksize under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     # Declaring this as a default causes hash return to be non-deterministic.
     hasher = hashlib.sha512()
@@ -104,8 +145,15 @@ def get_file_size(file_in: str) -> int:
     """
     Calculates the file size in bits and returns an integer (not a long).
 
-    :param file_in:
-    :return file_size: In bytes
+    Example:
+        Exercise get file size through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param file_in: Value supplied for file in under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return int(os.path.getsize(file_in))
 
@@ -114,9 +162,16 @@ def ext_equality(ext1: str, ext2: str) -> bool:
     """
     Tells you if both extensions belong to the same sub-type.
 
-    :param ext1:
-    :param ext2:
-    :return:
+    Example:
+        Exercise ext equality through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param ext1: Value supplied for ext1 under the utility contract.
+    :param ext2: Value supplied for ext2 under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     # .rar files ... what can you do?
 
@@ -132,8 +187,14 @@ def is_ext_rar(ext) -> bool:
     """
     Returns True if an extension is .rar
 
-    :param ext:
-    :return:
+    Example:
+        Exercise is ext rar through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param ext: Value supplied for ext under the utility contract.
+    :return: True when the documented condition holds; otherwise False.
     """
     ext = six_unicode(ext).lower().strip()
     if ext == ".rar":
@@ -155,8 +216,16 @@ def get_all_file_properties(path):
     """
     Takes a path to a file. Returns a dictionary of useful values.
 
-    :param path: Path to the file you want the information from
-    :return:
+    Example:
+        Exercise get all file properties through a consuming regression::
+
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     # Useful when adding books to get all the values that the new books database requires
     # This method is only for files which are of on_disk type - should be merged into the on_disk folder_store_driver

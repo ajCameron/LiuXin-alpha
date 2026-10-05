@@ -1,3 +1,14 @@
+"""
+Verify metadata worker serialization, routing and failure isolation.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test worker metadata source through its owning regression module::
+
+        python -m pytest -q tests/metadata/file_sources/test_worker_metadata_source.py
+"""
 from __future__ import annotations
 
 import io
@@ -8,6 +19,18 @@ from LiuXin_alpha.metadata.utils import calibreMetaInformation
 
 
 def _values(raw):
+    """
+    Perform the values test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise values through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_worker_metadata_source.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     if raw is None:
         return []
     if isinstance(raw, Mapping):
@@ -21,12 +44,37 @@ def _values(raw):
 
 
 def test_worker_module_import_smoke() -> None:
+    """
+    Verify worker module import smoke.
+
+    Example:
+        Exercise test worker module import smoke through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_worker_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.worker as worker
 
     assert worker is not None
 
 
 def test_metadata_from_formats_prefers_opf_when_available(tmp_path: Path, monkeypatch) -> None:
+    """
+    Verify metadata from formats prefers opf when available.
+
+    Example:
+        Exercise test metadata from formats prefers opf when available through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_worker_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources import worker
 
     txt = tmp_path / "book.txt"
@@ -39,6 +87,19 @@ def test_metadata_from_formats_prefers_opf_when_available(tmp_path: Path, monkey
     calls = []
 
     def fake_get_metadata(path, force_type=False):
+        """
+        Perform the fake get metadata test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test metadata from formats prefers opf when available.fake get metadata through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_worker_metadata_source.py
+
+
+        :param path: Value supplied for path in the focused test operation.
+        :param force_type: Value supplied for force type in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         ext = str(force_type or Path(path).suffix.lstrip(".")).lower()
         calls.append(ext)
         if ext == "opf":
@@ -54,6 +115,20 @@ def test_metadata_from_formats_prefers_opf_when_available(tmp_path: Path, monkey
 
 
 def test_serialize_metadata_for_writes_cover_and_opf(tmp_path: Path, monkeypatch) -> None:
+    """
+    Verify serialize metadata for writes cover and opf.
+
+    Example:
+        Exercise test serialize metadata for writes cover and opf through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_worker_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources import worker
 
     md = calibreMetaInformation("Serialized", ["Author"])
@@ -73,6 +148,20 @@ def test_serialize_metadata_for_writes_cover_and_opf(tmp_path: Path, monkeypatch
 
 
 def test_run_import_plugins_flattens_groups_and_preserves_basename(tmp_path: Path, monkeypatch) -> None:
+    """
+    Verify run import plugins flattens groups and preserves basename.
+
+    Example:
+        Exercise test run import plugins flattens groups and preserves basename through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_worker_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources import worker
 
     a = tmp_path / "a.txt"
@@ -83,6 +172,18 @@ def test_run_import_plugins_flattens_groups_and_preserves_basename(tmp_path: Pat
     converted.write_text("converted", encoding="utf-8")
 
     def fake_run_plugins(path):
+        """
+        Perform the fake run plugins test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test run import plugins flattens groups and preserves basename.fake run plugins through its owning regression module::
+
+                python -m pytest -q tests/metadata/file_sources/test_worker_metadata_source.py
+
+
+        :param path: Value supplied for path in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         if path.endswith("b.epub"):
             return str(converted)
         return path
@@ -97,6 +198,20 @@ def test_run_import_plugins_flattens_groups_and_preserves_basename(tmp_path: Pat
 
 
 def test_read_metadata_sets_duplicate_info_from_common_data(tmp_path: Path, monkeypatch) -> None:
+    """
+    Verify read metadata sets duplicate info from common data.
+
+    Example:
+        Exercise test read metadata sets duplicate info from common data through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_worker_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources import worker
 
     md = calibreMetaInformation("The Book", ["A"])
@@ -116,6 +231,19 @@ def test_read_metadata_sets_duplicate_info_from_common_data(tmp_path: Path, monk
 
 
 def test_read_metadata_bulk_returns_requested_parts(monkeypatch) -> None:
+    """
+    Verify read metadata bulk returns requested parts.
+
+    Example:
+        Exercise test read metadata bulk returns requested parts through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_worker_metadata_source.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources import worker
 
     md = calibreMetaInformation("Bulk", ["A"])
@@ -131,6 +259,20 @@ def test_read_metadata_bulk_returns_requested_parts(monkeypatch) -> None:
 
 
 def test_worker_metadata_to_opf_falls_back_to_opfcreator(tmp_path: Path, monkeypatch) -> None:
+    """
+    Verify worker metadata to opf falls back to opfcreator.
+
+    Example:
+        Exercise test worker metadata to opf falls back to opfcreator through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_worker_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources import worker
 
     md = calibreMetaInformation("Fallback", ["Author"])
@@ -142,6 +284,18 @@ def test_worker_metadata_to_opf_falls_back_to_opfcreator(tmp_path: Path, monkeyp
 
 
 def test_read_metadata_in_job_serial(tmp_path: Path) -> None:
+    """
+    Verify read metadata in job serial.
+
+    Example:
+        Exercise test read metadata in job serial through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_worker_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources import worker
 
     p = tmp_path / "job.txt"
@@ -164,6 +318,18 @@ def test_read_metadata_in_job_serial(tmp_path: Path) -> None:
 
 
 def test_read_metadata_bulk_in_job_process(tmp_path: Path) -> None:
+    """
+    Verify read metadata bulk in job process.
+
+    Example:
+        Exercise test read metadata bulk in job process through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_worker_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources import worker
 
     p = tmp_path / "job_bulk.txt"

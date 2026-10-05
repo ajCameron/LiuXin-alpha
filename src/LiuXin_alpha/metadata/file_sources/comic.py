@@ -1,5 +1,13 @@
 """
-Read metadata from comic archive files.
+Read cover and embedded metadata from CBR and CBZ archives while preserving caller-owned stream positions.
+
+The module keeps binary parsing, optional dependency and stream ownership policy
+explicit for registry callers.
+
+Example:
+    Exercise comic with pytest::
+
+        python -m pytest -q tests/metadata/file_sources/test_comic_metadata_source.py
 """
 
 from __future__ import annotations
@@ -20,10 +28,31 @@ _COMIC_TYPES = {"cbr", "cbz"}
 
 
 class ComicFormatError(Exception):
+    """
+    Signal malformed, unsupported or unreadable comic archive input.
+
+    Example:
+        Exercise ComicFormatError with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_comic_metadata_source.py
+    """
     pass
 
 
 def _source_name(target_file) -> str:
+    """
+    Derive the name used for fallback metadata and diagnostics.
+
+    Example:
+        Exercise  source name with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_comic_metadata_source.py
+
+
+    :param target_file: Caller-supplied path, path-like object or stream described by
+        this operation.
+    :return: Parsed, normalized or updated value described above.
+    """
     if isinstance(target_file, os.PathLike):
         return os.fspath(target_file)
     if isinstance(target_file, str):
@@ -32,6 +61,19 @@ def _source_name(target_file) -> str:
 
 
 def _source_title(target_file) -> str:
+    """
+    Derive the title used for fallback metadata and diagnostics.
+
+    Example:
+        Exercise  source title with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_comic_metadata_source.py
+
+
+    :param target_file: Caller-supplied path, path-like object or stream described by
+        this operation.
+    :return: Parsed, normalized or updated value described above.
+    """
     source = _source_name(target_file)
     if source:
         stem = os.path.splitext(os.path.basename(source))[0].strip()
@@ -41,6 +83,19 @@ def _source_title(target_file) -> str:
 
 
 def _default_metadata(target_file):
+    """
+    Build a minimally usable metadata object for missing or explicitly tolerated malformed input.
+
+    Example:
+        Exercise  default metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_comic_metadata_source.py
+
+
+    :param target_file: Caller-supplied path, path-like object or stream described by
+        this operation.
+    :return: Parsed, normalized or updated value described above.
+    """
     mi = calibreMetaInformation(_source_title(target_file), [_("Unknown")])
     try:
         mi.finalize()
@@ -50,6 +105,18 @@ def _default_metadata(target_file):
 
 
 def _normalize_requested_type(ftype: str | None) -> str:
+    """
+    Normalize requested type into the representation expected by later parsing or serialization steps.
+
+    Example:
+        Exercise  normalize requested type with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_comic_metadata_source.py
+
+
+    :param ftype: Format or encoding hint used for interpretation.
+    :return: Parsed, normalized or updated value described above.
+    """
     normalized = (ftype or "").lower().lstrip(".")
     if normalized not in _COMIC_TYPES:
         raise ComicFormatError("Comic metadata reader expects CBR or CBZ input.")
@@ -57,6 +124,20 @@ def _normalize_requested_type(ftype: str | None) -> str:
 
 
 def _detected_comic_type(stream, requested_type: str) -> str:
+    """
+    Perform the format-specific detected comic type operation used by the metadata reader or writer.
+
+    Example:
+        Exercise  detected comic type with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_comic_metadata_source.py
+
+
+    :param stream: Caller-supplied path, path-like object or stream described by this
+        operation.
+    :param requested_type: Format or encoding hint used for interpretation.
+    :return: Parsed, normalized or updated value described above.
+    """
     pos = None
     if hasattr(stream, "tell"):
         try:
@@ -95,6 +176,20 @@ def _detected_comic_type(stream, requested_type: str) -> str:
 
 
 def _extract_first_image(stream, stream_type: str) -> tuple[str, bytes]:
+    """
+    Extract first image using the format-specific ordering and validation rules.
+
+    Example:
+        Exercise  extract first image with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_comic_metadata_source.py
+
+
+    :param stream: Caller-supplied path, path-like object or stream described by this
+        operation.
+    :param stream_type: Format or encoding hint used for interpretation.
+    :return: Parsed, normalized or updated value described above.
+    """
     try:
         if hasattr(stream, "seek"):
             stream.seek(0)
@@ -120,6 +215,19 @@ def _extract_first_image(stream, stream_type: str) -> tuple[str, bytes]:
 
 
 def _log_exception(err: Exception, source_name: str) -> None:
+    """
+    Report a format-specific parsing failure through the project logger with source context.
+
+    Example:
+        Exercise  log exception with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_comic_metadata_source.py
+
+
+    :param err: Value supplied for err.
+    :param source_name: Source label used for fallback titles and diagnostics.
+    :return: None.
+    """
     default_log.log_exception(
         "Failed to read metadata from comic archive.",
         err,
@@ -135,6 +243,23 @@ def read_metadata_from_stream(
     series_index: str = "volume",
     fallback_on_parse_error: bool = False,
 ):
+    """
+    Parse metadata from a caller-owned binary stream and apply the requested malformed-input fallback policy.
+
+    Example:
+        Exercise read metadata from stream with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_comic_metadata_source.py
+
+
+    :param stream: Caller-supplied path, path-like object or stream described by this
+        operation.
+    :param ftype: Format or encoding hint used for interpretation.
+    :param series_index: Value supplied for series index.
+    :param fallback_on_parse_error: Return default metadata after parse errors when
+        true; otherwise raise the format error.
+    :return: Parsed, normalized or updated value described above.
+    """
     requested_type = _normalize_requested_type(ftype)
     try:
         stream_type = _detected_comic_type(stream, requested_type)
@@ -178,7 +303,21 @@ def get_metadata(
     fallback_on_parse_error: bool = False,
 ):
     """
-    Read metadata from a CBR/CBZ filesystem path or readable binary stream.
+    Read metadata from the supported path or stream input while applying the module's ownership and fallback policy.
+
+    Example:
+        Exercise get metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_comic_metadata_source.py
+
+
+    :param target_file: Caller-supplied path, path-like object or stream described by
+        this operation.
+    :param ftype: Format or encoding hint used for interpretation.
+    :param series_index: Value supplied for series index.
+    :param fallback_on_parse_error: Return default metadata after parse errors when
+        true; otherwise raise the format error.
+    :return: Parsed, normalized or updated value described above.
     """
     stream_needs_close = False
     if isinstance(target_file, os.PathLike):
@@ -224,6 +363,23 @@ def get_metadata_inplace(
     series_index: str = "volume",
     fallback_on_parse_error: bool = False,
 ):
+    """
+    Read metadata through the path-oriented adapter used by registry plugins that support in-place access.
+
+    Example:
+        Exercise get metadata inplace with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_comic_metadata_source.py
+
+
+    :param path: Caller-supplied path, path-like object or stream described by this
+        operation.
+    :param ftype: Format or encoding hint used for interpretation.
+    :param series_index: Value supplied for series index.
+    :param fallback_on_parse_error: Return default metadata after parse errors when
+        true; otherwise raise the format error.
+    :return: Parsed, normalized or updated value described above.
+    """
     return get_metadata(path, ftype=ftype, series_index=series_index, fallback_on_parse_error=fallback_on_parse_error)
 
 

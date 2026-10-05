@@ -1,5 +1,13 @@
 """
-Tools to process and understand languages codes.
+Resolve ISO 639 language codes and names through normalized lookup tables.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise iso639 tools through a consuming regression::
+
+        python -m pytest -q tests/utils/language_tools/test_pluralizers.py
 """
 
 from copy import deepcopy
@@ -15,14 +23,17 @@ def canonicalize_lang(lang: str, iso_639_1: bool = False, iso_639_2: bool = Fals
     """
     Attempts to bring the language name into a form where it'll be recognized by the find function.
 
-    Returns the name of the function.
-    Assumes, by default, that you want the name of the language. Other options are the iso_639_1 code.
-    Or the iso_629_2 code.
-    Asking for both currently throws an error.
-    :param lang: The raw language string to try and normalize
-    :param iso_639_1: Is the string an iso_639_1 string? (2 letter code)
-    :param iso_639_2: Is the string an iso_639_2 string? (3 letter code)
-    :return:
+    Example:
+        Exercise canonicalize lang through a consuming regression::
+
+            python -m pytest -q tests/utils/language_tools/test_pluralizers.py
+
+
+    :param lang: Value supplied for lang under the utility contract.
+    :param iso_639_1: Value supplied for iso 639 1 under the utility contract.
+    :param iso_639_2: Value supplied for iso 639 2 under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     assert (not iso_639_1) or (not iso_639_2), "No asking for two language codes at the same time."
 
@@ -72,8 +83,16 @@ def canonicalize_lang(lang: str, iso_639_1: bool = False, iso_639_2: bool = Fals
 def lang_as_iso639_1(lang):
     """
     Tries to render the language as an iso639_1 code.
-    :param lang:
-    :return iso639_1:
+
+    Example:
+        Exercise lang as iso639 1 through a consuming regression::
+
+            python -m pytest -q tests/utils/language_tools/test_pluralizers.py
+
+
+    :param lang: Value supplied for lang under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     lang = deepcopy(lang)
     return canonicalize_lang(lang, iso_639_1=True)

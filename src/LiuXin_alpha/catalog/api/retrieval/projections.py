@@ -1,5 +1,5 @@
 """
-Projection API for derived catalog presentation values.
+Define derived Catalog titles and compact Item summaries.
 """
 
 from __future__ import annotations
@@ -10,35 +10,51 @@ from ..common import EntityId, WemiLevel
 
 @runtime_checkable
 class ProjectionAPI(Protocol):
-    """Derived Catalog values that stop short of UI rendering.
+    """
+    Describe semantic projection values without prescribing UI formatting.
 
-    Projections may choose semantic fallbacks (for example preferred title,
-    then ID-derived text) but do not emit HTML, terminal colors, localized
-    labels, or protocol response objects.
+    Example:
+        A cache can retain ``item_summary(item_id)`` as metadata; refresh it when
+        its source rows change because this API provides no snapshot token.
     """
 
     def display_title(self, *, level: WemiLevel, entity_id: EntityId) -> str:
         """
-        Return a stable catalog-level display title for an entity.
+        Choose the first nonblank string title and strip its outer whitespace.
 
-        :param level: WEMI level containing ``entity_id``.
-        :param entity_id: Existing entity ID.
-        :return: Preferred logical title, or a deterministic level/ID fallback.
+        A Work tries title, canonical title, then sort title. Other levels read a
+        bundle: Expression tries override and subtitle, while Manifestation and Item
+        try Manifestation subtitle first, followed by Expression titles. Both then
+        try Work title and canonical title, omitting Work sort title. Nonstrings are
+        ignored. Unknown levels fail during route lookup. Bundle metadata reads can
+        also fail even when only a display title is wanted.
+
+        Example:
+            An Expression with a blank override falls back to its subtitle, then the
+            selected Work's title or canonical title.
+
+
+        :param level: WEMI level used to choose the repository or bundle route.
+        :param entity_id: Existing entity ID; missing-owner errors propagate.
+        :return: Selected title, or ``Untitled <level> <id>``.
+        :raises AttributeError: The non-Work level has no bundle retrieval method.
         """
 
     def item_summary(self, item_id: EntityId) -> dict[str, object]:
         """
-        Return a compact item summary suitable for surfaces/cache layers.
+        Collect an Item's path IDs, display title and compact attachment values.
 
-        The summary contains IDs for the WEMI path and catalog-level title
-        values. Its keys are stable inputs for interfaces/cache layers, not a
-        database row schema.
+        Missing ancestors and columns yield None. Agents are a tuple of canonical
+        names; identifiers are tuples of stored scheme/value pairs, possibly with
+        None entries. Display-title selection performs a second bundle read, so the
+        summary is not a single database snapshot. Database errors propagate.
 
-        :param item_id: Existing Item ID.
-        :return: Compact, display-neutral summary of the Item's WEMI path.
+        Example:
+            Use ``summary["title"]`` for semantic display text and ``summary["agents"]``
+            for names; interface-specific formatting remains the caller's responsibility.
 
-        Example::
 
-            summary = catalog.retrieval.projections.item_summary(item_id)
-            print(summary["title"])
+        :param item_id: Existing Item ID for both bundle and title reads.
+        :return: Dictionary with item_id, work_id, expression_id, manifestation_id, title,
+            location, lifecycle_status, agents and identifiers.
         """

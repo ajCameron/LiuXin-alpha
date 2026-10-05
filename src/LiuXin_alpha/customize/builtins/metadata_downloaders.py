@@ -1,9 +1,13 @@
 """
-Metadata downloaders try and complete sets of metadata for books from online or
-configured local sources.
+Register built-in metadata and cover download plugins.
 
-For example, you could feed one of them an ISBN, and it'd get the title.
-Or you could feed one of them the title, and it'd get the cover.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise metadata downloaders through a consuming regression::
+
+        python -m pytest -q tests/customize/test_customize_base.py
 """
 
 
@@ -132,6 +136,13 @@ def get_web_md_plugins():
     """
     Return all valid downloaders of metadata form the web.
 
-    :return:
+    Example:
+        Exercise get web md plugins through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return web_md_plugins

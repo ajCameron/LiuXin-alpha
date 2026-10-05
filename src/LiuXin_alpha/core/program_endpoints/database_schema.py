@@ -1,209 +1,252 @@
-"""Core endpoint declarations for database schema operations."""
+"""
+Declare Core routes for database administration, column/link semantics, preferences, and custom fields.
+
+Query and command installation are separate, sequential registration operations.
+Field declarations describe the transport interface without enforcing request
+values, backend capabilities, migration safety, or transactional behavior.
+"""
 
 from __future__ import annotations
 
-from typing import cast
-
 from LiuXin_alpha.core.program_endpoints.common import (
-    ProgramEndpointHandlers,
     ProgramEndpointRegistrar,
     field,
 )
+from LiuXin_alpha.core.program_endpoints.handlers import DatabaseSchemaHandlers
 
 
-def install_queries(api: object, runtime: object) -> None:
-    """Register this family's query endpoints."""
+def install_queries(
+    api: DatabaseSchemaHandlers, runtime: ProgramEndpointRegistrar
+) -> None:
+    """
+    Install ten database, migration, schema-policy, preference, and custom-column inspection routes.
 
-    handlers = cast(ProgramEndpointHandlers, api)
-    registrar = cast(ProgramEndpointRegistrar, runtime)
-    query = registrar.register_query_handler
+    Identity/summary/telemetry and migration status/plan use field-free declarations;
+    policy and preference lookups advertise their selectors. No database calls or
+    migration planning run here, and the provider does not install the separate
+    schema table/identity routes owned by other Core APIs.
 
-    query(
-                "database.info",
-                handlers.database_info,
-                summary="Return transport-safe database identity and configuration.",
-                tags=("database", "read"),
-            )
+    Example:
+        >>> from unittest.mock import Mock
+        >>> registrar = Mock()
+        >>> install_queries(Mock(), registrar)
+        >>> registrar.register_query_handler.call_count
+        10
 
-    query(
-                "database.summary",
-                handlers.database_summary,
-                summary="Return table categories and row counts.",
-                tags=("database", "schema", "read"),
-            )
 
-    query(
-                "database.telemetry",
-                handlers.database_telemetry,
-                summary="Return database write and dirty-record telemetry.",
-                tags=("database", "telemetry", "read"),
-            )
+    :param api: Provider whose database/schema/preferences/custom-field query methods are bound for dispatch.
+    :param runtime: Registrar receiving these ten ordered bindings and explicit introspection metadata.
+    :return: None after installation, or a propagated lookup/registration error with earlier bindings left in place.
+    """
 
-    query(
-                "database.migrations.status",
-                handlers.database_migrations_status,
-                summary="Report additive storage and normalized-identity migration state.",
-                tags=("database", "migrations", "read"),
-            )
+    query = runtime.register_query_handler
 
     query(
-                "database.migrations.plan",
-                handlers.database_migrations_plan,
-                summary="Plan idempotent database migrations without applying them.",
-                tags=("database", "migrations", "read"),
-            )
+        "database.info",
+        api.database_info,
+        summary="Return transport-safe database identity and configuration.",
+        tags=("database", "read"),
+    )
 
     query(
-                "schema.column",
-                handlers.schema_column,
-                summary="Return semantic and writer policy for one column.",
-                payload_fields=(
-                    field("table", required=True, field_type="string"),
-                    field("column", required=True, field_type="string"),
-                ),
-                tags=("schema", "policy", "read"),
-            )
+        "database.summary",
+        api.database_summary,
+        summary="Return table categories and row counts.",
+        tags=("database", "schema", "read"),
+    )
 
     query(
-                "schema.link",
-                handlers.schema_link,
-                summary="Return declared capabilities for a table relation.",
-                payload_fields=(
-                    field("table", required=True, field_type="string"),
-                    field("related_table", required=True, field_type="string"),
-                ),
-                tags=("schema", "relations", "read"),
-            )
+        "database.telemetry",
+        api.database_telemetry,
+        summary="Return database write and dirty-record telemetry.",
+        tags=("database", "telemetry", "read"),
+    )
 
     query(
-                "preferences.list",
-                handlers.preferences_list,
-                summary="List application or library preferences.",
-                payload_fields=(field("scope", field_type="string"),),
-                tags=("preferences", "read"),
-            )
+        "database.migrations.status",
+        api.database_migrations_status,
+        summary="Report additive storage and normalized-identity migration state.",
+        tags=("database", "migrations", "read"),
+    )
 
     query(
-                "preferences.get",
-                handlers.preferences_get,
-                summary="Read one application or library preference.",
-                payload_fields=(
-                    field("key", required=True, field_type="string"),
-                    field("scope", field_type="string"),
-                    field("default"),
-                ),
-                tags=("preferences", "read"),
-            )
+        "database.migrations.plan",
+        api.database_migrations_plan,
+        summary="Plan idempotent database migrations without applying them.",
+        tags=("database", "migrations", "read"),
+    )
 
     query(
-                "custom-fields.list",
-                handlers.custom_fields_list,
-                summary="List custom-column definitions.",
-                tags=("schema", "custom-fields", "read"),
-            )
+        "schema.column",
+        api.schema_column,
+        summary="Return semantic and writer policy for one column.",
+        payload_fields=(
+            field("table", required=True, field_type="string"),
+            field("column", required=True, field_type="string"),
+        ),
+        tags=("schema", "policy", "read"),
+    )
 
-def install_commands(api: object, runtime: object) -> None:
-    """Register this family's command endpoints."""
+    query(
+        "schema.link",
+        api.schema_link,
+        summary="Return declared capabilities for a table relation.",
+        payload_fields=(
+            field("table", required=True, field_type="string"),
+            field("related_table", required=True, field_type="string"),
+        ),
+        tags=("schema", "relations", "read"),
+    )
 
-    handlers = cast(ProgramEndpointHandlers, api)
-    registrar = cast(ProgramEndpointRegistrar, runtime)
-    command = registrar.register_command_handler
+    query(
+        "preferences.list",
+        api.preferences_list,
+        summary="List application or library preferences.",
+        payload_fields=(field("scope", field_type="string"),),
+        tags=("preferences", "read"),
+    )
+
+    query(
+        "preferences.get",
+        api.preferences_get,
+        summary="Read one application or library preference.",
+        payload_fields=(
+            field("key", required=True, field_type="string"),
+            field("scope", field_type="string"),
+            field("default"),
+        ),
+        tags=("preferences", "read"),
+    )
+
+    query(
+        "custom-fields.list",
+        api.custom_fields_list,
+        summary="List custom-column definitions.",
+        tags=("schema", "custom-fields", "read"),
+    )
+
+
+def install_commands(
+    api: DatabaseSchemaHandlers, runtime: ProgramEndpointRegistrar
+) -> None:
+    """
+    Install nine backup/vacuum/migration, column-policy, preference, and custom-field mutation routes.
+
+    Optional backup verification and custom-field selectors are advertised without
+    performing validation or writes. Confirmation, backend availability, and
+    post-write refresh/error behavior are handler concerns; installing a route
+    is not evidence that the underlying operation can succeed.
+
+    Example:
+        >>> from unittest.mock import Mock
+        >>> registrar = Mock()
+        >>> install_commands(Mock(), registrar)
+        >>> registrar.register_command_handler.call_count
+        9
+
+
+    :param api: Provider supplying administrative, schema-policy, preference, and custom-column command methods.
+    :param runtime: Registrar accepting nine command bindings with summaries, field declarations, and tags.
+    :return: None after all bindings are registered; later failure does not trigger rollback of earlier registrations.
+    """
+
+    command = runtime.register_command_handler
 
     command(
-                "database.backup",
-                handlers.database_backup,
-                summary="Create a database backup using the configured driver.",
-                payload_fields=(
-                    field("output_path", field_type="string|null"),
-                    field("verify", field_type="boolean"),
-                ),
-                tags=("database", "backup", "write"),
-            )
+        "database.backup",
+        api.database_backup,
+        summary="Create a database backup using the configured driver.",
+        payload_fields=(
+            field("output_path", field_type="string|null"),
+            field("verify", field_type="boolean"),
+        ),
+        tags=("database", "backup", "write"),
+    )
 
     command(
-                "database.vacuum",
-                handlers.database_vacuum,
-                summary="Vacuum or compact the configured database.",
-                tags=("database", "maintenance", "write"),
-            )
+        "database.vacuum",
+        api.database_vacuum,
+        summary="Vacuum or compact the configured database.",
+        tags=("database", "maintenance", "write"),
+    )
 
     command(
-                "database.migrations.apply",
-                handlers.database_migrations_apply,
-                summary="Apply known additive migrations and normalized identities.",
-                tags=("database", "migrations", "maintenance", "write"),
-            )
+        "database.migrations.apply",
+        api.database_migrations_apply,
+        summary="Apply known additive migrations and normalized identities.",
+        tags=("database", "migrations", "maintenance", "write"),
+    )
 
     command(
-                "schema.column.update",
-                handlers.schema_column_update,
-                summary="Update semantic and writer policy for one column.",
-                payload_fields=(
-                    field("table", required=True, field_type="string"),
-                    field("column", required=True, field_type="string"),
-                    field("policy", required=True, field_type="object"),
-                ),
-                tags=("schema", "policy", "write"),
-            )
+        "schema.column.update",
+        api.schema_column_update,
+        summary="Update semantic and writer policy for one column.",
+        payload_fields=(
+            field("table", required=True, field_type="string"),
+            field("column", required=True, field_type="string"),
+            field("policy", required=True, field_type="object"),
+        ),
+        tags=("schema", "policy", "write"),
+    )
 
     command(
-                "preferences.set",
-                handlers.preferences_set,
-                summary="Set one application or library preference.",
-                payload_fields=(
-                    field("key", required=True, field_type="string"),
-                    field("value", required=True),
-                    field("scope", field_type="string"),
-                ),
-                tags=("preferences", "write"),
-            )
+        "preferences.set",
+        api.preferences_set,
+        summary="Set one application or library preference.",
+        payload_fields=(
+            field("key", required=True, field_type="string"),
+            field("value", required=True),
+            field("scope", field_type="string"),
+        ),
+        tags=("preferences", "write"),
+    )
 
     command(
-                "preferences.delete",
-                handlers.preferences_delete,
-                summary="Delete one application or library preference.",
-                payload_fields=(
-                    field("key", required=True, field_type="string"),
-                    field("scope", field_type="string"),
-                ),
-                tags=("preferences", "write"),
-            )
+        "preferences.delete",
+        api.preferences_delete,
+        summary="Delete one application or library preference.",
+        payload_fields=(
+            field("key", required=True, field_type="string"),
+            field("scope", field_type="string"),
+        ),
+        tags=("preferences", "write"),
+    )
 
     command(
-                "custom-fields.create",
-                handlers.custom_fields_create,
-                summary="Create a custom column.",
-                payload_fields=(
-                    field("name", required=True, field_type="string"),
-                    field("datatype", field_type="string"),
-                    field("is_multiple", field_type="boolean"),
-                    field("label", field_type="string|null"),
-                    field("editable", field_type="boolean"),
-                    field("display", field_type="object|null"),
-                    field("table", field_type="string"),
-                    field("make_category", field_type="boolean|null"),
-                ),
-                tags=("schema", "custom-fields", "write"),
-            )
+        "custom-fields.create",
+        api.custom_fields_create,
+        summary="Create a custom column.",
+        payload_fields=(
+            field("name", required=True, field_type="string"),
+            field("datatype", field_type="string"),
+            field("is_multiple", field_type="boolean"),
+            field("label", field_type="string|null"),
+            field("editable", field_type="boolean"),
+            field("display", field_type="object|null"),
+            field("table", field_type="string"),
+            field("make_category", field_type="boolean|null"),
+        ),
+        tags=("schema", "custom-fields", "write"),
+    )
 
     command(
-                "custom-fields.update",
-                handlers.custom_fields_update,
-                summary="Update one custom-column definition.",
-                payload_fields=(
-                    field("num", required=True, field_type="integer"),
-                    field("changes", required=True, field_type="object"),
-                ),
-                tags=("schema", "custom-fields", "write"),
-            )
+        "custom-fields.update",
+        api.custom_fields_update,
+        summary="Update one custom-column definition.",
+        payload_fields=(
+            field("num", required=True, field_type="integer"),
+            field("changes", required=True, field_type="object"),
+        ),
+        tags=("schema", "custom-fields", "write"),
+    )
 
     command(
-                "custom-fields.delete",
-                handlers.custom_fields_delete,
-                summary="Mark one custom column for deletion.",
-                payload_fields=(
-                    field("num", field_type="integer"),
-                    field("label", field_type="string"),
-                ),
-                tags=("schema", "custom-fields", "write"),
-            )
+        "custom-fields.delete",
+        api.custom_fields_delete,
+        summary="Mark one custom column for deletion.",
+        payload_fields=(
+            field("num", field_type="integer"),
+            field("label", field_type="string"),
+        ),
+        tags=("schema", "custom-fields", "write"),
+    )

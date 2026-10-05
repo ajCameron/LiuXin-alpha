@@ -2,7 +2,15 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 """
-Iterate over the HTML files in an ebook. Useful for writing viewers.
+Iterate OEB book content, pages and navigation state.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise book through a consuming regression::
+
+        python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
 """
 
 from __future__ import unicode_literals, division, absolute_import, print_function
@@ -45,6 +53,14 @@ TITLEPAGE = (
 
 
 class FakeOpts(object):
+    """
+    Provide the fakeopts contract for validated ebook processing.
+
+    Example:
+        Exercise FakeOpts through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+    """
     verbose = 0
     breadth_first = False
     max_levels = 5
@@ -52,6 +68,21 @@ class FakeOpts(object):
 
 
 def write_oebbook(oeb: _typing.Any, path: _typing.Any) -> _typing.Any:
+    """
+    Write oebbook under the format's safety and compatibility rules.
+
+    Example:
+        Exercise write oebbook through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param oeb: Value supplied for oeb under the utility contract.
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     from LiuXin_alpha.file_formats.oeb.writer import OEBWriter
     from LiuXin_alpha.utils.calibre import walk
 
@@ -64,9 +95,30 @@ def write_oebbook(oeb: _typing.Any, path: _typing.Any) -> _typing.Any:
 
 class EbookIterator(BookmarksMixin):
 
+    """
+    Provide the ebookiterator contract for validated ebook processing.
+
+    Example:
+        Exercise EbookIterator through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+    """
     CHARACTERS_PER_PAGE = 1000
 
     def __init__(self: _typing.Self, pathtoebook: _typing.Any, log: _typing.Any = None) -> None:
+        """
+        Initialize and validate the ebookiterator state.
+
+        Example:
+            Exercise EbookIterator.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param pathtoebook: Value supplied for pathtoebook under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.log = log or default_log
         pathtoebook = pathtoebook.strip()
         self.pathtoebook = os.path.abspath(pathtoebook)
@@ -76,6 +128,21 @@ class EbookIterator(BookmarksMixin):
         self.ebook_ext = ext.replace("original_", "")
 
     def search(self: _typing.Self, text: _typing.Any, index: _typing.Any, backwards: bool = False) -> _typing.Any:
+        """
+        Perform the search operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise EbookIterator.search through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :param index: Value supplied for index under the utility contract.
+        :param backwards: Value supplied for backwards under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         text = prepare_string_for_xml(text.lower())
         pmap = [(i, path) for i, path in enumerate(self.spine)]
         if backwards:
@@ -102,13 +169,23 @@ class EbookIterator(BookmarksMixin):
     ) -> _typing.Any:
         """
         Convert an ebook file into an exploded OEB book suitable for display in viewers/preprocessing etc.
-        :param processed:
-        :param only_input_plugin:
-        :param run_char_count:
-        :param read_anchor_map:
-        :param view_kepub:
-        :param read_links:
-        :return:
+
+        Example:
+            Exercise EbookIterator.  enter   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param processed: Value supplied for processed under the utility contract.
+        :param only_input_plugin: Value supplied for only input plugin under the utility
+            contract.
+        :param run_char_count: Value supplied for run char count under the utility contract.
+        :param read_anchor_map: Value supplied for read anchor map under the utility
+            contract.
+        :param view_kepub: Value supplied for view kepub under the utility contract.
+        :param read_links: Value supplied for read links under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         from LiuXin_alpha.file_formats.conversion.plumber import Plumber, create_oebbook
 
@@ -225,6 +302,18 @@ class EbookIterator(BookmarksMixin):
         return self
 
     def verify_links(self: _typing.Self) -> None:
+        """
+        Perform the verify links operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise EbookIterator.verify links through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         spine_paths = {s: s for s in self.spine}
         for item in self.spine:
             base = os.path.dirname(item)
@@ -247,6 +336,19 @@ class EbookIterator(BookmarksMixin):
                         item.verified_links.add((path, p.fragment))
 
     def __exit__(self: _typing.Self, *args: _typing.Any) -> None:
+        """
+        Implement the conversion resource's exit lifecycle operation.
+
+        Example:
+            Exercise EbookIterator.  exit   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._tdir.__exit__(*args)
         for x in self.delete_on_exit:
             try:

@@ -1,9 +1,13 @@
 """
-Internet Archive metadata source.
+Identify books and covers through Internet Archive advanced search and metadata records.
 
-This source uses the public Internet Archive advanced search and metadata APIs.
-It is intended as an enrichment/cover fallback for digitized and archived text
-items, especially older/public-domain editions.
+The module keeps network, parsing, caching, cancellation and result-order behavior
+explicit for callers.
+
+Example:
+    Exercise internet archive with the owning regression module::
+
+        python -m pytest -q tests/metadata/web_sources/test_web_sources_internet_archive.py
 """
 
 from __future__ import annotations
@@ -38,6 +42,19 @@ _THUMB_FORMAT_RE = re.compile(r"(?:thumb|thumbnail|item image|jpeg thumb|png thu
 
 
 def _as_text(raw) -> str:
+    """
+    Convert optional or hostile input to text without propagating conversion failures.
+
+    Example:
+        Exercise  as text with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_internet_archive.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     if raw is None:
         return ""
     if isinstance(raw, bytes):
@@ -49,6 +66,19 @@ def _as_text(raw) -> str:
 
 
 def _first(raw):
+    """
+    Perform the internet archive first operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  first with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_internet_archive.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     if raw is None:
         return None
     if isinstance(raw, (str, bytes)):
@@ -65,6 +95,19 @@ def _first(raw):
 
 
 def _as_list(raw) -> list:
+    """
+    Perform the internet archive as list operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  as list with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_internet_archive.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     if raw is None:
         return []
     if isinstance(raw, (str, bytes)):
@@ -77,12 +120,41 @@ def _as_list(raw) -> list:
 
 
 def _first_identifier_value(identifiers, key):
+    """
+    Perform the internet archive first identifier value operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  first identifier value with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_internet_archive.py
+
+
+    :param identifiers: Metadata identifier mapping used for direct lookup and cache
+        resolution.
+    :param key: Value supplied for key.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     if not isinstance(identifiers, Mapping):
         return None
     return _first(identifiers.get(key))
 
 
 def _safe_isbn(identifiers) -> str | None:
+    """
+    Return a validated isbn or the documented empty fallback.
+
+    Example:
+        Exercise  safe isbn with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_internet_archive.py
+
+
+    :param identifiers: Metadata identifier mapping used for direct lookup and cache
+        resolution.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     for key in ("isbn", "isbn13", "isbn10"):
         raw = _first_identifier_value(identifiers or {}, key)
         if raw is None:
@@ -97,6 +169,19 @@ def _safe_isbn(identifiers) -> str | None:
 
 
 def _dedupe_text(values) -> list[str]:
+    """
+    Perform the internet archive dedupe text operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  dedupe text with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_internet_archive.py
+
+
+    :param values: Input values to normalize and deduplicate.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     seen = set()
     out = []
     for raw in _as_list(values):
@@ -109,10 +194,37 @@ def _dedupe_text(values) -> list[str]:
 
 
 def _clean_identifier_key(raw: str) -> str:
+    """
+    Normalize clean identifier key into the provider's canonical safe representation.
+
+    Example:
+        Exercise  clean identifier key with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_internet_archive.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     return re.sub(r"[^a-z0-9_]+", "_", _as_text(raw).strip().lower())
 
 
 def _archive_identifier_from_identifiers(identifiers) -> str | None:
+    """
+    Perform the internet archive archive identifier from identifiers operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  archive identifier from identifiers with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_internet_archive.py
+
+
+    :param identifiers: Metadata identifier mapping used for direct lookup and cache
+        resolution.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     if not isinstance(identifiers, Mapping):
         return None
     for key in ("internet_archive", "ia", "archive", "archive_org", "ocaid"):
@@ -126,6 +238,19 @@ def _archive_identifier_from_identifiers(identifiers) -> str | None:
 
 
 def _escape_lucene_term(raw: str) -> str:
+    """
+    Perform the internet archive escape lucene term operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  escape lucene term with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_internet_archive.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     text = _as_text(raw).strip()
     text = re.sub(r"\s+", " ", text)
     text = text.replace("\\", "\\\\").replace('"', '\\"')
@@ -133,10 +258,37 @@ def _escape_lucene_term(raw: str) -> str:
 
 
 def _field_query(field: str, value: str) -> str:
+    """
+    Perform the internet archive field query operation with explicit ordering and failure behavior.
+
+    Example:
+        Exercise  field query with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_internet_archive.py
+
+
+    :param field: Value supplied for field.
+    :param value: Input value to normalize, compare, store or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     return f'{field}:"{_escape_lucene_term(value)}"'
 
 
 def _normalize_external_identifier(raw: str) -> tuple[str, str] | tuple[None, None]:
+    """
+    Normalize normalize external identifier into the provider's canonical safe representation.
+
+    Example:
+        Exercise  normalize external identifier with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_internet_archive.py
+
+
+    :param raw: Raw scalar, bytes, payload or markup value to normalize or parse.
+    :return: The normalized provider value, metadata result or collection described
+        above.
+    """
     text = _as_text(raw).strip()
     if not text:
         return (None, None)
@@ -160,6 +312,14 @@ def _normalize_external_identifier(raw: str) -> tuple[str, str] | tuple[None, No
 
 
 class InternetArchive(Source):
+    """
+    Implement the internet archive metadata-source integration and its explicit recovery policy.
+
+    Example:
+        Exercise InternetArchive with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_internet_archive.py
+    """
     name = "Internet Archive"
     version = (1, 0, 0)
     description = _("Downloads metadata and covers from the Internet Archive")
@@ -211,12 +371,39 @@ class InternetArchive(Source):
 
     # URL helpers {{{
     def get_book_url(self, identifiers):
+        """
+        Return canonical provider link tuples for recognized metadata identifiers.
+
+        Example:
+            Exercise InternetArchive.get book url with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_internet_archive.py
+
+
+        :param identifiers: Metadata identifier mapping used for direct lookup and cache
+            resolution.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         archive_id = _archive_identifier_from_identifiers(identifiers or {})
         if not archive_id:
             return None
         return ("internet_archive", archive_id, self.DETAILS % quote(archive_id, safe=""))
 
     def id_from_url(self, url):
+        """
+        Extract a normalized provider identifier from a recognized canonical URL.
+
+        Example:
+            Exercise InternetArchive.id from url with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_internet_archive.py
+
+
+        :param url: Provider URL to normalize, request or associate with cached data.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         try:
             parsed = urlparse(_as_text(url))
         except Exception:
@@ -237,6 +424,22 @@ class InternetArchive(Source):
 
     # Query/request helpers {{{
     def create_query(self, title=None, authors=None, identifiers=None):
+        """
+        Build create query from normalized identifiers and search inputs.
+
+        Example:
+            Exercise InternetArchive.create query with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_internet_archive.py
+
+
+        :param title: Book title used to construct or rank the provider query.
+        :param authors: Author names used to construct or rank the provider query.
+        :param identifiers: Metadata identifier mapping used for direct lookup and cache
+            resolution.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         identifiers = identifiers or {}
         archive_id = _archive_identifier_from_identifiers(identifiers)
         if archive_id:
@@ -257,6 +460,21 @@ class InternetArchive(Source):
         return " AND ".join(clauses)
 
     def _build_search_url(self, query: str, *, count: int | None = None, page: int = 1) -> str:
+        """
+        Build search url from normalized identifiers and search inputs.
+
+        Example:
+            Exercise InternetArchive. build search url with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_internet_archive.py
+
+
+        :param query: Encoded provider search expression.
+        :param count: Maximum result count requested from the provider.
+        :param page: One-based provider result page.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         params = {
             "q": query,
             "fl[]": list(self.SEARCH_FIELDS),
@@ -267,9 +485,34 @@ class InternetArchive(Source):
         return self.ADVANCED_SEARCH + "?" + urlencode(params, doseq=True)
 
     def _build_metadata_url(self, archive_id: str) -> str:
+        """
+        Build metadata url from normalized identifiers and search inputs.
+
+        Example:
+            Exercise InternetArchive. build metadata url with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_internet_archive.py
+
+
+        :param archive_id: Value supplied for archive id.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         return self.METADATA % quote(_as_text(archive_id).strip().strip("/"), safe="")
 
     def _retry_policy(self) -> RetryPolicy:
+        """
+        Build the bounded retry policy used by this provider's HTTP requests.
+
+        Example:
+            Exercise InternetArchive. retry policy with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_internet_archive.py
+
+
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         return RetryPolicy(
             attempts=int(self.HTTP_RETRY_ATTEMPTS),
             base_delay=float(self.HTTP_RETRY_BASE_SECONDS),
@@ -277,6 +520,19 @@ class InternetArchive(Source):
         )
 
     def _retry_backoff(self, attempt: int) -> float:
+        """
+        Compute the capped delay for one provider retry attempt.
+
+        Example:
+            Exercise InternetArchive. retry backoff with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_internet_archive.py
+
+
+        :param attempt: Zero-based retry attempt used to calculate backoff.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         return compute_backoff_delay(
             attempt=attempt,
             base_delay=float(self.HTTP_RETRY_BASE_SECONDS),
@@ -284,12 +540,56 @@ class InternetArchive(Source):
         )
 
     def _wait_for_backoff(self, abort, delay: float) -> bool:
+        """
+        Wait interruptibly for a retry delay and report whether it completed.
+
+        Example:
+            Exercise InternetArchive. wait for backoff with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_internet_archive.py
+
+
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param delay: Backoff duration in seconds.
+        :return: True when the described condition is satisfied; otherwise False.
+        """
         return wait_for_backoff(abort, delay)
 
     def _request_bytes(self, url: str, timeout: int = 30) -> bytes:
+        """
+        Perform the provider request bytes operation with explicit timeout and response policy.
+
+        Example:
+            Exercise InternetArchive. request bytes with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_internet_archive.py
+
+
+        :param url: Provider URL to normalize, request or associate with cached data.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         return self.browser().open_novisit(url, timeout=timeout).read()
 
     def _request_bytes_with_backoff(self, log, abort, url: str, timeout: int, context: str):
+        """
+        Run the request bytes operation with bounded retry, diagnostics and cancellation.
+
+        Example:
+            Exercise InternetArchive. request bytes with backoff with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_internet_archive.py
+
+
+        :param log: Logger receiving structured provider diagnostics.
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param url: Provider URL to normalize, request or associate with cached data.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :param context: Short operation label included in retry diagnostics.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         return call_with_backoff(
             lambda: self._request_bytes(url, timeout=timeout),
             log=log,
@@ -306,10 +606,41 @@ class InternetArchive(Source):
         )
 
     def _request_json(self, url: str, timeout: int = 30):
+        """
+        Perform the provider request json operation with explicit timeout and response policy.
+
+        Example:
+            Exercise InternetArchive. request json with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_internet_archive.py
+
+
+        :param url: Provider URL to normalize, request or associate with cached data.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         raw = self._request_bytes(url, timeout=timeout)
         return json.loads(decode_http_body(raw))
 
     def _request_json_with_backoff(self, log, abort, url: str, timeout: int, context: str):
+        """
+        Run the request json operation with bounded retry, diagnostics and cancellation.
+
+        Example:
+            Exercise InternetArchive. request json with backoff with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_internet_archive.py
+
+
+        :param log: Logger receiving structured provider diagnostics.
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param url: Provider URL to normalize, request or associate with cached data.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :param context: Short operation label included in retry diagnostics.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         return call_with_backoff(
             lambda: self._request_json(url, timeout=timeout),
             log=log,
@@ -326,6 +657,23 @@ class InternetArchive(Source):
         )
 
     def _request_json_or_none(self, log, abort, url: str, timeout: int, context: str):
+        """
+        Perform the provider request json or none operation with explicit timeout and response policy.
+
+        Example:
+            Exercise InternetArchive. request json or none with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_internet_archive.py
+
+
+        :param log: Logger receiving structured provider diagnostics.
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param url: Provider URL to normalize, request or associate with cached data.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :param context: Short operation label included in retry diagnostics.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         try:
             return self._request_json_with_backoff(
                 log=log,
@@ -348,6 +696,19 @@ class InternetArchive(Source):
     # Parsing helpers {{{
     @staticmethod
     def _records_from_search_payload(payload) -> list[Mapping]:
+        """
+        Perform the internet archive records from search payload operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise InternetArchive. records from search payload with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_internet_archive.py
+
+
+        :param payload: Provider response payload or bytes processed by the operation.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         if not isinstance(payload, Mapping):
             return []
         response = payload.get("response")
@@ -360,6 +721,19 @@ class InternetArchive(Source):
 
     @staticmethod
     def _record_from_metadata_payload(payload) -> Mapping | None:
+        """
+        Perform the internet archive record from metadata payload operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise InternetArchive. record from metadata payload with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_internet_archive.py
+
+
+        :param payload: Provider response payload or bytes processed by the operation.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         if not isinstance(payload, Mapping):
             return None
         metadata = payload.get("metadata")
@@ -386,6 +760,19 @@ class InternetArchive(Source):
 
     @staticmethod
     def _authors_from_record(record: Mapping) -> list[str]:
+        """
+        Perform the internet archive authors from record operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise InternetArchive. authors from record with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_internet_archive.py
+
+
+        :param record: Provider JSON/XML record projected into metadata.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         authors = _dedupe_text(record.get("creator") or record.get("creators"))
         if not authors:
             authors = _dedupe_text(record.get("author") or record.get("authors"))
@@ -393,6 +780,19 @@ class InternetArchive(Source):
 
     @staticmethod
     def _description_from_record(record: Mapping) -> str | None:
+        """
+        Perform the internet archive description from record operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise InternetArchive. description from record with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_internet_archive.py
+
+
+        :param record: Provider JSON/XML record projected into metadata.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         values = _dedupe_text(record.get("description") or record.get("summary"))
         if not values:
             return None
@@ -400,11 +800,37 @@ class InternetArchive(Source):
 
     @staticmethod
     def _publisher_from_record(record: Mapping) -> str | None:
+        """
+        Perform the internet archive publisher from record operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise InternetArchive. publisher from record with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_internet_archive.py
+
+
+        :param record: Provider JSON/XML record projected into metadata.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         values = _dedupe_text(record.get("publisher") or record.get("publishers"))
         return values[0] if values else None
 
     @staticmethod
     def _pubdate_from_record(record: Mapping):
+        """
+        Perform the internet archive pubdate from record operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise InternetArchive. pubdate from record with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_internet_archive.py
+
+
+        :param record: Provider JSON/XML record projected into metadata.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         for raw in _as_list(record.get("date") or record.get("year")):
             text = _as_text(raw).strip()
             if not text:
@@ -422,6 +848,19 @@ class InternetArchive(Source):
 
     @staticmethod
     def _language_from_record(record: Mapping) -> str | None:
+        """
+        Perform the internet archive language from record operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise InternetArchive. language from record with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_internet_archive.py
+
+
+        :param record: Provider JSON/XML record projected into metadata.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         fallback = {
             "eng": "en",
             "english": "en",
@@ -455,6 +894,19 @@ class InternetArchive(Source):
 
     @staticmethod
     def _tags_from_record(record: Mapping) -> list[str]:
+        """
+        Perform the internet archive tags from record operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise InternetArchive. tags from record with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_internet_archive.py
+
+
+        :param record: Provider JSON/XML record projected into metadata.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         tags = []
         for raw in _as_list(record.get("subject") or record.get("subjects")):
             text = _as_text(raw).strip().strip(".")
@@ -468,6 +920,19 @@ class InternetArchive(Source):
 
     @staticmethod
     def _identifier_values_from_record(record: Mapping) -> dict[str, list[str]]:
+        """
+        Perform the internet archive identifier values from record operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise InternetArchive. identifier values from record with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_internet_archive.py
+
+
+        :param record: Provider JSON/XML record projected into metadata.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         values: dict[str, list[str]] = {
             "isbn": [],
             "lccn": [],
@@ -476,6 +941,20 @@ class InternetArchive(Source):
         }
 
         def add(key: str, value: str | None) -> None:
+            """
+            Perform the internet archive add operation with explicit ordering and failure behavior.
+
+            Example:
+                Exercise InternetArchive. identifier values from record.add with the owning regression module::
+
+                    python -m pytest -q tests/metadata/web_sources/test_web_sources_internet_archive.py
+
+
+            :param key: Value supplied for key.
+            :param value: Input value to normalize, compare, store or parse.
+            :return: The normalized provider value, metadata result or collection described
+                above.
+            """
             if not value:
                 return
             if value not in values[key]:
@@ -512,6 +991,19 @@ class InternetArchive(Source):
 
     @classmethod
     def _cover_url_from_record(cls, record: Mapping) -> str | None:
+        """
+        Perform the internet archive cover url from record operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise InternetArchive. cover url from record with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_internet_archive.py
+
+
+        :param record: Provider JSON/XML record projected into metadata.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         identifier = _as_text(record.get("identifier")).strip()
         if not identifier:
             return None
@@ -528,6 +1020,20 @@ class InternetArchive(Source):
         return cls.THUMBNAIL % quote(identifier, safe="")
 
     def _metadata_from_record(self, record: Mapping, relevance: int = 0):
+        """
+        Project one provider record into normalized metadata and retain source relevance.
+
+        Example:
+            Exercise InternetArchive. metadata from record with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_internet_archive.py
+
+
+        :param record: Provider JSON/XML record projected into metadata.
+        :param relevance: Zero-based provider result relevance.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         title = _as_text(record.get("title")).strip() or _("Unknown")
         authors = self._authors_from_record(record)
         mi = calibreMetaInformation(title, authors)
@@ -566,6 +1072,20 @@ class InternetArchive(Source):
         return mi
 
     def _postprocess_downloaded_metadata(self, mi, relevance: int = 0):
+        """
+        Apply source relevance, identifier caches and shared cleanup to downloaded metadata.
+
+        Example:
+            Exercise InternetArchive. postprocess downloaded metadata with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_internet_archive.py
+
+
+        :param mi: Metadata object supplying identifiers or receiving normalized fields.
+        :param relevance: Zero-based provider result relevance.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         if mi is None:
             return None
         mi.source_relevance = relevance
@@ -584,6 +1104,20 @@ class InternetArchive(Source):
 
     # Source API {{{
     def get_cached_cover_url(self, identifiers):
+        """
+        Return cached cover url when present without network access.
+
+        Example:
+            Exercise InternetArchive.get cached cover url with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_internet_archive.py
+
+
+        :param identifiers: Metadata identifier mapping used for direct lookup and cache
+            resolution.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         identifiers = identifiers or {}
         archive_id = _archive_identifier_from_identifiers(identifiers)
         if archive_id is None:
@@ -605,6 +1139,25 @@ class InternetArchive(Source):
         identifiers=None,
         timeout=30,
     ):
+        """
+        Run provider lookup, honor cancellation, isolate per-result failures and enqueue normalized metadata.
+
+        Example:
+            Exercise InternetArchive.identify with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_internet_archive.py
+
+
+        :param log: Logger receiving structured provider diagnostics.
+        :param result_queue: Queue receiving normalized metadata or cover results.
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param title: Book title used to construct or rank the provider query.
+        :param authors: Author names used to construct or rank the provider query.
+        :param identifiers: Metadata identifier mapping used for direct lookup and cache
+            resolution.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :return: None.
+        """
         identifiers = identifiers or {}
         if abort.is_set():
             return
@@ -659,6 +1212,26 @@ class InternetArchive(Source):
         timeout=30,
         get_best_cover=False,
     ):
+        """
+        Resolve and download cover candidates, honor cancellation and enqueue valid image bytes.
+
+        Example:
+            Exercise InternetArchive.download cover with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_internet_archive.py
+
+
+        :param log: Logger receiving structured provider diagnostics.
+        :param result_queue: Queue receiving normalized metadata or cover results.
+        :param abort: Event-like cancellation signal checked before and during network work.
+        :param title: Book title used to construct or rank the provider query.
+        :param authors: Author names used to construct or rank the provider query.
+        :param identifiers: Metadata identifier mapping used for direct lookup and cache
+            resolution.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :param get_best_cover: Stop after the best usable cover when true.
+        :return: None.
+        """
         del get_best_cover
         identifiers = identifiers or {}
         cover_url = self.get_cached_cover_url(identifiers)

@@ -54,6 +54,7 @@ check pass.
 - Put the opening and closing triple quotes on their own lines.
 - Begin with a concise summary, followed by any contract detail needed by a
   caller.
+- This summary should be one line, and seperated by a blank line from the main body.
 - Give every class and function a small, useful ``Example:`` section. Examples
   should be executable doctests when practical; use ``# doctest: +SKIP`` when
   the example intentionally describes integration with an external object.
@@ -62,9 +63,18 @@ check pass.
   omit implicit ``self`` and ``cls`` parameters.
 - End every function field list with ``:return:``, including functions that
   return ``None``. Type annotations remain the authoritative type declaration.
+- Describe what each parameter and return value means, including units,
+  sentinel values, or side effects where relevant. Empty field placeholders
+  are unfinished documentation, not a completed migration.
 - Preserve typed exceptions and other meaningful Sphinx fields after the
   parameter and return fields.
 - Do not leave trailing whitespace in empty field placeholders.
+- Optionally add, with ``:raises:`` the exceptions this might raise.
+- one blank line between the end of the summary and the params
+- one blank line between the params and the return line
+- keep to the line length limits - breaking lines sensibly if needed
+- if the params have had to be plit over multiple lines, do one line per parameter, as below
+- if there is a * in the parameters, it gets it's own line
 
 For example:
 
@@ -87,10 +97,10 @@ def native_copy(
         >>> info = driver.native_copy(source, destination)  # doctest: +SKIP
 
 
-    :param source:
-    :param destination:
-    :param mode:
-    :return:
+    :param source: Address of the complete readable object to copy.
+    :param destination: Address at which the copied object should be published.
+    :param mode: Collision policy for an object already at the destination.
+    :return: Information about the complete copied object at ``destination``.
     """
 ```
 

@@ -1,3 +1,11 @@
+"""
+Check drift events for orphan formats, deleted covers, duplicate format files, and unsafe book paths.
+
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_c_drift_events_more.py
+"""
 from __future__ import annotations
 
 from LiuXin_alpha.utils.calibre_compat.calibre_database_emulation import CalibreReader
@@ -5,6 +13,23 @@ from LiuXin_alpha.databases.database_driver_plugins.SQL.calibre_database_generat
 
 
 def _payload_by_id(reader: CalibreReader, book_id: int, **kwargs):
+    """
+    Return the first streamed payload whose calibre_book_id matches the requested ID.
+
+    Use batch_size=50; kwargs must not supply a second batch_size value.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_c_drift_events_more.py
+
+
+    :param reader: Reader whose payload iterator is searched.
+    :param book_id: Calibre book ID to match exactly.
+    :param kwargs: Keyword options forwarded to iter_book_payloads.
+    :return: Matching payload; raises AssertionError after exhaustion if the ID is
+        absent.
+    """
     for p in reader.iter_book_payloads(batch_size=50, **kwargs):
         if p.calibre_book_id == book_id:
             return p
@@ -12,6 +37,19 @@ def _payload_by_id(reader: CalibreReader, book_id: int, **kwargs):
 
 
 def test_c_orphan_files_are_reported_and_optionally_exposed_as_formats(provision_calibre_library) -> None:
+    """
+    Add an unregistered MOBI file and check an orphan event plus format inclusion only when requested.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_c_drift_events_more.py::test_c_orphan_files_are_reported_and_optionally_exposed_as_formats
+
+
+    :param provision_calibre_library: Fixture factory creating an isolated blank
+        library; skips when SQLite lacks the required FTS5 support.
+    :return: None; failed expectations raise AssertionError.
+    """
     lib = provision_calibre_library(name="lib_c_orphans")
     b = CalibreLibraryBuilder(lib.root)
 
@@ -37,6 +75,19 @@ def test_c_orphan_files_are_reported_and_optionally_exposed_as_formats(provision
 
 
 def test_c_missing_cover_file_is_reported(provision_calibre_library) -> None:
+    """
+    Delete the generated cover and require a missing_cover_file drift event.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_c_drift_events_more.py::test_c_missing_cover_file_is_reported
+
+
+    :param provision_calibre_library: Fixture factory creating an isolated blank
+        library; skips when SQLite lacks the required FTS5 support.
+    :return: None; failed expectations raise AssertionError.
+    """
     lib = provision_calibre_library(name="lib_c_missing_cover")
     b = CalibreLibraryBuilder(lib.root)
 
@@ -58,6 +109,19 @@ def test_c_missing_cover_file_is_reported(provision_calibre_library) -> None:
 
 
 def test_c_duplicate_format_files_are_reported(provision_calibre_library) -> None:
+    """
+    Add a second EPUB file and require a duplicate_format_files drift event without asserting which copy is selected.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_c_drift_events_more.py::test_c_duplicate_format_files_are_reported
+
+
+    :param provision_calibre_library: Fixture factory creating an isolated blank
+        library; skips when SQLite lacks the required FTS5 support.
+    :return: None; failed expectations raise AssertionError.
+    """
     lib = provision_calibre_library(name="lib_c_dupe")
     b = CalibreLibraryBuilder(lib.root)
 
@@ -79,6 +143,19 @@ def test_c_duplicate_format_files_are_reported(provision_calibre_library) -> Non
 
 
 def test_c_non_strict_unsafe_books_path_yields_drift_event_instead_of_raising(provision_calibre_library) -> None:
+    """
+    Write an escaping books.path and check non-strict iteration preserves the title and records unsafe_book_path drift.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_c_drift_events_more.py::test_c_non_strict_unsafe_books_path_yields_drift_event_instead_of_raising
+
+
+    :param provision_calibre_library: Fixture factory creating an isolated blank
+        library; skips when SQLite lacks the required FTS5 support.
+    :return: None; failed expectations raise AssertionError.
+    """
     lib = provision_calibre_library(name="lib_c_unsafe_non_strict")
     b = CalibreLibraryBuilder(lib.root)
 

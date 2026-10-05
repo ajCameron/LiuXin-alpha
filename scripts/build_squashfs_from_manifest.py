@@ -22,6 +22,21 @@ from pathlib import Path
 
 
 def _bootstrap_src() -> Path:
+    """
+    Put this checkout's src directory first on sys.path when it is absent.
+
+    An existing occurrence retains its current position. The helper does not
+    verify that src exists and leaves the interpreter path changed for later
+    imports in this process.
+
+    Example:
+        >>> _bootstrap_src() == Path(__file__).resolve().parents[1]
+        True
+
+
+    :return: Repository root inferred from this script's resolved pathname.
+    """
+
     repo_root = Path(__file__).resolve().parents[1]
     src = repo_root / "src"
     if str(src) not in sys.path:
@@ -30,6 +45,23 @@ def _bootstrap_src() -> Path:
 
 
 def parse_args() -> argparse.Namespace:
+    """
+    Parse the process command line for a manifest, output, and build options.
+
+    Manifest and output are required strings. Codec and paths are not checked
+    here; argparse handles help and syntax errors through SystemExit. The
+    no-quiet flag removes the builder's -quiet option, although subprocess
+    output remains captured by the helper.
+
+    Example:
+        >>> args = parse_args()  # doctest: +SKIP
+        >>> args.manifest  # doctest: +SKIP
+        'manifest.json'
+
+
+    :return: Namespace containing parsed path strings and build flags.
+    """
+
     parser = argparse.ArgumentParser(description="Build SquashFS archive from JSON manifest")
     parser.add_argument("--manifest", required=True, help="Path to JSON manifest file")
     parser.add_argument("--output", required=True, help="Output .squashfs/.sqfs file path")
@@ -46,8 +78,26 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    """
+    Bootstrap local imports, build from command-line options, and print the report.
+
+    The helper expands/resolves paths and writes the output directly. Forced
+    builds can remove an existing image before a later failure. This launcher
+    does not catch build, serialization, or stdout errors; successful output is
+    indented JSON with sorted keys and unescaped Unicode.
+
+    Example:
+        >>> main()  # doctest: +SKIP
+        0
+
+
+    :return: Zero after building and printing the report; errors propagate.
+    """
+
     _bootstrap_src()
-    from LiuXin_alpha.storage.store_backend_plugins.squashfs_readonly import build_squashfs_from_manifest
+    from LiuXin_alpha.storage.store_backend_plugins.squashfs_readonly.squashfs_manifest_builder import (
+        build_squashfs_from_manifest,
+    )
 
     args = parse_args()
     report = build_squashfs_from_manifest(

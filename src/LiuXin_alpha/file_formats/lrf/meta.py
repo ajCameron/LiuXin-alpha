@@ -1,3 +1,14 @@
+"""
+Read, normalize and update LRF metadata and thumbnail records.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise meta through a consuming regression::
+
+        python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+"""
 from __future__ import print_function
 from __future__ import annotations
 
@@ -47,26 +58,78 @@ QWORD = "<Q"  #: Unsigned long long little endian encoded in 8 bytes
 
 class field(object):
     """
-    A U{Descriptor<http://www.cafepy.com/article/python_attributes_and_methods/python_attributes_and_methods.html>},
-    that implements access to protocol packets in a human readable way.
+    A U{Descriptor<http://www.cafepy.com/article/python_attributes_and_methods/python_attributes_and_methods.html>}, that implements access to protocol packets in a human readable way.
+
+    Example:
+        Exercise field through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
     """
 
     def __init__(self: _typing.Self, start: int = 16, fmt: _typing.Any = DWORD) -> None:
         """
         See U{struct<http://docs.python.org/lib/module-struct.html>}.
-        :param start: The byte at which this field is stored in the buffer
-        :param fmt:   The packing format for this field.
+
+        Example:
+            Exercise field.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param start: Value supplied for start under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :return: None; validated state is stored on the receiving object.
         """
         self._fmt = fmt
         self._start = start
 
     def __get__(self: _typing.Self, obj: _typing.Any, typ: _typing.Any = None) -> _typing.Any:
+        """
+        Perform the get operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise field.  get   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param obj: Value supplied for obj under the utility contract.
+        :param typ: Value supplied for typ under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return obj.unpack(start=self._start, fmt=self._fmt)[0]
 
     def __set__(self: _typing.Self, obj: _typing.Any, val: _typing.Any) -> None:
+        """
+        Perform the set operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise field.  set   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param obj: Value supplied for obj under the utility contract.
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         obj.pack(val, start=self._start, fmt=self._fmt)
 
     def __repr__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the repr operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise field.  repr   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         typ = ""
         if self._fmt == DWORD:
             typ = "unsigned int"
@@ -83,11 +146,47 @@ class field(object):
 
 
 class versioned_field(field):
+    """
+    Provide the versioned field contract for validated ebook processing.
+
+    Example:
+        Exercise versioned field through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     def __init__(self: _typing.Self, vfield: _typing.Any, version: _typing.Any, start: int = 0, fmt: _typing.Any = WORD) -> None:
+        """
+        Initialize and validate the versioned field state.
+
+        Example:
+            Exercise versioned field.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param vfield: Value supplied for vfield under the utility contract.
+        :param version: Value supplied for version under the utility contract.
+        :param start: Value supplied for start under the utility contract.
+        :param fmt: Date, number or template format specification.
+        :return: None; validated state is stored on the receiving object.
+        """
         field.__init__(self, start=start, fmt=fmt)
         self.vfield, self.version = vfield, version
 
     def enabled(self: _typing.Self, obj: _typing.Any) -> bool:
+        """
+        Perform the enabled operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise versioned field.enabled through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param obj: Value supplied for obj under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if isinstance(self.vfield, field):
             if obj is None:
                 return False
@@ -97,12 +196,40 @@ class versioned_field(field):
         return vfield_value > self.version
 
     def __get__(self: _typing.Self, obj: _typing.Any, typ: _typing.Any = None) -> _typing.Any:
+        """
+        Perform the get operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise versioned field.  get   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param obj: Value supplied for obj under the utility contract.
+        :param typ: Value supplied for typ under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.enabled(obj):
             return field.__get__(self, obj, typ=typ)
         else:
             return None
 
     def __set__(self: _typing.Self, obj: _typing.Any, val: _typing.Any) -> None:
+        """
+        Perform the set operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise versioned field.  set   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param obj: Value supplied for obj under the utility contract.
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if not self.enabled(obj):
             raise LRFException("Trying to set disabled field")
         else:
@@ -110,27 +237,77 @@ class versioned_field(field):
 
 
 class LRFException(Exception):
+    """
+    Report a lrfexception encountered while processing an ebook format.
+
+    Example:
+        Exercise LRFException through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     pass
 
 
 class fixed_stringfield(object):
     """
     A field storing a variable length string.
+
+    Example:
+        Exercise fixed stringfield through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
     """
 
     def __init__(self: _typing.Self, length: int = 8, start: int = 0) -> None:
         """
-        :param length: Size of this string
-        :param start: The byte at which this field is stored in the buffer
+        Initialize and validate the fixed stringfield state.
+
+        Example:
+            Exercise fixed stringfield.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param length: Value supplied for length under the utility contract.
+        :param start: Value supplied for start under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self._length = length
         self._start = start
 
     def __get__(self: _typing.Self, obj: _typing.Any, typ: _typing.Any = None) -> _typing.Any:
+        """
+        Perform the get operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise fixed stringfield.  get   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param obj: Value supplied for obj under the utility contract.
+        :param typ: Value supplied for typ under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         length = str(self._length)
         return obj.unpack(start=self._start, fmt="<" + length + "s")[0]
 
     def __set__(self: _typing.Self, obj: _typing.Any, val: _typing.Any) -> None:
+        """
+        Perform the set operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise fixed stringfield.  set   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param obj: Value supplied for obj under the utility contract.
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if val.__class__.__name__ != "str":
             val = str(val)
         if len(val) != self._length:
@@ -138,19 +315,45 @@ class fixed_stringfield(object):
         obj.pack(val, start=self._start, fmt="<" + str(len(val)) + "s")
 
     def __repr__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the repr operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise fixed stringfield.  repr   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "A string of length " + str(self._length) + " starting at byte " + str(self._start)
 
 
 class xml_attr_field(object):
     """
     descriptor for an xml_attr_field - gets and sets values for an xml attribute field
+
+    Example:
+        Exercise xml attr field through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
     """
 
     def __init__(self: _typing.Self, tag_name: _typing.Any, attr: _typing.Any, parent: str = "BookInfo") -> None:
         """
-        :param tag_name: Name of the xml tag
-        :param attr:
-        :param parent: The tag this tag is located under
+        Initialize and validate the xml attr field state.
+
+        Example:
+            Exercise xml attr field.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tag_name: Value supplied for tag name under the utility contract.
+        :param attr: Value supplied for attr under the utility contract.
+        :param parent: Value supplied for parent under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self.tag_name = tag_name
         self.parent = parent
@@ -159,9 +362,17 @@ class xml_attr_field(object):
     def __get__(self: _typing.Self, obj: _typing.Any, typ: _typing.Any = None) -> _typing.Any:
         """
         Return the data in this field or '' if the field is empty
-        :param obj:
-        :param typ:
-        :return:
+
+        Example:
+            Exercise xml attr field.  get   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param obj: Value supplied for obj under the utility contract.
+        :param typ: Value supplied for typ under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         document = obj.info
         elems = document.getElementsByTagName(self.tag_name)
@@ -175,6 +386,20 @@ class xml_attr_field(object):
         return ""
 
     def __set__(self: _typing.Self, obj: _typing.Any, val: _typing.Any) -> None:
+        """
+        Perform the set operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise xml attr field.  set   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param obj: Value supplied for obj under the utility contract.
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if val is None:
             val = ""
         document = obj.info
@@ -189,22 +414,59 @@ class xml_attr_field(object):
         obj.info = document
 
     def __repr__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the repr operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise xml attr field.  repr   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "XML Attr Field: {} in {}".format(self.tag_name, self.parent)
 
     def __str__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the str operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise xml attr field.  str   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "{}.{}".format(self.tag_name, self.attr)
 
 
 class xml_field(object):
     """
-    Descriptor that gets and sets XML based meta information from an LRF file.
-    Works for simple XML fields of the form <tagname>data</tagname>
+    Descriptor that gets and sets XML based meta information from an LRF file. Works for simple XML fields of the form <tagname>data</tagname>
+
+    Example:
+        Exercise xml field through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
     """
 
     def __init__(self: _typing.Self, tag_name: _typing.Any, parent: str = "BookInfo") -> None:
         """
-        :param tag_name: The XML tag whose data we operate on
-        :param parent: The tagname of the parent element of C{tag_name}
+        Initialize and validate the xml field state.
+
+        Example:
+            Exercise xml field.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tag_name: Value supplied for tag name under the utility contract.
+        :param parent: Value supplied for parent under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self.tag_name = tag_name
         self.parent = parent
@@ -212,9 +474,17 @@ class xml_field(object):
     def __get__(self: _typing.Self, obj: _typing.Any, typ: _typing.Any = None) -> _typing.Any:
         """
         Return the data in this field or '' if the field is empty.
-        :param obj:
-        :param typ:
-        :return:
+
+        Example:
+            Exercise xml field.  get   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param obj: Value supplied for obj under the utility contract.
+        :param typ: Value supplied for typ under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         document = obj.info
 
@@ -236,9 +506,17 @@ class xml_field(object):
     def __set__(self: _typing.Self, obj: _typing.Any, val: _typing.Any) -> None:
         """
         Writes the element - into an existing element if a suitable one exists - creating one otherwise.
-        :param obj:
-        :param val:
-        :return:
+
+        Example:
+            Exercise xml field.  set   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param obj: Value supplied for obj under the utility contract.
+        :param val: Template or metadata value evaluated by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # Normalize to the empty string
         if not val:
@@ -249,7 +527,15 @@ class xml_field(object):
         def create_elem() -> _typing.Any:
             """
             Used to make an element if a suitable one doesn't already exist
-            :return:
+
+            Example:
+                Exercise xml field.  set  .create elem through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
             """
             new_elem = document.createElement(self.tag_name)
             parent = document.getElementsByTagName(self.parent)[0]
@@ -286,34 +572,78 @@ class xml_field(object):
         obj.info = document
 
     def __str__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the str operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise xml field.  str   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.tag_name
 
     def __repr__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the repr operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise xml field.  repr   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "XML Field: {} in {}".format(self.tag_name, self.parent)
 
 
 # Todo: Come back and finish and test
 class xml_multivalued_field(object):
     """
-    Descriptor that gets and sets XML based meta information from an LRF file.
-    Works for simple XMl fields of the form <tagname>data</tagname> - can cope with there being more than one of them.
+    Descriptor that gets and sets XML based meta information from an LRF file. Works for simple XMl fields of the form <tagname>data</tagname> - can cope with there being more than one of them.
+
+    Example:
+        Exercise xml multivalued field through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
     """
 
     def __init__(self: _typing.Self, tag_name: _typing.Any, parent: str = "BookInfo") -> None:
         """
-        :param tag_name: The XML tag whose data we operate on
-        :param parent: The tagname of the parent element of C{tag_name}
+        Initialize and validate the xml multivalued field state.
+
+        Example:
+            Exercise xml multivalued field.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tag_name: Value supplied for tag name under the utility contract.
+        :param parent: Value supplied for parent under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self.tag_name = tag_name
         self.parent = parent
 
     def __get__(self: _typing.Self, obj: _typing.Any, typ: _typing.Any = None) -> _typing.Any:
         """
-        Return the data for all the matching fields as a list.
-        Returns an empty list if there are no matching elements.
-        :param obj:
-        :param typ:
-        :return:
+        Return the data for all the matching fields as a list. Returns an empty list if there are no matching elements.
+
+        Example:
+            Exercise xml multivalued field.  get   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param obj: Value supplied for obj under the utility contract.
+        :param typ: Value supplied for typ under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         document = obj.info
 
@@ -328,6 +658,20 @@ class xml_multivalued_field(object):
         return vals
 
     def __set__(self: _typing.Self, instance: _typing.Any, value: _typing.Any) -> None:
+        """
+        Perform the set operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise xml multivalued field.  set   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param instance: Value supplied for instance under the utility contract.
+        :param value: Value normalized, stored, formatted or returned.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raise NotImplementedError
 
 
@@ -335,15 +679,18 @@ def insert_into_file(fileobj: _typing.Any, data: _typing.Any, start: _typing.Any
     """
     Insert data into fileobj at position C{start}.
 
-    This function inserts data into a file, overwriting all data between start
-    and end. If end == start no data is overwritten. Do not use this function to
-    append data to a file.
+    Example:
+        Exercise insert into file through a consuming regression::
 
-    :param fileobj: file like object
-    :param data:    data to be inserted into fileobj
-    :param start:   The position at which to start inserting data
-    :param end:     The position in fileobj of data that must not be overwritten
-    :return:        C{start + len(data) - end} - position in the stream at which the written data ends
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+    :param fileobj: Value supplied for fileobj under the utility contract.
+    :param data: Value supplied for data under the utility contract.
+    :param start: Value supplied for start under the utility contract.
+    :param end: Value supplied for end under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     file_buffer = six_cStringIO()
     fileobj.seek(end)
@@ -363,11 +710,19 @@ def insert_into_file(fileobj: _typing.Any, data: _typing.Any, start: _typing.Any
 
 def get_metadata(stream: _typing.Any, calibre_md: bool = True) -> _typing.Any:
     """
-    Return basic meta-data about the LRF file in C{stream} as a
-    L{MetaInformation} object.
-    :param stream: A file like object or an instance of L{LRFMetaFile}
-    :param calibre_md: If True returns the metadata as a calibreMetaData object. If False returns the metadata as a
-                       LiuXin metadata object.
+    Return basic meta-data about the LRF file in C{stream} as a L{MetaInformation} object.
+
+    Example:
+        Exercise get metadata through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+    :param stream: Input or output stream wrapped by the terminal or compatibility
+        layer.
+    :param calibre_md: Value supplied for calibre md under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     lrf = stream if isinstance(stream, LRFMetaFile) else LRFMetaFile(stream)
 
@@ -426,6 +781,11 @@ def get_metadata(stream: _typing.Any, calibre_md: bool = True) -> _typing.Any:
 class LRFMetaFile(object):
     """
     Provides fields to read and write all metadata to an LRF file.
+
+    Example:
+        Exercise LRFMetaFile through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
     """
 
     #: The first 6 bytes of all valid LRF files
@@ -473,12 +833,34 @@ class LRFMetaFile(object):
 
     def safe(func: _typing.Any) -> _typing.Any:
         """
-        Decorator that ensures that function calls leave the pos
-        in the underlying file unchanged
+        Decorator that ensures that function calls leave the pos in the underlying file unchanged
+
+        Example:
+            Exercise LRFMetaFile.safe through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         @wraps(func)
         def restore_pos(*args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
+            """
+            Perform the restore pos operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise LRFMetaFile.safe.restore pos through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+            :param args: Positional values forwarded to the compatibility implementation.
+            :param kwargs: Keyword values forwarded to the compatibility implementation.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             obj = args[0]
             pos = obj._file.tell()
             res = func(*args, **kwargs)
@@ -492,10 +874,46 @@ class LRFMetaFile(object):
     def safe_property(func: _typing.Any) -> _typing.Any:
         """
         Decorator that ensures that read or writing a property leaves the position in the underlying file unchanged
+
+        Example:
+            Exercise LRFMetaFile.safe property through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         def decorator(f: _typing.Any) -> _typing.Any:
+            """
+            Perform the decorator operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise LRFMetaFile.safe property.decorator through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+            :param f: Value supplied for f under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             def restore_pos(*args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
+                """
+                Perform the restore pos operation under explicit file-format and conversion rules.
+
+                Example:
+                    Exercise LRFMetaFile.safe property.decorator.restore pos through a consuming regression::
+
+                        python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+                :param args: Positional values forwarded to the compatibility implementation.
+                :param kwargs: Keyword values forwarded to the compatibility implementation.
+                :return: The normalized value, metadata record, path, stream result or collection
+                    described above.
+                """
                 obj = args[0]
                 pos = obj._file.tell()
                 res = f(*args, **kwargs)
@@ -515,12 +933,37 @@ class LRFMetaFile(object):
 
     @safe_property
     def info() -> dict[_typing.Any, _typing.Any]:
+        """
+        Perform the info operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LRFMetaFile.info through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         doc = """
         Document meta information as a minidom Document object.
         To set use a minidom document object.
         """
 
         def fget(self: _typing.Any) -> _typing.Any:
+            """
+            Perform the fget operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise LRFMetaFile.info.fget through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+            :param self: Value supplied for self under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             if self.compressed_info_size == 0:
                 raise LRFException("This document has no meta info")
             size = self.compressed_info_size - 4
@@ -544,6 +987,20 @@ class LRFMetaFile(object):
                 raise LRFException("Unable to decompress document meta information")
 
         def fset(self: _typing.Any, document: _typing.Any) -> None:
+            """
+            Perform the fset operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise LRFMetaFile.info.fset through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+            :param self: Value supplied for self under the utility contract.
+            :param document: Value supplied for document under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             info = document.toxml("utf-8")
             self.uncompressed_info_size = len(info)
             stream = zlib.compress(info)
@@ -560,16 +1017,53 @@ class LRFMetaFile(object):
 
     @safe_property
     def thumbnail_pos() -> dict[_typing.Any, _typing.Any]:
+        """
+        Perform the thumbnail pos operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LRFMetaFile.thumbnail pos through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         doc = """ The position of the thumbnail in the LRF file """
 
         def fget(self: _typing.Any) -> _typing.Any:
+            """
+            Perform the fget operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise LRFMetaFile.thumbnail pos.fget through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+            :param self: Value supplied for self under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return self.info_start + self.compressed_info_size - 4
 
         return {"fget": fget, "doc": doc}
 
     @classmethod
     def _detect_thumbnail_type(cls: type[_typing.Self], slice: _typing.Any) -> _typing.Any:
-        """@param slice: The first 16 bytes of the thumbnail"""
+        """
+        @param slice: The first 16 bytes of the thumbnail
+
+        Example:
+            Exercise LRFMetaFile. detect thumbnail type through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param slice: Value supplied for slice under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if isinstance(slice, str):
             slice = slice.encode("latin-1", "replace")
         ttype = 0x14  # GIF
@@ -583,6 +1077,18 @@ class LRFMetaFile(object):
 
     @safe_property
     def thumbnail() -> dict[_typing.Any, _typing.Any]:
+        """
+        Perform the thumbnail operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LRFMetaFile.thumbnail through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         doc = """
         The thumbnail.
         Represented as a string.
@@ -590,12 +1096,39 @@ class LRFMetaFile(object):
         """
 
         def fget(self: _typing.Any) -> _typing.Any:
+            """
+            Perform the fget operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise LRFMetaFile.thumbnail.fget through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+            :param self: Value supplied for self under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             size = self.thumbnail_size
             if size:
                 self._file.seek(self.thumbnail_pos)
                 return self._file.read(size)
 
         def fset(self: _typing.Any, data: _typing.Any) -> None:
+            """
+            Perform the fset operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise LRFMetaFile.thumbnail.fset through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+            :param self: Value supplied for self under the utility contract.
+            :param data: Value supplied for data under the utility contract.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             if self.version <= 800:
                 raise LRFException("Cannot store thumbnails in LRF files of version <= 800")
             slice = data[0:16]
@@ -610,7 +1143,18 @@ class LRFMetaFile(object):
         return {"fget": fget, "fset": fset, "doc": doc}
 
     def __init__(self: _typing.Self, file: _typing.Any) -> None:
-        """@param file: A file object opened in the r+b mode"""
+        """
+        @param file: A file object opened in the r+b mode
+
+        Example:
+            Exercise LRFMetaFile.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param file: Value supplied for file under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         file.seek(0, 2)
         self.size = file.tell()
         self._file = file
@@ -623,8 +1167,16 @@ class LRFMetaFile(object):
     def update_object_offsets(self: _typing.Self, delta: _typing.Any) -> None:
         """
         Run through the LRF Object index changing the offset by C{delta}.
-        :param delta:
-        :return:
+
+        Example:
+            Exercise LRFMetaFile.update object offsets through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param delta: Value supplied for delta under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self._file.seek(self.object_index_offset)
         count = self.number_of_objects
@@ -644,8 +1196,16 @@ class LRFMetaFile(object):
         """
         Return decoded data from file.
 
-        :param fmt: See U{struct<http://docs.python.org/lib/module-struct.html>}
-        :param start: Position in file from which to decode
+        Example:
+            Exercise LRFMetaFile.unpack through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param fmt: Date, number or template format specification.
+        :param start: Value supplied for start under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         end = start + struct.calcsize(fmt)
         self._file.seek(start)
@@ -655,12 +1215,18 @@ class LRFMetaFile(object):
     @safe
     def pack(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> None:
         """
-        Encode C{args} and write them to file.
-        C{kwargs} must contain the keywords C{fmt} and C{start}
+        Encode C{args} and write them to file. C{kwargs} must contain the keywords C{fmt} and C{start}
 
-        @param args: The values to pack
-        @param fmt: See U{struct<http://docs.python.org/lib/module-struct.html>}
-        @param start: Position in file at which to write encoded data
+        Example:
+            Exercise LRFMetaFile.pack through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         encoded = struct.pack(kwargs["fmt"], *args)
         self._file.seek(kwargs["start"])
@@ -669,9 +1235,16 @@ class LRFMetaFile(object):
 
     def thumbail_extension(self: _typing.Self) -> _typing.Any:
         """
-        Return the extension for the thumbnail image type as specified
-        by L{self.thumbnail_type}. If the LRF file was created by buggy
-        software, the extension maye be incorrect. See L{self.fix_thumbnail_type}.
+        Return the extension for the thumbnail image type as specified by L{self.thumbnail_type}. If the LRF file was created by buggy software, the extension maye be incorrect. See L{self.fix_thumbnail_type}.
+
+        Example:
+            Exercise LRFMetaFile.thumbail extension through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         ext = "gif"
         ttype = self.thumbnail_type
@@ -685,29 +1258,94 @@ class LRFMetaFile(object):
 
     def fix_thumbnail_type(self: _typing.Self) -> None:
         """
-        Attempt to guess the thumbnail image format and set
-        L{self.thumbnail_type} accordingly.
+        Attempt to guess the thumbnail image format and set L{self.thumbnail_type} accordingly.
+
+        Example:
+            Exercise LRFMetaFile.fix thumbnail type through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         slice = self.thumbnail[0:16]
         self.thumbnail_type = self._detect_thumbnail_type(slice)
 
     def seek(self: _typing.Self, *args: _typing.Any) -> _typing.Any:
-        """See L{file.seek}"""
+        """
+        See L{file.seek}
+
+        Example:
+            Exercise LRFMetaFile.seek through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._file.seek(*args)
 
     def tell(self: _typing.Self) -> _typing.Any:
-        """See L{file.tell}"""
+        """
+        See L{file.tell}
+
+        Example:
+            Exercise LRFMetaFile.tell through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._file.tell()
 
     def read(self: _typing.Self) -> _typing.Any:
-        """See L{file.read}"""
+        """
+        See L{file.read}
+
+        Example:
+            Exercise LRFMetaFile.read through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._file.read()
 
     def write(self: _typing.Self, val: _typing.Any) -> None:
-        """See L{file.write}"""
+        """
+        See L{file.write}
+
+        Example:
+            Exercise LRFMetaFile.write through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param val: Template or metadata value evaluated by the operation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._file.write(val)
 
     def _objects(self: _typing.Self) -> _typing.Iterator[_typing.Any]:
+        """
+        Perform the objects operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LRFMetaFile. objects through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: An iterator yielding the normalized values described above.
+        """
         self._file.seek(self.object_index_offset)
         c = self.number_of_objects
         while c > 0:
@@ -718,6 +1356,19 @@ class LRFMetaFile(object):
             self._file.seek(pos)
 
     def get_objects_by_type(self: _typing.Self, type: _typing.Any) -> _typing.Any:
+        """
+        Return objects by type under the format's safety and compatibility rules.
+
+        Example:
+            Exercise LRFMetaFile.get objects by type through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param type: Value supplied for type under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.file_formats.lrf.tags import Tag
 
         objects = []
@@ -731,6 +1382,19 @@ class LRFMetaFile(object):
         return objects
 
     def get_object_by_id(self: _typing.Self, tid: _typing.Any) -> tuple[_typing.Any, ...]:
+        """
+        Return object by id under the format's safety and compatibility rules.
+
+        Example:
+            Exercise LRFMetaFile.get object by id through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param tid: Value supplied for tid under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.file_formats.lrf.tags import Tag
 
         for id, offset, size in self._objects():
@@ -744,6 +1408,18 @@ class LRFMetaFile(object):
 
     @safe
     def get_cover(self: _typing.Self) -> tuple[_typing.Any, ...] | None:
+        """
+        Return the preferred cover image and its normalized format metadata.
+
+        Example:
+            Exercise LRFMetaFile.get cover through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.file_formats.lrf.objects import get_object
 
         for id, offset, size in self.get_objects_by_type(0x0C):
@@ -755,6 +1431,18 @@ class LRFMetaFile(object):
 
 
 def option_parser() -> _typing.Any:
+    """
+    Perform the option parser operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise option parser through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     from LiuXin_alpha.utils.config import OptionParser
     from LiuXin_alpha.utils.calibre.constants import __appname__, __version__
 
@@ -860,11 +1548,19 @@ Show/edit the metadata in an LRF file.\n\n"""
 
 def set_metadata(stream: _typing.Any, mi: _typing.Any) -> None:
     """
-    Write the given metadata into a lrf stream.
-    Supports writing title, authors, tags, comments, author_sort and publisher
-    :param stream: The stream to write the metadata into
-    :param mi: Metadata for writing
-    :return:
+    Write the given metadata into a lrf stream. Supports writing title, authors, tags, comments, author_sort and publisher
+
+    Example:
+        Exercise set metadata through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+    :param stream: Input or output stream wrapped by the terminal or compatibility
+        layer.
+    :param mi: Metadata object exposed to the template function.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     lrf = LRFMetaFile(stream)
 
@@ -893,6 +1589,19 @@ def set_metadata(stream: _typing.Any, mi: _typing.Any) -> None:
 
 
 def main(args: _typing.Any = sys.argv) -> int:
+    """
+    Perform the main operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise main through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+    :param args: Positional values forwarded to the compatibility implementation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     parser = option_parser()
     options, args = parser.parse_args(args)
     if len(args) != 2:

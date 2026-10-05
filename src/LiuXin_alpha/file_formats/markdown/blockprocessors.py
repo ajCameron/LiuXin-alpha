@@ -1,3 +1,14 @@
+"""
+Recognize and transform Markdown block-level syntax into elements.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise blockprocessors through a consuming regression::
+
+        python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+"""
 from __future__ import unicode_literals
 from __future__ import division
 from __future__ import absolute_import
@@ -28,7 +39,20 @@ logger = logging.getLogger("MARKDOWN")
 
 
 def build_block_parser(md_instance: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
-    """Build the default block parser used by Markdown."""
+    """
+    Build the default block parser used by Markdown.
+
+    Example:
+        Exercise build block parser through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+    :param md_instance: Value supplied for md instance under the utility contract.
+    :param kwargs: Keyword values forwarded to the compatibility implementation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     parser = BlockParser(md_instance)
     parser.blockprocessors["empty"] = EmptyBlockProcessor(parser)
     parser.blockprocessors["indent"] = ListIndentProcessor(parser)
@@ -44,29 +68,64 @@ def build_block_parser(md_instance: _typing.Any, **kwargs: _typing.Any) -> _typi
 
 
 class BlockProcessor:
-    """Base class for block processors.
+    """
+    Base class for block processors.
 
-    Each subclass will provide the methods below to work with the source and
-    tree. Each processor will need to define it's own ``test`` and ``run``
-    methods. The ``test`` method should return True or False, to indicate
-    whether the current block should be processed by this processor. If the
-    test passes, the parser will call the processors ``run`` method.
+    Example:
+        Exercise BlockProcessor through a consuming regression::
 
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
     """
 
     def __init__(self: _typing.Self, parser: _typing.Any) -> None:
+        """
+        Initialize and validate the blockprocessor state.
+
+        Example:
+            Exercise BlockProcessor.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param parser: Value supplied for parser under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.parser = parser
         self.tab_length = parser.markdown.tab_length
 
     def lastChild(self: _typing.Self, parent: _typing.Any) -> _typing.Any:
-        """Return the last child of an etree element."""
+        """
+        Return the last child of an etree element.
+
+        Example:
+            Exercise BlockProcessor.lastChild through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if len(parent):
             return parent[-1]
         else:
             return None
 
     def detab(self: _typing.Self, text: _typing.Any) -> tuple[_typing.Any, ...]:
-        """Remove a tab from the front of each line of the given text."""
+        """
+        Remove a tab from the front of each line of the given text.
+
+        Example:
+            Exercise BlockProcessor.detab through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         newtext = []
         lines = text.split("\n")
         for line in lines:
@@ -79,7 +138,20 @@ class BlockProcessor:
         return "\n".join(newtext), "\n".join(lines[len(newtext) :])
 
     def looseDetab(self: _typing.Self, text: _typing.Any, level: int = 1) -> _typing.Any:
-        """Remove a tab from front of lines but allowing dedented lines."""
+        """
+        Remove a tab from front of lines but allowing dedented lines.
+
+        Example:
+            Exercise BlockProcessor.looseDetab through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :param level: Value supplied for level under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         lines = text.split("\n")
         for i in range(len(lines)):
             if lines[i].startswith(" " * self.tab_length * level):
@@ -87,69 +159,84 @@ class BlockProcessor:
         return "\n".join(lines)
 
     def test(self: _typing.Self, parent: _typing.Any, block: _typing.Any) -> None:
-        """Test for block type. Must be overridden by subclasses.
+        """
+        Test for block type. Must be overridden by subclasses.
 
-        As the parser loops through processors, it will call the ``test`` method
-        on each to determine if the given block of text is of that type. This
-        method must return a boolean ``True`` or ``False``. The actual method of
-        testing is left to the needs of that particular block type. It could
-        be as simple as ``block.startswith(some_string)`` or a complex regular
-        expression. As the block type may be different depending on the parent
-        of the block (i.e. inside a list), the parent etree element is also
-        provided and may be used as part of the test.
+        Example:
+            Exercise BlockProcessor.test through a consuming regression::
 
-        Keywords:
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
 
-        * ``parent``: A etree element which will be the parent of the block.
-        * ``block``: A block of text from the source which has been split at
-            blank lines.
+
+        :param parent: Value supplied for parent under the utility contract.
+        :param block: Value supplied for block under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         pass
 
     def run(self: _typing.Self, parent: _typing.Any, blocks: _typing.Any) -> None:
-        """Run processor. Must be overridden by subclasses.
+        """
+        Run processor. Must be overridden by subclasses.
 
-        When the parser determines the appropriate type of a block, the parser
-        will call the corresponding processor's ``run`` method. This method
-        should parse the individual lines of the block and append them to
-        the etree.
+        Example:
+            Exercise BlockProcessor.run through a consuming regression::
 
-        Note that both the ``parent`` and ``etree`` keywords are pointers
-        to instances of the objects which should be edited in place. Each
-        processor must make changes to the existing objects as there is no
-        mechanism to return new/different objects to replace them.
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
 
-        This means that this method should be adding SubElements or adding text
-        to the parent, and should remove (``pop``) or add (``insert``) items to
-        the list of blocks.
 
-        Keywords:
-
-        * ``parent``: A etree element which is the parent of the current block.
-        * ``blocks``: A list of all remaining blocks of the document.
+        :param parent: Value supplied for parent under the utility contract.
+        :param blocks: Value supplied for blocks under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         pass
 
 
 class ListIndentProcessor(BlockProcessor):
-    """Process children of list items.
+    """
+    Process children of list items.
 
     Example:
-        * a list item
-            process this part
+        Exercise ListIndentProcessor through a consuming regression::
 
-            or this part
-
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
     """
 
     ITEM_TYPES = ["li"]
     LIST_TYPES = ["ul", "ol"]
 
     def __init__(self: _typing.Self, *args: _typing.Any) -> None:
+        """
+        Initialize and validate the listindentprocessor state.
+
+        Example:
+            Exercise ListIndentProcessor.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :return: None; validated state is stored on the receiving object.
+        """
         BlockProcessor.__init__(self, *args)
         self.INDENT_RE = re.compile(r"^(([ ]{%s})+)" % self.tab_length)
 
     def test(self: _typing.Self, parent: _typing.Any, block: _typing.Any) -> bool:
+        """
+        Perform the test operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ListIndentProcessor.test through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :param block: Value supplied for block under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return (
             block.startswith(" " * self.tab_length)
             and not self.parser.state.isstate("detabbed")
@@ -157,6 +244,20 @@ class ListIndentProcessor(BlockProcessor):
         )
 
     def run(self: _typing.Self, parent: _typing.Any, blocks: _typing.Any) -> None:
+        """
+        Execute the configured conversion stage and return its primary result.
+
+        Example:
+            Exercise ListIndentProcessor.run through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :param blocks: Value supplied for blocks under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         block = blocks.pop(0)
         level, sibling = self.get_level(parent, block)
         block = self.looseDetab(block, level)
@@ -193,12 +294,38 @@ class ListIndentProcessor(BlockProcessor):
         self.parser.state.reset()
 
     def create_item(self: _typing.Self, parent: _typing.Any, block: _typing.Any) -> None:
-        """Create a new li and parse the block with it as the parent."""
+        """
+        Create a new li and parse the block with it as the parent.
+
+        Example:
+            Exercise ListIndentProcessor.create item through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :param block: Value supplied for block under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         li = util.etree.SubElement(parent, "li")
         self.parser.parseBlocks(li, [block])
 
     def get_level(self: _typing.Self, parent: _typing.Any, block: _typing.Any) -> tuple[_typing.Any, ...]:
-        """Get level of indent based on list level."""
+        """
+        Get level of indent based on list level.
+
+        Example:
+            Exercise ListIndentProcessor.get level through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :param block: Value supplied for block under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         # Get indent level
         m = self.INDENT_RE.match(block)
         if m:
@@ -226,12 +353,47 @@ class ListIndentProcessor(BlockProcessor):
 
 
 class CodeBlockProcessor(BlockProcessor):
-    """Process code blocks."""
+    """
+    Process code blocks.
+
+    Example:
+        Exercise CodeBlockProcessor through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+    """
 
     def test(self: _typing.Self, parent: _typing.Any, block: _typing.Any) -> _typing.Any:
+        """
+        Perform the test operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CodeBlockProcessor.test through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :param block: Value supplied for block under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return block.startswith(" " * self.tab_length)
 
     def run(self: _typing.Self, parent: _typing.Any, blocks: _typing.Any) -> None:
+        """
+        Execute the configured conversion stage and return its primary result.
+
+        Example:
+            Exercise CodeBlockProcessor.run through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :param blocks: Value supplied for blocks under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         sibling = self.lastChild(parent)
         block = blocks.pop(0)
         theRest = ""
@@ -257,12 +419,48 @@ class CodeBlockProcessor(BlockProcessor):
 
 class BlockQuoteProcessor(BlockProcessor):
 
+    """
+    Provide the blockquoteprocessor contract for validated ebook processing.
+
+    Example:
+        Exercise BlockQuoteProcessor through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+    """
     RE = re.compile(r"(^|\n)[ ]{0,3}>[ ]?(.*)")
 
     def test(self: _typing.Self, parent: _typing.Any, block: _typing.Any) -> _typing.Any:
+        """
+        Perform the test operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise BlockQuoteProcessor.test through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :param block: Value supplied for block under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return bool(self.RE.search(block))
 
     def run(self: _typing.Self, parent: _typing.Any, blocks: _typing.Any) -> None:
+        """
+        Execute the configured conversion stage and return its primary result.
+
+        Example:
+            Exercise BlockQuoteProcessor.run through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :param blocks: Value supplied for blocks under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         block = blocks.pop(0)
         m = self.RE.search(block)
         if m:
@@ -285,7 +483,19 @@ class BlockQuoteProcessor(BlockProcessor):
         self.parser.state.reset()
 
     def clean(self: _typing.Self, line: _typing.Any) -> _typing.Any:
-        """Remove ``>`` from beginning of a line."""
+        """
+        Remove ``>`` from beginning of a line.
+
+        Example:
+            Exercise BlockQuoteProcessor.clean through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         m = self.RE.match(line)
         if line.strip() == ">":
             return ""
@@ -296,7 +506,14 @@ class BlockQuoteProcessor(BlockProcessor):
 
 
 class OListProcessor(BlockProcessor):
-    """Process ordered list blocks."""
+    """
+    Process ordered list blocks.
+
+    Example:
+        Exercise OListProcessor through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+    """
 
     TAG = "ol"
     # Detect an item (``1. item``). ``group(1)`` contains contents of item.
@@ -314,10 +531,38 @@ class OListProcessor(BlockProcessor):
     SIBLING_TAGS = ["ol", "ul"]
 
     def test(self: _typing.Self, parent: _typing.Any, block: _typing.Any) -> _typing.Any:
+        """
+        Perform the test operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise OListProcessor.test through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :param block: Value supplied for block under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return bool(self.RE.match(block))
 
     def run(self: _typing.Self, parent: _typing.Any, blocks: _typing.Any) -> None:
         # Check fr multiple items in one block.
+        """
+        Execute the configured conversion stage and return its primary result.
+
+        Example:
+            Exercise OListProcessor.run through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :param blocks: Value supplied for blocks under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         items = self.get_items(blocks.pop(0))
         sibling = self.lastChild(parent)
 
@@ -376,7 +621,19 @@ class OListProcessor(BlockProcessor):
         self.parser.state.reset()
 
     def get_items(self: _typing.Self, block: _typing.Any) -> _typing.Any:
-        """Break a block into list items."""
+        """
+        Break a block into list items.
+
+        Example:
+            Exercise OListProcessor.get items through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param block: Value supplied for block under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         items = []
         for line in block.split("\n"):
             m = self.CHILD_RE.match(line)
@@ -403,22 +660,64 @@ class OListProcessor(BlockProcessor):
 
 
 class UListProcessor(OListProcessor):
-    """Process unordered list blocks."""
+    """
+    Process unordered list blocks.
+
+    Example:
+        Exercise UListProcessor through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+    """
 
     TAG = "ul"
     RE = re.compile(r"^[ ]{0,3}[*+-][ ]+(.*)")
 
 
 class HashHeaderProcessor(BlockProcessor):
-    """Process Hash Headers."""
+    """
+    Process Hash Headers.
+
+    Example:
+        Exercise HashHeaderProcessor through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+    """
 
     # Detect a header at start of any line in block
     RE = re.compile(r"(^|\n)(?P<level>#{1,6})(?P<header>.*?)#*(\n|$)")
 
     def test(self: _typing.Self, parent: _typing.Any, block: _typing.Any) -> _typing.Any:
+        """
+        Perform the test operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HashHeaderProcessor.test through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :param block: Value supplied for block under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return bool(self.RE.search(block))
 
     def run(self: _typing.Self, parent: _typing.Any, blocks: _typing.Any) -> None:
+        """
+        Execute the configured conversion stage and return its primary result.
+
+        Example:
+            Exercise HashHeaderProcessor.run through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :param blocks: Value supplied for blocks under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         block = blocks.pop(0)
         m = self.RE.search(block)
         if m:
@@ -441,15 +740,50 @@ class HashHeaderProcessor(BlockProcessor):
 
 
 class SetextHeaderProcessor(BlockProcessor):
-    """Process Setext-style Headers."""
+    """
+    Process Setext-style Headers.
+
+    Example:
+        Exercise SetextHeaderProcessor through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+    """
 
     # Detect Setext-style header. Must be first 2 lines of block.
     RE = re.compile(r"^.*?\n[=-]+[ ]*(\n|$)", re.MULTILINE)
 
     def test(self: _typing.Self, parent: _typing.Any, block: _typing.Any) -> _typing.Any:
+        """
+        Perform the test operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise SetextHeaderProcessor.test through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :param block: Value supplied for block under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return bool(self.RE.match(block))
 
     def run(self: _typing.Self, parent: _typing.Any, blocks: _typing.Any) -> None:
+        """
+        Execute the configured conversion stage and return its primary result.
+
+        Example:
+            Exercise SetextHeaderProcessor.run through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :param blocks: Value supplied for blocks under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         lines = blocks.pop(0).split("\n")
         # Determine level. ``=`` is 1 and ``-`` is 2.
         if lines[1].startswith("="):
@@ -464,13 +798,34 @@ class SetextHeaderProcessor(BlockProcessor):
 
 
 class HRProcessor(BlockProcessor):
-    """Process Horizontal Rules."""
+    """
+    Process Horizontal Rules.
+
+    Example:
+        Exercise HRProcessor through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+    """
 
     RE = r"^[ ]{0,3}((-+[ ]{0,2}){3,}|(_+[ ]{0,2}){3,}|(\*+[ ]{0,2}){3,})[ ]*"
     # Detect hr on any line of a block.
     SEARCH_RE = re.compile(RE, re.MULTILINE)
 
     def test(self: _typing.Self, parent: _typing.Any, block: _typing.Any) -> bool:
+        """
+        Perform the test operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HRProcessor.test through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :param block: Value supplied for block under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         m = self.SEARCH_RE.search(block)
         # No atomic grouping in python so we simulate it here for performance.
         # The regex only matches what would be in the atomic group - the HR.
@@ -482,6 +837,20 @@ class HRProcessor(BlockProcessor):
         return False
 
     def run(self: _typing.Self, parent: _typing.Any, blocks: _typing.Any) -> None:
+        """
+        Execute the configured conversion stage and return its primary result.
+
+        Example:
+            Exercise HRProcessor.run through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :param blocks: Value supplied for blocks under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         block = blocks.pop(0)
         # Check for lines in block before hr.
         prelines = block[: self.match.start()].rstrip("\n")
@@ -498,12 +867,47 @@ class HRProcessor(BlockProcessor):
 
 
 class EmptyBlockProcessor(BlockProcessor):
-    """Process blocks that are empty or start with an empty line."""
+    """
+    Process blocks that are empty or start with an empty line.
+
+    Example:
+        Exercise EmptyBlockProcessor through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+    """
 
     def test(self: _typing.Self, parent: _typing.Any, block: _typing.Any) -> bool:
+        """
+        Perform the test operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise EmptyBlockProcessor.test through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :param block: Value supplied for block under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return not block or block.startswith("\n")
 
     def run(self: _typing.Self, parent: _typing.Any, blocks: _typing.Any) -> None:
+        """
+        Execute the configured conversion stage and return its primary result.
+
+        Example:
+            Exercise EmptyBlockProcessor.run through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :param blocks: Value supplied for blocks under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         block = blocks.pop(0)
         filler = "\n\n"
         if block:
@@ -522,12 +926,47 @@ class EmptyBlockProcessor(BlockProcessor):
 
 
 class ParagraphProcessor(BlockProcessor):
-    """Process Paragraph blocks."""
+    """
+    Process Paragraph blocks.
+
+    Example:
+        Exercise ParagraphProcessor through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+    """
 
     def test(self: _typing.Self, parent: _typing.Any, block: _typing.Any) -> bool:
+        """
+        Perform the test operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ParagraphProcessor.test through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :param block: Value supplied for block under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return True
 
     def run(self: _typing.Self, parent: _typing.Any, blocks: _typing.Any) -> None:
+        """
+        Execute the configured conversion stage and return its primary result.
+
+        Example:
+            Exercise ParagraphProcessor.run through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :param blocks: Value supplied for blocks under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         block = blocks.pop(0)
         if block.strip():
             # Not a blank block. Add to parent, otherwise throw it away.

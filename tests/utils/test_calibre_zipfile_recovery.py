@@ -1,20 +1,13 @@
-"""Recovery-focused tests for :mod:`LiuXin_alpha.utils.libraries.calibre_zipfile`.
+"""
+Provide test calibre zipfile recovery utility behavior.
 
-These tests validate *best-effort* recovery from archives that have lost their
-central directory / end-of-central-directory records (a common consequence of
-truncation).
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
 
-The upstream Calibre zipfile variant is often used in environments where zips
-may be damaged in transit or partially written; a recovery mode is therefore
-valuable.
+Example:
+    Exercise test calibre zipfile recovery through a consuming regression::
 
-To avoid locking in a single public API, these tests will:
-
-* Prefer ``calibre_zipfile.recover_zipfile(...)`` if it exists.
-* Otherwise, try to pass ``recover=True`` to ``ZipFile(...)`` if supported.
-* If neither exists, the tests are marked xfail (recovery not implemented yet).
-
-Once recovery is implemented, these tests should pass without modification.
+        python -m pytest -q tests/utils/test_calibre_zipfile_recovery.py
 """
 
 from __future__ import annotations
@@ -32,6 +25,14 @@ from LiuXin_alpha.utils.libraries import calibre_zipfile as cz
 
 @dataclass(frozen=True)
 class _LocalEntry:
+    """
+    Provide the LocalEntry utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise  LocalEntry through a consuming regression::
+
+            python -m pytest -q tests/utils/test_calibre_zipfile_recovery.py
+    """
     name: str
     header_offset: int
     data_offset: int
@@ -43,6 +44,20 @@ class _LocalEntry:
 
 
 def _make_zip_bytes(entries: list[tuple[str, bytes]], *, compression: int) -> bytes:
+    """
+    Perform the make zip bytes utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  make zip bytes through a consuming regression::
+
+            python -m pytest -q tests/utils/test_calibre_zipfile_recovery.py
+
+
+    :param entries: Value supplied for entries under the utility contract.
+    :param compression: Value supplied for compression under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     bio = io.BytesIO()
     z = cz.ZipFile(bio, "w", compression=compression)
     try:
@@ -54,10 +69,19 @@ def _make_zip_bytes(entries: list[tuple[str, bytes]], *, compression: int) -> by
 
 
 def _scan_local_headers(data: bytes, *, start_offset: int = 0) -> list[_LocalEntry]:
-    """Sequentially scan local file headers.
+    """
+    Sequentially scan local file headers.
 
-    This is *not* a general-purpose ZIP parser; it is deliberately minimal and
-    intended for constructing truncation fixtures.
+    Example:
+        Exercise  scan local headers through a consuming regression::
+
+            python -m pytest -q tests/utils/test_calibre_zipfile_recovery.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :param start_offset: Value supplied for start offset under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
 
     out: list[_LocalEntry] = []
@@ -119,6 +143,19 @@ def _scan_local_headers(data: bytes, *, start_offset: int = 0) -> list[_LocalEnt
 
 
 def _find_first_local_header(data: bytes) -> int:
+    """
+    Find first local header under the documented compatibility and safety rules.
+
+    Example:
+        Exercise  find first local header through a consuming regression::
+
+            python -m pytest -q tests/utils/test_calibre_zipfile_recovery.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     off = data.find(cz.stringFileHeader)
     if off < 0:
         raise AssertionError("No local file header signature found in fixture")
@@ -126,7 +163,20 @@ def _find_first_local_header(data: bytes) -> int:
 
 
 def _open_recovering_zip(fileobj_or_path):
-    """Open a zip in recovery mode, if supported; otherwise xfail."""
+    """
+    Open a zip in recovery mode, if supported; otherwise xfail.
+
+    Example:
+        Exercise  open recovering zip through a consuming regression::
+
+            python -m pytest -q tests/utils/test_calibre_zipfile_recovery.py
+
+
+    :param fileobj_or_path: Value supplied for fileobj or path under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
 
     if hasattr(cz, "recover_zipfile"):
         return cz.recover_zipfile(fileobj_or_path)
@@ -151,6 +201,20 @@ def _open_recovering_zip(fileobj_or_path):
 def test_recover_truncated_missing_central_directory_recovers_all_complete_entries(tmp_path, compression: int) -> None:
     # Make a valid archive, then truncate it at the end of the *last* member's data
     # (i.e., remove the entire central directory + end record).
+    """
+    Perform the test recover truncated missing central directory recovers all complete entries utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test recover truncated missing central directory recovers all complete entries through a consuming regression::
+
+            python -m pytest -q tests/utils/test_calibre_zipfile_recovery.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param compression: Value supplied for compression under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     entries = [("a.txt", b"A" * 10), ("b.txt", b"B" * 1000), ("c.txt", b"C" * 123)]
     good = _make_zip_bytes(entries, compression=compression)
     locals_ = _scan_local_headers(good)
@@ -175,6 +239,19 @@ def test_recover_with_prefix_garbage_still_finds_entries(tmp_path) -> None:
     # Self-extracting archives / concatenated files can have junk before the first
     # local header. A recovery scanner should be able to locate the first header
     # and proceed.
+    """
+    Perform the test recover with prefix garbage still finds entries utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test recover with prefix garbage still finds entries through a consuming regression::
+
+            python -m pytest -q tests/utils/test_calibre_zipfile_recovery.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     entries = [("a.txt", b"AAA"), ("b.txt", b"BBB")]
     good = _make_zip_bytes(entries, compression=cz.ZIP_STORED)
 
@@ -210,6 +287,20 @@ def test_recover_with_prefix_garbage_still_finds_entries(tmp_path) -> None:
     ],
 )
 def test_recover_truncated_mid_archive_drops_missing_tail_entries(tmp_path, compression: int) -> None:
+    """
+    Perform the test recover truncated mid archive drops missing tail entries utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test recover truncated mid archive drops missing tail entries through a consuming regression::
+
+            python -m pytest -q tests/utils/test_calibre_zipfile_recovery.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param compression: Value supplied for compression under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     entries = [("a.txt", b"A" * 10), ("b.txt", b"B" * 1000), ("c.txt", b"C" * 123)]
     good = _make_zip_bytes(entries, compression=compression)
     locals_ = _scan_local_headers(good)
@@ -242,6 +333,20 @@ def test_recover_truncated_mid_archive_drops_missing_tail_entries(tmp_path, comp
     ],
 )
 def test_recover_truncated_mid_payload_recovers_prefix_or_skips_partial_entry(tmp_path, compression: int) -> None:
+    """
+    Perform the test recover truncated mid payload recovers prefix or skips partial entry utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test recover truncated mid payload recovers prefix or skips partial entry through a consuming regression::
+
+            python -m pytest -q tests/utils/test_calibre_zipfile_recovery.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param compression: Value supplied for compression under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     entries = [("a.txt", b"A" * 10), ("b.txt", b"B" * 1000), ("c.txt", b"C" * 123)]
     good = _make_zip_bytes(entries, compression=compression)
     locals_ = _scan_local_headers(good)
@@ -279,6 +384,19 @@ def test_recover_truncated_mid_payload_recovers_prefix_or_skips_partial_entry(tm
 
 def test_recover_skips_corrupt_local_header_and_keeps_others(tmp_path) -> None:
     # Stored is easiest for deterministic header parsing.
+    """
+    Perform the test recover skips corrupt local header and keeps others utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test recover skips corrupt local header and keeps others through a consuming regression::
+
+            python -m pytest -q tests/utils/test_calibre_zipfile_recovery.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     entries = [("a.txt", b"A" * 10), ("b.txt", b"B" * 20), ("c.txt", b"C" * 30)]
     good = _make_zip_bytes(entries, compression=cz.ZIP_STORED)
     locals_ = _scan_local_headers(good)
@@ -314,6 +432,19 @@ def test_recovery_fuzz_cutpoints_monotonic_prefix(tmp_path) -> None:
     # A light "property" style check: as we increase truncation length, recovered
     # name sets should be monotonic (only gain members, never lose previously
     # recoverable complete members).
+    """
+    Perform the test recovery fuzz cutpoints monotonic prefix utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test recovery fuzz cutpoints monotonic prefix through a consuming regression::
+
+            python -m pytest -q tests/utils/test_calibre_zipfile_recovery.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     rnd = random.Random(0)
     entries = [(f"f{i}.bin", bytes([i]) * (50 + i)) for i in range(10)]
     good = _make_zip_bytes(entries, compression=cz.ZIP_STORED)

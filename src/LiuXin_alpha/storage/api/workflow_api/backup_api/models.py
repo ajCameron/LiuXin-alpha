@@ -1,5 +1,11 @@
 """
-Backup workflow intent, checkpoint, result, and planning values.
+Describe backup sources, durable intent, checkpoints, outcomes, and pack estimates.
+
+Frozen dataclasses enforce selected local invariants without reading bytes or resolving
+catalogue references. They do not generally coerce enum/identifier types or deep-copy
+collections. Member paths use the shared lexical normalizer; option pairs alone receive
+canonical string conversion and ordering. Successful result flags are reported state,
+not a fresh verification of the referenced artifact.
 """
 
 from __future__ import annotations
@@ -21,7 +27,10 @@ import LiuXin_alpha.storage.utils.workflow as workflow_utils
 
 class BackupWorkflowKind(StrEnum):
     """
-    Stable backup workflow implementation families.
+    Identify the concrete backup implementation that can interpret durable intent.
+
+    SQUASHFS_PACK is the currently declared family. The enum records a discriminator; constructing
+    it does not locate a builder or execute an archive tool.
 
     Example:
         >>> BackupWorkflowKind.SQUASHFS_PACK.value
@@ -33,7 +42,10 @@ class BackupWorkflowKind(StrEnum):
 
 class BackupSourceKind(StrEnum):
     """
-    Kinds of source a backup workflow may designate.
+    Distinguish a local path designation from a routed Store Location.
+
+    BackupSourceDeclaration requires these enum members themselves. Its identity checks do not
+    coerce equivalent raw strings into a source kind.
 
     Example:
         >>> BackupSourceKind.STORE_LOCATION.value
@@ -46,7 +58,12 @@ class BackupSourceKind(StrEnum):
 
 class BackupWorkflowStepKind(StrEnum):
     """
-    Coarse idempotent steps represented in resume state.
+    Label coarse backup milestones retained in checkpoint and result values.
+
+    Staging, sealing, verification, registration, presence recording, and cleanup are independently
+    named. A listed milestone is reported execution evidence, not proof of atomicity or idempotence.
+    Concrete workflows may implement only some milestones; the SquashFS builder leaves registration
+    and presence recording to separate services.
 
     Example:
         >>> BackupWorkflowStepKind.VERIFY_ARTIFACT.value
@@ -64,11 +81,13 @@ class BackupWorkflowStepKind(StrEnum):
 @dataclasses.dataclass(slots=True, frozen=True)
 class BackupSourceDeclaration:
     """
-    Declarative designation of one source included in a backup artifact.
+    Describe one intended archive member and optional catalogue provenance.
 
-    Local sources use a path string; managed sources use a storage ``Location``.
-    Optional ids preserve catalogue provenance without exposing it to stores or
-    drivers.
+    Construction validates the source-kind/identifier pairing, nonnegative expected size, and
+    normalized member path. Store references are inferred from a Location or checked for equality
+    with it. It does not inspect bytes, resolve catalogue IDs, validate a supplied Digest object, or
+    pin a physical object version. Local path spelling is retained, including whitespace; the path
+    need not exist yet.
 
     Example:
         >>> source = BackupSourceDeclaration(
@@ -79,6 +98,16 @@ class BackupSourceDeclaration:
         ... )
         >>> source.source_store_ref
         UUID('00000000-0000-0000-0000-000000000001')
+
+
+    :ivar source_kind: LOCAL_PATH or STORE_LOCATION enum member selecting identifier validation.
+    :ivar source_identifier: Nonempty local path string or the original routed Location.
+    :ivar archive_path: Optional member spelling normalized by the shared lexical path helper; None leaves naming to the workflow.
+    :ivar expected_size: Expected byte length, or None when unknown; only negativity is rejected here.
+    :ivar expected_digest: Optional expected byte identity for later staging verification; retained without lookup.
+    :ivar source_digital_asset_id: Optional atomic Asset provenance ID, retained without catalogue validation.
+    :ivar source_replica_id: Optional source-copy provenance ID; does not itself pin the copy read later.
+    :ivar source_store_ref: Optional Store UUID, inferred or cross-checked for a Location source.
     """
 
     source_kind: BackupSourceKind
@@ -92,7 +121,13 @@ class BackupSourceDeclaration:
 
     def __post_init__(self) -> None:
         """
-        Validate identifier type, size, archive path, and store identity.
+        Validate the source discriminator and normalize a supplied archive path.
+
+        LOCAL_PATH requires a nonempty string without trimming it; STORE_LOCATION requires Location
+        and fills an omitted Store reference. Reject an unknown kind, a conflicting Store reference,
+        or a negative expected size. Path normalization replaces backslashes, removes leading
+        separators and empty/dot components, and rejects parent components or an empty result. It
+        does not reject NULs, drive prefixes, or prove filesystem containment.
 
         Example:
             >>> BackupSourceDeclaration(BackupSourceKind.LOCAL_PATH, "")
@@ -101,7 +136,7 @@ class BackupSourceDeclaration:
             ValueError: local backup source path must not be empty.
 
 
-        :return:
+        :return: None after validation and any frozen-field normalization; invalid combinations raise TypeError or ValueError.
         """
         if self.source_kind is BackupSourceKind.LOCAL_PATH:
             if not isinstance(self.source_identifier, str) or not self.source_identifier:
@@ -131,7 +166,10 @@ class BackupSourceDeclaration:
     @property
     def location(self) -> Location | None:
         """
-        Return the managed Location, or ``None`` for a local path source.
+        Expose the stored identifier when it is a Location.
+
+        The property checks the identifier type directly and returns the same object without
+        routing, copying, or validating its current availability.
 
         Example:
             >>> source = BackupSourceDeclaration(
@@ -142,7 +180,7 @@ class BackupSourceDeclaration:
             Location(store_ref=UUID('00000000-0000-0000-0000-000000000001'), key='objects/42')
 
 
-        :return:
+        :return: Original Location object for a managed source, otherwise None.
         """
         if isinstance(self.source_identifier, Location):
             return self.source_identifier
@@ -152,11 +190,13 @@ class BackupSourceDeclaration:
 @dataclasses.dataclass(slots=True, frozen=True)
 class BackupWorkflowDeclaration:
     """
-    Immutable durable intent for one backup workflow.
+    Collect backup intent, ordered sources, and implementation-specific build settings.
 
-    ``output_target`` and ``staging_target`` may be local implementation paths
-    or routed store Locations.  Workflow code, rather than a raw driver,
-    decides how staging and final publication are coordinated.
+    Frozen fields prevent reassignment but do not deep-copy caller-supplied sources or normalize
+    them to a tuple. Only options are stringified, sorted, and tuple-collected. Construction permits
+    no sources and does not check target existence, Store capabilities, workflow-kind type, flag
+    types, or staging suitability. Nonblank names and string output targets retain their original
+    whitespace.
 
     Example:
         >>> source = BackupSourceDeclaration(BackupSourceKind.LOCAL_PATH, "/books/a.epub")
@@ -167,6 +207,16 @@ class BackupWorkflowDeclaration:
         ... )
         >>> declaration.option_map()
         {}
+
+
+    :ivar workflow_name: Nonblank display name; need not be unique and is not stripped.
+    :ivar workflow_kind: Implementation-family discriminator, interpreted by the concrete workflow.
+    :ivar output_target: Local output path or routed Location; only blank string targets are rejected here.
+    :ivar sources: Ordered source designations; non-None archive paths must be unique.
+    :ivar verify_after_build: Request the implementation's post-build verification; does not specify a universal full-content audit.
+    :ivar cleanup_staging_after_success: Request staging cleanup after successful publication where implemented.
+    :ivar staging_target: Optional staging path or Location, subject to concrete backend support.
+    :ivar options: Key/value pairs canonicalized to a sorted tuple of strings with unique stringified keys.
     """
 
     workflow_name: str
@@ -180,7 +230,12 @@ class BackupWorkflowDeclaration:
 
     def __post_init__(self) -> None:
         """
-        Validate names, targets, unique archive paths, and option keys.
+        Check nonblank names, duplicate member paths, and canonical option keys.
+
+        Only string output targets receive a blank check; staging targets and the workflow kind are
+        not validated here. Ignore None member paths for uniqueness. Stringify and sort option
+        pairs, then reject duplicate keys after conversion, so 1 and "1" collide. Sources remain the
+        caller's original collection.
 
         Example:
             >>> BackupWorkflowDeclaration("", BackupWorkflowKind.SQUASHFS_PACK, "out.sqsh")
@@ -189,7 +244,7 @@ class BackupWorkflowDeclaration:
             ValueError: workflow_name must not be empty.
 
 
-        :return:
+        :return: None after storing canonical options; invalid names or duplicate paths/keys raise ValueError.
         """
         if not self.workflow_name.strip():
             raise ValueError("workflow_name must not be empty.")
@@ -214,7 +269,10 @@ class BackupWorkflowDeclaration:
 
     def option_map(self) -> dict[str, str]:
         """
-        Return implementation-specific options as a mutable mapping.
+        Copy canonical option pairs into an independently mutable dictionary.
+
+        Mutating the returned mapping does not change this declaration. Values are strings;
+        interpretation of switches and defaults belongs to the workflow implementation.
 
         Example:
             >>> declaration = BackupWorkflowDeclaration(
@@ -225,7 +283,7 @@ class BackupWorkflowDeclaration:
             'zstd'
 
 
-        :return:
+        :return: Fresh dictionary mapping normalized option names to their string values.
         """
         return dict(self.options)
 
@@ -233,7 +291,12 @@ class BackupWorkflowDeclaration:
 @dataclasses.dataclass(slots=True, frozen=True)
 class BackupSourceStagingReport:
     """
-    Outcome of staging one designated source.
+    Record reported staging evidence for one designated source position.
+
+    This value does not inspect the staged object or establish that the report matches a
+    declaration. It checks nonnegative indices/counts, normalizes archive_path, and rejects an error
+    attached to a truthy successful flag. A failed report may omit an error; digest evidence and
+    success are independent fields.
 
     Example:
         >>> report = BackupSourceStagingReport(
@@ -241,6 +304,16 @@ class BackupSourceStagingReport:
         ... )
         >>> report.ok
         True
+
+
+    :ivar source_index: Zero-based declaration position; only a negative value is rejected here.
+    :ivar source_identifier: Reported original local path or managed Location, retained without cross-checking.
+    :ivar archive_path: Required member spelling normalized by the shared lexical path helper.
+    :ivar staged_location: Optional route to staged bytes; availability is not checked.
+    :ivar bytes_staged: Reported byte count, or None when unavailable; must not be negative.
+    :ivar digest_verified: Optional report of digest verification: True, False, or None for unspecified evidence.
+    :ivar ok: Reported staging success; a truthy value cannot accompany a non-None error.
+    :ivar error: Optional failure detail; an empty string still conflicts with success.
     """
 
     source_index: int
@@ -254,7 +327,11 @@ class BackupSourceStagingReport:
 
     def __post_init__(self) -> None:
         """
-        Validate source position, byte counts, path, and error consistency.
+        Validate nonnegative staging counters and normalize the member name.
+
+        Reject any non-None error when ok is truthy, including an empty error string. No strict
+        integer/bool type validation, report-to-source correspondence, or digest-evidence
+        consistency check is performed.
 
         Example:
             >>> BackupSourceStagingReport(-1, "a", "a")
@@ -263,7 +340,7 @@ class BackupSourceStagingReport:
             ValueError: source_index must not be negative.
 
 
-        :return:
+        :return: None after path normalization and consistency checks; invalid values raise ValueError.
         """
         if self.source_index < 0:
             raise ValueError("source_index must not be negative.")
@@ -281,7 +358,13 @@ class BackupSourceStagingReport:
 @dataclasses.dataclass(slots=True, frozen=True)
 class BackupWorkflowCheckpoint:
     """
-    Durable execution checkpoint from which backup work can resume.
+    Capture resumable position and reported evidence for one backup declaration.
+
+    Counters must satisfy 0 <= staged_source_count <= next_source_index <= len(sources). Completed
+    step labels must be unique, and the FAILED enum member requires a truthy last_error. Reports are
+    not reconciled with the counters, step order is not enforced, and COMPLETE does not require
+    output here. A checkpoint can describe failed work without proving the referenced staging data
+    still exists.
 
     Example:
         >>> declaration = BackupWorkflowDeclaration(
@@ -292,6 +375,18 @@ class BackupWorkflowCheckpoint:
         ... )
         >>> checkpoint.remaining_source_count
         0
+
+
+    :ivar declaration: Intent whose ordered sources define the counter upper bound.
+    :ivar status: Lifecycle classification; retained without enum coercion.
+    :ivar workflow_id: Optional repository identity, not allocated or validated by this value.
+    :ivar next_source_index: Position of the next source to process; a failed source can remain at this position.
+    :ivar staged_source_count: Reported successfully staged count, no greater than next_source_index.
+    :ivar source_reports: Collected source evidence, retained without counter or identity cross-checks.
+    :ivar completed_steps: Unique reported milestone labels; completeness and chronological order are unchecked.
+    :ivar output_artifact_reference: Optional published output reference; neither existence nor identity is verified.
+    :ivar last_error: Required truthy detail for FAILED; may also be retained with other statuses.
+    :ivar updated_at: Optional caller-supplied timestamp; no clock read or timezone validation occurs.
     """
 
     declaration: BackupWorkflowDeclaration
@@ -307,7 +402,11 @@ class BackupWorkflowCheckpoint:
 
     def __post_init__(self) -> None:
         """
-        Validate counters, step uniqueness, and terminal error state.
+        Check source-position bounds, unique milestones, and required failure detail.
+
+        Numeric comparisons do not enforce exact integer types. Only identity with
+        WorkflowStatus.FAILED triggers the last_error requirement. Do not infer report completeness,
+        artifact existence, or transition validity from successful construction.
 
         Example:
             >>> declaration = BackupWorkflowDeclaration(
@@ -321,7 +420,7 @@ class BackupWorkflowCheckpoint:
             ValueError: workflow source counters must not be negative.
 
 
-        :return:
+        :return: None when the selected counters and failure fields are consistent; otherwise ValueError.
         """
         if self.next_source_index < 0 or self.staged_source_count < 0:
             raise ValueError("workflow source counters must not be negative.")
@@ -337,7 +436,10 @@ class BackupWorkflowCheckpoint:
     @property
     def remaining_source_count(self) -> int:
         """
-        Return the number of designated sources not yet attempted.
+        Subtract the next-source position from the declaration's source count.
+
+        This counts sources remaining from the resume position, not failed reports or unstaged
+        bytes. An attempted source that failed without advancing the cursor remains included.
 
         Example:
             >>> source = BackupSourceDeclaration(BackupSourceKind.LOCAL_PATH, "/books/a")
@@ -350,7 +452,7 @@ class BackupWorkflowCheckpoint:
             1
 
 
-        :return:
+        :return: Number of sources from next_source_index onward, using the current declaration collection length.
         """
         return len(self.declaration.sources) - self.next_source_index
 
@@ -358,7 +460,12 @@ class BackupWorkflowCheckpoint:
 @dataclasses.dataclass(slots=True, frozen=True)
 class BackupWorkflowResult:
     """
-    Terminal outcome for one backup workflow execution.
+    Describe a terminal backup outcome and its reported output and evidence.
+
+    The status must expose a true terminal predicate. COMPLETE requires an output reference other
+    than None; FAILED requires truthy error text. An empty output string can therefore satisfy
+    construction and successful without naming an existing file. The final checkpoint, reports,
+    milestone labels, and workflow ID are retained without mutual consistency checks.
 
     Example:
         >>> declaration = BackupWorkflowDeclaration(
@@ -370,6 +477,16 @@ class BackupWorkflowResult:
         ... )
         >>> result.successful
         True
+
+
+    :ivar declaration: Backup intent associated with this result.
+    :ivar status: Terminal lifecycle status: COMPLETE, FAILED, or CANCELLED.
+    :ivar workflow_id: Optional durable workflow identity supplied by orchestration.
+    :ivar output_artifact_reference: Reported output path or Location; required to be non-None for COMPLETE.
+    :ivar source_reports: Reported staging evidence, retained without recounting or byte inspection.
+    :ivar completed_steps: Reported milestones; uniqueness is not checked by this result type.
+    :ivar last_error: Truthy error detail required for FAILED; other statuses may also carry it.
+    :ivar final_checkpoint: Optional retained checkpoint; agreement with the result is not checked here.
     """
 
     declaration: BackupWorkflowDeclaration
@@ -383,7 +500,11 @@ class BackupWorkflowResult:
 
     def __post_init__(self) -> None:
         """
-        Require a terminal status and consistent success or failure data.
+        Require a terminal classification and the selected success/failure fields.
+
+        Inspect status.terminal, then require a non-None output for the COMPLETE enum member and
+        truthy error text for FAILED. CANCELLED needs neither. This validation does not compare
+        final_checkpoint, verify artifact bytes, or require every source to have succeeded.
 
         Example:
             >>> declaration = BackupWorkflowDeclaration(
@@ -395,7 +516,7 @@ class BackupWorkflowResult:
             ValueError: backup workflow result requires terminal status.
 
 
-        :return:
+        :return: None for an accepted terminal value; invalid status/output/error combinations raise ValueError.
         """
         if not self.status.terminal:
             raise ValueError("backup workflow result requires terminal status.")
@@ -410,7 +531,10 @@ class BackupWorkflowResult:
     @property
     def successful(self) -> bool:
         """
-        Return whether the workflow completed with an output artifact.
+        Classify COMPLETE with a non-None output reference as successful.
+
+        This checks stored fields only. It does not read the artifact, inspect source reports,
+        require verification milestones, or reject an empty output string.
 
         Example:
             >>> declaration = BackupWorkflowDeclaration(
@@ -423,7 +547,7 @@ class BackupWorkflowResult:
             True
 
 
-        :return:
+        :return: True exactly when status is WorkflowStatus.COMPLETE and output_artifact_reference is not None.
         """
         return (
             self.status is WorkflowStatus.COMPLETE
@@ -434,7 +558,11 @@ class BackupWorkflowResult:
 @dataclasses.dataclass(slots=True, frozen=True)
 class BackupPackPlan:
     """
-    One size-bounded artifact plan produced from store inventory.
+    Pair one backup declaration with its sequence number and estimated source size.
+
+    The estimate is planning evidence, not a measured sealed-image size or an enforced byte ceiling.
+    The source count must match the declaration, but no digest, target capacity, or size total is
+    recomputed.
 
     Example:
         >>> declaration = BackupWorkflowDeclaration(
@@ -442,6 +570,12 @@ class BackupPackPlan:
         ... )
         >>> BackupPackPlan(1, declaration, 0, 0).estimated_size_bytes
         0
+
+
+    :ivar pack_index: One-based ordinal within a planning result, required to be at least one.
+    :ivar workflow_declaration: Intended artifact output and ordered member sources.
+    :ivar source_count: Nonnegative count equal to the declaration source collection length.
+    :ivar estimated_size_bytes: Nonnegative planning estimate, normally the sum of uncompressed source sizes.
     """
 
     pack_index: int
@@ -451,7 +585,10 @@ class BackupPackPlan:
 
     def __post_init__(self) -> None:
         """
-        Validate positive indices and non-negative source and size counts.
+        Check the pack ordinal, nonnegative estimates, and declaration source count.
+
+        Comparisons do not coerce values or require strict integer types. No target-size threshold
+        or relationship between the estimate and individual source sizes is enforced.
 
         Example:
             >>> declaration = BackupWorkflowDeclaration(
@@ -463,7 +600,7 @@ class BackupPackPlan:
             ValueError: pack_index must be positive.
 
 
-        :return:
+        :return: None when ordinal and counts pass; inconsistent counts or negative values raise ValueError.
         """
         if self.pack_index < 1:
             raise ValueError("pack_index must be positive.")
@@ -478,7 +615,11 @@ class BackupPackPlan:
 @dataclasses.dataclass(slots=True, frozen=True)
 class BackupArtifactRegistration:
     """
-    Completed artifact registered as a readable configured Store.
+    Report the configured Store identity associated with a completed backup image.
+
+    This passive value does not register, open, or verify a Store. Construction checks only a
+    nonblank Store name and nonnegative presence-link count. The name retains whitespace, and
+    references and identifiers are otherwise trusted.
 
     Example:
         >>> registration = BackupArtifactRegistration(
@@ -488,6 +629,13 @@ class BackupArtifactRegistration:
         ... )
         >>> registration.presence_links_created
         0
+
+
+    :ivar workflow_id: Optional durable workflow identity associated with registration.
+    :ivar backup_store_ref: Stable UUID of the Store exposing the image contents.
+    :ivar backup_store_name: Nonblank display name retained without trimming.
+    :ivar artifact_reference: Path or Location naming the sealed image, without an existence check.
+    :ivar presence_links_created: Count reported by the registry; a fresh call counts inserted links, while lookup counts current Store links.
     """
 
     workflow_id: WorkflowID | None
@@ -498,7 +646,10 @@ class BackupArtifactRegistration:
 
     def __post_init__(self) -> None:
         """
-        Validate store naming and the created-link count.
+        Check the Store display name and nonnegative link count.
+
+        The name must have non-whitespace content but is not stripped. Workflow IDs, Store UUIDs,
+        artifact references, and strict count types are not validated here.
 
         Example:
             >>> BackupArtifactRegistration(None, "archive", "", "artifact.sqsh")
@@ -507,7 +658,7 @@ class BackupArtifactRegistration:
             ValueError: backup_store_name must not be empty.
 
 
-        :return:
+        :return: None for accepted values; a blank name or negative link count raises ValueError.
         """
         if not self.backup_store_name.strip():
             raise ValueError("backup_store_name must not be empty.")

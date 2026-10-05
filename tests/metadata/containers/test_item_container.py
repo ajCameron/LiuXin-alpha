@@ -1,3 +1,14 @@
+"""
+Verify the compatibility item container stores and exposes item-level data.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test item container through its owning regression module::
+
+        python -m pytest -q tests/metadata/containers/test_item_container.py
+"""
 from __future__ import annotations
 
 import pytest
@@ -6,6 +17,17 @@ from LiuXin_alpha.metadata.containers import ItemIdentity
 
 
 def test_item_identity_mapping_round_trip() -> None:
+    """
+    Verify item identity mapping round trip.
+
+    Example:
+        Exercise test item identity mapping round trip through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_item_container.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     item = ItemIdentity(
         item_id=7,
         item_manifestation_id=11,
@@ -35,6 +57,17 @@ def test_item_identity_mapping_round_trip() -> None:
 
 
 def test_item_identity_id_is_write_once() -> None:
+    """
+    Verify item identity id remains write once.
+
+    Example:
+        Exercise test item identity id is write once through its owning regression module::
+
+            python -m pytest -q tests/metadata/containers/test_item_container.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     item = ItemIdentity(item_id=3)
     with pytest.raises(AttributeError):
         item.item_id = 4

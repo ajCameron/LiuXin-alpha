@@ -1,6 +1,13 @@
 
 """
-Preform a numeric search of a field.
+Evaluate numeric catalog fields with typed comparison operators.
+
+The module keeps validation, normalization and host mutation boundaries explicit.
+
+Example:
+    Exercise numeric search through its owning regression module::
+
+        python -m pytest -q tests/catalog/test_field_search_operators.py
 """
 
 
@@ -16,11 +23,24 @@ from LiuXin_alpha.utils.libraries.liuxin_six import iteritems
 class NumericSearch:  # {{{
     """
     Search the database for a numeric object subject to certain constraints.
+
+    Example:
+        Exercise NumericSearch through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_field_search_operators.py
     """
 
     def __init__(self) -> None:
         """
         Startup the numeric search operator.
+
+        Example:
+            Exercise NumericSearch.init through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_field_search_operators.py
+
+
+        :return: None; the function records state or raises through its assertions.
         """
         self.operators = {
             "=": (1, lambda r, q: r == q),
@@ -39,6 +59,23 @@ class NumericSearch:  # {{{
             datatype: str,
             candidates: set[int],
             is_many=False):
+        """
+        Evaluate or build the NumericSearch operation.
+
+        Example:
+            Exercise NumericSearch.call through its owning regression module::
+
+                python -m pytest -q tests/catalog/test_field_search_operators.py
+
+
+        :param query: Parsed or textual catalog query to evaluate.
+        :param field_iter: Value supplied for field iter under the catalog contract.
+        :param location: Value supplied for location under the catalog contract.
+        :param datatype: Value supplied for datatype under the catalog contract.
+        :param candidates: Optional candidate identities restricting the search universe.
+        :param is_many: Value supplied for is many under the catalog contract.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         matches = set()
         if not query:
             return matches

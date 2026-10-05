@@ -1,4 +1,12 @@
-"""Read-only readiness checks and redacted diagnostic collection."""
+"""
+Collect deployment readiness, operator status, and redacted support bundles.
+
+Quick checks query Core; full checks also refresh storage discovery and invoke
+Store probe commands. Successful calls count as successful checks even when a
+receipt reports an unhealthy condition. Report collection returns raw values;
+only the CLI publication handlers apply heuristic credential redaction, which
+is not a guarantee that arbitrary secrets or personal data have been removed.
+"""
 
 from __future__ import annotations
 
@@ -59,7 +67,27 @@ _SECRET_KEYS = {
 
 
 def _redact_diagnostic_value(value: Any, *, key: str | None = None) -> Any:
-    """Remove common credentials while retaining useful diagnostic shape."""
+    """
+    Copy supported containers while masking known credential keys and patterns.
+
+    Key matching strips/casefolds and replaces hyphens with underscores; known
+    names and selected credential suffixes hide the entire associated value.
+    Dict keys become strings, tuples become lists, and other non-string objects
+    remain unchanged. URL passwords are masked but usernames remain. String
+    substitutions cover common authorization and assignment forms, not arbitrary
+    secret encodings. Cycles are not detected and stringified keys may collide.
+
+    Example:
+        >>> _redact_diagnostic_value({"api-key": "hidden", "items": (1, 2)})
+        {'api-key': '<redacted>', 'items': [1, 2]}
+        >>> _redact_diagnostic_value("https://reader:password@example.test/x")
+        'https://reader:<redacted>@example.test/x'
+
+
+    :param value: Diagnostic value to recursively inspect without mutating it.
+    :param key: Optional containing field name used to mask a whole value first.
+    :return: Redacted container/string projection, or the original other value.
+    """
 
     if key is not None:
         token = key.strip().casefold().replace("-", "_")
@@ -90,6 +118,26 @@ def _record(
     severity: str = "error",
     details: Any = None,
 ) -> None:
+    """
+    Append one readiness observation, retaining optional details by reference.
+
+    Only ok is coerced; severity and message are not validated or redacted.
+
+    Example:
+        >>> checks = []
+        >>> _record(checks, "tools", True, "Inventory complete", severity="info")
+        >>> checks[0]["ok"], "details" in checks[0]
+        (True, False)
+
+
+    :param checks: Mutable observation list receiving the new dictionary.
+    :param name: Stable check identifier used by report consumers.
+    :param ok: Value whose truthiness becomes the recorded success boolean.
+    :param message: Human-readable description, retained as supplied.
+    :param severity: Severity token; aggregate failure recognizes exact 'error'.
+    :param details: Additional report data, omitted only when None.
+    :return: None; checks gains one observation.
+    """
     value: dict[str, Any] = {
         "name": name,
         "ok": bool(ok),
@@ -102,6 +150,26 @@ def _record(
 
 
 def _configuration_check(args: argparse.Namespace, checks: list[dict[str, Any]]) -> None:
+    """
+    Record selection readiness before attempting to open Core.
+
+    With neither explicit database nor endpoint, delegate to profile validation.
+    A database takes precedence over an endpoint; SQLite/APSW requires an existing
+    file, whereas other drivers and endpoints are merely recorded as configured.
+    This is not connectivity, schema, credential, or database integrity validation.
+    Profile/path errors propagate rather than becoming failure observations.
+
+    Example:
+        >>> checks = []
+        >>> _configuration_check(argparse.Namespace(core_endpoint="http://localhost:9"), checks)
+        >>> checks[0]["ok"]
+        True
+
+
+    :param args: Explicit connection selectors or system-root/profile settings.
+    :param checks: Mutable list receiving the configuration observation.
+    :return: None; a configuration result is appended unless validation raises.
+    """
     database = getattr(args, "database", None)
     endpoint = getattr(args, "core_endpoint", None)
     if not database and not endpoint:
@@ -142,7 +210,32 @@ def _configuration_check(args: argparse.Namespace, checks: list[dict[str, Any]])
 
 
 def collect_doctor_report(args: argparse.Namespace) -> dict[str, Any]:
-    """Probe deployment readiness without aborting after the first failure."""
+    """
+    Aggregate configuration and Core observations into an unredacted report.
+
+    A configuration error prevents opening Core. Full mode inventories optional
+    executables by PATH lookup only, refreshes store discovery, and commands a
+    probe for each dict-shaped Store. Missing tools are informational. Health,
+    database, and storage query exceptions are errors; other query exceptions
+    are warnings. Returned payload flags and failed-job counts are not interpreted
+    as failed checks. Empty Store probe lists therefore count as successful.
+
+    Continue after individual probe Exceptions. Session or processing Exceptions
+    within the Core block become a core_open error, retaining earlier observations;
+    this label can describe an exit/shape failure, not just failure to connect.
+    Configuration/tool-inventory errors occur outside that catch and propagate.
+    Full mode can refresh state and contact backends; it is not a read-only promise.
+
+    Example:
+        >>> report = collect_doctor_report(parsed_doctor_args)  # doctest: +SKIP
+        >>> report["mode"]  # doctest: +SKIP
+        'quick'
+
+
+    :param args: Connection/profile settings and optional full-mode boolean.
+    :return: Raw ok, mode, checks, and sections; ok means no failed error-severity
+        observation, not that every receipt declares the deployment healthy.
+    """
 
     checks: list[dict[str, Any]] = []
     sections: dict[str, Any] = {}
@@ -260,11 +353,17 @@ def collect_doctor_report(args: argparse.Namespace) -> dict[str, Any]:
 
 def cmd_doctor(args: argparse.Namespace) -> int:
     """
-    Execute the `doctor` CLI command.
+    Publish a credential-filtered readiness report and project its check status.
+
+    Collection and output exceptions propagate; redaction is heuristic and full
+    collection may refresh/probe Stores as described by collect_doctor_report.
+
+    Example:
+        >>> cmd_doctor(parsed_doctor_args)  # doctest: +SKIP
 
 
-    :param args:
-    :return:
+    :param args: Connection selectors, full-mode choice, and JSON output options.
+    :return: Zero for a report with ok true, otherwise one, after publication.
     """
     report = collect_doctor_report(args)
     emit_json(_redact_diagnostic_value(report), args)
@@ -272,7 +371,23 @@ def cmd_doctor(args: argparse.Namespace) -> int:
 
 
 def cmd_status(args: argparse.Namespace) -> int:
-    """Project the diagnostic probes into a concise operator dashboard."""
+    """
+    Publish a compact, redacted dashboard derived from readiness observations.
+
+    Include Core presence, database facts, Store/issue counts, failed-job total,
+    and messages for every failed check, including warnings. Missing or unexpected
+    component shapes generally yield None counts; Core availability is receipt
+    truthiness, not an independent liveness test. Full mode also embeds the raw
+    report before redaction and inherits its refresh/probe effects. Overall status
+    comes from check severity, not the projected storage healthy flag.
+
+    Example:
+        >>> cmd_status(parsed_status_args)  # doctest: +SKIP
+
+
+    :param args: Connection selectors, full-mode choice, and JSON output controls.
+    :return: Zero for a successful readiness report, otherwise one, after output.
+    """
 
     report = collect_doctor_report(args)
     sections = report.get("sections", {})
@@ -326,11 +441,26 @@ def cmd_status(args: argparse.Namespace) -> int:
 
 def cmd_diagnostics_collect(args: argparse.Namespace) -> int:
     """
-    Execute the `diagnostics collect` CLI command.
+    Publish a versioned support bundle with readiness and bounded job-log reads.
+
+    Unless no_job_logs is true, open a second, storage-disabled session and inspect
+    only the first five failed-job list entries. Non-dicts and entries without a
+    truthy job_id/id are skipped, not replaced from later entries. Each read asks
+    for at most 16,384 bytes at offset zero: despite the output key's 'tails' name,
+    these are initial chunks, not end-of-log reads. Query/session Exceptions become
+    log error records and do not change the readiness-based exit status.
+
+    Include interpreter/platform facts and only booleans for selector environment
+    variables, then heuristically redact the complete bundle. Paths, usernames,
+    unknown secret patterns, and arbitrary application data may remain; review
+    the bundle before sharing it. Collection/serialization/output failures propagate.
+
+    Example:
+        >>> cmd_diagnostics_collect(parsed_support_bundle_args)  # doctest: +SKIP
 
 
-    :param args:
-    :return:
+    :param args: Connection and output controls plus full and no_job_logs flags.
+    :return: Zero if the doctor report is ok, otherwise one, even if log reads fail.
     """
     report = collect_doctor_report(args)
     failed_job_logs: list[dict[str, Any]] = []
@@ -386,11 +516,21 @@ def build_diagnostics_parsers(
     subparsers: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
     """
-    Build the `diagnostics` command-line parser family.
+    Register doctor, status, and diagnostics collect with shared output controls.
+
+    Full mode is opt-in on each leaf; support collection includes job logs unless
+    explicitly disabled. Construction only declares arguments and handlers.
+
+    Example:
+        >>> root = argparse.ArgumentParser()
+        >>> build_diagnostics_parsers(root.add_subparsers())
+        >>> args = root.parse_args(["diagnostics", "collect", "--no-job-logs"])
+        >>> args.no_job_logs, args.full
+        (True, False)
 
 
-    :param subparsers:
-    :return:
+    :param subparsers: Root CLI collection receiving all three command families.
+    :return: None; parser declarations are added without collecting diagnostics.
     """
     doctor = subparsers.add_parser(
         "doctor",

@@ -1,3 +1,14 @@
+"""
+Provide test archives utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test archives through a consuming regression::
+
+        python -m pytest -q tests/utils/decompression/test_archives.py
+"""
 from __future__ import annotations
 
 import sys
@@ -8,6 +19,19 @@ import pytest
 
 
 def _install_liuxin_decompression_stubs(calls: list[tuple[str, str, str]]) -> None:
+    """
+    Perform the install liuxin decompression stubs utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  install liuxin decompression stubs through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+    :param calls: Value supplied for calls under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     liuxin = types.ModuleType("LiuXin")
     utils = types.ModuleType("LiuXin.utils")
     # Mark as packages so nested imports work.
@@ -22,12 +46,42 @@ def _install_liuxin_decompression_stubs(calls: list[tuple[str, str, str]]) -> No
 
     unrar = types.ModuleType("LiuXin.utils.decompression.unrar")
     def rar_extract(path: str, d: str) -> None:
+        """
+        Perform the rar extract utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  install liuxin decompression stubs.rar extract through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :param d: Value supplied for d under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         calls.append(("rar", path, d))
 
     unrar.extract = rar_extract  # type: ignore[attr-defined]
 
     libunzip = types.ModuleType("LiuXin.utils.libunzip")
     def zip_extract(path: str, d: str) -> None:
+        """
+        Perform the zip extract utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  install liuxin decompression stubs.zip extract through a consuming regression::
+
+                python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :param d: Value supplied for d under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         calls.append(("zip", path, d))
 
     libunzip.extract = zip_extract  # type: ignore[attr-defined]
@@ -45,6 +99,19 @@ def _install_liuxin_decompression_stubs(calls: list[tuple[str, str, str]]) -> No
 
 
 def test_extract_dispatches_by_magic_header(tmp_path: Path) -> None:
+    """
+    Perform the test extract dispatches by magic header utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test extract dispatches by magic header through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     calls: list[tuple[str, str, str]] = []
     _install_liuxin_decompression_stubs(calls)
 
@@ -65,6 +132,19 @@ def test_extract_dispatches_by_magic_header(tmp_path: Path) -> None:
 
 
 def test_extract_falls_back_to_extension_when_unknown_header(tmp_path: Path) -> None:
+    """
+    Perform the test extract falls back to extension when unknown header utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test extract falls back to extension when unknown header through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     calls: list[tuple[str, str, str]] = []
     _install_liuxin_decompression_stubs(calls)
 
@@ -79,6 +159,19 @@ def test_extract_falls_back_to_extension_when_unknown_header(tmp_path: Path) -> 
 
 
 def test_extract_raises_on_unknown_archive_type(tmp_path: Path) -> None:
+    """
+    Perform the test extract raises on unknown archive type utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise test extract raises on unknown archive type through a consuming regression::
+
+            python -m pytest -q tests/utils/decompression/test_archives.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     calls: list[tuple[str, str, str]] = []
     _install_liuxin_decompression_stubs(calls)
 

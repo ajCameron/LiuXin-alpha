@@ -1,9 +1,13 @@
 """
-API contracts for legacy LiuXin extended metadata objects.
+Expose contracts and bounded value types for legacy title-oriented LiuXin metadata.
 
-Category: high-level metadata compatibility API.
-This module defines the pre-WEMI LiuXin metadata object surface used by legacy
-importers, Calibre adapters, and title-row hydration paths.
+The surface covers creator/identifier collections, optional row ids, files/covers,
+and title-row hydration. LiuXinMetaInformationAPI aliases LiuXinMetadataAPI; WEMI
+projection contracts have separate owning modules.
+
+Example:
+    >>> LiuXinMetaInformationAPI is LiuXinMetadataAPI
+    True
 """
 
 from __future__ import annotations

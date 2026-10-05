@@ -1,3 +1,14 @@
+"""
+Build deterministic test-database tree generators data and relationships.
+
+The module keeps generated data, ordering and failure modes explicit so consumers
+can assert stable behavior.
+
+Example:
+    Exercise  tree generators through a consuming regression::
+
+        python -m pytest -q tests/databases/test_test_resources_manager.py
+"""
 from __future__ import annotations
 
 from copy import deepcopy
@@ -6,7 +17,19 @@ from LiuXin_alpha.utils.libraries.liuxin_random import LiuXinBadPseudoRandomGene
 
 
 def _advance_legacy_iterator(stream):
-    """Accept both Py2-style `.next()` objects and normal Python 3 iterators."""
+    """
+    Accept both Py2-style `.next()` objects and normal Python 3 iterators.
+
+    Example:
+        Exercise  advance legacy iterator through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param stream: Value supplied for stream under the deterministic fixture contract.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     if stream is None:
         raise TypeError("uuid_stream is required when row_name_str is provided")
     next_method = getattr(stream, "next", None)
@@ -16,6 +39,20 @@ def _advance_legacy_iterator(stream):
 
 
 def _resolve_tree_columns(db, table: str):
+    """
+    Resolve tree columns under the fixture contract.
+
+    Example:
+        Exercise  resolve tree columns through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param db: Database connection, wrapper or fixture addressed by the operation.
+    :param table: Database table addressed by the fixture operation.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     table_col_base = db.driver_wrapper.get_column_base(table)
     headings = set(db.driver_wrapper.get_column_headings(table))
 
@@ -50,6 +87,28 @@ def generate_test_tree(
     seed=100,
     max_layers=5,
 ):
+    """
+    Generate test tree for deterministic fixture consumers.
+
+    Example:
+        Exercise generate test tree through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param root_row: Value supplied for root row under the deterministic fixture
+        contract.
+    :param row_name_str: Value supplied for row name str under the deterministic fixture
+        contract.
+    :param uuid_stream: Value supplied for uuid stream under the deterministic fixture
+        contract.
+    :param parent_position: Value supplied for parent position under the deterministic
+        fixture contract.
+    :param seed: Stable seed controlling deterministic generated values.
+    :param max_layers: Value supplied for max layers under the deterministic fixture
+        contract.
+    :return: None; fixture state or the supplied destination is updated in place.
+    """
     lx_random = LiuXinBadPseudoRandomGenerator(seed)
 
     table = root_row.table
@@ -96,6 +155,34 @@ def generate_test_tree_with_datestamps(
     seed=100,
     max_layers=5,
 ):
+    """
+    Generate test tree with datestamps for deterministic fixture consumers.
+
+    Example:
+        Exercise generate test tree with datestamps through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param root_row: Value supplied for root row under the deterministic fixture
+        contract.
+    :param datestamp_col: Value supplied for datestamp col under the deterministic
+        fixture contract.
+    :param datestamp_start: Value supplied for datestamp start under the deterministic
+        fixture contract.
+    :param datestamp_delta: Value supplied for datestamp delta under the deterministic
+        fixture contract.
+    :param row_name_str: Value supplied for row name str under the deterministic fixture
+        contract.
+    :param uuid_stream: Value supplied for uuid stream under the deterministic fixture
+        contract.
+    :param parent_position: Value supplied for parent position under the deterministic
+        fixture contract.
+    :param seed: Stable seed controlling deterministic generated values.
+    :param max_layers: Value supplied for max layers under the deterministic fixture
+        contract.
+    :return: None; fixture state or the supplied destination is updated in place.
+    """
     lx_random = LiuXinBadPseudoRandomGenerator(seed)
 
     table = root_row.table

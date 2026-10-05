@@ -1,8 +1,13 @@
-"""Central database-backed metadata hydrator API.
+"""
+Define high-level database hydrator contracts for typed WEMI, LiuXin and Calibre metadata shapes.
 
-Category: metadata source orchestration API.
-This module defines the high-level hydrator surface that composes specialised
-database sources into complete metadata objects for callers such as stores.
+The module makes ordering, fallback, ownership and optional-integration behavior
+explicit for callers.
+
+Example:
+    Exercise metadata hydrator api with the owning regression module::
+
+        python -m pytest -q tests/metadata/api/test_metadata_hydrator_api.py
 """
 
 from __future__ import annotations
@@ -53,11 +58,30 @@ HydratedMetadataAPI: TypeAlias = (
 
 
 class LiuXinWEMIMetadataGetterAPI(abc.ABC):
-    """Read complete LiuXin/WEMI item metadata slices from the database."""
+    """
+    Contract complete item-centred LiuXin/WEMI metadata hydration.
+
+    Example:
+        Exercise LiuXinWEMIMetadataGetterAPI with the owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_metadata_hydrator_api.py
+    """
 
     db: "DatabaseAPI"
 
     def __init__(self, db: "DatabaseAPI") -> None:
+        """
+        Bind a WEMI metadata getter to its database dependency.
+
+        Example:
+            Exercise LiuXinWEMIMetadataGetterAPI.  init   with the owning regression module::
+
+                python -m pytest -q tests/metadata/api/test_metadata_hydrator_api.py
+
+
+        :param db: Database dependency used by inherited or typed metadata getters.
+        :return: None.
+        """
         self.db = db
 
     @abc.abstractmethod
@@ -67,16 +91,30 @@ class LiuXinWEMIMetadataGetterAPI(abc.ABC):
         source_row: "MetadataRecord | Row | None" = None,
     ) -> LiuXinWEMIMetadataAPI:
         """
-        Get the complete item-centred metadata slice for sidecar storage.
+        Hydrate the complete item-centred WEMI slice from an item id or preloaded source row.
 
-        :param item_id:
-        :param source_row:
-        :return:
+        Example:
+            Exercise LiuXinWEMIMetadataGetterAPI.get liuxin wemi metadata with the owning regression module::
+
+                python -m pytest -q tests/metadata/api/test_metadata_hydrator_api.py
+
+
+        :param item_id: Item identifier used to locate the item-centred WEMI slice.
+        :param source_row: Optional preloaded row carrying item and related WEMI
+            identifiers.
+        :return: The complete item-centred LiuXin/WEMI metadata object.
         """
 
 
 class LiuXinMetadataGetterAPI(LiuXinWEMIMetadataGetterAPI):
-    """Read LiuXin-shaped metadata objects from the database."""
+    """
+    Provide a LiuXin-shaped view derived from the complete WEMI slice by default.
+
+    Example:
+        Exercise LiuXinMetadataGetterAPI with the owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_metadata_hydrator_api.py
+    """
 
     def get_liuxin_metadata(
         self,
@@ -84,14 +122,18 @@ class LiuXinMetadataGetterAPI(LiuXinWEMIMetadataGetterAPI):
         source_row: "MetadataRecord | Row | None" = None,
     ) -> LiuXinMetadataAPI:
         """
-        Get the LiuXin-compatible metadata object for one item.
+        Project the complete WEMI slice into the LiuXin compatibility metadata shape.
 
-        Implementations may override this when they can build the legacy shape
-        directly. The default view comes from the complete LiuXin/WEMI slice.
+        Example:
+            Exercise LiuXinMetadataGetterAPI.get liuxin metadata with the owning regression module::
 
-        :param item_id:
-        :param source_row:
-        :return:
+                python -m pytest -q tests/metadata/api/test_metadata_hydrator_api.py
+
+
+        :param item_id: Item identifier used to locate the item-centred WEMI slice.
+        :param source_row: Optional preloaded row carrying item and related WEMI
+            identifiers.
+        :return: The LiuXin-compatible metadata projection.
         """
         return self.get_liuxin_wemi_metadata(
             item_id=item_id,
@@ -100,7 +142,14 @@ class LiuXinMetadataGetterAPI(LiuXinWEMIMetadataGetterAPI):
 
 
 class CalibreMetadataGetterAPI(LiuXinWEMIMetadataGetterAPI):
-    """Read Calibre-shaped metadata objects from the database."""
+    """
+    Provide a Calibre-shaped view derived from the complete WEMI slice by default.
+
+    Example:
+        Exercise CalibreMetadataGetterAPI with the owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_metadata_hydrator_api.py
+    """
 
     def get_calibre_metadata(
         self,
@@ -108,14 +157,18 @@ class CalibreMetadataGetterAPI(LiuXinWEMIMetadataGetterAPI):
         source_row: "MetadataRecord | Row | None" = None,
     ) -> CalibreMetadataAPI:
         """
-        Get the Calibre-compatible metadata object for one item.
+        Project the complete WEMI slice into the Calibre compatibility metadata shape.
 
-        Implementations may override this when they can build the Calibre shape
-        directly. The default view comes from the complete LiuXin/WEMI slice.
+        Example:
+            Exercise CalibreMetadataGetterAPI.get calibre metadata with the owning regression module::
 
-        :param item_id:
-        :param source_row:
-        :return:
+                python -m pytest -q tests/metadata/api/test_metadata_hydrator_api.py
+
+
+        :param item_id: Item identifier used to locate the item-centred WEMI slice.
+        :param source_row: Optional preloaded row carrying item and related WEMI
+            identifiers.
+        :return: The Calibre-compatible metadata projection.
         """
         return self.get_liuxin_wemi_metadata(
             item_id=item_id,
@@ -124,16 +177,24 @@ class CalibreMetadataGetterAPI(LiuXinWEMIMetadataGetterAPI):
 
 
 class MetadataObjectGetterAPI(LiuXinMetadataGetterAPI, CalibreMetadataGetterAPI):
-    """Read high-level metadata objects from the database."""
+    """
+    Unify LiuXin and Calibre compatibility metadata getters.
+
+    Example:
+        Exercise MetadataObjectGetterAPI with the owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_metadata_hydrator_api.py
+    """
 
 
 class MetadataHydratorAPI(MetadataObjectGetterAPI):
     """
-    Central hydrator surface for metadata objects produced from the database.
+    Dispatch explicitly requested metadata shapes through canonical typed getters.
 
-    Specific typed getters remain the canonical path. ``hydrate_metadata`` is a
-    thin dispatch helper for boundary code that chooses the target shape at
-    runtime.
+    Example:
+        Exercise MetadataHydratorAPI with the owning regression module::
+
+            python -m pytest -q tests/metadata/api/test_metadata_hydrator_api.py
     """
 
     @abc.abstractmethod
@@ -148,15 +209,22 @@ class MetadataHydratorAPI(MetadataObjectGetterAPI):
         source_row: "MetadataRecord | Row | None" = None,
     ) -> HydratedMetadataAPI:
         """
-        Hydrate one metadata shape by explicit kind.
+        Hydrate the requested metadata kind using the applicable typed identity or item context.
 
-        :param kind:
-        :param work_id:
-        :param expression_id:
-        :param manifestation_id:
-        :param item_id:
-        :param source_row:
-        :return:
+        Example:
+            Exercise MetadataHydratorAPI.hydrate metadata with the owning regression module::
+
+                python -m pytest -q tests/metadata/api/test_metadata_hydrator_api.py
+
+
+        :param kind: Explicit target metadata shape to hydrate.
+        :param work_id: Work identifier used to load identity or metadata.
+        :param expression_id: Expression identifier used to load identity or metadata.
+        :param manifestation_id: Manifestation identifier used to load identity or metadata.
+        :param item_id: Item identifier used to locate the item-centred WEMI slice.
+        :param source_row: Optional preloaded row carrying item and related WEMI
+            identifiers.
+        :return: The normalized row, metadata object or value described above.
         """
 
 

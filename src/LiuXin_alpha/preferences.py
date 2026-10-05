@@ -2,18 +2,15 @@
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
 """
-Preferences/tweaks front end.
+Load, validate and expose application preference values.
 
-# Uses the config parser module as a basis for the LiuXin preferences
-# This module was developed to replace the calibre tweaks and preferences modules - thus it needed the capability to
-# store and retrieve a wider range of data structures
-# calibre:tweaks stored python objects which where no easily renderable into JSON form
-# calibre:config stored python objects that where.
-# They have been merged and this class has been extended to provide support for storing all the objects that should
-# be needed
-# json was used instead of Pickle - due to the potential for pickle to be exploited for arbitrary code execution
-# Needs to be kept as simple as possible to avoid import loops
-# Thus the logger is not used - logging is implemented via strings.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise preferences through a consuming regression::
+
+        python -m pytest -q tests/preferences/test_preferences_regression.py
 """
 
 
@@ -40,10 +37,26 @@ from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode
 
 
 class EncodeError(Exception):
+    """
+    Report a encodeerror encountered while processing an ebook format.
+
+    Example:
+        Exercise EncodeError through a consuming regression::
+
+            python -m pytest -q tests/preferences/test_preferences_regression.py
+    """
     pass
 
 
 class ParseError(Exception):
+    """
+    Report a parseerror encountered while processing an ebook format.
+
+    Example:
+        Exercise ParseError through a consuming regression::
+
+            python -m pytest -q tests/preferences/test_preferences_regression.py
+    """
     pass
 
 
@@ -51,10 +64,10 @@ class Preferences:
     """
     Stores preferences and tweaks for LiuXin.
 
-    Provides methods to load and retrieve preferences - in the form of certain, limited data structures.
-    Stores the preferences in memory for fast access.
-    Unlike the standard ConfigParser does not permit adding options with duplicate names - even if they are in
-    different sections. Required to prevent confusion when using __setitem__ to update options.
+    Example:
+        Exercise Preferences through a consuming regression::
+
+            python -m pytest -q tests/preferences/test_preferences_regression.py
     """
 
     config_file_name = "LiuXin_prefs_file.ini"
@@ -78,14 +91,17 @@ class Preferences:
 
     def __init__(self, backup_folder: Optional[str] = None, cont_backup: Optional[bool] = True) -> None:
         """
-        Detects an existing preferences file. Tries to load it.
-        If it can't load the file then falls back on the defaults.
+        Detects an existing preferences file. Tries to load it. If it can't load the file then falls back on the defaults.
 
-        :param backup_folder: If provided then the preferences file will be placed here.
-                              If an existing preferences file is found during startup then the file will be moved here
-                              before being opened.
-        :param cont_backup: If True then the object will be continuously backed up to disc whenever any change is made
-                            to any of the options.
+        Example:
+            Exercise Preferences.  init   through a consuming regression::
+
+                python -m pytest -q tests/preferences/test_preferences_regression.py
+
+
+        :param backup_folder: Value supplied for backup folder under the utility contract.
+        :param cont_backup: Value supplied for cont backup under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self.continuous_backup = cont_backup
 
@@ -134,14 +150,41 @@ class Preferences:
         self.keys_dict = self.load_keys_dict(self.config)
 
     def _open_text(self, path, mode):
-        """Open a text file compatibly across old/new Python runtimes."""
+        """
+        Open a text file compatibly across old/new Python runtimes.
+
+        Example:
+            Exercise Preferences. open text through a consuming regression::
+
+                python -m pytest -q tests/preferences/test_preferences_regression.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :param mode: Open or adapter mode controlling read/write behavior.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             return open(path, mode, encoding="utf-8")
         except TypeError:
             return open(path, mode)
 
     def _read_config_from_path(self, path):
-        """Read an ini file into a RawConfigParser."""
+        """
+        Read an ini file into a RawConfigParser.
+
+        Example:
+            Exercise Preferences. read config from path through a consuming regression::
+
+                python -m pytest -q tests/preferences/test_preferences_regression.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         cfg = ConfigParser.RawConfigParser()
         with self._open_text(path, "r") as f:
             # ConfigParser.read() expects a filename list; for file objects use read_file/readfp
@@ -155,10 +198,16 @@ class Preferences:
         """
         Load preferences from disk.
 
-        Behavior:
-        - Always start from inbuilt defaults.
-        - Overlay any values found on disk.
-        - If the on-disk file is missing fields, automatically upgrade it by writing out the merged ini.
+        Example:
+            Exercise Preferences.load through a consuming regression::
+
+                python -m pytest -q tests/preferences/test_preferences_regression.py
+
+
+        :param upgrade_on_load: Value supplied for upgrade on load under the utility
+            contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # 1) Start from defaults so missing on-disk keys fall back automatically.
         self.config = ConfigParser.RawConfigParser()
@@ -235,7 +284,14 @@ class Preferences:
         """
         Saves the current config to the given config dictionary.
 
-        :return:
+        Example:
+            Exercise Preferences.save through a consuming regression::
+
+                python -m pytest -q tests/preferences/test_preferences_regression.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         folder = os.path.dirname(self.config_file_path)
         if folder and not os.path.isdir(folder):
@@ -251,8 +307,14 @@ class Preferences:
         """
         Is the given type_str of 64 type?
 
-        :param type_str:
-        :return:
+        Example:
+            Exercise Preferences.is 64 through a consuming regression::
+
+                python -m pytest -q tests/preferences/test_preferences_regression.py
+
+
+        :param type_str: Value supplied for type str under the utility contract.
+        :return: True when the documented condition holds; otherwise False.
         """
         return type_str.endswith("64")
 
@@ -260,9 +322,14 @@ class Preferences:
         """
         Returns True if the variable has a 64 version - False otherwise.
 
-        E.g. int with return False and tuple will return True
-        :param type_str:
-        :return:
+        Example:
+            Exercise Preferences.has 64 version through a consuming regression::
+
+                python -m pytest -q tests/preferences/test_preferences_regression.py
+
+
+        :param type_str: Value supplied for type str under the utility contract.
+        :return: True when the documented condition holds; otherwise False.
         """
         new_type_str = type_str + "_64"
         return new_type_str in self.known_types
@@ -271,8 +338,14 @@ class Preferences:
         """
         Try and serialize the object using the standard json function
 
-        :param val:
-        :return:
+        Example:
+            Exercise Preferences.is json okay through a consuming regression::
+
+                python -m pytest -q tests/preferences/test_preferences_regression.py
+
+
+        :param val: Template or metadata value evaluated by the operation.
+        :return: True when the documented condition holds; otherwise False.
         """
         try:
             self.to_json(val)
@@ -284,8 +357,14 @@ class Preferences:
         """
         Try and serialize the object using the upgraded Liuxin_JSON class.
 
-        :param val:
-        :return:
+        Example:
+            Exercise Preferences.is liuxin json okay through a consuming regression::
+
+                python -m pytest -q tests/preferences/test_preferences_regression.py
+
+
+        :param val: Template or metadata value evaluated by the operation.
+        :return: True when the documented condition holds; otherwise False.
         """
         try:
             self.liuxin_to_json(val)
@@ -297,8 +376,14 @@ class Preferences:
         """
         Returns the val_to_str_plugins dict - methods to turn objects into strings.
 
-        Keyed with the variable type and valued with the serializer used to render it into string format for saving.
-        :return:
+        Example:
+            Exercise Preferences.build val to str plugins through a consuming regression::
+
+                python -m pytest -q tests/preferences/test_preferences_regression.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return {
             "bool": bool_to_str,
@@ -321,10 +406,14 @@ class Preferences:
         """
         Returns the str_to_val_plugins dict - converters needed to turn strings back to values.
 
-        keyed with the variable type and valued with the converter needed to make it back into a variable.
+        Example:
+            Exercise Preferences.build str to val plugins through a consuming regression::
 
-        Done here as the behavior of JSON might be set during the class construction.
-        :return:
+                python -m pytest -q tests/preferences/test_preferences_regression.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # Keyed with the name of the type that the function handles, and valued with the function to be called with the
         # raw value string
@@ -351,10 +440,15 @@ class Preferences:
         """
         Load the keys dictionary.
 
-        Keyed with a frozen set containing all the options in that section of the config and valued with the name of
-        that section.
-        It's used to find the section containing a given option so that option can be retrieved and updated.
-        :return:
+        Example:
+            Exercise Preferences.load keys dict through a consuming regression::
+
+                python -m pytest -q tests/preferences/test_preferences_regression.py
+
+
+        :param config: Value supplied for config under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         sections = config.sections()
 
@@ -380,10 +474,15 @@ class Preferences:
         """
         Returns a copy of the active object corresponding to the given name.
 
-        Changes to an active object ARE NOT reflected in the underlying preferences - you need to use __setitem__ to
-        update the item with it's changed value to see changes to the underlying data store.
-        :param item:
-        :return:
+        Example:
+            Exercise Preferences.  getitem   through a consuming regression::
+
+                python -m pytest -q tests/preferences/test_preferences_regression.py
+
+
+        :param item: Value supplied for item under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return deepcopy(self._active_variables[item])
 
@@ -391,12 +490,16 @@ class Preferences:
         """
         Set the value for the given key.
 
-        If the key corresponds to a preference that already exists in the config then that preference will be updated.
-        If there is no corresponding key then it will be added to the Other section of the preferences file.
-        NOTE: Setting items has a significant performance hit, as the config file is dumped to disk after every change.
-        :param key:
-        :param value:
-        :return:
+        Example:
+            Exercise Preferences.  setitem   through a consuming regression::
+
+                python -m pytest -q tests/preferences/test_preferences_regression.py
+
+
+        :param key: Metadata, identifier or local-variable key.
+        :param value: Value normalized, stored, formatted or returned.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if key in self.frozen_options:
             raise KeyError("cannot update {} - option is designated frozen".format(key))
@@ -450,10 +553,17 @@ class Preferences:
 
     def get_section(self, option):
         """
-        Takes a option which exists in a section of the config - returns the section that it's in.
-        Raises a KeyError if the option isn't found anywhere in the Config.
-        :param option:
-        :return:
+        Takes a option which exists in a section of the config - returns the section that it's in. Raises a KeyError if the option isn't found anywhere in the Config.
+
+        Example:
+            Exercise Preferences.get section through a consuming regression::
+
+                python -m pytest -q tests/preferences/test_preferences_regression.py
+
+
+        :param option: Value supplied for option under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         for key_set in self.keys_dict:
             if option in key_set:
@@ -464,29 +574,51 @@ class Preferences:
     def get_raw_option_str(self, option):
         """
         Returns the raw string for that option from the underlying config.
-        :param option:
-        :return:
+
+        Example:
+            Exercise Preferences.get raw option str through a consuming regression::
+
+                python -m pytest -q tests/preferences/test_preferences_regression.py
+
+
+        :param option: Value supplied for option under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.config.get(self.get_section(option), option)
 
     def add_section(self, section):
         """
         Add a section to the underlying config class.
-        :param section:
-        :return:
+
+        Example:
+            Exercise Preferences.add section through a consuming regression::
+
+                python -m pytest -q tests/preferences/test_preferences_regression.py
+
+
+        :param section: Value supplied for section under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.config.add_section(section)
 
     def type_set(self, section, option, value=None, val_type="str"):
         """
-        Set a variable in the config - supplying information as to the type of the object so that it can be properly
-        pickled and returned.
-        If the actual value is set to be None for any val_type then an object of type None will be returned.
-        :param section:
-        :param option:
-        :param value:
-        :param val_type:
-        :return:
+        Set a variable in the config - supplying information as to the type of the object so that it can be properly pickled and returned. If the actual value is set to be None for any val_type then an object of type None will be returned.
+
+        Example:
+            Exercise Preferences.type set through a consuming regression::
+
+                python -m pytest -q tests/preferences/test_preferences_regression.py
+
+
+        :param section: Value supplied for section under the utility contract.
+        :param option: Value supplied for option under the utility contract.
+        :param value: Value normalized, stored, formatted or returned.
+        :param val_type: Value supplied for val type under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if val_type not in Preferences.known_types:
             raise NotImplementedError("val_type not recognized")
@@ -502,11 +634,17 @@ class Preferences:
         """
         Raw set - sets an option in the underlying configuration.
 
-        Sets with the default type - strings.
-        :param section:
-        :param option:
-        :param value:
-        :return:
+        Example:
+            Exercise Preferences.set through a consuming regression::
+
+                python -m pytest -q tests/preferences/test_preferences_regression.py
+
+
+        :param section: Value supplied for section under the utility contract.
+        :param option: Value supplied for option under the utility contract.
+        :param value: Value normalized, stored, formatted or returned.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.type_set(section, option, value=value, val_type="str")
 
@@ -514,21 +652,35 @@ class Preferences:
         """
         Try and get from the internal cache.
 
-        :param option:
-        :param default:
-        :return:
+        Example:
+            Exercise Preferences.get through a consuming regression::
+
+                python -m pytest -q tests/preferences/test_preferences_regression.py
+
+
+        :param option: Value supplied for option under the utility contract.
+        :param default: Value supplied for default under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self._active_variables.get(option, default)
 
     # Todo: Remove this function from the codebase - here for legacy reasons
     def parse(self, key, rtn_value_type, default=None):
         """
-        Here for legacy compatibility reasons - should be removed as fast as possible.
-        Parse and return a value from preferences.
-        :param key: The required value from the preferences
-        :param rtn_value_type: Should the returned value be bool, str, int e.t.c
-        :param default: If the value cannot be rendered to that type then what value should be returned? - default None
-        :return:
+        Here for legacy compatibility reasons - should be removed as fast as possible. Parse and return a value from preferences.
+
+        Example:
+            Exercise Preferences.parse through a consuming regression::
+
+                python -m pytest -q tests/preferences/test_preferences_regression.py
+
+
+        :param key: Metadata, identifier or local-variable key.
+        :param rtn_value_type: Value supplied for rtn value type under the utility contract.
+        :param default: Value supplied for default under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         try:
             key_value = self.__getitem__(key)
@@ -558,9 +710,16 @@ class Preferences:
 
     def load_default_config(self):
         """
-        Contains all the default values of LiuXin preferences.
-        Loads the internal config class with all the individual preferences - with notes as to type of the object.
-        :return:
+        Contains all the default values of LiuXin preferences. Loads the internal config class with all the individual preferences - with notes as to type of the object.
+
+        Example:
+            Exercise Preferences.load default config through a consuming regression::
+
+                python -m pytest -q tests/preferences/test_preferences_regression.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # Application preferences
         self.add_section("Application")
@@ -1626,9 +1785,17 @@ class Preferences:
     def val_to_str(self, val, val_type):
         """
         Render the value into a string form suitable for storing in the underlying config.
-        :param val:
-        :param val_type: What conversion method should be used on this val?
-        :return:
+
+        Example:
+            Exercise Preferences.val to str through a consuming regression::
+
+                python -m pytest -q tests/preferences/test_preferences_regression.py
+
+
+        :param val: Template or metadata value evaluated by the operation.
+        :param val_type: Value supplied for val type under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if val is None:
             return "{}:none".format(val_type)
@@ -1641,8 +1808,16 @@ class Preferences:
     def str_to_val(self, val_str):
         """
         Converts a string back to a value.
-        :param val_str:
-        :return (val_type, val): THe declared valued type, and the actual value itself
+
+        Example:
+            Exercise Preferences.str to val through a consuming regression::
+
+                python -m pytest -q tests/preferences/test_preferences_regression.py
+
+
+        :param val_str: Value supplied for val str under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         val_type = re.match(r"(^[a-zA-Z0-9_]+):", val_str).group(1).lower()
         if val_type not in Preferences.known_types:
@@ -1663,7 +1838,18 @@ class Preferences:
     def __val_parse_err_message(val_type, raw_val_str, val_str):
         """
         Error message for when value parsing fails.
-        :return:
+
+        Example:
+            Exercise Preferences.  val parse err message through a consuming regression::
+
+                python -m pytest -q tests/preferences/test_preferences_regression.py
+
+
+        :param val_type: Value supplied for val type under the utility contract.
+        :param raw_val_str: Value supplied for raw val str under the utility contract.
+        :param val_str: Value supplied for val str under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         err = list(["Parsing the given raw_val_str into the provided type has failed"])
         err.append("val_type: {}".format(val_type))
@@ -1674,10 +1860,18 @@ class Preferences:
 
     @staticmethod
     def _json_bytes_to_str(obj):
-        """Recursively convert bytes (including dict keys) to str.
+        """
+        Recursively convert bytes (including dict keys) to str.
 
-        This is needed because legacy LiuXin JSON/base64 helpers can yield bytes
-        on Python 3, and the stdlib JSON encoder rejects bytes dict keys.
+        Example:
+            Exercise Preferences. json bytes to str through a consuming regression::
+
+                python -m pytest -q tests/preferences/test_preferences_regression.py
+
+
+        :param obj: Value supplied for obj under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if isinstance(obj, (bytes, bytearray, memoryview)):
             b = bytes(obj)
@@ -1699,16 +1893,32 @@ class Preferences:
     def liuxin_to_json(self, val):
         """
         Use the LiuXin json encode to dump a file.
-        :param val:
-        :return:
+
+        Example:
+            Exercise Preferences.liuxin to json through a consuming regression::
+
+                python -m pytest -q tests/preferences/test_preferences_regression.py
+
+
+        :param val: Template or metadata value evaluated by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.liuxin_json.dumps(self._json_bytes_to_str(val))
 
     def liuxin_from_json(self, val):
         """
         Use the LiuXin json to read back a file.
-        :param val:
-        :return:
+
+        Example:
+            Exercise Preferences.liuxin from json through a consuming regression::
+
+                python -m pytest -q tests/preferences/test_preferences_regression.py
+
+
+        :param val: Template or metadata value evaluated by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self._json_bytes_to_str(self.liuxin_json.loads(val))
 
@@ -1716,8 +1926,17 @@ class Preferences:
     def to_json(val, **kwargs):
         """
         Use json to render the value as a string
-        :param val:
-        :return:
+
+        Example:
+            Exercise Preferences.to json through a consuming regression::
+
+                python -m pytest -q tests/preferences/test_preferences_regression.py
+
+
+        :param val: Template or metadata value evaluated by the operation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # Split off as a function to provide for easy customization of sotrage later
         return json.dumps(Preferences._json_bytes_to_str(val), ensure_ascii=False, **kwargs)
@@ -1726,8 +1945,16 @@ class Preferences:
     def from_json(val):
         """
         Use json to produce the original value from a string.
-        :param val:
-        :return:
+
+        Example:
+            Exercise Preferences.from json through a consuming regression::
+
+                python -m pytest -q tests/preferences/test_preferences_regression.py
+
+
+        :param val: Template or metadata value evaluated by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return json.loads(val)
 
@@ -1740,8 +1967,16 @@ class Preferences:
 def bool_to_str(val):
     """
     Convert the given variable into a string for storage - or throw an error
-    :param var:
-    :return:
+
+    Example:
+        Exercise bool to str through a consuming regression::
+
+            python -m pytest -q tests/preferences/test_preferences_regression.py
+
+
+    :param val: Template or metadata value evaluated by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     val = str(val).lower()
     if val not in ["true", "false"]:
@@ -1752,8 +1987,16 @@ def bool_to_str(val):
 def none_to_str(val):
     """
     Try and convert the given value to a none string - throws an error if it can't.
-    :param val:
-    :return:
+
+    Example:
+        Exercise none to str through a consuming regression::
+
+            python -m pytest -q tests/preferences/test_preferences_regression.py
+
+
+    :param val: Template or metadata value evaluated by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     val = str(val).lower()
     if val != "none":
@@ -1763,17 +2006,37 @@ def none_to_str(val):
 
 def set_to_str(val, handler=json.dumps):
     """
-    Try and convert the given set to a string - use the provided handler to try and manage the conversion.
-    val will be converted to a list before the handler is called with it.
-    :param val:
-    :param handler:
-    :return:
+    Try and convert the given set to a string - use the provided handler to try and manage the conversion. val will be converted to a list before the handler is called with it.
+
+    Example:
+        Exercise set to str through a consuming regression::
+
+            python -m pytest -q tests/preferences/test_preferences_regression.py
+
+
+    :param val: Template or metadata value evaluated by the operation.
+    :param handler: Value supplied for handler under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     val = [v for v in val]
     return handler(val)
 
 
 def bool_str_to_bool(bool_str):
+    """
+    Perform the bool str to bool operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise bool str to bool through a consuming regression::
+
+            python -m pytest -q tests/preferences/test_preferences_regression.py
+
+
+    :param bool_str: Value supplied for bool str under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if bool_str.lower() == "true":
         return True
     elif bool_str.lower() == "false":
@@ -1785,8 +2048,16 @@ def bool_str_to_bool(bool_str):
 def none_str_to_none(none_str):
     """
     Try and parse a None string - there is only one correct answer - None
-    :param none_str:
-    :return:
+
+    Example:
+        Exercise none str to none through a consuming regression::
+
+            python -m pytest -q tests/preferences/test_preferences_regression.py
+
+
+    :param none_str: Value supplied for none str under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if none_str.lower() == "none":
         return None
@@ -1796,11 +2067,18 @@ def none_str_to_none(none_str):
 
 def set_str_to_set(set_str, handler=json.loads):
     """
-    Try and parse a string into a set (assume that the string is going to give back a iterable - then convert it into
-    a set).
-    :param set_str:
-    :param handler: The function that will be used to convert the given string back into an object
-    :return:
+    Try and parse a string into a set (assume that the string is going to give back a iterable - then convert it into a set).
+
+    Example:
+        Exercise set str to set through a consuming regression::
+
+            python -m pytest -q tests/preferences/test_preferences_regression.py
+
+
+    :param set_str: Value supplied for set str under the utility contract.
+    :param handler: Value supplied for handler under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     json_rtn = handler(set_str)
     assert isinstance(json_rtn, list)
@@ -1809,11 +2087,18 @@ def set_str_to_set(set_str, handler=json.loads):
 
 def tuple_str_to_tuple(tuple_str, handler=json.loads):
     """
-    Try and parse a string into a tuple (assume that the string is going to give back a iterable - then convert it into
-    a tuple).
-    :param tuple_str:
-    :param handler:
-    :return:
+    Try and parse a string into a tuple (assume that the string is going to give back a iterable - then convert it into a tuple).
+
+    Example:
+        Exercise tuple str to tuple through a consuming regression::
+
+            python -m pytest -q tests/preferences/test_preferences_regression.py
+
+
+    :param tuple_str: Value supplied for tuple str under the utility contract.
+    :param handler: Value supplied for handler under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     json_rtn = handler(tuple_str)
     assert isinstance(json_rtn, list)
@@ -1823,10 +2108,17 @@ def tuple_str_to_tuple(tuple_str, handler=json.loads):
 # TODO: None of these are actually in use - put them somewhere central so a bunch of methods can refer to them
 def py_set_adapter(py_set):
     """
-    Takes a set - turning it into a string suitable for storing within an SQLite databaase, which can be parsed back out
-    by the py_set_converted function.
-    :param py_set:
-    :return:
+    Takes a set - turning it into a string suitable for storing within an SQLite databaase, which can be parsed back out by the py_set_converted function.
+
+    Example:
+        Exercise py set adapter through a consuming regression::
+
+            python -m pytest -q tests/preferences/test_preferences_regression.py
+
+
+    :param py_set: Value supplied for py set under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     py_set = deepcopy(py_set)
     py_list = []
@@ -1842,18 +2134,33 @@ def py_set_adapter(py_set):
 def set_to_string(pyset):
     """
     Takes a set and converts it into a string suitable for saving in to a preferences file
-    :param pyset: A python set
-    :return:
+
+    Example:
+        Exercise set to string through a consuming regression::
+
+            python -m pytest -q tests/preferences/test_preferences_regression.py
+
+
+    :param pyset: Value supplied for pyset under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return "PYSET - " + py_set_adapter(pyset)
 
 
 def py_set_converter(py_set_string):
     """
-    Converted intended to be used with set fields from the databases - turns them into sets of unicode strings.
-    Takes a string from the databases and returns it as a set.
-    :param py_set_string:
-    :return py_set:
+    Converted intended to be used with set fields from the databases - turns them into sets of unicode strings. Takes a string from the databases and returns it as a set.
+
+    Example:
+        Exercise py set converter through a consuming regression::
+
+            python -m pytest -q tests/preferences/test_preferences_regression.py
+
+
+    :param py_set_string: Value supplied for py set string under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     py_set_string = deepcopy(py_set_string)
     # Accounting for the way SQL escapes quotes
@@ -1900,8 +2207,16 @@ def py_set_converter(py_set_string):
 def string_to_set(set_string):
     """
     Takes a serialized string and turns it back into a set.
-    :param set_string:
-    :return:
+
+    Example:
+        Exercise string to set through a consuming regression::
+
+            python -m pytest -q tests/preferences/test_preferences_regression.py
+
+
+    :param set_string: Value supplied for set string under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     pyset_re = r"PYSET - (.*)"
     pyset_pat = re.compile(pyset_re)

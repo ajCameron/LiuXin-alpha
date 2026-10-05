@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """
-Example: inspect store bootstrap from the database `stores` table.
+Inspect Store restoration from an existing catalogue and print its bootstrap report.
+
+Open the database without automatic manager construction, then bootstrap explicitly
+with offline-row, startup, and strictness flags. Report loaded Store names alongside
+issues. Startup is opt-in; restored configuration alone does not prove that a Store
+is currently reachable or that its bytes were verified.
 """
 
 from __future__ import annotations
@@ -21,6 +26,17 @@ from LiuXin_alpha.databases.database import Database
 
 
 def parse_args() -> argparse.Namespace:
+    """
+    Parse a required catalogue path and database type defaulting to SQLite. --include-offline admits
+    offline rows, --startup-on-add probes added Stores, and --strict requests bootstrap exceptions.
+    All three flags default to false; this command does not expose database creation.
+
+    Example:
+        >>> args = parse_args()  # doctest: +SKIP
+
+
+    :return: Parsed argparse namespace; help and invalid arguments raise SystemExit.
+    """
     parser = argparse.ArgumentParser(description="Print storage bootstrap report")
     parser.add_argument("--database", required=True, help="Path to LiuXin database file")
     parser.add_argument("--db-type", default="SQLite", help="Database driver type")
@@ -31,6 +47,20 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    """
+    Open the catalogue, explicitly bootstrap its manager, and print report plus Store names. Expand
+    the database path without resolving it. Disable creation, backup, and automatic manager
+    initialization, then call bootstrap_storage_manager with clear_existing=True and the requested
+    flags. Read names from db.storage when present, otherwise report an empty list. Print the
+    sanitized payload inside the database context, whose exit owns cleanup. A report can contain
+    issues without raising when strict mode is disabled.
+
+    Example:
+        >>> exit_code = main()  # doctest: +SKIP
+
+
+    :return: Zero for report.ok, otherwise two; parser, database, strict bootstrap, and cleanup errors propagate.
+    """
     args = parse_args()
     db_path = Path(args.database).expanduser()
 

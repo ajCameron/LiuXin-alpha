@@ -1,10 +1,644 @@
 # Working Memory Index
 
-Updated: 2026-08-21
+Current status: **project documentation inventory complete**. All 1,372 units,
+2,671 files and 42,166 declarations are verified, with no partial files.
+[Latest checkpoint](project-docstrings-l001-l037-2026-10-05.md).
+Nothing remains. The final focused result matches baseline; 95
+regressions and all full quality checks passed.
+Discovery records 39 unrelated review-hash differences.
+
+Updated: 2026-10-05
 
 Start here for active handoff notes. This index should stay short.
 
 ## Current Notes
+
+- [project-docstrings-l001-l037-2026-10-05.md](project-docstrings-l001-l037-2026-10-05.md)
+  Final retained fixture-database compatibility track: 318 declarations and 52
+  files. The project-wide documentation inventory is complete.
+
+- [project-docstrings-s001-s028-2026-10-05.md](project-docstrings-s001-s028-2026-10-05.md)
+  Project scripts and their regression contracts: 785 declarations and 51 files.
+  S is complete; L001 next.
+
+- [project-docstrings-a102-a128-2026-10-05.md](project-docstrings-a102-a128-2026-10-05.md)
+  Renderers, Tk GUI and application regressions: 672 declarations and 37 files.
+  A is complete; S001 next.
+
+- [project-docstrings-a082-a101-2026-10-05.md](project-docstrings-a082-a101-2026-10-05.md)
+  Library relation/cache tables and GUI compatibility: 450 declarations and 33
+  files. A102 next.
+
+- [project-docstrings-a061-a081-2026-10-05.md](project-docstrings-a061-a081-2026-10-05.md)
+  Library restore and cache fields/views/coordination: 583 declarations and 11
+  files. A082 next.
+
+- [project-docstrings-a041-a060-2026-10-05.md](project-docstrings-a041-a060-2026-10-05.md)
+  Managed jobs and library backup/comments/lazy/legacy/facade/metadata APIs:
+  535 declarations and 12 files. A061 next.
+
+- [project-docstrings-a021-a040-2026-10-05.md](project-docstrings-a021-a040-2026-10-05.md)
+  Customization UI/builtins/cache and managed jobs: 527 declarations and 22
+  files. A041 next.
+
+- [project-docstrings-a001-a020-2026-10-05.md](project-docstrings-a001-a020-2026-10-05.md)
+  Preferences, errors, constants and customization foundations: 480
+  declarations and 18 files. A021 next.
+
+- [project-docstrings-f341-f347-2026-10-05.md](project-docstrings-f341-f347-2026-10-05.md)
+  Final RTF/SNB/TCR/Textile/text regression helpers: 184 declarations and 12
+  files. F is complete; A001 next.
+
+- [project-docstrings-f321-f340-2026-10-05.md](project-docstrings-f321-f340-2026-10-05.md)
+  ODT through RTF regression helpers: 532 declarations and 43 files. F341 next.
+
+- [project-docstrings-f301-f320-2026-10-05.md](project-docstrings-f301-f320-2026-10-05.md)
+  DOCX through ODF regression helpers: 483 declarations and 38 files. F321 next.
+
+- [project-docstrings-f281-f300-2026-10-05.md](project-docstrings-f281-f300-2026-10-05.md)
+  Text conversion/transliteration and early file-format regression helpers:
+  412 declarations and 45 files. F301 next.
+
+- [project-docstrings-f261-f280-2026-10-05.md](project-docstrings-f261-f280-2026-10-05.md)
+  RTF-to-XML, SNB, TCR, Textile and plain-text processing: 523 declarations and
+  36 files. F281 next.
+
+- [project-docstrings-f241-f260-2026-10-05.md](project-docstrings-f241-f260-2026-10-05.md)
+  PDF serializer/TOC, PML, RocketBook, readability and RTF-to-XML: 499 new
+  declarations and 42 promoted files. F261 next.
+
+- [project-docstrings-f221-f240-2026-10-05.md](project-docstrings-f221-f240-2026-10-05.md)
+  OPF3, Palm database and PDF internals: 522 declarations across 36 complete
+  files and one partial file. F241 next.
+
+- [project-docstrings-f201-f220-2026-10-05.md](project-docstrings-f201-f220-2026-10-05.md)
+  OEB polish tests, transformations and OPF/OPF2 models: 600 declarations and
+  28 files. F221 next.
+
+- [project-docstrings-f181-f200-2026-10-05.md](project-docstrings-f181-f200-2026-10-05.md)
+  Complete OEB polish and validation stack: 603 declarations and 28 files.
+  F201 next.
+
+- [project-docstrings-f161-f180-2026-10-05.md](project-docstrings-f161-f180-2026-10-05.md)
+  ODF/ODT and foundational OEB: 442 declarations and 20 files. F181 next.
+
+- [project-docstrings-f141-f160-2026-10-05.md](project-docstrings-f141-f160-2026-10-05.md)
+  ODF XHTML/package/style/table/text: 587 declarations and 11 files. F161 next.
+
+- [project-docstrings-f121-f140-2026-10-05.md](project-docstrings-f121-f140-2026-10-05.md)
+  MOBI writing and ODF internals: 520 declarations and 35 files. F141 next.
+
+- [project-docstrings-f101-f120-2026-10-05.md](project-docstrings-f101-f120-2026-10-05.md)
+  Markdown extensions and MOBI debug/reader internals: 549 declarations and 40
+  complete files. All 110 regressions and full quality checks passed. F121 next.
+
+- [project-docstrings-f081-f100-2026-10-05.md](project-docstrings-f081-f100-2026-10-05.md)
+  PyLRS construction and retained Markdown parsing/serialization: 587
+  declarations and 15 complete files. All 33 regressions and full quality
+  checks passed. F101 next.
+
+- [project-docstrings-f061-f080-2026-10-05.md](project-docstrings-f061-f080-2026-10-05.md)
+  LIT writing and the main LRF parser/object/HTML stack: 488 declarations and
+  19 complete files. All 66 regressions and full quality checks passed. F081 next.
+
+- [project-docstrings-f041-f060-2026-10-05.md](project-docstrings-f041-f060-2026-10-05.md)
+  DOCX writing, EPUB/CFI, FB2, HTML/HTMLZ, JSON and LIT: 502 declarations
+  and 33 complete files. All 218 regressions and full quality checks passed.
+  F061 next.
+
+- [project-docstrings-f021-f040-2026-10-05.md](project-docstrings-f021-f040-2026-10-05.md)
+  Conversion plugins, DjVu and DOCX internals: 543 declarations and 55 complete
+  files. All 46 regressions and full quality checks passed. F041 next.
+
+- [project-docstrings-f001-f020-2026-10-05.md](project-docstrings-f001-f020-2026-10-05.md)
+  Top-level format APIs, covers, markup, AZW4, CHM, comic, compression and the
+  first conversion plugins: 523 declarations and 38 complete files. All 304
+  regressions and full quality checks passed. F021 next.
+
+- [project-docstrings-u176-u208-2026-10-05.md](project-docstrings-u176-u208-2026-10-05.md)
+  Final utility-test batch: 633 declarations and 72 complete files. Regression
+  results match baseline; scoped and full quality checks passed. U is complete
+  and F001 is next.
+
+- [project-docstrings-u143-u175-2026-10-05.md](project-docstrings-u143-u175-2026-10-05.md)
+  Localization, logging, plugins/fallbacks, resources, local storage and text:
+  721 declarations and 73 complete files. Regression results match baseline;
+  full quality passed and the Latin-1 storage source remains intact. U176 next.
+
+- [project-docstrings-u114-u142-2026-10-05.md](project-docstrings-u114-u142-2026-10-05.md)
+  Complete bundled HTML5 parser/tokenizer/tree/filter stack: 796 declarations
+  and 36 complete files. Focused regressions and full quality passed. U143 is
+  next.
+
+- [project-docstrings-u097-u113-2026-10-05.md](project-docstrings-u097-u113-2026-10-05.md)
+  Bundled dateutil test corpus and timezone implementations: 591 declarations
+  and five complete files. The legacy collection barrier matches baseline; five
+  modern regressions and full quality passed. U114 is next.
+
+- [project-docstrings-u068-u096-2026-10-05.md](project-docstrings-u068-u096-2026-10-05.md)
+  Bundled HTML/date/archive/JSON/polyglot/inflection libraries: 726 declarations
+  and 53 complete files. Regressions match the green pre-edit baseline; full
+  quality passed and two Latin-1 source encodings remain intact. U097 is next.
+
+- [project-docstrings-u035-u067-2026-10-05.md](project-docstrings-u035-u067-2026-10-05.md)
+  Configuration, APSW shell, decompression, image, IPC, jobs and language
+  utilities: 772 declarations and 38 complete files. Regression results match
+  the captured baseline exactly; full quality passed. U068 is next.
+
+- [project-docstrings-u001-u034-2026-10-05.md](project-docstrings-u001-u034-2026-10-05.md)
+  First utility batch: 807 declarations and 36 complete files across shared
+  utilities and retained Calibre compatibility. Static and full quality checks
+  passed; 472 scoped regressions passed. U035 is next.
+
+- [project-docstrings-t002-t066-2026-10-05.md](project-docstrings-t002-t066-2026-10-05.md)
+  Final test-infrastructure batch: 984 declarations and 114 complete files.
+  Fixture, database, format-consumer and typing coverage passed; T is complete
+  and the authorized remainder continues at U001.
+
+- [project-docstrings-t001-2026-10-05.md](project-docstrings-t001-2026-10-05.md)
+  Root test package and conftest: 39 declarations across two complete files.
+  Import/runtime isolation and shared provisioning fixtures are documented; 86
+  regressions passed. T002 is next.
+
+- [project-docstrings-c033-c052-2026-10-05.md](project-docstrings-c033-c052-2026-10-05.md)
+  Final catalog search/write and regression-test batch: 500 new declarations,
+  twenty-eight complete files and the prior 37-declaration Search slice promoted.
+  C is complete at 52/52; T001 is next overall.
+
+- [project-docstrings-m267-m274-2026-10-05.md](project-docstrings-m267-m274-2026-10-05.md)
+  Final live-harness/provider/worker tests: 221 declarations and eight complete
+  files. M is complete at 274/274; next campaign selection remains open.
+
+- [project-docstrings-m237-m266-2026-10-05.md](project-docstrings-m237-m266-2026-10-05.md)
+  Remaining legacy file-source, local/standardization and non-live web-source
+  tests: 813 declarations and thirty-five complete files. 368 regressions passed;
+  historical checkpoint before the final M267–M274 batch.
+
+- [project-docstrings-m217-m236-2026-10-05.md](project-docstrings-m217-m236-2026-10-05.md)
+  EXTZ through PDF file-source tests: 580 declarations and thirty complete files.
+  438 regressions passed with one optional LRX skip; historical checkpoint
+  before M237–M266.
+
+- [project-docstrings-m197-m216-2026-10-04.md](project-docstrings-m197-m216-2026-10-04.md)
+  Container hydration, projections, conversions, Calibre-like metadata and
+  archive/comic/DOCX/EPUB tests: 518 new declarations and thirty-two complete
+  files. 286 regressions passed; historical checkpoint before M217–M236.
+
+- [project-docstrings-m177-m196-2026-10-04.md](project-docstrings-m177-m196-2026-10-04.md)
+  Metadata, OPF and standardization tests; API/source/WEMI contracts; book
+  serialization; and hydrator edge cases: 558 declarations, thirty-five complete
+  files and one partial file. 330 regressions passed; historical checkpoint
+  before M197–M216.
+
+- [project-docstrings-m157-m176-2026-10-04.md](project-docstrings-m157-m176-2026-10-04.md)
+  Shared web-source contracts, orchestration and 16 provider/worker modules:
+  599 declarations and twenty-two complete files. 306 regressions passed;
+  historical checkpoint before M177–M196.
+
+- [project-docstrings-m147-m156-2026-10-04.md](project-docstrings-m147-m156-2026-10-04.md)
+  PDB readers, database-backed metadata source contracts, local ISFDB and
+  Amazon: 195 declarations and seventeen complete files. 148 regressions passed;
+  historical checkpoint before M157–M176.
+
+- [project-docstrings-m137-m146-2026-10-03.md](project-docstrings-m137-m146-2026-10-03.md)
+  ODT, OPF, PDF, legacy ebook/archive readers, registry, text formats and workers:
+  290 declarations and sixteen complete files. 201 regressions passed.
+  Historical checkpoint before M147–M156.
+
+- [project-docstrings-m127-m136-2026-09-29.md](project-docstrings-m127-m136-2026-09-29.md)
+  Comic, DOCX, EPUB, EXTZ, FB2, string/HTML inference, IMP, LIT, LRF, LRX and
+  MOBI: 280 declarations and twelve complete files. 354 regressions passed.
+  Historical checkpoint before M137–M146.
+
+- [project-docstrings-m117-m126-2026-09-29.md](project-docstrings-m117-m126-2026-09-29.md)
+  Item, manifestation and work APIs plus metadata-reader dispatch and archive
+  helpers: 268 new declarations and nine complete files. 183 regressions and 915
+  runnable statements passed. Historical checkpoint before M127–M136.
+
+- [project-docstrings-m107-m116-2026-09-28.md](project-docstrings-m107-m116-2026-09-28.md)
+  Agent profiles, expression/item identities, expression metadata and the first
+  item metadata slice: 263 declarations, six complete files and 40 partial
+  declarations. 103 regressions and 1,022 runnable statements passed. Historical
+  checkpoint before M117–M126.
+
+- [project-docstrings-m097-m106-2026-09-27.md](project-docstrings-m097-m106-2026-09-27.md)
+  Titles, work identity/bundle/hydration and shared WEMI/agent identity APIs:
+  256 new declarations, twelve complete files. 195 regressions and 728 runnable
+  statements passed; full quality passed. Historical checkpoint before M107–M116.
+
+- [project-docstrings-m087-m096-2026-09-27.md](project-docstrings-m087-m096-2026-09-27.md)
+  Resources, series, subjects and first title records: 268 new declarations,
+  three complete files and 24 partial title declarations. 96 regressions and
+  748 runnable statements passed; full quality passed. Historical checkpoint before M097–M106.
+
+- [project-docstrings-m077-m086-2026-09-27.md](project-docstrings-m077-m086-2026-09-27.md)
+  Manifestation hydration, notes, bundle/stack projection views and ratings:
+  275 new declarations, all four files complete. 200 regressions and 884 runnable
+  statements passed; full quality passed. Historical checkpoint before M087–M096.
+
+- [project-docstrings-m067-m076-2026-09-26.md](project-docstrings-m067-m076-2026-09-26.md)
+  Identifier accessors, item identity/bundle/hydrator, labels, languages and
+  manifestation identity/bundle: 284 new declarations, all eight files complete.
+  184 regressions and 720 runnable statements passed; full quality passed. Historical checkpoint before M077–M086.
+
+- [project-docstrings-m057-m066-2026-09-26.md](project-docstrings-m057-m066-2026-09-26.md)
+  Dates, expression identity/bundle/hydrator, genres and identifier containers:
+  267 declarations, five complete files and 86 partial identifier declarations.
+  184 regressions and 709 runnable statements passed; full quality passed. Historical checkpoint before M067–M076.
+
+- [code-review-2026-09-26.md](code-review-2026-09-26.md)
+  Whole-repository architecture and boundaries review (eight subsystem reviewers,
+  pushed `01674d15`). Five themes: no lifecycle owner, aspirational layering
+  (121-module runtime cycle; ratchet covers 12% of modules), duplicate owners
+  with divergent behaviour, convention-only safety invariants (delete, read-only,
+  RPC `invoke`), and live-looking legacy code. Prioritised action list inside.
+
+- [project-docstrings-m047-m056-2026-09-26.md](project-docstrings-m047-m056-2026-09-26.md)
+  Agent credits, identity, participation and profiles, plus the first date records:
+  252 declarations, five complete files and 24 partial date declarations.
+  97 regressions and 625 runnable statements passed; full quality passed. Historical checkpoint before M057–M066.
+
+- [project-docstrings-m037-m046-2026-09-26.md](project-docstrings-m037-m046-2026-09-26.md)
+  WEMI conversion/serialization, eager hydration, writer, concrete row and tree
+  containers: 211 new declarations, all 23 files complete. Prior API claim corrected.
+  162 regressions and 296 examples passed; full quality passed. Historical checkpoint before M047–M056.
+
+- [project-docstrings-m027-m036-2026-09-26.md](project-docstrings-m027-m036-2026-09-26.md)
+  WEMI/row contracts, formatting, lazy containers and hydration: 265 new
+  declarations, ten complete files and a 40-declaration partial WEMI slice.
+  207 regressions and 181 examples passed; full quality passed. Historical checkpoint before M037–M046.
+
+- [project-docstrings-m017-m026-2026-09-26.md](project-docstrings-m017-m026-2026-09-26.md)
+  Container exports, legacy Calibre-style metadata/mixins, and API contracts:
+  219 declarations, 20 complete files and a 40-declaration partial API slice.
+  79 regressions and 78 examples passed; full quality passed. Historical checkpoint before M027–M036.
+
+- [project-docstrings-m007-m016-2026-09-25.md](project-docstrings-m007-m016-2026-09-25.md)
+  Metadata utilities/workflows, book containers/codecs, vocabularies and genre
+  maps: 132 new declarations, 21 complete files. 152 regressions and 98 examples
+  passed; full quality passed. Historical checkpoint before M017–M026.
+
+- [project-docstrings-d229-m006-2026-09-25.md](project-docstrings-d229-m006-2026-09-25.md)
+  Final database contracts and first metadata units: 275 declarations, 22 complete
+  files and a 40-declaration utility slice. D complete; historical M007 boundary.
+  215 regressions and 140 examples passed, two existing skips; full quality passed.
+
+- [project-docstrings-d219-d228-2026-09-25.md](project-docstrings-d219-d228-2026-09-25.md)
+  PostgreSQL, SQLite and driver contracts: 249 new declarations, 21 complete files.
+  182 regressions and 40 runnable examples passed, three existing skips;
+  full quality checks passed. Historical checkpoint before D229–D232/M001–M006.
+
+- [project-docstrings-d209-d218-2026-09-25.md](project-docstrings-d209-d218-2026-09-25.md)
+  Unicode, Calibre and PostgreSQL tests: 212 declarations, 24 complete files and
+  a 77-declaration partial file. 209 regressions and 39 runnable examples passed,
+  two optional skips; full quality checks passed. Historical checkpoint before D219–D228.
+
+- [project-docstrings-d199-d208-2026-09-25.md](project-docstrings-d199-d208-2026-09-25.md)
+  Database contracts: 270 declarations, 12 complete files.
+  402 regressions and 50 example statements passed; 40 skips,
+  12 expected failures, 0 non-strict unexpected passes.
+  Historical checkpoint before D209–D218 completed.
+
+- [project-docstrings-d189-d198-2026-09-25.md](project-docstrings-d189-d198-2026-09-25.md)
+  Cache and Database contracts: 290 declarations, 24 complete files.
+  331 regressions and 119 example statements passed; 12 skips,
+  including six gated legacy modules. Historical checkpoint before D199–D208 completed.
+
+- [project-docstrings-d179-d188-2026-09-25.md](project-docstrings-d179-d188-2026-09-25.md)
+  Database/API/cache tests: 271 new declarations, 16 complete files. 309 regressions
+  and 139 runnable example statements passed, two environment skips; full quality
+  checks passed. Historical checkpoint before D189–D198 completed.
+
+- [project-docstrings-d169-d178-2026-09-24.md](project-docstrings-d169-d178-2026-09-24.md)
+  Database-test batch complete: 256 declarations, 24 complete files and a 35-declaration
+  locking slice. 141 regressions and 180 runnable example statements passed, one
+  conditional skip, full quality checks passed. Historical checkpoint before D179–D188 completed.
+
+- [project-docstrings-d149-d168-2026-09-24.md](project-docstrings-d149-d168-2026-09-24.md)
+  Maintenance, metadata SQL and database-test batch complete: 477 declarations,
+  311 passing regressions, 2 skips, 2 expected failures; 339 runnable examples and
+  full quality checks passed. 211 integration statements explicitly skipped.
+  Historical checkpoint before the D169–D178 batch.
+
+- [project-docstrings-d139-d148-2026-09-24.md](project-docstrings-d139-d148-2026-09-24.md)
+  Driver wrapper/API batch complete: 241 declarations, 638 passing regressions, 2 skips, 12 expected failures,
+  103 runnable examples and full quality checks passed. 199 integration statements
+  explicitly skipped. Historical checkpoint before the D149–D168 batch.
+
+- [project-docstrings-d129-d138-2026-09-24.md](project-docstrings-d129-d138-2026-09-24.md)
+  APSW backend and driver API batch complete: 208 declarations, 185 passing regressions, 4 skips,
+  109 runnable examples and full quality checks passed. 157 integration examples
+  explicitly skipped. Historical checkpoint before the D139–D148 batch.
+
+- [project-docstrings-d128-2026-09-24.md](project-docstrings-d128-2026-09-24.md)
+  SQLite concrete driver complete: 15 declarations, seven regression checks,
+  44 runnable example statements and full quality checks passed; six integration
+  examples explicitly skipped. Historical checkpoint before the D129–D138 batch.
+
+- [project-docstrings-d127-2026-09-22.md](project-docstrings-d127-2026-09-22.md)
+  SQLite initializer complete: two declarations, one import regression,
+  nine runnable example statements and full quality checks passed.
+  Historical checkpoint before D128 completed the SQLite concrete driver.
+
+- [project-docstrings-d126-2026-09-22.md](project-docstrings-d126-2026-09-22.md)
+  Custom-column management macro file complete: 11 declarations, 15 regression
+  checks, 64 runnable example statements and full quality checks passed.
+  Historical checkpoint before D127 completed the SQLite plugin initializer.
+
+- [project-docstrings-d125-2026-09-22.md](project-docstrings-d125-2026-09-22.md)
+  Custom-column macro facade and ensure-value mixin complete: 39 declarations,
+  two API contract checks, 81 runnable example statements and full quality checks
+  passed. Historical checkpoint before D126 completed the management macro file.
+
+- [project-docstrings-d124-2026-09-21.md](project-docstrings-d124-2026-09-21.md)
+  Legacy temporary-table macro file complete: five declarations, one focused
+  regression, 37 runnable example statements and full quality checks passed.
+  Historical checkpoint before D125 completed the custom-column macro facade
+  and ensure-value mixin.
+
+- [project-docstrings-d123-2026-09-21.md](project-docstrings-d123-2026-09-21.md)
+  Remaining 36 portable SQL macro declarations verified; all 76 now reviewed and
+  the file promoted. 21 regressions passed, one expected skip; 92 runnable example
+  statements and full quality checks passed. Historical checkpoint before D124
+  completed the legacy temporary-table macro file.
+
+- [project-docstrings-d122-2026-09-21.md](project-docstrings-d122-2026-09-21.md)
+  First 40 portable SQL macro declarations verified; seven focused regressions,
+  47 runnable example statements and full quality checks passed. Historical partial
+  checkpoint before D123 completed and promoted the file.
+
+- [project-docstrings-d121-2026-09-20.md](project-docstrings-d121-2026-09-20.md)
+  SQL macros package and hash-table mixin complete: 32 declarations, three focused
+  regressions, 28 runnable example statements and full quality checks passed.
+  Historical checkpoint before D122 completed the first portable macro selection.
+
+- [project-docstrings-d120-2026-09-20.md](project-docstrings-d120-2026-09-20.md)
+  SQL view helpers complete: four declarations, one SQLite regression and nine
+  runnable example statements passed, full quality checks passed. Historical
+  checkpoint before D121 completed the SQL macros package and hash-table mixin.
+
+- [project-docstrings-d119-2026-09-20.md](project-docstrings-d119-2026-09-20.md)
+  Four value-casting methods verified; all 44 declarations in the file now reviewed.
+  Two SQLite regressions, 36 runnable examples and full quality checks passed.
+  Historical checkpoint before D120 completed the SQL view helpers.
+
+- [project-docstrings-d118-2026-09-20.md](project-docstrings-d118-2026-09-20.md)
+  SQL column policy: 40 declarations verified, 12 SQLite regressions and ten
+  runnable examples passed, configured quality gates passed. Historical partial-file
+  checkpoint before D119 completed the file.
+
+- [project-docstrings-d116-d117-2026-09-20.md](project-docstrings-d116-d117-2026-09-20.md)
+  SQL utilities complete: 56 declarations, two SQLite regressions and 85 runnable
+  examples passed, configured quality gates passed. Historical checkpoint before D118.
+
+- [project-docstrings-d106-d115-2026-09-17.md](project-docstrings-d106-d115-2026-09-17.md)
+  D106–D115 verified: shared SQL support, Calibre/FRBR builders and driver mixins.
+  139 regressions passed, three skipped; 35 examples and full quality gates passed.
+  Historical checkpoint before D116–D117.
+
+- [project-docstrings-ten-2026-09-17.md](project-docstrings-ten-2026-09-17.md)
+  D096–D105 verified: driver registry/macros and PostgreSQL backend. 35 focused
+  tests, 78 examples, four macro modes and full quality gates passed. Historical
+  checkpoint before D106–D115.
+
+- [shim-removal-2026-09-16.md](shim-removal-2026-09-16.md)
+  Completed repository-wide import-shim cleanup: 61 modules removed, tests and
+  quality checks passed, documentation inventory reconciled. Historical checkpoint
+  before the ten-unit documentation continuation.
+
+- [storage-root-shim-removal-2026-09-15.md](storage-root-shim-removal-2026-09-15.md)
+  Storage-root lazy exports removed; callers use owning modules. 165 tests and
+  configured quality checks passed. The documentation campaign remains paused.
+
+- [project-docstrings-d-2026-09-14.md](project-docstrings-d-2026-09-14.md)
+  Historical D001–D095 record and [shutdown checkpoint](project-docstrings-hundred-paused-2026-09-15.md).
+  Current continuation, maintenance-adjusted coverage and M107 resume point are
+  in the latest documentation batch checkpoint above.
+
+- [project-docstrings-thirty-2026-09-13.md](project-docstrings-thirty-2026-09-13.md)
+  Authorized thirty-module batch C03–C032 complete: 566 declarations, 54 complete
+  files and 37 declarations in a partial Search file. Coverage is 722/2,732 files.
+  Final Catalog/docs/examples: 588 passed, 75 explicit doctest skips; full quality
+  runner passed. Stop for token review; C033 is next only on explicit request.
+
+- [project-docstrings-c02-2026-09-12.md](project-docstrings-c02-2026-09-12.md)
+  C02 complete: curated identifier repository/API, 26 declarations. Fifteen focused
+  tests and four doctests pass; 20 examples explicitly skipped. Coverage is 668/2,732
+  files at that checkpoint. C03–C032 subsequently completed; see the latest note above.
+
+- [project-docstrings-c01-2026-09-12.md](project-docstrings-c01-2026-09-12.md)
+  C01 complete: Agent repository/API, 31 declarations. Thirteen focused tests and
+  six doctests pass; 23 examples explicitly skipped. Coverage is 666/2,732 files.
+  C02 subsequently completed; this retains the Agent checkpoint's evidence.
+
+- [project-docstrings-g02-2026-09-12.md](project-docstrings-g02-2026-09-12.md)
+  G02 complete: all seven ownership-guard failures resolved without raised limits;
+  48 tests/doctests passed, seven doctests skipped. Coverage remains 664/2,732 files.
+  C01 subsequently completed; the seven guard fixes remain verified.
+
+- [project-docstrings-g01-2026-09-12.md](project-docstrings-g01-2026-09-12.md)
+  G01 complete: shared docstring-aware measurement helper and focused tests;
+  65 tests/doctests pass. G02 subsequently integrated the helper into existing guards.
+
+- [project-docstrings-p00-2026-09-12.md](project-docstrings-p00-2026-09-12.md)
+  Planning checkpoint: modular plan and complete remaining inventory saved in
+  dev-docs. Work now proceeds one explicitly requested module at a time.
+  G01/G02 are subsequently complete; do not automatically continue the whole-project pass.
+
+- [project-docstrings-paused-2026-09-12.md](project-docstrings-paused-2026-09-12.md)
+  Historical pause for token cost. All outstanding results have been reconciled in
+  [the exact-repository checkpoint](project-docstrings-catalog-exact-repositories-2026-09-12.md).
+
+- [project-docstrings-2026-09-08.md](project-docstrings-2026-09-08.md)
+  Paused whole-project descriptive reST documentation pass on
+  `codex/project-docstrings`. Includes private/nested functions, inherited code,
+  tests, scripts, examples, and tracked data-submodule Python. Records the full
+  baseline, migration safety repairs, 722 reviewed Python modules, the separate
+  native-C documentation pass, legacy startup limitations, and remaining work.
+  All 57 Core and 69 terminal source modules, plus the shared surface/Core adapter,
+  host protocols, presentation/acquisition primitives, system profiles, category
+  helpers, disk thumbnails, image backend, complete shared read model, and shared
+  catalogue/acquisition/OPDS backends are reviewed, as is the standalone OPDS
+  application package and launcher with catalogue/OPDS/help/asset-fixture tests.
+  The Calibre-style and generic read-only web packages, launchers, and all main
+  integration-test helpers are also reviewed, as are the read-only JSON API
+  package/launcher/tests and shared direct/RPC surface acceptance harness.
+  The read/write web package, launcher, and main regression helpers are now
+  reviewed too, with synchronous-write and partial-failure contracts made explicit.
+  CLI entry points, parser contracts, completion, and shared output/job helpers
+  are reviewed, together with dependency and operational-family test fixtures.
+  SquashFS CLI owners/provenance types and regression fixtures, plus Core daemon
+  and managed-job commands, are now reviewed as well.
+  Serving/capability, catalogue, workflow, and diagnostic CLI owners are also
+  documented throughout, including local restore and redaction failure boundaries.
+  Configuration, initialization, ingest history/resume, and standalone storage audit
+  are now documented too, together with full initialization/storage-audit tests.
+  Metadata catalogue/file/online and PostgreSQL diagnostic/SQL/export owners are
+  now reviewed with both complete regression modules, including their nested fakes.
+  The storage compatibility facade, all 23 storage command owners, and the full
+  storage-ingest regression module are now reviewed too. All 47 CLI source modules
+  are documented, including ingest, parser builders, and the Store wizard.
+  The ingest application lifecycle and complete operator-hardening suite are
+  now source-reviewed and documented as well.
+  The ingest package exports, report/checkpoint models, Store copy/adopt helpers,
+  and legacy discovery/import adapters are now documented too, with complete
+  Store-ingest and legacy-adding regression helpers. Remote-HTML discovery sources,
+  registration wrappers/pipeline, and seven complete adjacent regression modules
+  are now reviewed too. All 15 ingest source modules are documented. All nine
+  storage-side native/wget adapter modules and all three storage ingest modules
+  are now reviewed too, with complete SquashFS/mixed-format regression docs.
+  All four storage reconciliation modules, their legacy Library export, and five
+  additional registration/publication regression modules are now reviewed too.
+  All eight raw driver API modules and all five shared storage utilities are now
+  reviewed too. All eight configured Store API modules are now complete, including
+  file primitives, convenience methods, and the driver-backed adapter. Configuration
+  and driver-error regressions are documented alongside the four earlier API suites.
+  All six concrete Store modules are now reviewed too, including the encryption
+  wrapper and private sessions/readers, with complete encryption and nested
+  backed-Store regressions. Driver exports, shared error/validation helpers, and
+  filesystem/SQLite drivers are now reviewed too, alongside the four-module SQLite
+  compatibility package and full filesystem/SQLite regressions. The complete HTTP
+  driver and its regression helpers are now reviewed too, with the HTTP Store
+  inventory callback documentation corrected. The S3 driver and its complete memory
+  client, publication/ingest, and response-pathology regressions are now documented
+  too. The FTP driver, all three compatibility Store modules, and their complete
+  regression module are now documented and verified too. The complete rclone driver,
+  seven read-only/writable adapter modules, and both backend regression modules are
+  now documented and verified as well. Shared archive mechanics, the full ZIP
+  driver, configured ZIP/TAR/RAR/7z adapters and six plugin initializers, and the
+  complete local-archive regression module are now reviewed and verified too.
+  Raw TAR and RAR drivers, the build-once RAR plugin and initializer, and its
+  complete regression module are now reviewed and verified too. The raw 7z driver
+  and its complete regression module are also documented and verified. The complete
+  raw ISO reader, three read-only adapter modules, and full regression module are
+  now documented and verified too. The complete ISO writer, three writable adapter
+  modules, and full regression module/package initializer are also documented and
+  verified. The complete raw SquashFS driver, seven read-only/build plugin modules,
+  all three adjacent regression modules, and manifest launcher are also documented
+  and verified. All seventeen raw-driver modules are complete. The twenty remaining
+  local backend-plugin modules and all six adjacent regression modules are now
+  documented too, completing the full 65-module backend-plugin source tree. Common
+  storage API models, characteristics, shared/legacy errors, Location values,
+  placement hints, and package exports are now reviewed too, with both full hint
+  and bound-Location regression modules. Manager routing, bound Location handles
+  and factories, private protocols, and manager errors are now reviewed too, with
+  the complete storage-manager API regression module and all nested helpers.
+  Store/operational models, API contracts, both implementation mixins, and the
+  complete registration/bootstrap regression module are now reviewed too.
+  Asset identity/metadata, nominal IDs, compatibility exports, Replica/result
+  models, catalogue/lifecycle API contracts, both implementation mixins, and the
+  older manager-documentation tests are now complete too. Composite/resolution
+  models, the Composite/Item-link/retrieval contracts and implementation mixins,
+  and complete composition/StoreContainer SQLite regression modules are now
+  reviewed too. Policy models/API, CRUD/assignment and shared policy support
+  mixins, and the complete policy API regression module are now reviewed too.
+  Derivation values/private validators, resolver/registry API and graph
+  conveniences, and the full provenance/replay implementation are now reviewed too.
+  Reconciliation/ingest APIs and implementations with nested callbacks, plus
+  the public model initializer, are now reviewed too. All 11 manager-model modules
+  are complete. Private requests/state, all internal protocols, and the complete
+  shared support mixin are now reviewed too. Remaining routing/composition exports,
+  public facade context methods, and all six persistence protocols are now complete
+  too. Both database persistence adapters are now complete, finishing all 22
+  storage_manager implementation modules. The full public convenience mixin and
+  its private helpers are complete too, finishing all 29 storage_manager_api
+  modules. All twelve generic/backup/sealed-artifact workflow API modules are now
+  reviewed too, finishing all 65 storage API source modules. Concrete inventory
+  planning, SquashFS execution, sealed-image provenance, both package initializers,
+  and their three regression modules are now complete too. Backup persistence,
+  artifact registration, the prototype pipeline, and their full regression modules
+  are now reviewed too, finishing all six backup source and five backup test modules.
+  Configuration translation, factory/container adapters, legacy location/types and
+  file status, and schema migration modules are now complete too, together with the
+  full backend-registry test module. The full backend registry and all builders,
+  shared Unicode fixtures/contracts, and four-backend matrix are now reviewed too.
+  The application-facing manager, complete MiniDB helper, and complete database
+  reload regression module are now reviewed too. All 206 storage source modules
+  are complete. The full Location test tree, workflow API2 doubles/contracts,
+  manager example regressions, and live backend/PostgreSQL contracts are now
+  reviewed too, completing all 85 storage test/helper modules. All 11 storage
+  examples, six catalog example/helper modules, and their shared JSON/import helper
+  are now documented too. The remaining conversion/Library/metadata/utility examples
+  are complete too, finishing all 28 tracked example/helper modules. Catalog exports,
+  shared values/errors, facade protocols, and the concrete facade are now reviewed
+  too, with the complete import and API-documentation test modules. Shared matching
+  policy, exact-entity matching/specifications, group composition, and their two API
+  modules are now reviewed too, with both full matching regression modules. All four
+  specialized matchers and their API contracts are now complete too, finishing the
+  matching source/API trees. Base CRUD and all four WEMI repositories and their API
+  contracts are now complete too, with the full repository-invariant test module.
+  Remaining repositories and their contracts are next.
+  The exact reviewed set is in
+  [project-docstrings-reviewed-files.txt](project-docstrings-reviewed-files.txt).
+  Latest verification
+  and the known docstring-sensitive ownership-test conflicts are recorded in
+  [project-docstrings-catalog-wemi-repositories-2026-09-12.md](project-docstrings-catalog-wemi-repositories-2026-09-12.md).
+
+- [maintainability-closeout-2026-09-07.md](maintainability-closeout-2026-09-07.md)
+  Final bounded close-out: one general CI owner, failure-aware merge summary,
+  developer-documentation index, portable links, and executable contracts.
+  Quality gate, 129 focused tests, and whole-tree syntax pass. The bounded
+  programme is complete; final checkpoint and publication handoff for
+  [PR #115](https://github.com/ajCameron/LiuXin-alpha/pull/115).
+
+- [terminal-owner-extraction-2026-09-07.md](terminal-owner-extraction-2026-09-07.md)
+  Completed stage 8: both browser and curses owners split by responsibility; all 18
+  complexity violations resolved, complete extracted trees linted/typed, and
+  ownership/behavior contracts added. Expanded quality gate, compatibility
+  comparisons, and 455 final regressions pass. Included in the stage-8 checkpoint;
+  subsequent close-out and PR publication are recorded above.
+
+- [terminal-dependency-direction-2026-09-07.md](terminal-dependency-direction-2026-09-07.md)
+  Completed stage 7: separate terminal startup, browser, creation, and
+  presentation owners; generic extension hosts and lazy compatibility exports.
+  The 197-module graph includes all 45 terminal modules. Records compatibility,
+  typing, and regression evidence in the stage-7 checkpoint.
+  Historical stage-7 verification; subsequent stage-8 work is recorded above.
+
+- [cli-dependency-direction-2026-09-07.md](cli-dependency-direction-2026-09-07.md)
+  Completed stage 6: separates CLI grammar, dispatch, completion, and SquashFS
+  execution; preserves entry points, help, and shell scripts. The dependency
+  gate now protects all 47 CLI modules (152 total). Records typing/regression
+  evidence and the subsequent stage-7 terminal repair. Stages 5–6 are committed
+  together; the final close-out records PR publication.
+
+- [incremental-formatting-2026-09-07.md](incremental-formatting-2026-09-07.md)
+  Completed stage 5: an explicit 109-file formatter scope, pinned Ruff,
+  check-only local/CI enforcement, and real formatter/runner contracts. Records
+  the exact-line negative-type-test adjustment and verification status.
+
+- [maintainability-checkpoint-2026-09-07.md](maintainability-checkpoint-2026-09-07.md)
+  Start here for the readability/maintainability programme: stages 1–4 are
+  complete in commit 859ab804, with their scope and verification linked below.
+  This is the pre-formatting checkpoint; stages 5–6 are recorded above.
+
+- [read-model-failure-visibility-2026-09-06.md](read-model-failure-visibility-2026-09-06.md)
+  Makes failed reads distinct from absent data across shared backends and
+  web/API/OPDS adapters; records explicit capability handling, the count-only
+  Core repair, direct/RPC and WSGI failure contracts, and verification status.
+
+- [dependency-direction-2026-09-06.md](dependency-direction-2026-09-06.md)
+  Repairs cache-writer and shared-surface dependency direction, preserves
+  compatibility exports, and expands the protected dependency gate with
+  explicit import contexts and direction rules. Records focused regression
+  evidence and follow-up CLI/terminal cycle status.
+
+- [workflow-extraction-2026-09-06.md](workflow-extraction-2026-09-06.md)
+  Extracts Core execution and storage CLI ownership, introduces typed
+  evacuation planning/execution with shared safety checks, and extends the
+  implementation complexity/type/architecture gates while preserving public
+  call and parser contracts.
+
+- [internal-call-contracts-2026-09-06.md](internal-call-contracts-2026-09-06.md)
+  Replaces storage's dynamic helper typing and Core's catch-all endpoint
+  contracts with explicit protocols; enforces valid calls and rejection of
+  deliberate mistakes with both type checkers.
+
+- [maintainability-and-packaging-2026-09-02.md](maintainability-and-packaging-2026-09-02.md)
+  Records the whole-project readability and maintainability baseline, its
+  evidence-based priorities and both packaging repairs: explicit production
+  discovery, complete package-owned Calibre resources, isolated dependency
+  provenance, and installed initialization plus HTML-to-EPUB gates.
 
 - [storage-cache-composition-2026-08-21.md](storage-cache-composition-2026-08-21.md)
   Removes the production manager's inheritance from transient in-memory state,

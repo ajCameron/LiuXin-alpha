@@ -1,5 +1,13 @@
 #!/usr/bin/env python3
-"""Run the read-write web surface using the repo-local virtualenv."""
+"""
+Launch the experimental write web surface through the repository's existing virtualenv.
+
+The wrapper requires an explicit database or Core endpoint, prepends src to a
+copied PYTHONPATH, and runs the child from the repository root with inherited
+standard streams. It preserves the child return code without installing an
+environment or binding a listener itself. Application paging and read-only
+cache-selection flags are not exposed by this wrapper.
+"""
 
 from __future__ import annotations
 
@@ -12,16 +20,54 @@ from pathlib import Path
 
 
 def venv_python_path(venv_dir: Path) -> Path:
+    """
+    Choose the conventional Windows or POSIX interpreter path below a virtualenv root.
+
+    Example:
+        >>> venv_python_path(Path('.venv')).name in {'python', 'python.exe'}
+        True
+
+
+    :param venv_dir: Environment root retained without resolving or creating it.
+    :return: Scripts/python.exe on Windows, otherwise bin/python; no existence check here.
+    """
     if os.name == "nt":
         return venv_dir / "Scripts" / "python.exe"
     return venv_dir / "bin" / "python"
 
 
 def shell_join(parts: list[str]) -> str:
+    """
+    Quote command tokens for POSIX-style diagnostic display, not subprocess execution.
+
+    Example:
+        >>> shell_join(['python', 'a b'])
+        "python 'a b'"
+
+
+    :param parts: Ordered argument strings to display without changing them.
+    :return: Shell-quoted command text; execution still receives the original list.
+    """
     return shlex.join(parts)
 
 
 def main(argv: list[str] | None = None) -> int:
+    """
+    Parse wrapper options, check interpreter existence, and wait for the web child.
+
+    Exactly one database/endpoint is required. Core timeout is forwarded only
+    with an endpoint and is not a subprocess timeout. Environment changes use a
+    copy; the command uses no shell and checks existence, not executability, of
+    the local interpreter. Subprocess startup failures propagate.
+
+    Example:
+        >>> main(['--database', 'library.sqlite', '--no-file-downloads'])  # doctest: +SKIP
+
+
+    :param argv: Wrapper argument tokens, or None to parse process arguments.
+    :return: Child exit code, including nonzero failures.
+    :raises SystemExit: Help, invalid options, or a missing interpreter triggers argparse.
+    """
     parser = argparse.ArgumentParser(description="Run the LiuXin read-write web surface from the repo-local virtualenv.")
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--database", help="Database path to open")

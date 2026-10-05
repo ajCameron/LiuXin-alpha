@@ -1,3 +1,14 @@
+"""
+Verify empty custom column profiles across registered database profiles.
+
+The module keeps generated data, ordering and failure modes explicit so consumers
+can assert stable behavior.
+
+Example:
+    Exercise test property empty custom column profiles through a consuming regression::
+
+        python -m pytest -q tests/support/test_databases/test_db_properties/test_property_empty_custom_column_profiles.py
+"""
 from __future__ import annotations
 
 import sqlite3
@@ -20,6 +31,20 @@ def test_profiled_fixtures_expose_empty_custom_column_profile(
     provision_test_database,
     db_name: str,
 ) -> None:
+    """
+    Verify profiled fixtures expose empty custom column profile.
+
+    Example:
+        Exercise test profiled fixtures expose empty custom column profile through a consuming regression::
+
+            python -m pytest -q tests/support/test_databases/test_db_properties/test_property_empty_custom_column_profiles.py
+
+
+    :param provision_test_database: Value supplied for provision test database under the
+        deterministic fixture contract.
+    :param db_name: Registered test-database profile name.
+    :return: None; completion is expressed through state changes or assertions.
+    """
     provisioned = provision_test_database(db_name)
     conn = sqlite3.connect(str(provisioned.db_path))
     conn.row_factory = sqlite3.Row

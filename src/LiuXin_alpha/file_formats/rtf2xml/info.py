@@ -10,6 +10,17 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+"""
+Extract document information and metadata groups from RTF tokens.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise info through a consuming regression::
+
+        python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -23,6 +34,11 @@ from LiuXin_alpha.file_formats.rtf2xml import open_for_read, open_for_write
 class Info:
     """
     Make tags for document-information
+
+    Example:
+        Exercise Info through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
     """
 
     def __init__(
@@ -33,14 +49,19 @@ class Info:
         run_level: int = 1,
     ) -> None:
         """
-        Required:
-            'file'--file to parse
-        Optional:
-            'copy'-- whether to make a copy of result for debugging
-            'temp_dir' --where to output temporary results (default is
-            directory from which the script is run.)
-        Returns:
-            nothing
+        Required: 'file'--file to parse Optional: 'copy'-- whether to make a copy of result for debugging 'temp_dir' --where to output temporary results (default is directory from which the script is run.) Returns: nothing
+
+        Example:
+            Exercise Info.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param in_file: Value supplied for in file under the utility contract.
+        :param bug_handler: Value supplied for bug handler under the utility contract.
+        :param copy: Value supplied for copy under the utility contract.
+        :param run_level: Value supplied for run level under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self.__file = in_file
         self.__bug_handler = bug_handler
@@ -51,6 +72,15 @@ class Info:
     def __initiate_values(self: _typing.Self) -> None:
         """
         Initiate all values.
+
+        Example:
+            Exercise Info.  initiate values through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__text_string = ""
         self.__state = "before_info_table"
@@ -108,13 +138,17 @@ class Info:
 
     def __before_info_table_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Required:
-            line -- the line to parse
-        Returns:
-            nothing
-        Logic:
-            Check for the beginning of the information table. When found, set
-            the state to the information table. Always write the line.
+        Required: line -- the line to parse Returns: nothing Logic: Check for the beginning of the information table. When found, set the state to the information table. Always write the line.
+
+        Example:
+            Exercise Info.  before info table func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.__token_info == "mi<mk<doc-in-beg":
             self.__state = "in_info_table"
@@ -122,15 +156,17 @@ class Info:
 
     def __in_info_table_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line -- line to parse
-        Returns:
-            nothing.
-        Logic:
-            Check for the end of information. If not found, check if the
-            token has a special value in the info table dictionary. If it
-            does, execute that function.
-            Otherwise, output the line to the file.
+        Requires: line -- line to parse Returns: nothing. Logic: Check for the end of information. If not found, check if the token has a special value in the info table dictionary. If it does, execute that function. Otherwise, output the line to the file.
+
+        Example:
+            Exercise Info.  in info table func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.__token_info == "mi<mk<doc-in-end":
             self.__state = "after_info_table"
@@ -143,29 +179,35 @@ class Info:
 
     def __found_tag_with_text_func(self: _typing.Self, line: _typing.Any, tag: _typing.Any) -> None:
         """
-        Requires:
-            line -- line to parse
-            tag --what kind of line
-        Returns:
-            nothing
-        Logic:
-            This function marks the beginning of information fields that have
-            text that must be collected.  Set the type of information field
-            with the tag option. Set the state to collecting text
+        Requires: line -- line to parse tag --what kind of line Returns: nothing Logic: This function marks the beginning of information fields that have text that must be collected. Set the type of information field with the tag option. Set the state to collecting text
+
+        Example:
+            Exercise Info.  found tag with text func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :param tag: Value supplied for tag under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__tag = tag
         self.__state = "collect_text"
 
     def __collect_text_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line -- line to parse
-        Returns:
-            nothing
-        Logic:
-            If the end of the information field is found, write the text
-            string to the file.
-            Otherwise, if the line contains text, add it to the text string.
+        Requires: line -- line to parse Returns: nothing Logic: If the end of the information field is found, write the text string to the file. Otherwise, if the line contains text, add it to the text string.
+
+        Example:
+            Exercise Info.  collect text func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.__token_info == "mi<mk<docinf-end":
             self.__state = "in_info_table"
@@ -182,16 +224,18 @@ class Info:
 
     def __found_tag_with_tokens_func(self: _typing.Self, line: _typing.Any, tag: _typing.Any) -> None:
         """
-        Requires:
-            line -- line to parse
-            tag -- type of field
-        Returns:
-            nothing
-        Logic:
-            Some fields have a series of tokens (cw<di<year______<nu<2003)
-            that must be parsed as attributes for the element.
-            Set the state to collect tokesn, and set the text string to
-            start an empty element with attributes.
+        Requires: line -- line to parse tag -- type of field Returns: nothing Logic: Some fields have a series of tokens (cw<di<year______<nu<2003) that must be parsed as attributes for the element. Set the state to collect tokesn, and set the text string to start an empty element with attributes.
+
+        Example:
+            Exercise Info.  found tag with tokens func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :param tag: Value supplied for tag under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__state = "collect_tokens"
         self.__text_string = "mi<tg<empty-att_<%s" % tag
@@ -199,23 +243,17 @@ class Info:
 
     def __collect_tokens_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line -- line to parse
-        Returns:
-            nothing
-        Logic:
-            This function collects all the token information and adds it to
-            the text string until the end of the field is found.
-            First check of the end of the information field. If found, write
-            the text string to the file.
-            If not found, get the relevant information from the text string.
-            This information cannot be directly added to the text string,
-            because it exists in abbreviated form.  (num-of-wor)
-            I want to check this information in a dictionary to convert it
-            to a longer, readable form. If the key does not exist in the
-            dictionary, print out an error message. Otherwise add the value
-            to the text string.
-            (num-of-wor => number-of-words)
+        Requires: line -- line to parse Returns: nothing Logic: This function collects all the token information and adds it to the text string until the end of the field is found. First check of the end of the information field. If found, write the text string to the file. If not found, get the relevant information from the text string. This information cannot be directly added to the text string, because it exists in abbreviated form. (num-of-wor) I want to check this information in a dictionary to convert it to a longer, readable form. If the key does not exist in the dictionary, print out an error message. Otherwise add the value to the text string. (num-of-wor => number-of-words)
+
+        Example:
+            Exercise Info.  collect tokens func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # cw<di<year______<nu<2003
         if self.__token_info == "mi<mk<docinf-end":
@@ -234,36 +272,51 @@ class Info:
                 self.__text_string += f"<{att_changed}>{value}"
 
     def __single_field_func(self: _typing.Self, line: _typing.Any, tag: _typing.Any) -> None:
+        """
+        Perform the single field func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Info.  single field func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :param tag: Value supplied for tag under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         value = line[20:-1]
         self.__write_obj.write(f"mi<tg<empty-att_<{tag}<{tag}>{value}\n")
 
     def __after_info_table_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line --line to write to file
-        Returns:
-            nothing
-        Logic:
-            After the end of the information table, simple write the line to
-            the file.
+        Requires: line --line to write to file Returns: nothing Logic: After the end of the information table, simple write the line to the file.
+
+        Example:
+            Exercise Info.  after info table func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__write_obj.write(line)
 
     def fix_info(self: _typing.Self) -> None:
         """
-        Requires:
-            nothing
-        Returns:
-            nothing (changes the original file)
-        Logic:
-            Read one line in at a time. Determine what action to take based on
-            the state. If the state is before the information table, look for the
-            beginning of the style table.
-            If the state is in the information table, use other methods to
-            parse the information
-            style table, look for lines with style info, and substitute the
-            number with the name of the style.  If the state if after the
-            information table, simply write the line to the output file.
+        Requires: nothing Returns: nothing (changes the original file) Logic: Read one line in at a time. Determine what action to take based on the state. If the state is before the information table, look for the beginning of the style table. If the state is in the information table, use other methods to parse the information style table, look for lines with style info, and substitute the number with the name of the style. If the state if after the information table, simply write the line to the output file.
+
+        Example:
+            Exercise Info.fix info through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__initiate_values()
         with open_for_read(self.__file) as read_obj:

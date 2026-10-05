@@ -1,5 +1,13 @@
 """
-Basic CalibreOneToMany table - one "book" is mapped to many items.
+Model cached one-to-many relations.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise one to many table through a consuming regression::
+
+        python -m pytest -q tests/library/test_unified_library.py
 """
 
 import pprint
@@ -35,7 +43,10 @@ class CalibreOneToManyTable(CalibreBaseTable[T], MultiTableMixin):
     """
     For the case where one, and only one, book is linked to many items and the items are linked to no other books.
 
-    E.g. "comments" - one book can be linked to many of them, but comments are never linked to more than one book
+    Example:
+        Exercise CalibreOneToManyTable through a consuming regression::
+
+            python -m pytest -q tests/library/test_unified_library.py
     """
 
     _table_type: TableTypes = ONE_MANY
@@ -50,11 +61,17 @@ class CalibreOneToManyTable(CalibreBaseTable[T], MultiTableMixin):
         """
         Preform startup for a vanilla OneToMany table.
 
-        No data is loaded at this point - that's done in the read method.
-        :param name:
-        :param metadata:
-        :param link_table:
-        :param custom:
+        Example:
+            Exercise CalibreOneToManyTable.  init   through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param metadata: Value supplied for metadata under the utility contract.
+        :param link_table: Value supplied for link table under the utility contract.
+        :param custom: Value supplied for custom under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         super(CalibreOneToManyTable, self).__init__(name=name, metadata=metadata, link_table=link_table, custom=custom)
 
@@ -86,7 +103,14 @@ class CalibreOneToManyTable(CalibreBaseTable[T], MultiTableMixin):
         """
         Clear any data stored in this table.
 
-        :return:
+        Example:
+            Exercise CalibreOneToManyTable. clear internal caches through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.id_map = self._id_map_factory()
         self.book_col_map = self._book_col_map_factory()
@@ -97,8 +121,14 @@ class CalibreOneToManyTable(CalibreBaseTable[T], MultiTableMixin):
         """
         Returns the container to be used to hold the id maps
 
-        Keyed with the item id and valued with its value.
-        :return:
+        Example:
+            Exercise CalibreOneToManyTable. id map factory through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return dict()
 
@@ -106,9 +136,14 @@ class CalibreOneToManyTable(CalibreBaseTable[T], MultiTableMixin):
         """
         Returns an empty book col map - ready for data load.
 
-        This is a OneToMany table - so the maps will be keyed with the book_id and valued with a set of item ids.
-        (A set because the table is not priority - so there is no concept of order - which would call for a list).
-        :return:
+        Example:
+            Exercise CalibreOneToManyTable. book col map factory through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return defaultdict(set)
 
@@ -117,10 +152,14 @@ class CalibreOneToManyTable(CalibreBaseTable[T], MultiTableMixin):
         """
         Returns an empty col book map - ready for data load.
 
-        This is a OneToMany table - so it'll be a dictionary keyed with the item id and - optionally - valued with a
-        book.
-        No type data needs to be stored, and priority could not be expressed in this format anyways.
-        :return:
+        Example:
+            Exercise CalibreOneToManyTable. col book map factory through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return dict()
 
@@ -131,9 +170,15 @@ class CalibreOneToManyTable(CalibreBaseTable[T], MultiTableMixin):
         """
         Read the entire table and create a dictionary keyed with the id and valued with the relevant column value.
 
-        Loads any elements from the table connected to the book.
-        :param db:
-        :return None: All changes are made internally
+        Example:
+            Exercise CalibreOneToManyTable.read id maps through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param db: Value supplied for db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # Todo: Should be able to just remove this if and still have everything work
         if not self.custom:
@@ -161,8 +206,15 @@ class CalibreOneToManyTable(CalibreBaseTable[T], MultiTableMixin):
         """
         Preform a read from the database into the table.
 
-        :param db:
-        :return None: All changes are made internally
+        Example:
+            Exercise CalibreOneToManyTable.read maps through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param db: Value supplied for db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         stmt = "SELECT {}, {} FROM {};".format(
             self.link_table_bt_id_column,
@@ -186,9 +238,15 @@ class CalibreOneToManyTable(CalibreBaseTable[T], MultiTableMixin):
         """
         Load the table with data from the database.
 
-        Actually does the job of manning the data into the cache read for manipulation.
-        :param db:
-        :return:
+        Example:
+            Exercise CalibreOneToManyTable.read through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param db: Value supplied for db under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # Record the specific link table that was used to read this data
         self.set_link_table(db)
@@ -208,15 +266,17 @@ class CalibreOneToManyTable(CalibreBaseTable[T], MultiTableMixin):
         """
         Check that an update is of a valid form before writing it out to the cache and the database.
 
-        Called when you know the ids you want to assign to the book after the update.
-        Checks those ids are valid.
-        No changes will be made to the :param book_id_item_id_map: (e.g. if the map is valued with tuples - not lists
-        as expected - this will not be corrected.
-        Raised InvalidCacheUpdate if the cache update is invalid in some way.
+        Example:
+            Exercise CalibreOneToManyTable.update precheck through a consuming regression::
 
-        :param book_id_item_id_map: Keyed with the ids of the books to update and valued with the
-        :param id_map_update:
-        :return None: Just throws an error if something isn't right
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_item_id_map: Value supplied for book id item id map under the utility
+            contract.
+        :param id_map_update: Value supplied for id map update under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         seen_ids = set()
         for book_id, book_vals in iteritems(book_id_item_id_map):
@@ -243,13 +303,17 @@ class CalibreOneToManyTable(CalibreBaseTable[T], MultiTableMixin):
         """
         Check that an update is of a valid form before writing it out to the cache and the database.
 
-        Called when you know the ids you want to assign to the book after the update. Checks those ids are valid.
-        No changes will be made to the :param book_id_item_id_map: (e.g. if the map is valued with tuples - not lists
-        as expected - this will not be corrected.
-        Raised InvalidCacheUpdate if the cache update is invalid in some way.
-        :param book_id_item_id_map: Keyed with the ids of the books to update and valued with the
-        :param id_map_update:
-        :return:
+        Example:
+            Exercise CalibreOneToManyTable.update precheck unique through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_item_id_map: Value supplied for book id item id map under the utility
+            contract.
+        :param id_map_update: Value supplied for id map update under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         seen_ids = set()
         seen_strs = set()
@@ -289,6 +353,19 @@ class CalibreOneToManyTable(CalibreBaseTable[T], MultiTableMixin):
     def _malformed_update_error(self, book_id_item_id_map: Any, book_id: Any, book_vals: Any) -> str:
         """
         Err msg - raised when there' something wring with the update before it's written out.
+
+        Example:
+            Exercise CalibreOneToManyTable. malformed update error through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_item_id_map: Value supplied for book id item id map under the utility
+            contract.
+        :param book_id: Value supplied for book id under the utility contract.
+        :param book_vals: Value supplied for book vals under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         err_msg = [
             "If this point is reached update must be valued with a set",
@@ -307,11 +384,18 @@ class CalibreOneToManyTable(CalibreBaseTable[T], MultiTableMixin):
         """
         Bring the update into a form where it can be more easily written out to the database.
 
-        :param book_id_item_id_map:
-        :param id_map_update:
-        :param dirtied:
+        Example:
+            Exercise CalibreOneToManyTable.update preflight through a consuming regression::
 
-        :return:
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_item_id_map: Value supplied for book id item id map under the utility
+            contract.
+        :param id_map_update: Value supplied for id map update under the utility contract.
+        :param dirtied: Value supplied for dirtied under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         id_map_update = dict() if id_map_update is None else id_map_update
         clean_book_id_item_id_map = defaultdict(set)
@@ -342,9 +426,18 @@ class CalibreOneToManyTable(CalibreBaseTable[T], MultiTableMixin):
         """
         Bring the update into a form where it can be more easily written out to the database.
 
-        :param book_id_item_id_map:
-        :param id_map_update:
-        :return:
+        Example:
+            Exercise CalibreOneToManyTable.update preflight unique through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_item_id_map: Value supplied for book id item id map under the utility
+            contract.
+        :param id_map_update: Value supplied for id map update under the utility contract.
+        :param dirtied: Value supplied for dirtied under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         id_map_update = dict() if id_map_update is None else id_map_update
         clean_book_id_item_id_map = defaultdict(set)
@@ -388,11 +481,15 @@ class CalibreOneToManyTable(CalibreBaseTable[T], MultiTableMixin):
         """
         Attempt to match a string, which might be the value of an item, to it's corresponding item.
 
-        If the value corresponds to an item, return its id.
-        If not, just return the original object it was called with.
+        Example:
+            Exercise CalibreOneToManyTable. match item val through a consuming regression::
 
-        :param item_str: Object to try matching via a search of the id_map table.
-        :return matched_id/original_object:
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param item_str: Value supplied for item str under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         for true_item_id in self.id_map:
             if self.id_map[true_item_id] == item_str:
@@ -407,9 +504,17 @@ class CalibreOneToManyTable(CalibreBaseTable[T], MultiTableMixin):
         """
         Actually preform a cache update - writing the values out to the cache.
 
-        :param book_id_val_map:
-        :param id_map:
-        :return:
+        Example:
+            Exercise CalibreOneToManyTable.update cache through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_val_map: Value supplied for book id val map under the utility
+            contract.
+        :param id_map: Value supplied for id map under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.internal_update_cache(book_id_val_map, id_map)
 
@@ -419,10 +524,17 @@ class CalibreOneToManyTable(CalibreBaseTable[T], MultiTableMixin):
         """
         Update cache with some additional information provided in the return.
 
-        Used in write when it needs to know some info about the cache before writing out to the database.
-        :param book_id_item_id_map:
-        :param id_map_update: Dictionary used to directly update the id_map
-        :return:
+        Example:
+            Exercise CalibreOneToManyTable.internal update cache through a consuming regression::
+
+                python -m pytest -q tests/library/test_unified_library.py
+
+
+        :param book_id_item_id_map: Value supplied for book id item id map under the utility
+            contract.
+        :param id_map_update: Value supplied for id map update under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         self.id_map.update(id_map_update)
 

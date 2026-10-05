@@ -1,9 +1,13 @@
 """
-xISBN helper.
+Resolve related-edition ISBN pools with optional network access and process-wide caching.
 
-Historically this queried OCLC's xISBN service for related ISBN pools. That
-service is decommissioned, so network querying is disabled by default while
-keeping the API surface for compatibility.
+The module keeps network, parsing, caching, cancellation and result-order behavior
+explicit for callers.
+
+Example:
+    Exercise xisbn with the owning regression module::
+
+        python -m pytest -q tests/metadata/web_sources/test_web_sources_xisbn.py
 """
 
 from __future__ import annotations
@@ -24,12 +28,30 @@ __docformat__ = "restructuredtext en"
 class xISBN:
     """
     Find ISBN numbers for related editions of a book.
+
+    Example:
+        Exercise xISBN with the owning regression module::
+
+            python -m pytest -q tests/metadata/web_sources/test_web_sources_xisbn.py
     """
 
     QUERY = "http://xisbn.worldcat.org/webservices/xid/isbn/%s?method=getEditions&format=json&fl=form,year,lang,ed"
     BOOK_FORMS = frozenset(("BA", "BC", "BB", "DA"))
 
     def __init__(self, enable_network: bool = False):
+        """
+        Initialize xisbn state while preserving shared source configuration and caches.
+
+        Example:
+            Exercise xISBN.  init   with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_xisbn.py
+
+
+        :param enable_network: Allow live xISBN requests when true; otherwise use cached
+            data only.
+        :return: None.
+        """
         self.lock = threading.RLock()
         self._data: list[list[dict[str, Any]]] = []
         self._map: dict[str, int] = {}
@@ -40,13 +62,53 @@ class xISBN:
         self.service_available = self.enable_network
 
     def purify(self, isbn) -> str:
+        """
+        Perform the xisbn purify operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise xISBN.purify with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_xisbn.py
+
+
+        :param isbn: ISBN value used for direct lookup or related-edition resolution.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         return self.isbn_pat.sub("", str(isbn or "").upper())
 
     def _fetch_raw(self, isbn: str, timeout: float = 20) -> bytes:
+        """
+        Perform the provider fetch raw operation with explicit timeout and response policy.
+
+        Example:
+            Exercise xISBN. fetch raw with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_xisbn.py
+
+
+        :param isbn: ISBN value used for direct lookup or related-edition resolution.
+        :param timeout: Maximum duration in seconds for the network or worker operation.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         url = self.QUERY % isbn
         return browser().open_novisit(url, timeout=timeout).read()
 
     def fetch_data(self, isbn: str) -> list[dict[str, Any]]:
+        """
+        Perform the xisbn fetch data operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise xISBN.fetch data with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_xisbn.py
+
+
+        :param isbn: ISBN value used for direct lookup or related-edition resolution.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         if not self.enable_network:
             return []
 
@@ -64,6 +126,19 @@ class xISBN:
         return ans
 
     def isbns_in_data(self, data):
+        """
+        Perform the xisbn isbns in data operation with explicit ordering and failure behavior.
+
+        Example:
+            Exercise xISBN.isbns in data with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_xisbn.py
+
+
+        :param data: Bytes, mapping or serialized cache data consumed by the operation.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         for rec in data:
             for raw in rec.get("isbn", []):
                 isbn = self.purify(raw)
@@ -71,6 +146,19 @@ class xISBN:
                     yield isbn
 
     def get_data(self, isbn: str) -> list[dict[str, Any]]:
+        """
+        Return data under this provider's cache and fallback policy.
+
+        Example:
+            Exercise xISBN.get data with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_xisbn.py
+
+
+        :param isbn: ISBN value used for direct lookup or related-edition resolution.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         pure = self.purify(isbn)
         if not pure:
             return []
@@ -97,9 +185,35 @@ class xISBN:
             return self._data[self._map[pure]]
 
     def get_associated_isbns(self, isbn: str):
+        """
+        Return associated isbns under this provider's cache and fallback policy.
+
+        Example:
+            Exercise xISBN.get associated isbns with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_xisbn.py
+
+
+        :param isbn: ISBN value used for direct lookup or related-edition resolution.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         return set(self.isbns_in_data(self.get_data(isbn)))
 
     def get_isbn_pool(self, isbn: str):
+        """
+        Return isbn pool under this provider's cache and fallback policy.
+
+        Example:
+            Exercise xISBN.get isbn pool with the owning regression module::
+
+                python -m pytest -q tests/metadata/web_sources/test_web_sources_xisbn.py
+
+
+        :param isbn: ISBN value used for direct lookup or related-edition resolution.
+        :return: The normalized provider value, metadata result or collection described
+            above.
+        """
         data = self.get_data(isbn)
         isbns = frozenset(self.isbns_in_data(data))
 

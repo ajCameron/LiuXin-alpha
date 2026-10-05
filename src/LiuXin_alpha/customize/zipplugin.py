@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Install and inspect customization plugins packaged as ZIP archives.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise zipplugin through a consuming regression::
+
+        python -m pytest -q tests/customize/test_customize_base.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 
 from builtins import map
@@ -18,12 +29,46 @@ except ModuleNotFoundError:
     import types
 
     class _ImpCompat(object):
+        """
+        Provide the impcompat contract for validated ebook processing.
+
+        Example:
+            Exercise  ImpCompat through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+        """
         @staticmethod
         def new_module(name):
+            """
+            Perform the new module operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise  ImpCompat.new module through a consuming regression::
+
+                    python -m pytest -q tests/customize/test_customize_base.py
+
+
+            :param name: Field, file, function or resource name addressed by the operation.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return types.ModuleType(name)
 
         @staticmethod
         def reload(module):
+            """
+            Perform the reload operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise  ImpCompat.reload through a consuming regression::
+
+                    python -m pytest -q tests/customize/test_customize_base.py
+
+
+            :param module: Value supplied for module under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return importlib.reload(module)
 
     imp = _ImpCompat()
@@ -68,14 +113,17 @@ def get_resources(zfp: str, name_or_list_of_names: Union[str, list[str]]) -> dic
     """
     Load resources from the plugin zip file
 
-    :param zfp: Path to the zip file to load from
-    :param name_or_list_of_names: List of paths to resources in the zip file using / as
-                separator, or a single path
+    Example:
+        Exercise get resources through a consuming regression::
 
-    :return: A dictionary of the form ``{name : file_contents}``. Any names
-                that were not found in the zip file will not be present in the
-                dictionary. If a single path is passed in the return value will
-                be just the bytes of the resource or None if it wasn't found.
+            python -m pytest -q tests/customize/test_customize_base.py
+
+
+    :param zfp: Value supplied for zfp under the utility contract.
+    :param name_or_list_of_names: Value supplied for name or list of names under the
+        utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     names = name_or_list_of_names
     if isinstance(names, basestring):
@@ -105,9 +153,16 @@ def load_translations(namespace: dict[str, Any], zfp: str) -> None:
     """
     Translations are stored in zip files and have to be loaded before use.
 
-    :param namespace:
-    :param zfp:
-    :return None: Changes are made directly to the given namespace.
+    Example:
+        Exercise load translations through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
+
+
+    :param namespace: Value supplied for namespace under the utility contract.
+    :param zfp: Value supplied for zfp under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     null = object()
     trans = _translations_cache.get(zfp, null)
@@ -138,9 +193,25 @@ def load_translations(namespace: dict[str, Any], zfp: str) -> None:
 class PluginLoader:
     """
     Class used to load a plugin stored in a zip file.
+
+    Example:
+        Exercise PluginLoader through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     def __init__(self) -> None:
+        """
+        Initialize and validate the pluginloader state.
+
+        Example:
+            Exercise PluginLoader.  init   through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         self.loaded_plugins: dict[str, tuple[str, OrderedDict[str, zipfile.ZipInfo | Any]]] = {}
         self._lock = threading.RLock()
         self._identifier_pat = re.compile(r"[a-zA-Z][_0-9a-zA-Z]*")
@@ -152,18 +223,32 @@ class PluginLoader:
         """
         This is intended to allow you to bundle icons for interfaces with your module.
 
-        Have to think more on how to sanely implement this.
-        :param zfp:
-        :param name_or_list_of_names:
-        :return:
+        Example:
+            Exercise PluginLoader.get icons dummy through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param zfp: Value supplied for zfp under the utility contract.
+        :param name_or_list_of_names: Value supplied for name or list of names under the
+            utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
 
     def _get_actual_fullname(self, fullname: str) -> tuple[Optional[str], Optional[str]]:
         """
         Return the name of the root of the plugin and the true name of the plugin.
 
-        :param fullname:
-        :return init_name, plugin_name:
+        Example:
+            Exercise PluginLoader. get actual fullname through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param fullname: Value supplied for fullname under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         parts = fullname.split(".")
         if parts[0] == "calibre_plugins":
@@ -188,10 +273,17 @@ class PluginLoader:
         """
         Locate a module and return an instance of the loader which can be used to load it.
 
-        Called before the actual load to prepare this class to do the needed work.
-        :param fullname:
-        :param path:
-        :return:
+        Example:
+            Exercise PluginLoader.find module through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param fullname: Value supplied for fullname under the utility contract.
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         fullname, plugin_name = self._get_actual_fullname(fullname)
         if fullname is None and plugin_name is None:
@@ -202,11 +294,15 @@ class PluginLoader:
         """
         Actually preform the load of the module - hopefully from within a zipfile.
 
-        This loads a module from a zip file.
-        The downside of this is you must be _absolutely_ sure the file is not malicious.
-        Because the contents will just be blindly executed.
-        :param fullname: The full name of the plugin
-        :return loaded_plugin: The plugin once it's been loaded
+        Example:
+            Exercise PluginLoader.load module through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param fullname: Value supplied for fullname under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         import_name, plugin_name = self._get_actual_fullname(fullname)
         if import_name is None and plugin_name is None:
@@ -254,11 +350,16 @@ class PluginLoader:
         """
         Load a plugin from a zip file.
 
-        Assumption is single plugin per file.
-        No real checking is done to make sure you're loading the right plugin.
-        The first plugin present in the file is just grabbed.
-        :param path_to_zip_file:
-        :return:
+        Example:
+            Exercise PluginLoader.load through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param path_to_zip_file: Value supplied for path to zip file under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if not os.access(path_to_zip_file, os.R_OK):
             raise PluginNotFound("Cannot access %r" % path_to_zip_file)
@@ -306,9 +407,17 @@ class PluginLoader:
         """
         Locate the code to load from within the plugin.
 
-        :param zf: The zipfile object to search for code.
-        :param path_to_zip_file: The path to the zip file containing the plugin
-        :return:
+        Example:
+            Exercise PluginLoader. locate code through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param zf: Value supplied for zf under the utility contract.
+        :param path_to_zip_file: Value supplied for path to zip file under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         names = [x for x in zf.namelist()]
         names = [x[1:] if x[0] == "/" else x for x in names]

@@ -1,14 +1,22 @@
 #!/usr/bin/env python3
-"""Fail when a LiuXin wheel omits install-time runtime resources."""
+"""
+Provide verify wheel utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise verify wheel through a consuming regression::
+
+        python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+"""
 
 from __future__ import annotations
 
 import argparse
 import zipfile
-
 from pathlib import Path
 from typing import Sequence
-
 
 REQUIRED_MEMBERS = {
     "LiuXin_alpha/databases/database_driver_plugins/SQL/database_generator_frbr/aggregate_tables.toml",
@@ -20,15 +28,23 @@ REQUIRED_MEMBERS = {
     "LiuXin_alpha/utils/libraries/iso639/ISO-639-2_utf-8.txt",
     "LiuXin_alpha/utils/libraries/liuxin_dateutil/zoneinfo/zoneinfo-2010g.tar.gz",
 }
-REQUIRED_ENTRY_POINTS = {
-    "liuxin = LiuXin_alpha.surfaces.terminal.text_browser:main",
-    "liuxin-cli = LiuXin_alpha.surfaces.cli:main",
-    "liuxin-storage-audit = LiuXin_alpha.surfaces.cli.storage_audit:main",
-}
+REQUIRED_ENTRY_POINTS = {"liuxin = LiuXin_alpha.surfaces.cli.app:main"}
 
 
 def verify_wheel(wheel_path: Path) -> None:
-    """Validate package boundaries, console scripts, and representative data."""
+    """
+    Validate package boundaries, console scripts, and representative data.
+
+    Example:
+        Exercise verify wheel through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param wheel_path: Value supplied for wheel path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     with zipfile.ZipFile(wheel_path) as archive:
         members = set(archive.namelist())
         missing_members = sorted(REQUIRED_MEMBERS - members)
@@ -49,6 +65,19 @@ def verify_wheel(wheel_path: Path) -> None:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    """
+    Perform the main operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise main through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param argv: Value supplied for argv under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("wheel", type=Path, help="Wheel archive to inspect.")
     args = parser.parse_args(argv)

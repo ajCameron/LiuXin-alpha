@@ -1,3 +1,11 @@
+"""
+Check streamed Calibre book metadata, file paths, batching, and warnings for a deleted format file.
+
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emultation_streaming.py
+"""
 from __future__ import annotations
 
 import sqlite3
@@ -9,8 +17,20 @@ from LiuXin_alpha.databases.database_driver_plugins.SQL.calibre_database_generat
 
 def _fetch_one_book_paths(metadata_db: Path) -> tuple[Path, str, str]:
     """
-    Returns:
-      (book_dir, data_name, fmt)
+    Query the lowest-ID book and its first format by format order, then close the SQLite connection in finally.
+
+    Require both rows to exist. Combine the stored book path with the database parent
+    without independently checking containment.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emultation_streaming.py
+
+
+    :param metadata_db: Database file to open with sqlite3; missing book or format rows
+        raise AssertionError.
+    :return: Book-directory Path, data-name string, and format string tuple.
     """
     conn = sqlite3.connect(str(metadata_db))
     try:
@@ -30,6 +50,21 @@ def _fetch_one_book_paths(metadata_db: Path) -> tuple[Path, str, str]:
 
 
 def test_iter_book_payloads_basic_roundtrip(provision_calibre_library) -> None:
+    """
+    Check a generated book’s metadata, series, custom values, and existing EPUB/cover paths through one streamed payload.
+
+    Tags are compared as a set and comments only need to contain Hello.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emultation_streaming.py::test_iter_book_payloads_basic_roundtrip
+
+
+    :param provision_calibre_library: Fixture factory creating an isolated blank
+        library; skips when SQLite lacks required FTS5 support.
+    :return: None; failed expectations raise AssertionError.
+    """
     lib = provision_calibre_library(name="lib_stream_basic")
     b = CalibreLibraryBuilder(lib.root)
 
@@ -85,6 +120,21 @@ def test_iter_book_payloads_basic_roundtrip(provision_calibre_library) -> None:
 
 
 def test_iter_book_payloads_batches(provision_calibre_library) -> None:
+    """
+    Generate twenty-five books, read with batch_size=7, and check total count and that the first ID is below the last.
+
+    Intermediate ordering and ID uniqueness are not asserted.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emultation_streaming.py::test_iter_book_payloads_batches
+
+
+    :param provision_calibre_library: Fixture factory creating an isolated blank
+        library; skips when SQLite lacks required FTS5 support.
+    :return: None; failed expectations raise AssertionError.
+    """
     lib = provision_calibre_library(name="lib_stream_batches")
     b = CalibreLibraryBuilder(lib.root)
 
@@ -104,6 +154,19 @@ def test_iter_book_payloads_batches(provision_calibre_library) -> None:
 
 
 def test_iter_book_payloads_warns_on_missing_format_file(provision_calibre_library) -> None:
+    """
+    Delete the generated format file, trying lowercase then uppercase extension, and require a missing_format_file warning.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emultation_streaming.py::test_iter_book_payloads_warns_on_missing_format_file
+
+
+    :param provision_calibre_library: Fixture factory creating an isolated blank
+        library; skips when SQLite lacks required FTS5 support.
+    :return: None; failed expectations raise AssertionError.
+    """
     lib = provision_calibre_library(name="lib_stream_drift")
     b = CalibreLibraryBuilder(lib.root)
 

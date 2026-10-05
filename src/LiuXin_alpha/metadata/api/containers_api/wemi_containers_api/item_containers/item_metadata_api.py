@@ -1,8 +1,14 @@
-"""Core WEMI metadata-bundle API contract for item entities.
+"""
+Define the editable relation-bundle contract for item metadata.
 
-Category: core WEMI metadata bundle.
-This module defines the editable database-backed metadata surface around an
-item. It is not the item identity object and not a read-side view.
+The API combines an optional identity, typed relation links, projections, mapping
+conversion and writer delegation without implementing persistence itself.
+
+Example:
+    >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+    >>> metadata = ItemMetadata()
+    >>> metadata.relation_names()[0]
+    'works'
 """
 from __future__ import annotations
 
@@ -52,11 +58,15 @@ ItemRelationTarget: TypeAlias = (
 @dataclasses.dataclass(slots=True)
 class ItemRelationLink(RelationLink[ItemRelationTarget]):
     """
-    Relation link used by item metadata containers.
+    Specialize RelationLink for targets accepted by an item metadata bundle.
 
-    This intentionally mirrors the standard generated interlink metadata used by
-    the FRBR schema: ``priority``, ``primary``, ``type``, ``origin``,
-    ``policy``, ``data``, and ``index``.
+    The slotted dataclass retains target and metadata values by reference and inherits
+    cardinality normalization from RelationLink.
+
+    Example:
+        >>> link = ItemRelationLink(target={'item_id': 2})
+        >>> link.target['item_id']
+        2
     """
 
     target: ItemRelationTarget
@@ -90,18 +100,18 @@ ItemRelationKey: TypeAlias = Literal[
 
 class ItemMetadataAPI(WemiMetadataRelationsAPI[ItemRelationKey, ItemRelationTarget, ItemRelationLink], abc.ABC):
     """
-    API for a container that holds all metadata associated with one item.
+    Define relation names, aliases, cardinalities and editable projections for one item.
 
-    Implementations should expose:
-    - the core ``item`` row container
-    - bibliographic context above the item (WEMI + agents + topical metadata)
-    - storage context below/alongside the item (digital assets, replicas,
-      stores, folders)
+        Concrete bundles supply identity storage, live or copied relation buckets,
+        serialization and database writing. A ``relation_key`` selects an entry from
+        ``RELATION_KEYS``. Logical buckets are API contracts; they do not describe a
+        physical database table.
 
-    The ``relation_key`` parameter names one normalized relation bucket from
-    ``RELATION_KEYS``. These keys usually mirror related metadata table or
-    bucket names, such as ``files`` or ``tags``, but they are API contract keys
-    rather than a guarantee about a physical database table.
+    Example:
+        >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+        >>> metadata = ItemMetadata()
+        >>> 'agents' in metadata.relation_names()
+        True
     """
 
     RELATION_LINK_CLASS: ClassVar[type[ItemRelationLink]] = ItemRelationLink
@@ -184,19 +194,35 @@ class ItemMetadataAPI(WemiMetadataRelationsAPI[ItemRelationKey, ItemRelationTarg
     @classmethod
     def relation_names(cls) -> tuple[ItemRelationKey, ...]:
         """
-        Relation keys this item metadata bundle can expose.
+        Return the canonical item relation keys in declared order.
 
-        :return:
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.relation_names()[0]
+            'works'
+
+
+        :return: Tuple of canonical relation keys.
         """
         return cls.RELATION_KEYS
 
     @classmethod
     def validate_relation_name(cls, relation_key: str) -> ItemRelationKey:
         """
-        Normalize and validate one relation key.
+        Normalize a relation key with stripping, lowercase conversion and the alias table.
 
-        :param relation_key:
-        :return:
+        Unknown keys raise KeyError and the original input is included in its message.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.validate_relation_name(' TAG ')
+            'tags'
+
+
+        :param relation_key: Value supplied for relation key.
+        :return: Canonical relation key.
         """
         normalized = str(relation_key).strip().lower()
         normalized = cls.RELATION_ALIASES.get(normalized, normalized)
@@ -212,10 +238,20 @@ class ItemMetadataAPI(WemiMetadataRelationsAPI[ItemRelationKey, ItemRelationTarg
     @classmethod
     def relation_cardinality(cls, relation_key: ItemRelationKey) -> RelationCardinality:
         """
-        Return the cardinality policy for one relation key.
+        Return the local target-count policy for a normalized relation key.
 
-        :param relation_key:
-        :return:
+        Explicit graph and list-like policies come from RELATION_CARDINALITIES; unspecified
+        buckets default to MANY_TO_MANY.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.relation_cardinality('tags') is RelationCardinality.MANY_TO_MANY
+            True
+
+
+        :param relation_key: Value supplied for relation key.
+        :return: Canonical RelationCardinality member.
         """
         relation_key = cls.validate_relation_name(relation_key)
         return cls.RELATION_CARDINALITIES.get(
@@ -230,11 +266,20 @@ class ItemMetadataAPI(WemiMetadataRelationsAPI[ItemRelationKey, ItemRelationTarg
         links: Iterable[ItemRelationLink],
     ) -> list[ItemRelationLink]:
         """
-        Validate relation links for one relation key.
+        Normalize the key, materialize the iterable and enforce its local cardinality policy.
 
-        :param relation_key:
-        :param links:
-        :return:
+        The returned list retains link objects; no target validation or cross-bucket
+        uniqueness check occurs here.
+
+        Example:
+            >>> link = ItemRelationLink(target='History')
+            >>> ItemMetadataAPI.validate_relation_links('tags', [link])[0] is link
+            True
+
+
+        :param relation_key: Value supplied for relation key.
+        :param links: Value supplied for links.
+        :return: New validated list of relation links.
         """
         relation_key = cls.validate_relation_name(relation_key)
         return validate_relation_link_cardinality(
@@ -247,48 +292,106 @@ class ItemMetadataAPI(WemiMetadataRelationsAPI[ItemRelationKey, ItemRelationTarg
     @abc.abstractmethod
     def item(self) -> Optional[ItemIdentityAPI]:
         """
-        Primary item identity for this metadata bundle.
+        Require access to the optional item identity retained by the bundle.
 
-        :return:
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_container import ItemIdentity
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> identity_value = ItemIdentity(**{'item_id': 2})
+            >>> metadata = ItemMetadata(**{'item': identity_value})
+            >>> metadata.item is identity_value
+            True
+
+
+        :return: Shared ItemIdentity object, or None.
         """
 
     @item.setter
     @abc.abstractmethod
     def item(self, value: Optional[ItemIdentityAPI]) -> None:
         """
-        Set the primary item identity for this metadata bundle.
+        Require replacement of the optional item identity without prescribing relation changes.
 
-        :param value:
-        :return:
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_container import ItemIdentity
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.item = ItemIdentity(**{'item_id': 2})
+            >>> metadata.item.item_id
+            2
+
+
+        :param value: New ItemIdentity object, or None.
+        :return: None.
         """
 
     @property
     @abc.abstractmethod
     def values(self) -> MetadataValuesViewAPI:
-        """Structured, read-only value projections for this metadata bundle."""
+        """
+        Require a structured read-only projection backed by this bundle.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.values.tags
+            ()
+
+
+        :return: MetadataValuesViewAPI implementation.
+        """
 
     @property
     @abc.abstractmethod
     def text(self) -> MetadataTextViewAPI:
-        """Display/export text projections for this metadata bundle."""
+        """
+        Require a display/export text projection backed by this bundle.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.text.tags
+            ''
+
+
+        :return: MetadataTextViewAPI implementation.
+        """
 
     @abc.abstractmethod
     def get_relation_links(self, relation_key: ItemRelationKey) -> list[ItemRelationLink]:
         """
-        Get relation links for one relation key.
+        Require access to relation links for a canonical key.
 
-        :param relation_key:
-        :return:
+        Concrete implementations define whether the returned list is live; callers should
+        use editing helpers when validation matters.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.get_relation_links('tags')
+            []
+
+
+        :param relation_key: Value supplied for relation key.
+        :return: List of relation links in stored order.
         """
 
     @abc.abstractmethod
     def set_relation_links(self, relation_key: ItemRelationKey, links: Iterable[ItemRelationLink]) -> None:
         """
-        Entirely replace relation links for one relation key.
+        Require complete replacement of a relation bucket after concrete validation.
 
-        :param relation_key:
-        :param links:
-        :return:
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.set_relation_links('tags', [])
+            >>> metadata.get_relation_links('tags')
+            []
+
+
+        :param relation_key: Supported relation name or alias.
+        :param links: Iterable of replacement links.
+        :return: None.
         """
 
     @abc.abstractmethod
@@ -303,46 +406,147 @@ class ItemMetadataAPI(WemiMetadataRelationsAPI[ItemRelationKey, ItemRelationTarg
         mark_dirty: bool = True,
     ) -> MetadataWriteReportAPI:
         """
-        Persist supported relation-backed changes for this item metadata bundle.
+        Require persistence of supported item relation changes through a caller-owned write database.
 
-        This is done by writing out to the database.
-        :param database:
-        :param fields:
-        :param item_id:
-        :param target_row:
-        :param replace:
-        :param mark_dirty:
-        :return:
+        Field selection, target resolution, replacement, dirty marking, transactions and
+        report contents belong to the implementation.
+
+        Example:
+            Exercise writer delegation with pytest::
+
+                python -m pytest -q tests/metadata/api/test_item_metadata_container_api.py
+
+
+        :param database: Caller-owned metadata write database.
+        :param fields: Optional fields to write; None selects implementation defaults.
+        :param item_id: Optional item id for target resolution.
+        :param target_row: Optional target Row or mapping.
+        :param replace: Request replacement rather than append semantics when True.
+        :param mark_dirty: Request dirty marking when True.
+        :return: MetadataWriteReportAPI describing the operation.
         """
 
     @property
     def primary_work(self) -> ItemRelationTarget | None:
-        """Preferred work traversal from this item."""
+        """
+        Return the preferred work target using the shared primary-link ordering.
+
+        Id properties use relation_target_id; primary_manifestation_id falls back to the
+        attached item's legacy manifestation hint when the relation has no usable id.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.works = [{'work_id': '3'}]
+            >>> metadata.primary_work
+            {'work_id': '3'}
+
+
+        :return: Preferred work target, or None.
+        """
 
         return self.primary_related("works")
 
     @property
     def primary_work_id(self) -> Optional[int]:
+        """
+        Return the integer id of the preferred work using the shared primary-link ordering.
+
+        Id properties use relation_target_id; primary_manifestation_id falls back to the
+        attached item's legacy manifestation hint when the relation has no usable id.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.works = [{'work_id': '3'}]
+            >>> metadata.primary_work_id
+            3
+
+
+        :return: Integer id of the preferred work, or None.
+        """
         return relation_target_id(self.primary_work, "work_id")
 
     @property
     def primary_expression(self) -> ItemRelationTarget | None:
-        """Preferred expression traversal from this item."""
+        """
+        Return the preferred expression target using the shared primary-link ordering.
+
+        Id properties use relation_target_id; primary_manifestation_id falls back to the
+        attached item's legacy manifestation hint when the relation has no usable id.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.expressions = [{'expression_id': '4'}]
+            >>> metadata.primary_expression
+            {'expression_id': '4'}
+
+
+        :return: Preferred expression target, or None.
+        """
 
         return self.primary_related("expressions")
 
     @property
     def primary_expression_id(self) -> Optional[int]:
+        """
+        Return the integer id of the preferred expression using the shared primary-link ordering.
+
+        Id properties use relation_target_id; primary_manifestation_id falls back to the
+        attached item's legacy manifestation hint when the relation has no usable id.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.expressions = [{'expression_id': '4'}]
+            >>> metadata.primary_expression_id
+            4
+
+
+        :return: Integer id of the preferred expression, or None.
+        """
         return relation_target_id(self.primary_expression, "expression_id")
 
     @property
     def primary_manifestation(self) -> ItemRelationTarget | None:
-        """Preferred manifestation traversal from this item."""
+        """
+        Return the preferred manifestation target using the shared primary-link ordering.
+
+        Id properties use relation_target_id; primary_manifestation_id falls back to the
+        attached item's legacy manifestation hint when the relation has no usable id.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.manifestations = [{'manifestation_id': '6'}]
+            >>> metadata.primary_manifestation
+            {'manifestation_id': '6'}
+
+
+        :return: Preferred manifestation target, or None.
+        """
 
         return self.primary_related("manifestations")
 
     @property
     def primary_manifestation_id(self) -> Optional[int]:
+        """
+        Return the preferred manifestation id, falling back to item_manifestation_id using the shared primary-link ordering.
+
+        Id properties use relation_target_id; primary_manifestation_id falls back to the
+        attached item's legacy manifestation hint when the relation has no usable id.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.manifestations = [{'manifestation_id': '6'}]
+            >>> metadata.primary_manifestation_id
+            6
+
+
+        :return: Preferred manifestation id, falling back to item_manifestation_id, or None.
+        """
         primary_id = relation_target_id(self.primary_manifestation, "manifestation_id")
         if primary_id is not None:
             return primary_id
@@ -354,446 +558,923 @@ class ItemMetadataAPI(WemiMetadataRelationsAPI[ItemRelationKey, ItemRelationTarg
     @property
     def works(self) -> list[ItemRelationTarget]:
         """
-        Get the works related to this item.
+        Return targets from the works relation bucket in stored order.
 
-        :return:
+        The result is a new list containing shared targets.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.works = [{'value': 'Example'}]
+            >>> metadata.works
+            [{'value': 'Example'}]
+
+
+        :return: New list of related targets.
         """
         return self.get_related("works")
 
     @works.setter
     def works(self, values: Iterable[ItemRelationTarget]) -> None:
         """
-        Set the works related to this target.
+        Replace the works bucket with new relation links around supplied targets.
 
-        :param values:
-        :return:
+        Targets remain shared; relation cardinality and concrete setter validation apply.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.works = [{'value': 'Example'}]
+            >>> metadata.works
+            [{'value': 'Example'}]
+
+
+        :param values: Iterable of replacement relation targets.
+        :return: None.
         """
         self.set_related("works", values)
 
     @property
     def expressions(self) -> list[ItemRelationTarget]:
         """
-        Get the item-expression relations for this item.
+        Return targets from the expressions relation bucket in stored order.
 
-        :return:
+        The result is a new list containing shared targets.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.expressions = [{'value': 'Example'}]
+            >>> metadata.expressions
+            [{'value': 'Example'}]
+
+
+        :return: New list of related targets.
         """
         return self.get_related("expressions")
 
     @expressions.setter
     def expressions(self, values: Iterable[ItemRelationTarget]) -> None:
         """
-        Set the item-expression relations for this target.
+        Replace the expressions bucket with new relation links around supplied targets.
 
-        :param values:
-        :return:
+        Targets remain shared; relation cardinality and concrete setter validation apply.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.expressions = [{'value': 'Example'}]
+            >>> metadata.expressions
+            [{'value': 'Example'}]
+
+
+        :param values: Iterable of replacement relation targets.
+        :return: None.
         """
         self.set_related("expressions", values)
 
     @property
     def manifestations(self) -> list[ItemRelationTarget]:
         """
-        Get the manifestation relations for this item.
+        Return targets from the manifestations relation bucket in stored order.
 
-        :return:
+        The result is a new list containing shared targets.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.manifestations = [{'value': 'Example'}]
+            >>> metadata.manifestations
+            [{'value': 'Example'}]
+
+
+        :return: New list of related targets.
         """
         return self.get_related("manifestations")
 
     @manifestations.setter
     def manifestations(self, values: Iterable[ItemRelationTarget]) -> None:
         """
-        Set the manifestation relations for this item.
+        Replace the manifestations bucket with new relation links around supplied targets.
 
-        :param values:
-        :return:
+        Targets remain shared; relation cardinality and concrete setter validation apply.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.manifestations = [{'value': 'Example'}]
+            >>> metadata.manifestations
+            [{'value': 'Example'}]
+
+
+        :param values: Iterable of replacement relation targets.
+        :return: None.
         """
         self.set_related("manifestations", values)
 
     @property
     def agents(self) -> list[ItemRelationTarget]:
         """
-        Get the agent relations for this item.
+        Return targets from the agents relation bucket in stored order.
 
-        :return:
+        The result is a new list containing shared targets.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.agents = [{'value': 'Example'}]
+            >>> metadata.agents
+            [{'value': 'Example'}]
+
+
+        :return: New list of related targets.
         """
         return self.get_related("agents")
 
     @agents.setter
     def agents(self, values: Iterable[ItemRelationTarget]) -> None:
         """
-        Set the agent relations for this item.
+        Replace the agents bucket with new relation links around supplied targets.
 
-        :param values:
-        :return:
+        Targets remain shared; relation cardinality and concrete setter validation apply.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.agents = [{'value': 'Example'}]
+            >>> metadata.agents
+            [{'value': 'Example'}]
+
+
+        :param values: Iterable of replacement relation targets.
+        :return: None.
         """
         self.set_related("agents", values)
 
     @property
     def digital_assets(self) -> list[ItemRelationTarget]:
         """
-        Get the digital assets relations for this item.
+        Return targets from the digital_assets relation bucket in stored order.
 
-        Digital assets are actual files - the lowest level of the program.
-        :return:
+        The result is a new list containing shared targets.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.digital_assets = [{'value': 'Example'}]
+            >>> metadata.digital_assets
+            [{'value': 'Example'}]
+
+
+        :return: New list of related targets.
         """
         return self.get_related("digital_assets")
 
     @digital_assets.setter
     def digital_assets(self, values: Iterable[ItemRelationTarget]) -> None:
         """
-        Set the digital assets relations for this item.
+        Replace the digital_assets bucket with new relation links around supplied targets.
 
-        :param values:
-        :return:
+        Targets remain shared; relation cardinality and concrete setter validation apply.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.digital_assets = [{'value': 'Example'}]
+            >>> metadata.digital_assets
+            [{'value': 'Example'}]
+
+
+        :param values: Iterable of replacement relation targets.
+        :return: None.
         """
         self.set_related("digital_assets", values)
 
     @property
     def composite_digital_assets(self) -> list[ItemRelationTarget]:
         """
-        Gets the composite digital assets relations for this item.
+        Return targets from the composite_digital_assets relation bucket in stored order.
 
-        :return:
+        The result is a new list containing shared targets.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.composite_digital_assets = [{'value': 'Example'}]
+            >>> metadata.composite_digital_assets
+            [{'value': 'Example'}]
+
+
+        :return: New list of related targets.
         """
         return self.get_related("composite_digital_assets")
 
     @composite_digital_assets.setter
     def composite_digital_assets(self, values: Iterable[ItemRelationTarget]) -> None:
         """
-        Set the composite digital asset relations for this item.
+        Replace the composite_digital_assets bucket with new relation links around supplied targets.
 
-        :param values:
-        :return:
+        Targets remain shared; relation cardinality and concrete setter validation apply.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.composite_digital_assets = [{'value': 'Example'}]
+            >>> metadata.composite_digital_assets
+            [{'value': 'Example'}]
+
+
+        :param values: Iterable of replacement relation targets.
+        :return: None.
         """
         self.set_related("composite_digital_assets", values)
 
     @property
     def asset_replicas(self) -> list[ItemRelationTarget]:
         """
-        Get the asset replica relations for this item.
+        Return targets from the asset_replicas relation bucket in stored order.
 
-        :return:
+        The result is a new list containing shared targets.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.asset_replicas = [{'value': 'Example'}]
+            >>> metadata.asset_replicas
+            [{'value': 'Example'}]
+
+
+        :return: New list of related targets.
         """
         return self.get_related("asset_replicas")
 
     @asset_replicas.setter
     def asset_replicas(self, values: Iterable[ItemRelationTarget]) -> None:
         """
-        Write the asset replica relations for this item.
+        Replace the asset_replicas bucket with new relation links around supplied targets.
 
-        :param values:
-        :return:
+        Targets remain shared; relation cardinality and concrete setter validation apply.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.asset_replicas = [{'value': 'Example'}]
+            >>> metadata.asset_replicas
+            [{'value': 'Example'}]
+
+
+        :param values: Iterable of replacement relation targets.
+        :return: None.
         """
         self.set_related("asset_replicas", values)
 
     @property
     def stores(self) -> list[ItemRelationTarget]:
         """
-        Lists the stores this item is related to.
+        Return targets from the stores relation bucket in stored order.
 
-        :return:
+        The result is a new list containing shared targets.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.stores = [{'value': 'Example'}]
+            >>> metadata.stores
+            [{'value': 'Example'}]
+
+
+        :return: New list of related targets.
         """
         return self.get_related("stores")
 
     @stores.setter
     def stores(self, values: Iterable[ItemRelationTarget]) -> None:
         """
-        Set the stores this item is related to.
+        Replace the stores bucket with new relation links around supplied targets.
 
-        :param values:
-        :return:
+        Targets remain shared; relation cardinality and concrete setter validation apply.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.stores = [{'value': 'Example'}]
+            >>> metadata.stores
+            [{'value': 'Example'}]
+
+
+        :param values: Iterable of replacement relation targets.
+        :return: None.
         """
         self.set_related("stores", values)
 
     @property
     def folders(self) -> list[ItemRelationTarget]:
         """
-        Lists the "folder" structure which this item might be in.
+        Return targets from the folders relation bucket in stored order.
 
-        :return:
+        The result is a new list containing shared targets.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.folders = [{'value': 'Example'}]
+            >>> metadata.folders
+            [{'value': 'Example'}]
+
+
+        :return: New list of related targets.
         """
         return self.get_related("folders")
 
     @folders.setter
     def folders(self, values: Iterable[ItemRelationTarget]) -> None:
         """
-        Set the folders this item is connected to.
+        Replace the folders bucket with new relation links around supplied targets.
 
-        :param values:
-        :return:
+        Targets remain shared; relation cardinality and concrete setter validation apply.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.folders = [{'value': 'Example'}]
+            >>> metadata.folders
+            [{'value': 'Example'}]
+
+
+        :param values: Iterable of replacement relation targets.
+        :return: None.
         """
         self.set_related("folders", values)
 
     @property
     def files(self) -> list[ItemRelationTarget]:
         """
-        All the "files" linked to the item.
+        Return targets from the files relation bucket in stored order.
 
-        :return:
+        The result is a new list containing shared targets.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.files = [{'value': 'Example'}]
+            >>> metadata.files
+            [{'value': 'Example'}]
+
+
+        :return: New list of related targets.
         """
         return self.get_related("files")
 
     @files.setter
     def files(self, values: Iterable[ItemRelationTarget]) -> None:
         """
-        Set the files property for this item.
+        Replace the files bucket with new relation links around supplied targets.
 
-        :param values:
-        :return:
+        Targets remain shared; relation cardinality and concrete setter validation apply.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.files = [{'value': 'Example'}]
+            >>> metadata.files
+            [{'value': 'Example'}]
+
+
+        :param values: Iterable of replacement relation targets.
+        :return: None.
         """
         self.set_related("files", values)
 
     @property
     def images(self) -> list[ItemRelationTarget]:
         """
-        Get the image related "images" linked to the item.
+        Return targets from the images relation bucket in stored link order.
 
-        :return:
+        The result is a new list containing shared targets; mutating the list does not
+        replace the stored bucket.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.images = [{'value': 'Example'}]
+            >>> metadata.images
+            [{'value': 'Example'}]
+
+
+        :return: New list of related targets.
         """
         return self.get_related("images")
 
     @images.setter
     def images(self, values: Iterable[ItemRelationTarget]) -> None:
         """
-        Set the image-item relations.
+        Replace the images bucket with relation links around the supplied targets.
 
-        :param values:
-        :return:
+        Targets remain shared; the concrete bundle applies key and cardinality validation.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.images = [{'value': 'Example'}]
+            >>> metadata.images
+            [{'value': 'Example'}]
+
+
+        :param values: Iterable of replacement relation targets.
+        :return: None.
         """
         self.set_related("images", values)
 
     @property
     def identifiers(self) -> list[ItemRelationTarget]:
         """
-        Return the identifiers relations for this item.
+        Return targets from the identifiers relation bucket in stored link order.
 
-        :return:
+        The result is a new list containing shared targets; mutating the list does not
+        replace the stored bucket.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.identifiers = [{'value': 'Example'}]
+            >>> metadata.identifiers
+            [{'value': 'Example'}]
+
+
+        :return: New list of related targets.
         """
         return self.get_related("identifiers")
 
     @identifiers.setter
     def identifiers(self, values: Iterable[ItemRelationTarget]) -> None:
         """
-        Set the identifiers relations for this item.
+        Replace the identifiers bucket with relation links around the supplied targets.
 
-        :param values:
-        :return:
+        Targets remain shared; the concrete bundle applies key and cardinality validation.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.identifiers = [{'value': 'Example'}]
+            >>> metadata.identifiers
+            [{'value': 'Example'}]
+
+
+        :param values: Iterable of replacement relation targets.
+        :return: None.
         """
         self.set_related("identifiers", values)
 
     @property
     def titles(self) -> list[ItemRelationTarget]:
         """
-        Get the title relations for this item.
+        Return targets from the titles relation bucket in stored link order.
 
-        :return:
+        The result is a new list containing shared targets; mutating the list does not
+        replace the stored bucket.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.titles = [{'value': 'Example'}]
+            >>> metadata.titles
+            [{'value': 'Example'}]
+
+
+        :return: New list of related targets.
         """
         return self.get_related("titles")
 
     @titles.setter
     def titles(self, values: Iterable[ItemRelationTarget]) -> None:
         """
-        Set the title relations for this item.
+        Replace the titles bucket with relation links around the supplied targets.
 
-        :param values:
-        :return:
+        Targets remain shared; the concrete bundle applies key and cardinality validation.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.titles = [{'value': 'Example'}]
+            >>> metadata.titles
+            [{'value': 'Example'}]
+
+
+        :param values: Iterable of replacement relation targets.
+        :return: None.
         """
         self.set_related("titles", values)
 
     @property
     def annotations(self) -> list[ItemRelationTarget]:
         """
-        Get the annotations relations for this item.
+        Return targets from the annotations relation bucket in stored link order.
 
-        :return:
+        The result is a new list containing shared targets; mutating the list does not
+        replace the stored bucket.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.annotations = [{'value': 'Example'}]
+            >>> metadata.annotations
+            [{'value': 'Example'}]
+
+
+        :return: New list of related targets.
         """
         return self.get_related("annotations")
 
     @annotations.setter
     def annotations(self, values: Iterable[ItemRelationTarget]) -> None:
         """
-        Set the annotations relations for this item.
+        Replace the annotations bucket with relation links around the supplied targets.
 
-        :param values:
-        :return:
+        Targets remain shared; the concrete bundle applies key and cardinality validation.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.annotations = [{'value': 'Example'}]
+            >>> metadata.annotations
+            [{'value': 'Example'}]
+
+
+        :param values: Iterable of replacement relation targets.
+        :return: None.
         """
         self.set_related("annotations", values)
 
     @property
     def genres(self) -> list[ItemRelationTarget]:
         """
-        Get the genres relations for this item.
+        Return targets from the genres relation bucket in stored link order.
 
-        :return:
+        The result is a new list containing shared targets; mutating the list does not
+        replace the stored bucket.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.genres = [{'value': 'Example'}]
+            >>> metadata.genres
+            [{'value': 'Example'}]
+
+
+        :return: New list of related targets.
         """
         return self.get_related("genres")
 
     @genres.setter
     def genres(self, values: Iterable[ItemRelationTarget]) -> None:
         """
-        Set the genres relations for this item.
+        Replace the genres bucket with relation links around the supplied targets.
 
-        :param values:
-        :return:
+        Targets remain shared; the concrete bundle applies key and cardinality validation.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.genres = [{'value': 'Example'}]
+            >>> metadata.genres
+            [{'value': 'Example'}]
+
+
+        :param values: Iterable of replacement relation targets.
+        :return: None.
         """
         self.set_related("genres", values)
 
     @property
     def subjects(self) -> list[ItemRelationTarget]:
         """
-        Get the subjects relations for this item.
+        Return targets from the subjects relation bucket in stored link order.
 
-        :return:
+        The result is a new list containing shared targets; mutating the list does not
+        replace the stored bucket.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.subjects = [{'value': 'Example'}]
+            >>> metadata.subjects
+            [{'value': 'Example'}]
+
+
+        :return: New list of related targets.
         """
         return self.get_related("subjects")
 
     @subjects.setter
     def subjects(self, values: Iterable[ItemRelationTarget]) -> None:
         """
-        Set the subject relations for this item.
+        Replace the subjects bucket with relation links around the supplied targets.
 
-        :param values:
-        :return:
+        Targets remain shared; the concrete bundle applies key and cardinality validation.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.subjects = [{'value': 'Example'}]
+            >>> metadata.subjects
+            [{'value': 'Example'}]
+
+
+        :param values: Iterable of replacement relation targets.
+        :return: None.
         """
         self.set_related("subjects", values)
 
     @property
     def series(self) -> list[ItemRelationTarget]:
         """
-        Get the series relations for this item.
+        Return targets from the series relation bucket in stored link order.
 
-        :return:
+        The result is a new list containing shared targets; mutating the list does not
+        replace the stored bucket.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.series = [{'value': 'Example'}]
+            >>> metadata.series
+            [{'value': 'Example'}]
+
+
+        :return: New list of related targets.
         """
         return self.get_related("series")
 
     @series.setter
     def series(self, values: Iterable[ItemRelationTarget]) -> None:
         """
-        Set the series relations for this item.
+        Replace the series bucket with relation links around the supplied targets.
 
-        :param values:
-        :return:
+        Targets remain shared; the concrete bundle applies key and cardinality validation.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.series = [{'value': 'Example'}]
+            >>> metadata.series
+            [{'value': 'Example'}]
+
+
+        :param values: Iterable of replacement relation targets.
+        :return: None.
         """
         self.set_related("series", values)
 
     @property
     def tags(self) -> list[ItemRelationTarget]:
         """
-        Get the tag relations for this item.
+        Return targets from the tags relation bucket in stored link order.
 
-        :return:
+        The result is a new list containing shared targets; mutating the list does not
+        replace the stored bucket.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.tags = [{'value': 'Example'}]
+            >>> metadata.tags
+            [{'value': 'Example'}]
+
+
+        :return: New list of related targets.
         """
         return self.get_related("tags")
 
     @tags.setter
     def tags(self, values: Iterable[ItemRelationTarget]) -> None:
         """
-        Set the tag relations for this item.
+        Replace the tags bucket with relation links around the supplied targets.
 
-        :param values:
-        :return:
+        Targets remain shared; the concrete bundle applies key and cardinality validation.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.tags = [{'value': 'Example'}]
+            >>> metadata.tags
+            [{'value': 'Example'}]
+
+
+        :param values: Iterable of replacement relation targets.
+        :return: None.
         """
         self.set_related("tags", values)
 
     @property
     def labels(self) -> list[ItemRelationTarget]:
         """
-        Get the label relations for this item.
+        Return targets from the labels relation bucket in stored link order.
 
-        :return:
+        The result is a new list containing shared targets; mutating the list does not
+        replace the stored bucket.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.labels = [{'value': 'Example'}]
+            >>> metadata.labels
+            [{'value': 'Example'}]
+
+
+        :return: New list of related targets.
         """
         return self.get_related("labels")
 
     @labels.setter
     def labels(self, values: Iterable[ItemRelationTarget]) -> None:
         """
-        Set the label relations for this item.
+        Replace the labels bucket with relation links around the supplied targets.
 
-        :param values:
-        :return:
+        Targets remain shared; the concrete bundle applies key and cardinality validation.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.labels = [{'value': 'Example'}]
+            >>> metadata.labels
+            [{'value': 'Example'}]
+
+
+        :param values: Iterable of replacement relation targets.
+        :return: None.
         """
         self.set_related("labels", values)
 
     @property
     def languages(self) -> list[ItemRelationTarget]:
         """
-        Get the languages relations for this item.
+        Return targets from the languages relation bucket in stored link order.
 
-        :return:
+        The result is a new list containing shared targets; mutating the list does not
+        replace the stored bucket.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.languages = [{'value': 'Example'}]
+            >>> metadata.languages
+            [{'value': 'Example'}]
+
+
+        :return: New list of related targets.
         """
         return self.get_related("languages")
 
     @languages.setter
     def languages(self, values: Iterable[ItemRelationTarget]) -> None:
         """
-        Set the language relations for this item.
+        Replace the languages bucket with relation links around the supplied targets.
 
-        :param values:
-        :return:
+        Targets remain shared; the concrete bundle applies key and cardinality validation.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.languages = [{'value': 'Example'}]
+            >>> metadata.languages
+            [{'value': 'Example'}]
+
+
+        :param values: Iterable of replacement relation targets.
+        :return: None.
         """
         self.set_related("languages", values)
 
     @property
     def notes(self) -> list[ItemRelationTarget]:
         """
-        Get the notes relations for this item.
+        Return targets from the notes relation bucket in stored link order.
 
-        :return:
+        The result is a new list containing shared targets; mutating the list does not
+        replace the stored bucket.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.notes = [{'value': 'Example'}]
+            >>> metadata.notes
+            [{'value': 'Example'}]
+
+
+        :return: New list of related targets.
         """
         return self.get_related("notes")
 
     @notes.setter
     def notes(self, values: Iterable[ItemRelationTarget]) -> None:
         """
-        Set the notes relations for this item.
+        Replace the notes bucket with relation links around the supplied targets.
 
-        :param values:
-        :return:
+        Targets remain shared; the concrete bundle applies key and cardinality validation.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.notes = [{'value': 'Example'}]
+            >>> metadata.notes
+            [{'value': 'Example'}]
+
+
+        :param values: Iterable of replacement relation targets.
+        :return: None.
         """
         self.set_related("notes", values)
 
     @property
     def comments(self) -> list[ItemRelationTarget]:
         """
-        Get the comments relations for this item.
+        Return targets from the comments relation bucket in stored link order.
 
-        :return:
+        The result is a new list containing shared targets; mutating the list does not
+        replace the stored bucket.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.comments = [{'value': 'Example'}]
+            >>> metadata.comments
+            [{'value': 'Example'}]
+
+
+        :return: New list of related targets.
         """
         return self.get_related("comments")
 
     @comments.setter
     def comments(self, values: Iterable[ItemRelationTarget]) -> None:
         """
-        Set the comments relations for this item.
+        Replace the comments bucket with relation links around the supplied targets.
 
-        :param values:
-        :return:
+        Targets remain shared; the concrete bundle applies key and cardinality validation.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> metadata.comments = [{'value': 'Example'}]
+            >>> metadata.comments
+            [{'value': 'Example'}]
+
+
+        :param values: Iterable of replacement relation targets.
+        :return: None.
         """
         self.set_related("comments", values)
 
     @abc.abstractmethod
     def to_mapping(self, include_related: bool = True) -> MutableMetadataRecord:
         """
-        Serialize container into a mapping representation.
+        Require serialization of the item identity and, optionally, relation links.
 
-        :param include_related:
-        :return:
+        Concrete implementations define shallow-copy details and target conversion;
+        serialization performs no persistence.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> 'item' in metadata.to_mapping(include_related=False)
+            True
+
+
+        :param include_related: Include relation-link payloads when true.
+        :return: Mutable metadata record.
         """
 
     @classmethod
     @abc.abstractmethod
     def from_mapping(cls, payload: MetadataRecord) -> Self:
         """
-        Hydrate container from mapping representation.
+        Require construction of an item bundle from identity and relation payloads.
 
-        :param payload:
-        :return:
+        Concrete implementations define recognized targets, ignored entries and copy depth.
+
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> restored = ItemMetadata.from_mapping({'item': {'item_id': 5}})
+            >>> restored.item.item_id
+            5
+
+
+        :param payload: Metadata record containing optional item and relations entries.
+        :return: New bundle of the requested class.
         """
 
     def __str__(self) -> str:
         """
-        String representation.
+        Return a minimal class-name diagnostic when the concrete bundle does not override it.
 
-        :return:
+        Example:
+            >>> from LiuXin_alpha.metadata.containers.metadata_containers.wemi_containers.item_metadata_container import ItemMetadata
+            >>> metadata = ItemMetadata()
+            >>> ItemMetadataAPI.__str__(metadata)
+            'ItemMetadata()'
+
+
+        :return: Concrete class name followed by empty parentheses.
         """
         return f"{self.__class__.__name__}()"
 

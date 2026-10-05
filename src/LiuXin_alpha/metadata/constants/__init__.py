@@ -1,6 +1,16 @@
 
 """
-Constants used for metadata standardization e.t.c.
+Define metadata defaults, creator-role aliases, identifier schemes, and cleanup patterns.
+
+The module builds mutable null-value templates for creator and identifier categories
+and re-exports selected container enums. Consumers should copy mutable defaults
+before changing them. Role and identifier helpers retain their legacy normalization
+behavior.
+
+Example:
+    Exercise the owning behavior with pytest::
+
+        python -m pytest -q tests/metadata/file_sources/test_opf_edge_cases.py
 """
 
 import re
@@ -124,9 +134,18 @@ CREATOR_ROLE_MARC_REKEY_DICT = {
 
 def creator_to_marc(role):
     """
-    Translate a human readable form of the person's role in the book into a MARC code.
-    :param role:
-    :return:
+    Translate a recognized creator-role alias to its MARC relator code.
+
+    The role is lower-cased but not trimmed. Unknown roles are logged through
+    default_log and raise KeyError.
+
+    Example:
+        >>> creator_to_marc('AUTHOR')
+        'aut'
+
+
+    :param role: Human-readable role or alias present in CREATOR_ROLE_MARC_REKEY_DICT.
+    :return: MARC code string.
     """
     role = role.lower()
     for rekey_set in CREATOR_ROLE_MARC_REKEY_DICT:
@@ -344,8 +363,22 @@ METADATA_EXPLANATIONS = {
 # Todo: Move to the actual standardization plugins
 def canonicalize_id_name(candidate_id):
     """
-    Takes a ID name - makes reasonable guesses as to what the original id name could have been. Returns it.
-    :param candidate_id: The name of the id to standardize
+    Normalize identifier scheme text and resolve known external aliases.
+
+    Trim and lower-case the candidate, replacing whitespace runs with underscores.
+    Unrecognized names normally pass through. The legacy internal-scheme branch attempts
+    to subscript a frozenset when its substring condition matches, so inputs such as
+    uuid currently raise TypeError rather than resolve an internal alias.
+
+    Example:
+        >>> canonicalize_id_name(' ISBN 13 ')
+        'isbn'
+        >>> canonicalize_id_name('custom scheme')
+        'custom_scheme'
+
+
+    :param candidate_id: Identifier scheme string to normalize.
+    :return: Canonical external scheme or normalized unmatched name.
     """
     candidate_id = candidate_id.strip().lower()
     candidate_id = re.sub(r"\s+", "_", candidate_id)

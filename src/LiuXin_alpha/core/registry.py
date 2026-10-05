@@ -1,8 +1,7 @@
-
 """
-The lifecyle and component hub for LiuXin.
+Retain the historical import location for the proposed Core plugin registry.
 
-LiuXin is a plugin based program.
-Registry is responsible for discovering, checking, loading and otherwise preparing these plugins.
-If you want almost anything, you're first port of call should be registry.
+This module currently defines no registry, discovery, validation, or loading
+implementation. The earlier lifecycle-hub description was design intent, not an
+available service; importing this placeholder does not prepare plugins.
 """

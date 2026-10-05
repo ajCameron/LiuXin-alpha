@@ -1,5 +1,11 @@
 """
-Safe local ZIP archive storage drivers with atomic whole-file mutation.
+Read bounded local ZIP inventories and publish member mutations through complete rebuilds.
+
+The regular-file projection rejects unsafe names, ambiguous topology, unsupported
+members, and declared expansion excesses. Reads own their member/archive handles;
+filesystem signatures provide archive-wide version evidence. Writable operations
+validate sibling candidates before replacement, with explicit metadata-loss policy
+and no rollback guarantee for failures occurring after replacement.
 """
 
 from __future__ import annotations
@@ -89,7 +95,11 @@ _SUPPORTED_ZIP_METHODS = frozenset(_ZIP_COMPRESSION_TYPES.values())
 @dataclasses.dataclass(slots=True, frozen=True)
 class ZipObjectAddress(ArchiveObjectAddress):
     """
-    Canonical member path scoped to one ZIP driver.
+    Carry a ZIP member path and the UUID owning its address space.
+
+    Inherited record construction performs basic text/identity validation without applying ZIP key,
+    encoding, or depth limits. Driver checks distinguish this type from other archive-address
+    classes.
 
     Example:
         >>> ZipObjectAddress("books/novel.epub", UUID(int=1)).value
@@ -99,10 +109,16 @@ class ZipObjectAddress(ArchiveObjectAddress):
 
 class ZipStorageDriver(StorageDriverAPI[ZipObjectAddress]):
     """
-    Read and completely enumerate regular files in one ZIP archive.
+    Expose a bounded regular-file view of an existing local ZIP archive.
+
+    Indexing validates names, topology, declared expansion bounds, and selected headers. Body
+    decompression and CRC failures can still appear during reads. Versions describe the whole
+    archive through filesystem metadata. Index access is locked, while returned readers own
+    independently opened archives.
 
     Example:
-        >>> driver = ZipStorageDriver(path, address_space_uuid=UUID(int=1))  # doctest: +SKIP
+        >>> driver = ZipStorageDriver("books.zip", address_space_uuid=UUID(int=1))  # doctest: +SKIP
+        >>> info = driver.stat(driver.parse_object_address("book.epub"))  # doctest: +SKIP
     """
 
     backend_label = "ZIP"
@@ -120,21 +136,25 @@ class ZipStorageDriver(StorageDriverAPI[ZipObjectAddress]):
         max_central_directory_bytes: int = DEFAULT_MAX_ZIP_CENTRAL_DIRECTORY_BYTES,
     ) -> None:
         """
-        Configure bounded reads for one existing ZIP archive.
+        Resolve an existing regular archive path and initialize validated limits and an empty cache.
+
+        The regular-file check precedes numeric validation; construction does not parse the ZIP.
+        Positive count/byte/depth values are converted to int after their lower-bound checks. The
+        initial status remains unavailable until a successful probe.
 
         Example:
-            >>> driver = ZipStorageDriver(path, address_space_uuid=UUID(int=1))  # doctest: +SKIP
+            >>> driver = ZipStorageDriver("books.zip", address_space_uuid=UUID(int=1), max_member_bytes=1024)  # doctest: +SKIP
 
 
-        :param archive_path:
-        :param address_space_uuid:
-        :param max_inventory_entries:
-        :param max_member_bytes:
-        :param max_depth:
-        :param max_total_uncompressed_bytes:
-        :param max_compression_ratio:
-        :param max_central_directory_bytes:
-        :return:
+        :param archive_path: Local archive filename, expanded and resolved without requiring every path component to exist.
+        :param address_space_uuid: UUID used with ZipObjectAddress type checks to own member addresses.
+        :param max_inventory_entries: Positive maximum entry count, including directories, checked before allocating the full ZIP inventory.
+        :param max_member_bytes: Positive uncompressed-byte limit per regular member; the total-byte limit can lower the effective cap.
+        :param max_depth: Positive maximum number of slash-separated member-key components.
+        :param max_total_uncompressed_bytes: Positive maximum sum of declared regular-member uncompressed sizes.
+        :param max_compression_ratio: Finite ratio of at least one bounding each positive-size regular member against its compressed size.
+        :param max_central_directory_bytes: Positive maximum declared central-directory byte size accepted by preflight.
+        :return: None after configuring ownership, limits, the index lock, and initial status.
         """
 
         self._archive_path = pathlib.Path(archive_path).expanduser().resolve(strict=False)
@@ -185,13 +205,14 @@ class ZipStorageDriver(StorageDriverAPI[ZipObjectAddress]):
     @property
     def archive_path(self) -> pathlib.Path:
         """
-        Return the resolved local ZIP path.
+        Return the local path resolved during construction without checking it again.
 
         Example:
-            >>> driver.archive_path  # doctest: +SKIP
+            >>> driver.archive_path.is_absolute()  # doctest: +SKIP
+            True
 
 
-        :return:
+        :return: Resolved Path naming the ZIP container.
         """
 
         return self._archive_path
@@ -199,13 +220,15 @@ class ZipStorageDriver(StorageDriverAPI[ZipObjectAddress]):
     @property
     def object_address_checker(self):
         """
-        Return the checker that enforces ZIP address type and Store scope.
+        Expose the checker requiring ZIP address type and this driver's UUID.
+
+        Checking a typed record does not reparse its member path.
 
         Example:
-            >>> driver.object_address_checker  # doctest: +SKIP
+            >>> driver.object_address_checker.address_space_uuid  # doctest: +SKIP
 
 
-        :return:
+        :return: Retained scoped checker for ZipObjectAddress values.
         """
 
         return self._checker
@@ -213,14 +236,16 @@ class ZipStorageDriver(StorageDriverAPI[ZipObjectAddress]):
     @property
     def root_uri(self) -> str:
         """
-        Return the archive's local file URI.
+        Render the resolved container path as a file URI.
+
+        This root label does not enable parsing external member URIs.
 
         Example:
             >>> driver.root_uri.startswith("file:")  # doctest: +SKIP
             True
 
 
-        :return:
+        :return: File URI of the container path, without a member suffix.
         """
 
         return self._archive_path.as_uri()
@@ -228,14 +253,16 @@ class ZipStorageDriver(StorageDriverAPI[ZipObjectAddress]):
     @property
     def capabilities(self) -> DriverCapabilities:
         """
-        Advertise complete, conditional, ranged ZIP reads.
+        Describe range/conditional reads, complete hierarchical inventory, and concurrency.
+
+        These are implementation capabilities, independent of the most recent probe. External
+        address URI parsing/rendering is not advertised.
 
         Example:
-            >>> driver.capabilities.range_reads  # doctest: +SKIP
-            True
+            >>> driver.capabilities.conditional_read  # doctest: +SKIP
 
 
-        :return:
+        :return: Read-only driver capabilities with four concurrent reads and thread-safe operation advertised.
         """
 
         return DriverCapabilities(
@@ -254,14 +281,17 @@ class ZipStorageDriver(StorageDriverAPI[ZipObjectAddress]):
     @property
     def storage_characteristics(self) -> StorageCharacteristics:
         """
-        Describe the read-only ZIP limits and unsupported member features.
+        Describe the read-only projection, object/path bounds, and unsupported ZIP features.
+
+        The exposed component-byte ceiling reflects ZIP's name field, while parsing enforces that
+        byte limit on the entire key. Nested archive expansion budgets remain the caller's
+        responsibility.
 
         Example:
-            >>> driver.storage_characteristics.publication_model  # doctest: +SKIP
-            <StoragePublicationModel.READ_ONLY: 'read_only'>
+            >>> driver.storage_characteristics.max_object_bytes  # doctest: +SKIP
 
 
-        :return:
+        :return: Characteristics with no publication or staging requirement and the effective member-size cap.
         """
 
         return StorageCharacteristics(
@@ -299,28 +329,32 @@ class ZipStorageDriver(StorageDriverAPI[ZipObjectAddress]):
 
     def startup(self) -> DriverStatus:
         """
-        Validate the archive and return its current operational status.
+        Run the current probe implementation and return its result.
+
+        Writable subclasses use their own probe through this dispatch.
 
         Example:
             >>> driver.startup().available  # doctest: +SKIP
             True
 
 
-        :return:
+        :return: Status returned by probe; probe failures propagate.
         """
 
         return self.probe()
 
     def probe(self) -> DriverStatus:
         """
-        Re-index the ZIP and report projection warnings.
+        Force an index rebuild and cache a successful availability snapshot.
+
+        Inspection loss reasons become warnings. Failures propagate rather than storing an
+        unavailable status, so status() can retain an earlier snapshot after a failed probe.
 
         Example:
             >>> driver.probe().object_count  # doctest: +SKIP
-            1
 
 
-        :return:
+        :return: Available, non-writable status with indexed regular-file count and configured ZIP limits.
         """
 
         index = self._get_index(force=True)
@@ -347,27 +381,30 @@ class ZipStorageDriver(StorageDriverAPI[ZipObjectAddress]):
 
     def status(self) -> DriverStatus:
         """
-        Return the most recently observed ZIP status.
+        Return the last successful probe result, or the initial unavailable snapshot.
+
+        No filesystem access, freshness check, or probe is performed.
 
         Example:
-            >>> driver.status().available  # doctest: +SKIP
-            True
+            >>> status = driver.status()  # doctest: +SKIP
 
 
-        :return:
+        :return: Cached DriverStatus, which may no longer describe the current container.
         """
 
         return self._last_status
 
     def close(self) -> None:
         """
-        Complete lifecycle cleanup; each read owns its archive handle.
+        Finish the driver lifecycle hook without changing cached state or closing readers.
+
+        Each open reader owns its containing archive and must be closed by its caller.
 
         Example:
             >>> driver.close()  # doctest: +SKIP
 
 
-        :return:
+        :return: None; this hook performs no cleanup work.
         """
 
         return None
@@ -377,15 +414,19 @@ class ZipStorageDriver(StorageDriverAPI[ZipObjectAddress]):
         identifier: DriverObjectAddressInput[ZipObjectAddress],
     ) -> ZipObjectAddress:
         """
-        Validate one canonical member path in this ZIP address space.
+        Check an existing typed address or validate text as a relative ZIP member key.
+
+        Typed records undergo ownership/type checks without reparsing. Other identifiers use
+        canonical path validation, the configured depth cap, and the 65,535-byte
+        UTF-8/surrogateescape name limit. Parsing does not require the member to exist.
 
         Example:
-            >>> str(driver.parse_object_address("books/novel.epub"))  # doctest: +SKIP
-            'books/novel.epub'
+            >>> driver.parse_object_address("books/雪.epub").value  # doctest: +SKIP
+            'books/雪.epub'
 
 
-        :param identifier:
-        :return:
+        :param identifier: Owned ZIP address or member-key text; external URI decoding is not performed.
+        :return: Owned ZipObjectAddress for the supplied member key.
         """
 
         if isinstance(identifier, DriverObjectAddress):
@@ -400,15 +441,18 @@ class ZipStorageDriver(StorageDriverAPI[ZipObjectAddress]):
 
     def join_object_address(self, *tokens: str) -> ZipObjectAddress:
         """
-        Join ZIP path components without weakening canonical validation.
+        Join one or more stringified key fragments with slashes, then parse the result.
+
+        Fragments are not trimmed or normalized before validation; empty fragments can therefore
+        produce an invalid key.
 
         Example:
-            >>> str(driver.join_object_address("books", "novel.epub"))  # doctest: +SKIP
+            >>> driver.join_object_address("books", "novel.epub").value  # doctest: +SKIP
             'books/novel.epub'
 
 
-        :param tokens:
-        :return:
+        :param tokens: One or more member-key fragments, in path order.
+        :return: Owned ZIP address; an empty argument list or invalid combined key raises StorageInvalidAddress.
         """
 
         if not tokens:
@@ -420,15 +464,14 @@ class ZipStorageDriver(StorageDriverAPI[ZipObjectAddress]):
         object_address: ZipObjectAddress,
     ) -> DriverObjectInfo[ZipObjectAddress]:
         """
-        Return indexed member size, timestamp, version, and hints.
+        Look up an owned member in a current index snapshot without reading its body.
 
         Example:
-            >>> driver.stat(address).size  # doctest: +SKIP
-            42
+            >>> info = driver.stat(driver.parse_object_address("book.epub"))  # doctest: +SKIP
 
 
-        :param object_address:
-        :return:
+        :param object_address: Owned ZipObjectAddress selecting a regular member.
+        :return: Indexed size/time, archive-wide version, and hints; a missing key raises StorageNotFound.
         """
 
         checked = self.check_object_address(object_address)
@@ -447,19 +490,24 @@ class ZipStorageDriver(StorageDriverAPI[ZipObjectAddress]):
         if_version: str | None = None,
     ) -> BinaryIO:
         """
-        Open an exact member range tied to the containing ZIP version.
+        Open an owned member range against an archive-wide version condition.
+
+        Ownership, nonnegative ranges, current inventory, member existence, and the optional version
+        are checked before zero-length or past-EOF reads return an empty BytesIO. Nonempty reads
+        reopen the archive and compare descriptor metadata with the index signature. The returned
+        buffered reader owns both member and archive. Its offset-positioning construction follows
+        the archive-open error guard, so a positioning failure has no explicit cleanup guard here.
 
         Example:
-            >>> with driver.open_read(address, offset=2, length=4) as source:  # doctest: +SKIP
-            ...     source.read()
-            b'book'
+            >>> with driver.open_read(address, offset=10, length=20, if_version=info.version) as stream:  # doctest: +SKIP
+            ...     payload = stream.read()
 
 
-        :param object_address:
-        :param offset:
-        :param length:
-        :param if_version:
-        :return:
+        :param object_address: Owned address of the regular member to read.
+        :param offset: Nonnegative member byte offset; offsets at or beyond indexed size produce an empty stream.
+        :param length: Nonnegative maximum byte count, clipped to the indexed remainder, or None for all remaining bytes.
+        :param if_version: Required archive-wide version token, or None to omit that precondition.
+        :return: Caller-owned binary stream; body corruption and source failures may be reported during later reads.
         """
 
         checked = self.check_object_address(object_address)
@@ -504,14 +552,17 @@ class ZipStorageDriver(StorageDriverAPI[ZipObjectAddress]):
         prefix: ZipObjectAddress | None = None,
     ) -> Iterator[DriverInventoryEntry[ZipObjectAddress]]:
         """
-        Yield the complete regular-file ZIP inventory under an optional prefix.
+        Yield sorted regular-member observations from one index/signature snapshot.
+
+        A prefix includes its exact key and descendants separated by slash, rather than arbitrary
+        lexical matches. No member body is read or hashed during enumeration.
 
         Example:
-            >>> list(driver.iter_inventory())  # doctest: +SKIP
+            >>> keys = [str(item.object_address) for item in driver.iter_inventory()]  # doctest: +SKIP
 
 
-        :param prefix:
-        :return:
+        :param prefix: Owned ZIP address restricting the exact key and its descendants, or None for the entire index.
+        :return: Iterator of size/time/version observations and hints for the selected regular members.
         """
 
         prefix_key = None if prefix is None else str(self.check_object_address(prefix))
@@ -536,16 +587,19 @@ class ZipStorageDriver(StorageDriverAPI[ZipObjectAddress]):
         signature: ArchiveSignature,
     ) -> DriverObjectInfo[ZipObjectAddress]:
         """
-        Project one indexed ZIP member into driver metadata.
+        Project one indexed member into public driver information.
+
+        Filename and MIME hints derive from the key. The ZIP format and member metadata are
+        observations; no body read or fresh filesystem check occurs.
 
         Example:
             >>> info = driver._info(address, entry, signature)  # doctest: +SKIP
 
 
-        :param address:
-        :param entry:
-        :param signature:
-        :return:
+        :param address: Member address to attach to the information record.
+        :param entry: Indexed size/time and metadata for that member.
+        :param signature: Whole-container metadata signature used to render the version.
+        :return: DriverObjectInfo containing the supplied address and indexed facts.
         """
 
         return DriverObjectInfo(
@@ -562,14 +616,19 @@ class ZipStorageDriver(StorageDriverAPI[ZipObjectAddress]):
 
     def _get_index(self, *, force: bool = False) -> dict[str, ArchiveEntry]:
         """
-        Return a current index, rebuilding it when the ZIP identity changes.
+        Return a shallow index copy, rebuilding when forced or container metadata changes.
+
+        An instance lock covers cache access, parsing, and the before/after stat comparison. A
+        changed signature during indexing raises StorageUnavailable. Only a successful build
+        replaces cached index, inspection, and signature; entries in returned copies remain shared
+        records. Metadata comparison does not pin file contents or exclude all external races.
 
         Example:
-            >>> driver._get_index()  # doctest: +SKIP
+            >>> index = driver._get_index(force=True)  # doctest: +SKIP
 
 
-        :param force:
-        :return:
+        :param force: True to parse even when the current filesystem signature matches the cached one.
+        :return: New dictionary mapping canonical regular-member keys to retained ArchiveEntry records.
         """
 
         with self._index_lock:
@@ -609,13 +668,21 @@ class ZipStorageDriver(StorageDriverAPI[ZipObjectAddress]):
 
     def _build_index(self) -> tuple[dict[str, ArchiveEntry], ArchiveInspection]:
         """
-        Parse and validate the bounded regular-file ZIP projection.
+        Preflight the ZIP directory and construct its validated regular-member projection.
+
+        Reject ambiguous/truncated names, conflicting topology, duplicate header offsets,
+        unsupported file kinds, encrypted regular members, unsupported compression, and declared
+        expansion excesses. Explicit directories are counted after their kind/size checks and
+        omitted from the projection. Regular-member comments, extra fields, permissions, and the
+        archive comment become rebuild-loss reasons. Opening and immediately closing each regular
+        member checks its local header without reading the body or validating its CRC. Selected
+        parser/encoding/I/O failures are translated to storage errors.
 
         Example:
             >>> index, inspection = driver._build_index()  # doctest: +SKIP
 
 
-        :return:
+        :return: Pair of a new regular-member dictionary and its inspection; cached driver state is not updated here.
         """
 
         declared_entries, _central_directory_bytes = self._preflight_directory()
@@ -838,7 +905,20 @@ class ZipStorageDriver(StorageDriverAPI[ZipObjectAddress]):
         )
 
     def _preflight_directory(self) -> tuple[int, int]:
-        """Read only the ZIP end records before allocating the central directory."""
+        """
+        Bound declared directory size/count and compare it with a fixed-header scan.
+
+        The stdlib end-record parser supplies directory location and counts before ZipFile creates
+        its full inventory. Negative declarations, invalid end records, multi-disk layouts, and
+        mismatching counts are rejected. This is directory preflight, not decompression or full
+        member-body validation.
+
+        Example:
+            >>> entries, directory_bytes = driver._preflight_directory()  # doctest: +SKIP
+
+
+        :return: Declared entry count and central-directory byte size after bounds and scanned-count checks.
+        """
 
         try:
             with self._archive_path.open("rb") as stream:
@@ -946,7 +1026,22 @@ class ZipStorageDriver(StorageDriverAPI[ZipObjectAddress]):
         directory_end: int,
         directory_size: int,
     ) -> int:
-        """Count bounded central-directory records without allocating their names."""
+        """
+        Count central-directory records using fixed headers and bounded seeks.
+
+        The scan starts at directory_end minus directory_size. Each 46-byte header must have the ZIP
+        directory signature; its variable fields must fit the declared remaining span. Variable
+        payloads are skipped without allocation or content validation. The entry cap is checked as
+        records are counted.
+
+        Example:
+            >>> count = driver._scan_central_directory(directory_end=end, directory_size=size)  # doctest: +SKIP
+
+
+        :param directory_end: File offset used as the end of the declared central-directory span.
+        :param directory_size: Declared byte length of the span to scan.
+        :return: Number of complete record headers in that span, or a translated I/O/integrity/policy failure.
+        """
 
         directory_start = directory_end - directory_size
         if directory_start < 0:
@@ -1017,7 +1112,24 @@ class ZipStorageDriver(StorageDriverAPI[ZipObjectAddress]):
         implicit_directory_keys: set[str],
         operation: str,
     ) -> None:
-        """Reject duplicate names and file/directory overwrite aliases."""
+        """
+        Reject duplicate and file/directory aliases, then update the shared topology sets.
+
+        Parents cannot already be files, and a new file cannot replace an implicit directory. All
+        checks precede updates for this member. Canonical syntax validation belongs to the caller.
+
+        Example:
+            >>> driver._record_member_topology("books/a.epub", is_directory=False, seen_keys={}, file_keys=set(), implicit_directory_keys=set(), operation="build inventory")  # doctest: +SKIP
+
+
+        :param key: Already canonical member key, without a directory's trailing slash.
+        :param is_directory: Whether this entry is an explicit directory rather than a file.
+        :param seen_keys: Mutable map of previously encountered keys to file/directory labels.
+        :param file_keys: Mutable set of previous file keys.
+        :param implicit_directory_keys: Mutable set of ancestor keys required by previous entries.
+        :param operation: Operation label included in integrity diagnostics.
+        :return: None after adding this entry and its ancestors; conflicting topology raises StorageIntegrityError.
+        """
 
         kind = "directory" if is_directory else "file"
         previous_kind = seen_keys.get(key)
@@ -1059,7 +1171,22 @@ class ZipStorageDriver(StorageDriverAPI[ZipObjectAddress]):
         info: zipfile.ZipInfo,
         key: str,
     ) -> None:
-        """Validate local-header identity and overlap without expanding content."""
+        """
+        Open and close one member to check its local header through zipfile.
+
+        No payload is read, so this does not prove CRC integrity. Unsupported implementations and
+        selected runtime/BadZipFile failures receive storage exceptions; OSErrors are left for the
+        outer index-building guard.
+
+        Example:
+            >>> driver._validate_local_header(archive, info, "book.epub")  # doctest: +SKIP
+
+
+        :param archive: Open ZipFile whose inventory contains the member.
+        :param info: ZipInfo passed to archive.open for local-header checks.
+        :param key: Canonical member key used in diagnostics.
+        :return: None after the member handle opens and closes successfully.
+        """
 
         try:
             with archive.open(info, "r"):
@@ -1085,13 +1212,14 @@ class ZipStorageDriver(StorageDriverAPI[ZipObjectAddress]):
         self,
     ) -> tuple[dict[str, ArchiveEntry], ArchiveSignature, ArchiveInspection]:
         """
-        Capture an index, archive identity, and rebuild inspection together.
+        Obtain a current index copy and its matching cached signature and inspection under the index
+        lock.
 
         Example:
             >>> index, signature, inspection = driver._index_snapshot()  # doctest: +SKIP
 
 
-        :return:
+        :return: Tuple of shallow index copy, non-None archive signature, and retained inspection record.
         """
 
         with self._index_lock:
@@ -1106,15 +1234,20 @@ class ZipStorageDriver(StorageDriverAPI[ZipObjectAddress]):
         if_version: str | None,
     ) -> zipfile.ZipFile:
         """
-        Open the same ZIP file identity used to build the index.
+        Open a ZIP reader and compare its descriptor signature with the supplied snapshot.
+
+        ZipFile parses its directory before the descriptor check. A mismatch closes the archive and
+        raises a precondition failure when a version was requested, otherwise unavailability.
+        Matching metadata does not prevent later in-place mutation. The opening guard translates
+        selected failures without an explicit close for an archive whose later fstat fails.
 
         Example:
-            >>> archive = driver._open_verified_archive(signature, if_version=None)  # doctest: +SKIP
+            >>> archive = driver._open_verified_archive(signature, if_version=version)  # doctest: +SKIP
 
 
-        :param signature:
-        :param if_version:
-        :return:
+        :param signature: Expected filesystem identity/change tuple for the indexed container.
+        :param if_version: Non-None when the caller requested a version precondition; only presence selects mismatch classification here.
+        :return: Open ZipFile owned by the caller after a matching descriptor signature.
         """
 
         try:
@@ -1142,16 +1275,20 @@ class ZipStorageDriver(StorageDriverAPI[ZipObjectAddress]):
         key: str | None,
     ) -> BaseException:
         """
-        Convert ZIP and OS failures into contextual storage errors.
+        Construct a storage exception for an archive/member operation.
+
+        OSErrors use shared filesystem translation, NotImplementedError becomes unsupported
+        operation, and other exceptions become integrity errors. This helper returns the exception
+        rather than raising it.
 
         Example:
-            >>> translated = driver._translate_archive_error(zipfile.BadZipFile(), operation="read", key=None)  # doctest: +SKIP
+            >>> error = driver._translate_archive_error(zipfile.BadZipFile("bad"), operation="read", key="book.epub")  # doctest: +SKIP
 
 
-        :param error:
-        :param operation:
-        :param key:
-        :return:
+        :param error: Underlying exception to classify.
+        :param operation: Operation label attached to diagnostics.
+        :param key: Member key to append to the archive target, or None for a container operation.
+        :return: Translated exception instance ready for the caller to raise.
         """
 
         if isinstance(error, OSError):
@@ -1171,17 +1308,18 @@ class ZipStorageDriver(StorageDriverAPI[ZipObjectAddress]):
 
     def _failure(self, operation: str, key: str | None, reason: str) -> str:
         """
-        Build one safe ZIP operation failure message.
+        Format a backend operation failure with the container or container/member target.
+
+        The shared formatter supplies its selective sensitive-text filtering.
 
         Example:
-            >>> "ZIP" in driver._failure("read", "book", "bad")  # doctest: +SKIP
-            True
+            >>> message = driver._failure("read", "book.epub", "member is missing")  # doctest: +SKIP
 
 
-        :param operation:
-        :param key:
-        :param reason:
-        :return:
+        :param operation: Action that failed.
+        :param key: Member key for an archive::member target, or None for the archive alone.
+        :param reason: Human-readable cause passed to the shared formatter.
+        :return: Formatted diagnostic text.
         """
 
         target = self._archive_path if key is None else f"{self._archive_path}::{key}"
@@ -1195,10 +1333,19 @@ class ZipStorageDriver(StorageDriverAPI[ZipObjectAddress]):
 
 class WritableZipStorageDriver(ZipStorageDriver):
     """
-    Mutate ZIP archives through verified atomic whole-file rebuilds.
+    Publish ZIP member mutations by rebuilding and replacing the whole container.
+
+    Mutations stage beside the archive, validate the candidate inventory, and check the prior
+    filesystem signature before replacement. The instance lock and separate stat/replace calls do
+    not provide cross-process compare-and-swap. Replacement can succeed before final re-indexing or
+    stat fails. Rebuilds normalize metadata and may require explicit permission to discard inspected
+    features.
 
     Example:
-        >>> driver = WritableZipStorageDriver(path, address_space_uuid=UUID(int=1))  # doctest: +SKIP
+        >>> driver = WritableZipStorageDriver("books.zip", address_space_uuid=UUID(int=1), deterministic=True)  # doctest: +SKIP
+        >>> with driver.begin_write(driver.parse_object_address("book.epub")) as session:  # doctest: +SKIP
+        ...     session.write(b"book")
+        ...     info = session.commit()
     """
 
     def __init__(
@@ -1220,27 +1367,32 @@ class WritableZipStorageDriver(ZipStorageDriver):
         max_central_directory_bytes: int = DEFAULT_MAX_ZIP_CENTRAL_DIRECTORY_BYTES,
     ) -> None:
         """
-        Configure a ZIP writer that publishes verified whole-archive rebuilds.
+        Configure rebuild policy, optionally create an empty ZIP, and initialize the read driver.
+
+        Compression and level validation precede creation. Allocation-prefix and inherited numeric
+        validation follow creation, so invalid later options can leave a new empty archive or parent
+        directories. An existing archive is not indexed during construction. The mutation lock
+        serializes writes through this instance only.
 
         Example:
-            >>> driver = WritableZipStorageDriver(path, address_space_uuid=UUID(int=1))  # doctest: +SKIP
+            >>> driver = WritableZipStorageDriver("books.zip", address_space_uuid=UUID(int=1), compression="stored")  # doctest: +SKIP
 
 
-        :param archive_path:
-        :param address_space_uuid:
-        :param create_archive:
-        :param compression:
-        :param compresslevel:
-        :param deterministic:
-        :param allow_lossy_rebuild:
-        :param allocation_prefix:
-        :param max_inventory_entries:
-        :param max_member_bytes:
-        :param max_depth:
-        :param max_total_uncompressed_bytes:
-        :param max_compression_ratio:
-        :param max_central_directory_bytes:
-        :return:
+        :param archive_path: Local archive filename, expanded and resolved without requiring every path component to exist.
+        :param address_space_uuid: UUID used with ZipObjectAddress type checks to own member addresses.
+        :param create_archive: Whether to create a missing archive and its parent directories; an existing path is retained.
+        :param compression: Stored, deflated, bzip2, or lzma, normalized by stripping whitespace and lowercasing.
+        :param compresslevel: None for the library default; deflated accepts -1 through 9, bzip2 accepts 1 through 9, and stored/lzma require None.
+        :param deterministic: Whether to use the fixed 1980 timestamp; all rebuilds sort keys and normalize regular-file attributes.
+        :param allow_lossy_rebuild: Whether inspection loss reasons permit normalization; unsafe or unsupported members remain rejected by indexing.
+        :param allocation_prefix: Canonical relative key prefix used for suggested new member addresses.
+        :param max_inventory_entries: Positive maximum entry count, including directories, checked before allocating the full ZIP inventory.
+        :param max_member_bytes: Positive uncompressed-byte limit per regular member; the total-byte limit can lower the effective cap.
+        :param max_depth: Positive maximum number of slash-separated member-key components.
+        :param max_total_uncompressed_bytes: Positive maximum sum of declared regular-member uncompressed sizes.
+        :param max_compression_ratio: Finite ratio of at least one bounding each positive-size regular member against its compressed size.
+        :param max_central_directory_bytes: Positive maximum declared central-directory byte size accepted by preflight.
+        :return: None after configuring read/index and whole-archive mutation state.
         """
 
         path = pathlib.Path(archive_path).expanduser().resolve(strict=False)
@@ -1307,14 +1459,18 @@ class WritableZipStorageDriver(ZipStorageDriver):
     @property
     def capabilities(self) -> DriverCapabilities:
         """
-        Add atomic staged mutation to the ZIP read capabilities.
+        Advertise create/replace/delete, allocation, and whole-container atomic publication.
+
+        Conditional reads/deletes use archive-wide versions. Reads may run concurrently, while
+        concurrent writes are not advertised. Capabilities do not establish that the current archive
+        passes rebuild inspection or parent writability checks.
 
         Example:
             >>> driver.capabilities.atomic_publish  # doctest: +SKIP
             True
 
 
-        :return:
+        :return: Writable ZIP capabilities with thread-safe use and four parallel reads recommended.
         """
 
         return DriverCapabilities(
@@ -1340,14 +1496,17 @@ class WritableZipStorageDriver(ZipStorageDriver):
     @property
     def storage_characteristics(self) -> StorageCharacteristics:
         """
-        Advertise whole-archive ZIP rebuild cost and normalization.
+        Describe whole-store rebuild cost, metadata normalization, and archive policy limits.
+
+        Mutation requires space for a store copy and suits archival snapshots. Unmodelled metadata
+        is not preserved; nested decompression budgets remain external to this driver.
 
         Example:
             >>> driver.storage_characteristics.publication_model  # doctest: +SKIP
             <StoragePublicationModel.WHOLE_STORE_REBUILD: 'whole_store_rebuild'>
 
 
-        :return:
+        :return: Whole-store-rebuild characteristics with effective member/path bounds and declared normalization limitations.
         """
 
         return StorageCharacteristics(
@@ -1391,14 +1550,19 @@ class WritableZipStorageDriver(ZipStorageDriver):
 
     def probe(self) -> DriverStatus:
         """
-        Report whether inspection and filesystem policy permit ZIP mutation.
+        Re-index the archive, inspect rebuild loss, and try creating a sibling probe file.
+
+        The parent probe runs even when loss policy already blocks mutation. A successful snapshot
+        is available and writable only when inspection has no loss reasons or lossy rebuilding is
+        enabled. Failures propagate without replacing cached status; successful temporary-file
+        creation does not prove later replacement will succeed.
 
         Example:
-            >>> driver.probe().writable  # doctest: +SKIP
-            True
+            >>> status = driver.probe()  # doctest: +SKIP
+            >>> status.writable  # doctest: +SKIP
 
 
-        :return:
+        :return: Cached success status with member count, rebuild warnings, and configured writer limits.
         """
 
         index = self._get_index(force=True)
@@ -1448,18 +1612,22 @@ class WritableZipStorageDriver(ZipStorageDriver):
         metadata: tuple[tuple[str, str], ...] = (),
     ) -> ArchiveWriteSession[ZipObjectAddress]:
         """
-        Begin a private ZIP member stage for explicit commit.
+        Validate write expectations and current rebuild policy, then open member staging.
+
+        Nonempty arbitrary metadata is unsupported. Digest algorithm support and current archive
+        inspection are checked before creating the shared session. Destination existence and the
+        create/replace collision policy are evaluated at commit, rather than reserved here.
 
         Example:
             >>> session = driver.begin_write(address, expected_size=4)  # doctest: +SKIP
 
 
-        :param object_address:
-        :param mode:
-        :param expected_size:
-        :param expected_digest:
-        :param metadata:
-        :return:
+        :param object_address: Owned ZIP destination address.
+        :param mode: WriteMode or convertible value selecting create/replace collision handling at commit.
+        :param expected_size: Exact accepted-byte total expected at commit, or None; negative or over-limit values are rejected.
+        :param expected_digest: Optional digest accumulated from accepted writes and compared before publication.
+        :param metadata: Extra metadata requests; only the empty tuple is supported.
+        :return: Open ArchiveWriteSession bounded by the effective member-size limit; caller must commit or abort it.
         """
 
         checked = self.check_object_address(object_address)
@@ -1492,16 +1660,21 @@ class WritableZipStorageDriver(ZipStorageDriver):
         if_version: str | None = None,
     ) -> None:
         """
-        Remove one member through a conditional atomic ZIP rebuild.
+        Rebuild the archive without one member under the instance mutation lock.
+
+        Rebuild policy is checked before member absence. A missing member with missing_ok returns
+        before checking if_version. Otherwise the version must match the current whole archive, and
+        retained members are reopened against that version during rebuilding. Failures after
+        replacement can leave the deletion published.
 
         Example:
-            >>> driver.delete(address, if_version=version)  # doctest: +SKIP
+            >>> driver.delete(address, if_version=info.version)  # doctest: +SKIP
 
 
-        :param object_address:
-        :param missing_ok:
-        :param if_version:
-        :return:
+        :param object_address: Owned ZIP member address to omit from the rebuilt container.
+        :param missing_ok: Whether absence is accepted after current rebuild-policy validation.
+        :param if_version: Required archive-wide version for an existing member, or None to omit the condition.
+        :return: None after publication, or after accepting a missing member.
         """
 
         checked = self.check_object_address(object_address)
@@ -1528,16 +1701,21 @@ class WritableZipStorageDriver(ZipStorageDriver):
         name_hint: str | None = None,
     ) -> ZipObjectAddress:
         """
-        Allocate a canonical ZIP member address without publishing it.
+        Suggest a member key from a digest or random identifier without reserving it.
+
+        Digest-based keys include algorithm, the first two digest characters, and the whole value.
+        Other keys combine a random UUID and selected filename hint. Final key parsing applies
+        normal ZIP bounds, but no existence, algorithm-support, or content verification is
+        performed.
 
         Example:
-            >>> driver.allocate_object_address(name_hint="novel.epub")  # doctest: +SKIP
+            >>> address = driver.allocate_object_address(name_hint="book.epub")  # doctest: +SKIP
 
 
-        :param expected_size:
-        :param expected_digest:
-        :param name_hint:
-        :return:
+        :param expected_size: Optional nonnegative anticipated byte count, checked against the effective member limit.
+        :param expected_digest: Digest used to form a deterministic key, or None for random allocation.
+        :param name_hint: Optional basename hint used only for random allocation.
+        :return: Owned ZipObjectAddress under the configured allocation prefix.
         """
 
         if expected_size is not None and expected_size < 0:
@@ -1567,17 +1745,22 @@ class WritableZipStorageDriver(ZipStorageDriver):
         mode: WriteMode,
     ) -> DriverObjectInfo[ZipObjectAddress]:
         """
-        Merge one verified member stage into an atomic ZIP rebuild.
+        Merge staged bytes with version-pinned retained members and publish under the mutation lock.
+
+        Current inspection, member-size policy, and mode-specific existence checks precede
+        rebuilding. The new source uses the supplied stage and current UTC time. Final stat occurs
+        after publication while still holding the lock, and can fail with the destination already
+        visible. The shared session normally provides an owned address and validated expectations.
 
         Example:
             >>> info = driver._commit_staged_member(address, path, size=4, mode=WriteMode.CREATE_ONLY)  # doctest: +SKIP
 
 
-        :param address:
-        :param staged_path:
-        :param size:
-        :param mode:
-        :return:
+        :param address: Destination supplied by the shared write session.
+        :param staged_path: Closed local file lazily opened as the replacement member source.
+        :param size: Declared staged byte count; copying later requires exactly this amount.
+        :param mode: Collision policy rejecting an existing create-only target or an absent replace target.
+        :return: Fresh driver information for the published member.
         """
 
         with self._mutation_lock:
@@ -1620,15 +1803,18 @@ class WritableZipStorageDriver(ZipStorageDriver):
         version: str,
     ) -> dict[str, ArchiveWriteSource]:
         """
-        Represent retained ZIP members as version-pinned streaming sources.
+        Wrap indexed members in lazy read sources carrying the current archive version.
+
+        Each callback captures its own key and opens a new version-conditioned reader when
+        rebuilding reaches that member. Constructing the map reads no payload bytes.
 
         Example:
             >>> sources = driver._existing_sources(index, version=version)  # doctest: +SKIP
 
 
-        :param index:
-        :param version:
-        :return:
+        :param index: Regular-member records supplying retained sizes and timestamps.
+        :param version: Whole-archive version required when each retained source is opened.
+        :return: New key-to-ArchiveWriteSource dictionary with independent lazy open callbacks.
         """
 
         return {
@@ -1650,15 +1836,23 @@ class WritableZipStorageDriver(ZipStorageDriver):
         expected_signature: ArchiveSignature,
     ) -> None:
         """
-        Build, validate, fsync, and atomically publish a complete ZIP.
+        Build, synchronize, validate, and replace the ZIP with the complete supplied member plan.
+
+        Keys are sorted, timestamps follow writer policy, and attributes become regular-file mode
+        0600. Every source must supply its declared bytes. A fresh read driver checks candidate
+        headers/inventory under the same limits; exact key/size equality is required, without a
+        second payload CRC pass. The current archive signature is checked before os.replace in a
+        separate operation. After replacement, directory fsync is best effort and forced re-indexing
+        may still fail with new bytes published. Finally cleanup attempts to remove a retained
+        unpublished candidate and close a retained descriptor.
 
         Example:
             >>> driver._publish_sources(sources, expected_signature=signature)  # doctest: +SKIP
 
 
-        :param sources:
-        :param expected_signature:
-        :return:
+        :param sources: Complete final member map; omitted old keys disappear and source streams are closed after copying.
+        :param expected_signature: Filesystem signature the original archive must still report immediately before replacement.
+        :return: None after replacement and successful re-indexing; an exception does not guarantee the old archive remains.
         """
 
         candidate: pathlib.Path | None = None
@@ -1755,7 +1949,20 @@ class WritableZipStorageDriver(ZipStorageDriver):
         self,
         sources: Mapping[str, ArchiveWriteSource],
     ) -> None:
-        """Reject oversized or path-conflicting rebuild plans before doing I/O."""
+        """
+        Check planned keys, topology, declared sizes, and total bytes before creating a candidate.
+
+        The plan must fit the entry cap and contain canonical regular-file keys without duplicates
+        or file/ancestor aliases. Sources are not opened here; actual compression ratio, candidate
+        directory size, and byte counts are checked later.
+
+        Example:
+            >>> driver._validate_source_plan(sources)  # doctest: +SKIP
+
+
+        :param sources: Complete key-to-source map proposed for the rebuilt archive.
+        :return: None when the declared plan satisfies key, entry, member, and total-byte policy.
+        """
 
         if len(sources) > self._max_inventory_entries:
             raise StorageUnsupportedOperation(
@@ -1813,13 +2020,13 @@ class WritableZipStorageDriver(ZipStorageDriver):
                 )
     def _inspection_for_current_archive(self) -> ArchiveInspection:
         """
-        Return rebuild-loss evidence for the current ZIP identity.
+        Refresh the index as needed and return its corresponding rebuild inspection.
 
         Example:
-            >>> driver._inspection_for_current_archive()  # doctest: +SKIP
+            >>> inspection = driver._inspection_for_current_archive()  # doctest: +SKIP
 
 
-        :return:
+        :return: Inspection from a current index/signature snapshot; index failures propagate.
         """
 
         _index, _signature, inspection = self._index_snapshot()
@@ -1827,14 +2034,16 @@ class WritableZipStorageDriver(ZipStorageDriver):
 
     def _require_safe_rebuild(self, inspection: ArchiveInspection) -> None:
         """
-        Enforce explicit opt-in before a normalizing ZIP conversion.
+        Reject reported rebuild loss unless the configured lossy-rebuild option permits it.
+
+        Allowing normalization does not bypass the indexer's rejection of unsafe members.
 
         Example:
             >>> driver._require_safe_rebuild(ArchiveInspection())  # doctest: +SKIP
 
 
-        :param inspection:
-        :return:
+        :param inspection: Current archive features and metadata reasons collected by indexing.
+        :return: None when loss reasons are absent or allowed; otherwise raises StorageUnsupportedOperation.
         """
 
         reasons = inspection.rebuild_loss_reasons
@@ -1852,14 +2061,19 @@ class WritableZipStorageDriver(ZipStorageDriver):
 
 def _create_empty_zip(target: pathlib.Path) -> None:
     """
-    Create an empty ZIP through a private sibling without replacing a race.
+    Create and fsync an empty sibling ZIP, then link it into a previously absent target.
+
+    A target that appears before linking is retained without validating its contents here. The
+    parent must exist. Candidate removal or later work can fail after the link publishes the target;
+    cleanup does not roll it back. Candidate tracking begins after closing mkstemp's descriptor, so
+    a failure at that earlier close is outside candidate cleanup.
 
     Example:
         >>> _create_empty_zip(path)  # doctest: +SKIP
 
 
-    :param target:
-    :return:
+    :param target: Local destination path for the empty archive.
+    :return: None after publication or acceptance of an already existing target; selected creation failures are translated.
     """
 
     candidate: pathlib.Path | None = None
@@ -1908,15 +2122,18 @@ def _create_empty_zip(target: pathlib.Path) -> None:
 
 def _zip_datetime(info: zipfile.ZipInfo) -> datetime | None:
     """
-    Convert a ZIP DOS timestamp into an aware UTC datetime.
+    Interpret a member's DOS date/time tuple as UTC, returning None for invalid fields.
+
+    The ZIP timestamp has no zone; attaching UTC is this driver's convention rather than a
+    local-time conversion.
 
     Example:
-        >>> _zip_datetime(zipfile.ZipInfo("book")) is not None
+        >>> _zip_datetime(zipfile.ZipInfo("book")) == datetime(1980, 1, 1, tzinfo=timezone.utc)
         True
 
 
-    :param info:
-    :return:
+    :param info: ZipInfo supplying the six date_time fields.
+    :return: Aware UTC datetime, or None when construction raises TypeError or ValueError.
     """
 
     try:
@@ -1927,15 +2144,19 @@ def _zip_datetime(info: zipfile.ZipInfo) -> datetime | None:
 
 def _zip_timestamp(value: datetime | None) -> tuple[int, int, int, int, int, int]:
     """
-    Clamp a datetime into ZIP's representable DOS timestamp range.
+    Choose six writer timestamp fields, converting aware values to UTC and clamping the year.
+
+    None uses current UTC time. Naive values retain their wall-clock fields. Only the year is
+    clamped to 1980 through 2107; other fields are copied, without independent leap-day repair or
+    DOS-second rounding.
 
     Example:
-        >>> _zip_timestamp(datetime(1970, 1, 1, tzinfo=timezone.utc))[0]
-        1980
+        >>> _zip_timestamp(datetime(1970, 1, 1, tzinfo=timezone.utc))
+        (1980, 1, 1, 0, 0, 0)
 
 
-    :param value:
-    :return:
+    :param value: Member datetime, or None for the current UTC time.
+    :return: Year, month, day, hour, minute, and second tuple for ZipInfo.
     """
 
     if value is None:

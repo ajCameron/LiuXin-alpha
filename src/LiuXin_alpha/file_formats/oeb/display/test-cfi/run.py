@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Run retained CFI display tests against an OEB document.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise run through a consuming regression::
+
+        python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -23,6 +34,18 @@ except ImportError:
 
 
 def run_devel_server() -> None:
+    """
+    Perform the run devel server operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise run devel server through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     os.chdir(os.path.dirname(os.path.abspath(__file__)))
     serve(resources={"cfi.coffee": "../cfi.coffee", "/": "index.html"})
 

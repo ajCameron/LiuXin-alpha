@@ -1,1 +1,3 @@
-"""Schema-aware generic relation writers for the shared cache."""
+"""
+Collect legacy generic cache writers for scalar and relation field shapes.
+"""

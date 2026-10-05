@@ -1,5 +1,16 @@
 # -*- coding: utf-8 -*-
 
+"""
+Convert PDB content from the normalized ebook conversion pipeline.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise pdb output through a consuming regression::
+
+        python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -18,6 +29,14 @@ __docformat__ = "restructuredtext en"
 
 class PDBOutput(OutputFormatPlugin):
 
+    """
+    Provide the pdboutput contract for validated ebook processing.
+
+    Example:
+        Exercise PDBOutput through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+    """
     name = "PDB Output"
     author = "John Schember"
     file_type = "pdb"
@@ -54,12 +73,20 @@ class PDBOutput(OutputFormatPlugin):
     def convert(self: _typing.Self, oeb_book: _typing.Any, output_path: _typing.Any, input_plugin: _typing.Any, opts: _typing.Any, log: _typing.Any) -> None:
         """
         Will write out as PalmDoc.
-        :param oeb_book: OEBBook for conversion
-        :param output_path: File to write the output to
-        :param input_plugin: The plugin which produced the OEBBook
-        :param opts:
-        :param log:
-        :return:
+
+        Example:
+            Exercise PDBOutput.convert through a consuming regression::
+
+                python -m pytest -q tests/file_formats/conversion/plugins/test_plugins_runtime_smoke.py
+
+
+        :param oeb_book: Value supplied for oeb book under the utility contract.
+        :param output_path: Value supplied for output path under the utility contract.
+        :param input_plugin: Value supplied for input plugin under the utility contract.
+        :param opts: Value supplied for opts under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         close = False
         if not hasattr(output_path, "write"):

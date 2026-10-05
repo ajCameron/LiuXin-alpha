@@ -1,4 +1,19 @@
-"""Operational discovery and ingestion workflows for existing storage."""
+"""
+Export local mixed-format and SquashFS-specific storage ingestion workflows.
+
+The mixed coordinator adopts loose files and supported container members with
+run-wide limits; the SquashFS workflow scans specifically for image candidates.
+Both borrow a caller-owned manager and expose reports of incremental work. This
+package eagerly imports their declarations without executing either workflow.
+
+MemberMetadataFactory here is the mixed coordinator callback accepting a
+ContainerMemberContext and inventory entry. SquashFS's module-local callback
+instead receives the archive Path and entry; it is not re-exported under that name.
+
+Example:
+    >>> MixedIngestBudget(max_members=10).max_members
+    10
+"""
 
 from LiuXin_alpha.storage.ingest.mixed_format import (
     ContainerHandler,

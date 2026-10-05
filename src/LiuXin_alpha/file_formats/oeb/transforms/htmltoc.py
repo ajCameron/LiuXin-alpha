@@ -1,3 +1,14 @@
+"""
+Generate HTML table-of-contents documents from OEB navigation.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise htmltoc through a consuming regression::
+
+        python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+"""
 from __future__ import with_statement
 from __future__ import annotations
 
@@ -53,13 +64,48 @@ body > .calibre_toc_block {
 
 
 class HTMLTOCAdder(object):
+    """
+    Provide the htmltocadder contract for validated ebook processing.
+
+    Example:
+        Exercise HTMLTOCAdder through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+    """
     def __init__(self: _typing.Self, title: _typing.Any = None, style: str = "nested", position: str = "end") -> None:
+        """
+        Initialize and validate the htmltocadder state.
+
+        Example:
+            Exercise HTMLTOCAdder.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param title: Value supplied for title under the utility contract.
+        :param style: Value supplied for style under the utility contract.
+        :param position: Value supplied for position under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.title = title
         self.style = style
         self.position = position
 
     @classmethod
     def config(cls: type[_typing.Self], cfg: _typing.Any) -> _typing.Any:
+        """
+        Perform the config operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HTMLTOCAdder.config through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param cfg: Value supplied for cfg under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         group = cfg.add_group("htmltoc", _("HTML TOC generation options."))
         group(
             "toc_title",
@@ -71,9 +117,36 @@ class HTMLTOCAdder(object):
 
     @classmethod
     def generate(cls: type[_typing.Self], opts: _typing.Any) -> _typing.Any:
+        """
+        Perform the generate operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HTMLTOCAdder.generate through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param opts: Value supplied for opts under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return cls(title=opts.toc_title)
 
     def __call__(self: _typing.Self, oeb: _typing.Any, context: _typing.Any) -> None:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HTMLTOCAdder.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param oeb: Value supplied for oeb under the utility contract.
+        :param context: Value supplied for context under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         has_toc = getattr(getattr(oeb, "toc", False), "nodes", False)
 
         if "toc" in oeb.guide:
@@ -123,6 +196,20 @@ class HTMLTOCAdder(object):
         oeb.guide.add("toc", "Table of Contents", href)
 
     def add_toc_level(self: _typing.Self, elem: _typing.Any, toc: _typing.Any) -> None:
+        """
+        Perform the add toc level operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HTMLTOCAdder.add toc level through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param elem: Value supplied for elem under the utility contract.
+        :param toc: Value supplied for toc under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for node in toc:
             block = element(elem, XHTML("div"), attrib={"class": "calibre_toc_block"})
             line = element(

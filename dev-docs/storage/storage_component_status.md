@@ -63,9 +63,8 @@ relation projections with bounded database reads; plugins without a targeted
 refresh retain a correct whole-table fallback.
 
 `TransientStorageManager` is the explicitly disposable implementation for
-focused contract tests and one-shot work. `InMemoryStorageManager` remains as a
-compatibility alias only. Neither is part of the production manager's class
-hierarchy, and neither should be described as a cache.
+focused contract tests and one-shot work. It is separate from the production
+manager's class hierarchy and should not be described as a cache.
 
 ## Persistence and recovery
 

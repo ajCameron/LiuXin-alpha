@@ -1,22 +1,51 @@
+"""
+Check cache imports, API exports, plugin capabilities, and canonical concrete type identities.
+
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/caches/test_cache_imports.py
+"""
 from __future__ import annotations
 
 
 class TestCacheImportAPIs:
     """
-    Tests that we can actually import cache objects at all.
+    Group import and type-identity checks for the cache API and its storage plugins.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_cache_imports.py
     """
 
     def test_cache_imports_smple(self) -> None:
         """
-        Tries to import cache objects.
+        Check that the legacy BaseField import resolves to a non-None object.
 
-        :return:
+        Example:
+            >>> TestCacheImportAPIs().test_cache_imports_smple()
+
+
+        :return: None; failed expectations raise AssertionError.
         """
         from LiuXin_alpha.library.caches.base_calibre.fields import BaseField
 
         assert BaseField is not None
 
     def test_storage_cache_plugin_imports(self) -> None:
+        """
+        Check cache API relationships, plugin aliases, advertised capabilities, and construction of the three storage backends.
+
+        StorageCacheAPI has no writer methods. NumPy construction allows a fallback and its
+        runtime vectorized capability follows NumPy availability.
+
+        Example:
+            >>> TestCacheImportAPIs().test_storage_cache_plugin_imports()
+
+
+        :return: None; failed expectations raise AssertionError.
+        """
         from LiuXin_alpha.caches import (
             Cache,
             CacheAPI,
@@ -95,6 +124,15 @@ class TestCacheImportAPIs:
         )
 
     def test_cache_api_contract_root_exports_modern_and_storage_contracts(self) -> None:
+        """
+        Check required cache contracts are exported, storage exports form a proper subset, and concrete plugin classes are absent from the API namespace.
+
+        Example:
+            >>> TestCacheImportAPIs().test_cache_api_contract_root_exports_modern_and_storage_contracts()
+
+
+        :return: None; failed expectations raise AssertionError.
+        """
         import LiuXin_alpha.caches.api as cache_api
         import LiuXin_alpha.caches.api.storage_cache_api as storage_cache_api
 
@@ -127,12 +165,33 @@ class TestCacheImportAPIs:
             assert not hasattr(cache_api, concrete_name)
 
     def test_numpy_vectorized_plugin_can_be_loaded_even_if_numpy_is_optional(self) -> None:
+        """
+        Check that the NumPy plugin class can be imported in the current environment.
+
+        Example:
+            >>> TestCacheImportAPIs().test_numpy_vectorized_plugin_can_be_loaded_even_if_numpy_is_optional()
+
+
+        :return: None; failed expectations raise AssertionError.
+        """
         from LiuXin_alpha.caches import NumpyVectorizedStorageCache
 
         assert NumpyVectorizedStorageCache is not None
 
     def test_numpy_vectorized_plugin_uses_independent_cache_and_field_types(self) -> None:
-        from LiuXin_alpha.caches import NumpyVectorizedStorageCache, SchemaBackedStorageCache
+        """
+        Load a small fake schema and check NumPy uses its own exact cache, table, field, and link-table classes.
+
+        Example:
+            >>> TestCacheImportAPIs().test_numpy_vectorized_plugin_uses_independent_cache_and_field_types()
+
+
+        :return: None; failed expectations raise AssertionError.
+        """
+        from LiuXin_alpha.caches import (
+            NumpyVectorizedStorageCache,
+            SchemaBackedStorageCache,
+        )
         from LiuXin_alpha.caches.cache_plugins.numpy_vectorized.link_table import (
             NumpyVectorizedLinkTable,
         )
@@ -207,6 +266,39 @@ class TestCacheImportAPIs:
     def test_schema_backed_public_surface_resolves_to_canonical_schema_backed_types(
         self,
     ) -> None:
+        """
+        Check public schema-backed exports are identical to the classes in their canonical implementation modules.
+
+        Example:
+            >>> TestCacheImportAPIs().test_schema_backed_public_surface_resolves_to_canonical_schema_backed_types()
+
+
+        :return: None; failed expectations raise AssertionError.
+        """
+        from LiuXin_alpha.caches.cache_plugins.schema_backed import (
+            SchemaBackedLinkTable as PublicSchemaBackedLinkTable,
+        )
+        from LiuXin_alpha.caches.cache_plugins.schema_backed import (
+            SchemaBackedMainTableCache as PublicSchemaBackedMainTableCache,
+        )
+        from LiuXin_alpha.caches.cache_plugins.schema_backed import (
+            SchemaBackedManyManyField as PublicSchemaBackedManyManyField,
+        )
+        from LiuXin_alpha.caches.cache_plugins.schema_backed import (
+            SchemaBackedManyOneField as PublicSchemaBackedManyOneField,
+        )
+        from LiuXin_alpha.caches.cache_plugins.schema_backed import (
+            SchemaBackedOneManyField as PublicSchemaBackedOneManyField,
+        )
+        from LiuXin_alpha.caches.cache_plugins.schema_backed import (
+            SchemaBackedSameTableField as PublicSchemaBackedSameTableField,
+        )
+        from LiuXin_alpha.caches.cache_plugins.schema_backed import (
+            SchemaBackedStorageCache as PublicSchemaBackedStorageCache,
+        )
+        from LiuXin_alpha.caches.cache_plugins.schema_backed import (
+            SchemaBackedTwoTableOneOneField as PublicSchemaBackedTwoTableOneOneField,
+        )
         from LiuXin_alpha.caches.cache_plugins.schema_backed.storage_cache import (
             SchemaBackedStorageCache as CanonicalSchemaBackedStorageCache,
         )
@@ -221,6 +313,8 @@ class TestCacheImportAPIs:
         )
         from LiuXin_alpha.caches.cache_plugins.schema_backed.storage_fields.one_one_field import (
             SchemaBackedSameTableField as CanonicalSchemaBackedSameTableField,
+        )
+        from LiuXin_alpha.caches.cache_plugins.schema_backed.storage_fields.one_one_field import (
             SchemaBackedTwoTableOneOneField as CanonicalSchemaBackedTwoTableOneOneField,
         )
         from LiuXin_alpha.caches.cache_plugins.schema_backed.storage_tables.link_tables.link_table import (
@@ -228,16 +322,6 @@ class TestCacheImportAPIs:
         )
         from LiuXin_alpha.caches.cache_plugins.schema_backed.storage_tables.single_table import (
             SchemaBackedMainTableCache as CanonicalSchemaBackedMainTableCache,
-        )
-        from LiuXin_alpha.caches.schema_backed import (
-            SchemaBackedLinkTable as PublicSchemaBackedLinkTable,
-            SchemaBackedMainTableCache as PublicSchemaBackedMainTableCache,
-            SchemaBackedManyManyField as PublicSchemaBackedManyManyField,
-            SchemaBackedManyOneField as PublicSchemaBackedManyOneField,
-            SchemaBackedOneManyField as PublicSchemaBackedOneManyField,
-            SchemaBackedSameTableField as PublicSchemaBackedSameTableField,
-            SchemaBackedStorageCache as PublicSchemaBackedStorageCache,
-            SchemaBackedTwoTableOneOneField as PublicSchemaBackedTwoTableOneOneField,
         )
 
         assert PublicSchemaBackedStorageCache is CanonicalSchemaBackedStorageCache

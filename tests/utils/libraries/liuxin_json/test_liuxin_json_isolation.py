@@ -1,17 +1,14 @@
 
 """
-tests/utils/libraries/liuxin_json/test_liuxin_json_isolation.py
+Provide test liuxin json isolation utility behavior.
 
-Isolation/regression tests for LiuXin's JSON fork.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
 
-The primary purpose of these tests is to ensure that importing or instantiating
-`LiuXinJSON` never mutates the stdlib `json` module (or its submodules).
+Example:
+    Exercise test liuxin json isolation through a consuming regression::
 
-Why this matters:
-  - pytest (and many other tools) rely on `json` behaving exactly like the
-    standard library implementation.
-  - accidental monkeypatching tends to surface as bizarre failures in unrelated
-    code (e.g. pytest cache reads).
+        python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json_isolation.py
 """
 
 from __future__ import annotations
@@ -44,7 +41,18 @@ if _SRC not in sys.path:
 
 
 def _project_root() -> Path:
-    """Locate the project root from this test file path."""
+    """
+    Locate the project root from this test file path.
+
+    Example:
+        Exercise  project root through a consuming regression::
+
+            python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json_isolation.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     here = Path(__file__).resolve()
     for parent in here.parents:
         # `src/` is a strong indicator of the repo root in this project.
@@ -55,7 +63,19 @@ def _project_root() -> Path:
 
 
 def _run_in_subprocess(code: str) -> subprocess.CompletedProcess[str]:
-    """Run a Python snippet in a fresh interpreter, ensuring src/ is on PYTHONPATH."""
+    """
+    Run a Python snippet in a fresh interpreter, ensuring src/ is on PYTHONPATH.
+
+    Example:
+        Exercise  run in subprocess through a consuming regression::
+
+            python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json_isolation.py
+
+
+    :param code: Value supplied for code under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     root = _project_root()
     env = os.environ.copy()
     src = str(root / "src")
@@ -70,6 +90,19 @@ def _run_in_subprocess(code: str) -> subprocess.CompletedProcess[str]:
 
 
 def _assert_subprocess_ok(proc: subprocess.CompletedProcess[str]) -> None:
+    """
+    Perform the assert subprocess ok utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  assert subprocess ok through a consuming regression::
+
+            python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json_isolation.py
+
+
+    :param proc: Value supplied for proc under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if proc.returncode != 0:
         raise AssertionError(
             "Subprocess failed:\n"
@@ -79,7 +112,18 @@ def _assert_subprocess_ok(proc: subprocess.CompletedProcess[str]) -> None:
 
 
 def test_stdlib_json_not_monkeypatched_by_import() -> None:
-    """Importing liuxin_json must not mutate stdlib json globals."""
+    """
+    Importing liuxin_json must not mutate stdlib json globals.
+
+    Example:
+        Exercise test stdlib json not monkeypatched by import through a consuming regression::
+
+            python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json_isolation.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     code = r"""
 import json
 import json.decoder
@@ -110,7 +154,18 @@ assert pre == post, (pre, post)
 
 
 def test_stdlib_json_not_monkeypatched_by_instantiation() -> None:
-    """Instantiating LiuXinJSON must not mutate stdlib json globals."""
+    """
+    Instantiating LiuXinJSON must not mutate stdlib json globals.
+
+    Example:
+        Exercise test stdlib json not monkeypatched by instantiation through a consuming regression::
+
+            python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json_isolation.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     code = r"""
 import json
 import json.decoder
@@ -142,7 +197,18 @@ assert pre == post, (pre, post)
 
 
 def test_sys_modules_json_namespace_not_clobbered() -> None:
-    """Nothing in sys.modules named json.* should point at the LiuXin clone."""
+    """
+    Nothing in sys.modules named json.* should point at the LiuXin clone.
+
+    Example:
+        Exercise test sys modules json namespace not clobbered through a consuming regression::
+
+            python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json_isolation.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     code = r"""
 import json
 import sys
@@ -168,7 +234,18 @@ assert not bad, f"stdlib json modules were clobbered: {bad}"
 
 
 def test_stdlib_json_error_type_is_stable() -> None:
-    """A canary: invalid JSON should raise stdlib JSONDecodeError, not TypeError."""
+    """
+    A canary: invalid JSON should raise stdlib JSONDecodeError, not TypeError.
+
+    Example:
+        Exercise test stdlib json error type is stable through a consuming regression::
+
+            python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json_isolation.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     import json
 
     from LiuXin_alpha.utils.libraries.liuxin_json import LiuXinJSON
@@ -179,7 +256,18 @@ def test_stdlib_json_error_type_is_stable() -> None:
 
 
 def test_liuxin_json_uses_clone_module_and_does_not_patch_stdlib_encoder() -> None:
-    """The base64 patching must remain confined to the clone module."""
+    """
+    The base64 patching must remain confined to the clone module.
+
+    Example:
+        Exercise test liuxin json uses clone module and does not patch stdlib encoder through a consuming regression::
+
+            python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json_isolation.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     import json
     import json.encoder
 
@@ -194,7 +282,18 @@ def test_liuxin_json_uses_clone_module_and_does_not_patch_stdlib_encoder() -> No
 
 
 def test_liuxin_json_round_trip_not_bytes_keys_and_values() -> None:
-    """LiuXinJSON not does not decodes strings (and keys) into bytes; like stdlib it keeps them as str."""
+    """
+    LiuXinJSON not does not decodes strings (and keys) into bytes; like stdlib it keeps them as str.
+
+    Example:
+        Exercise test liuxin json round trip not bytes keys and values through a consuming regression::
+
+            python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json_isolation.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     import json
 
     from LiuXin_alpha.utils.libraries.liuxin_json import LiuXinJSON
@@ -213,7 +312,18 @@ def test_liuxin_json_round_trip_not_bytes_keys_and_values() -> None:
 
 
 def test_stdlib_json_module_origin_is_stdlib_when_available() -> None:
-    """Extra guard: stdlib json should resolve under sysconfig stdlib path (when `__file__` exists)."""
+    """
+    Extra guard: stdlib json should resolve under sysconfig stdlib path (when `__file__` exists).
+
+    Example:
+        Exercise test stdlib json module origin is stdlib when available through a consuming regression::
+
+            python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json_isolation.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     import json
 
     stdlib_dir = Path(sysconfig.get_paths()["stdlib"]).resolve()

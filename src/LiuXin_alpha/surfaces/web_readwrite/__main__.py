@@ -1,4 +1,10 @@
-"""Command-line entry point for LiuXin's read/write web surface."""
+"""
+Run the read/write web application when invoked through python -m.
+
+The main-name guard passes process arguments to the runner and converts its
+result to SystemExit. Importing this module under its package name is inert;
+runner failures and interrupts are not caught here.
+"""
 
 from __future__ import annotations
 

@@ -1,10 +1,13 @@
 """
-Legacy module path for Plucker PDB metadata.
+Expose the Plucker metadata reader through the metadata-source registry contract.
 
-Historically this reader lived at `metadata.file_sources.plucker`, but the
-format-specific implementation now lives under
-`metadata.file_sources.pdb.plucker`. Keep this module as a thin forwarder so
-old imports continue to work without duplicating parser logic.
+The module keeps malformed-input, optional dependency and resource ownership
+behavior explicit for registry callers.
+
+Example:
+    Exercise plucker with pytest::
+
+        python -m pytest -q tests/metadata/file_sources/test_plucker_metadata_source.py
 """
 
 from __future__ import annotations
@@ -19,4 +22,18 @@ __all__ = ["get_metadata"]
 
 
 def get_metadata(stream, extract_cover: bool = True):
+    """
+    Read metadata from the supported path, bytes or stream input while applying module ownership and fallback policy.
+
+    Example:
+        Exercise get metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_plucker_metadata_source.py
+
+
+    :param stream: Caller-supplied path, path-like object or stream described by this
+        operation.
+    :param extract_cover: Request cover discovery or cover payload extraction when true.
+    :return: Parsed, normalized or serialized value described above.
+    """
     return _get_pdb_plucker_metadata(stream, extract_cover=extract_cover)

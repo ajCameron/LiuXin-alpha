@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Provide shared archive, image, filename and metadata helpers for file formats.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise utils through a consuming regression::
+
+        python -m pytest -q tests/file_formats/test_utils_parity.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -21,7 +32,28 @@ __docformat__ = "restructuredtext en"
 
 
 class HeuristicProcessor(object):
+    """
+    Provide the heuristicprocessor contract for validated ebook processing.
+
+    Example:
+        Exercise HeuristicProcessor through a consuming regression::
+
+            python -m pytest -q tests/file_formats/test_utils_parity.py
+    """
     def __init__(self: _typing.Self, extra_opts: _typing.Any = None, log: _typing.Any = None) -> None:
+        """
+        Initialize and validate the heuristicprocessor state.
+
+        Example:
+            Exercise HeuristicProcessor.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_utils_parity.py
+
+
+        :param extra_opts: Value supplied for extra opts under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.log = default_log if log is None else log
         self.html_preprocess_sections = 0
         self.found_indents = 0
@@ -58,12 +90,49 @@ class HeuristicProcessor(object):
         self.common_in_text_beginnings = r"[\w'\"“‘‛]"
 
     def is_pdftohtml(self: _typing.Self, src: _typing.Any) -> bool:
+        """
+        Return whether is pdftohtml holds for the supplied ebook data.
+
+        Example:
+            Exercise HeuristicProcessor.is pdftohtml through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_utils_parity.py
+
+
+        :param src: Value supplied for src under the utility contract.
+        :return: True when the documented condition holds; otherwise False.
+        """
         return "<!-- created by calibre's pdftohtml -->" in src[:1000]
 
     def is_abbyy(self: _typing.Self, src: _typing.Any) -> bool:
+        """
+        Return whether is abbyy holds for the supplied ebook data.
+
+        Example:
+            Exercise HeuristicProcessor.is abbyy through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_utils_parity.py
+
+
+        :param src: Value supplied for src under the utility contract.
+        :return: True when the documented condition holds; otherwise False.
+        """
         return '<meta name="generator" content="ABBYY FineReader' in src[:1000]
 
     def chapter_head(self: _typing.Self, match: _typing.Any) -> _typing.Any:
+        """
+        Perform the chapter head operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HeuristicProcessor.chapter head through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_utils_parity.py
+
+
+        :param match: Value supplied for match under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.utils.html2text import html2text
 
         chap = match.group("chap")
@@ -99,6 +168,19 @@ class HeuristicProcessor(object):
             )
 
     def chapter_break(self: _typing.Self, match: _typing.Any) -> _typing.Any:
+        """
+        Perform the chapter break operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HeuristicProcessor.chapter break through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_utils_parity.py
+
+
+        :param match: Value supplied for match under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         chap = match.group("section")
         styles = match.group("styles")
         self.html_preprocess_sections += 1
@@ -112,6 +194,19 @@ class HeuristicProcessor(object):
 
     def analyze_title_matches(self: _typing.Self, match: _typing.Any) -> None:
         # chap = match.group('chap')
+        """
+        Perform the analyze title matches operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HeuristicProcessor.analyze title matches through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_utils_parity.py
+
+
+        :param match: Value supplied for match under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         title = match.group("title")
         if not title:
             self.chapters_no_title += 1
@@ -119,6 +214,19 @@ class HeuristicProcessor(object):
             self.chapters_with_title += 1
 
     def insert_indent(self: _typing.Self, match: _typing.Any) -> _typing.Any:
+        """
+        Perform the insert indent operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HeuristicProcessor.insert indent through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_utils_parity.py
+
+
+        :param match: Value supplied for match under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         pstyle = match.group("formatting")
         tag = match.group("tagtype")
         span = match.group("span")
@@ -140,11 +248,18 @@ class HeuristicProcessor(object):
 
     def no_markup(self: _typing.Self, raw: _typing.Any, percent: _typing.Any) -> bool:
         """
-        Detects total marked up line endings in the file. raw is the text to inspect.
-        Percent is the minimum percent of line endings which should be marked up to return true.
-        :param raw:
-        :param percent:
-        :return:
+        Detects total marked up line endings in the file. raw is the text to inspect. Percent is the minimum percent of line endings which should be marked up to return true.
+
+        Example:
+            Exercise HeuristicProcessor.no markup through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_utils_parity.py
+
+
+        :param raw: Value supplied for raw under the utility contract.
+        :param percent: Value supplied for percent under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         htm_end_ere = re.compile("</(p|div)>", re.DOTALL)
         line_end_ere = re.compile("(\n|\r|\r\n)", re.DOTALL)
@@ -165,6 +280,20 @@ class HeuristicProcessor(object):
         return min_lns > tot_htm_ends
 
     def dump(self: _typing.Self, raw: _typing.Any, where: _typing.Any) -> None:
+        """
+        Perform the dump operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HeuristicProcessor.dump through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_utils_parity.py
+
+
+        :param raw: Value supplied for raw under the utility contract.
+        :param where: Value supplied for where under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         import os
 
         dp = getattr(self.extra_opts, "debug_pipeline", None)
@@ -184,6 +313,19 @@ class HeuristicProcessor(object):
                     f.write(raw.encode("utf-8"))
 
     def get_word_count(self: _typing.Self, html: _typing.Any) -> _typing.Any:
+        """
+        Return word count under the format's safety and compatibility rules.
+
+        Example:
+            Exercise HeuristicProcessor.get word count through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_utils_parity.py
+
+
+        :param html: Value supplied for html under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         word_count_text = re.sub(r"(?s)<head[^>]*>.*?</head>", "", html)
         word_count_text = re.sub(r"<[^>]*>", "", word_count_text)
         wordcount = get_wordcount_obj(word_count_text)
@@ -191,6 +333,19 @@ class HeuristicProcessor(object):
 
     def markup_italicis(self: _typing.Self, html: _typing.Any) -> _typing.Any:
         # self.log.debug("\n\n\nitalicize debugging \n\n\n")
+        """
+        Perform the markup italicis operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HeuristicProcessor.markup italicis through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_utils_parity.py
+
+
+        :param html: Value supplied for html under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         italicize_words = [
             "Etc.",
             "etc.",
@@ -258,13 +413,20 @@ class HeuristicProcessor(object):
 
     def markup_chapters(self: _typing.Self, html: _typing.Any, wordcount: _typing.Any, blanks_between_paragraphs: _typing.Any) -> _typing.Any:
         """
-        Searches for common chapter headings throughout the document
-        attempts multiple patterns based on likelihood of a match
-        with minimum false positives.  Exits after finding a successful pattern
-        :param html:
-        :param wordcount:
-        :param blanks_between_paragraphs:
-        :return:
+        Searches for common chapter headings throughout the document attempts multiple patterns based on likelihood of a match with minimum false positives. Exits after finding a successful pattern
+
+        Example:
+            Exercise HeuristicProcessor.markup chapters through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_utils_parity.py
+
+
+        :param html: Value supplied for html under the utility contract.
+        :param wordcount: Value supplied for wordcount under the utility contract.
+        :param blanks_between_paragraphs: Value supplied for blanks between paragraphs under
+            the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # Typical chapters are between 2000 and 7000 words, use the larger number to decide the
         # minimum of chapters to search for.  A max limit is calculated to prevent things like OCR
@@ -395,6 +557,20 @@ class HeuristicProcessor(object):
 
         def recurse_patterns(local_html: _typing.Any, analyze: _typing.Any) -> _typing.Any:
             # Start with most typical chapter headings, get more aggressive until one works
+            """
+            Perform the recurse patterns operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise HeuristicProcessor.markup chapters.recurse patterns through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/test_utils_parity.py
+
+
+            :param local_html: Value supplied for local html under the utility contract.
+            :param analyze: Value supplied for analyze under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             for [
                 chapter_type,
                 n_lookahead_req,
@@ -531,23 +707,35 @@ class HeuristicProcessor(object):
 
     def punctuation_unwrap(self: _typing.Self, length: _typing.Any, content: _typing.Any, format: _typing.Any) -> _typing.Any:
         """
-        Unwraps lines based on line length and punctuation
-        supports a range of html markup and text files
+        Unwraps lines based on line length and punctuation supports a range of html markup and text files
 
-        the lookahead regex below is meant look for any non-full stop characters - punctuation
-        characters which can be used as a full stop should *not* be added below - e.g. ?!“”. etc
-        the reason for this is to prevent false positive wrapping.  False positives are more
-        difficult to detect than false negatives during a manual review of the doc
+        Example:
+            Exercise HeuristicProcessor.punctuation unwrap through a consuming regression::
 
-        This function intentionally leaves hyphenated content alone as that is handled by the
-        dehyphenate routine in a separate step
-        :param length:
-        :param content:
-        :param format:
-        :return:
+                python -m pytest -q tests/file_formats/test_utils_parity.py
+
+
+        :param length: Value supplied for length under the utility contract.
+        :param content: Value supplied for content under the utility contract.
+        :param format: Value supplied for format under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
 
         def style_unwrap(match: _typing.Any) -> _typing.Any:
+            """
+            Perform the style unwrap operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise HeuristicProcessor.punctuation unwrap.style unwrap through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/test_utils_parity.py
+
+
+            :param match: Value supplied for match under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             style_close = match.group("style_close")
             style_open = match.group("style_open")
             if style_open and style_close:
@@ -597,6 +785,19 @@ class HeuristicProcessor(object):
         return content
 
     def txt_process(self: _typing.Self, match: _typing.Any) -> _typing.Any:
+        """
+        Perform the txt process operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HeuristicProcessor.txt process through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_utils_parity.py
+
+
+        :param match: Value supplied for match under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         from LiuXin_alpha.file_formats.txt.processor import (
             convert_basic,
             separate_paragraphs_single_line,
@@ -608,6 +809,19 @@ class HeuristicProcessor(object):
         return content
 
     def markup_pre(self: _typing.Self, html: _typing.Any) -> _typing.Any:
+        """
+        Perform the markup pre operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HeuristicProcessor.markup pre through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_utils_parity.py
+
+
+        :param html: Value supplied for html under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         pre = re.compile(r"<pre>", re.IGNORECASE)
         if len(pre.findall(html)) >= 1:
             self.log.debug("Running Text Processing")
@@ -625,6 +839,19 @@ class HeuristicProcessor(object):
         return html
 
     def arrange_htm_line_endings(self: _typing.Self, html: _typing.Any) -> _typing.Any:
+        """
+        Perform the arrange htm line endings operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HeuristicProcessor.arrange htm line endings through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_utils_parity.py
+
+
+        :param html: Value supplied for html under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         html = re.sub(r"\s*</(?P<tag>p|div)>", r"</\g<tag>>" + "\n", html)
         html = re.sub(
             r"\s*<(?P<tag>p|div)(?P<style>[^>]*)>\s*",
@@ -635,6 +862,19 @@ class HeuristicProcessor(object):
 
     def fix_nbsp_indents(self: _typing.Self, html: _typing.Any) -> _typing.Any:
 
+        """
+        Perform the fix nbsp indents operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HeuristicProcessor.fix nbsp indents through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_utils_parity.py
+
+
+        :param html: Value supplied for html under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         txtindent_re = r"<(?P<tagtype>p|div)(?P<formatting>[^>]*)>\s*(?P<span>(<span[^>]*>\s*)+)?\s*(\u00a0){2,}"
         try:
             # Python 2
@@ -650,6 +890,19 @@ class HeuristicProcessor(object):
 
     def cleanup_markup(self: _typing.Self, html: _typing.Any) -> _typing.Any:
         # remove remaining non-breaking spaces
+        """
+        Perform the cleanup markup operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HeuristicProcessor.cleanup markup through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_utils_parity.py
+
+
+        :param html: Value supplied for html under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         html_non_break_re_sub_pat = r"\u00a0"
         try:
             # Python 2- string originally had ur prefix - has been tested identical under py2
@@ -696,10 +949,17 @@ class HeuristicProcessor(object):
 
     def analyze_line_endings(self: _typing.Self, html: _typing.Any) -> str:
         """
-        determines the type of html line ending used most commonly in a document use before calling docanalysis
-        functions
-        :param html:
-        :return:
+        determines the type of html line ending used most commonly in a document use before calling docanalysis functions
+
+        Example:
+            Exercise HeuristicProcessor.analyze line endings through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_utils_parity.py
+
+
+        :param html: Value supplied for html under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         paras_reg = re.compile(r"<p[^>]*>", re.IGNORECASE)
         spans_reg = re.compile(r"<span[^>]*>", re.IGNORECASE)
@@ -714,6 +974,19 @@ class HeuristicProcessor(object):
             return "html"
 
     def analyze_blanks(self: _typing.Self, html: _typing.Any) -> bool:
+        """
+        Perform the analyze blanks operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HeuristicProcessor.analyze blanks through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_utils_parity.py
+
+
+        :param html: Value supplied for html under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         blanklines = self.blankreg.findall(html)
         lines = self.linereg.findall(html)
         if len(lines) > 1:
@@ -731,6 +1004,18 @@ class HeuristicProcessor(object):
                 return False
 
     def cleanup_required(self: _typing.Self) -> bool:
+        """
+        Perform the cleanup required operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HeuristicProcessor.cleanup required through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_utils_parity.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         for option in [
             "unwrap_lines",
             "markup_chapter_headings",
@@ -742,10 +1027,37 @@ class HeuristicProcessor(object):
         return False
 
     def merge_blanks(self: _typing.Self, html: _typing.Any, blanks_count: _typing.Any = None) -> _typing.Any:
+        """
+        Perform the merge blanks operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HeuristicProcessor.merge blanks through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_utils_parity.py
+
+
+        :param html: Value supplied for html under the utility contract.
+        :param blanks_count: Value supplied for blanks count under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         base_em = 0.5  # Baseline is 1.5em per blank line, 1st line is .5 em css and 1em for the nbsp
         em_per_line = 1.5  # Add another 1.5 em for each additional blank
 
         def merge_matches(match: _typing.Any) -> _typing.Any:
+            """
+            Perform the merge matches operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise HeuristicProcessor.merge blanks.merge matches through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/test_utils_parity.py
+
+
+            :param match: Value supplied for match under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             to_merge = match.group(0)
             lines = float(len(self.single_blank.findall(to_merge))) - 1.0
             em = base_em + (em_per_line * lines)
@@ -774,6 +1086,19 @@ class HeuristicProcessor(object):
 
     def detect_whitespace(self: _typing.Self, html: _typing.Any) -> _typing.Any:
 
+        """
+        Perform the detect whitespace operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HeuristicProcessor.detect whitespace through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_utils_parity.py
+
+
+        :param html: Value supplied for html under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         blanks_around_headings = re.compile(
             r"(?P<initparas>(<(p|div)[^>]*>\s*</(p|div)>\s*){1,}\s*)?(?P<content><h(?P<hnum>\d+)"
             r"[^>]*>.*?</h(?P=hnum)>)(?P<endparas>\s*(<(p|div)[^>]*>\s*</(p|div)>\s*){1,})?",
@@ -795,6 +1120,19 @@ class HeuristicProcessor(object):
         )
 
         def merge_header_whitespace(match: _typing.Any) -> _typing.Any:
+            """
+            Perform the merge header whitespace operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise HeuristicProcessor.detect whitespace.merge header whitespace through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/test_utils_parity.py
+
+
+            :param match: Value supplied for match under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             initblanks = match.group("initparas")
             endblanks = match.group("endparas")
             content = match.group("content")
@@ -821,6 +1159,19 @@ class HeuristicProcessor(object):
         html = blanks_around_scene_breaks.sub(merge_header_whitespace, html)
 
         def markup_whitespaces(match: _typing.Any) -> _typing.Any:
+            """
+            Perform the markup whitespaces operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise HeuristicProcessor.detect whitespace.markup whitespaces through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/test_utils_parity.py
+
+
+            :param match: Value supplied for match under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             blanks = match.group(0)
             blanks = self.blankreg.sub(
                 '\n<p class="whitespace" style="text-align:center; margin-top:0em; ' 'margin-bottom:0em"> </p>',
@@ -835,6 +1186,19 @@ class HeuristicProcessor(object):
         return html
 
     def detect_soft_breaks(self: _typing.Self, html: _typing.Any) -> _typing.Any:
+        """
+        Perform the detect soft breaks operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HeuristicProcessor.detect soft breaks through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_utils_parity.py
+
+
+        :param html: Value supplied for html under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         line = r"(?P<initline>" + self.line_open + r"\s*(?P<init_content>.*?)" + self.line_close + r")"
         line_two = (
             r"(?P<line_two>"
@@ -847,6 +1211,19 @@ class HeuristicProcessor(object):
         div_break_candidate = re.compile(r"%s" % div_break_candidate_pattern, re.IGNORECASE | re.UNICODE)
 
         def convert_div_softbreaks(match: _typing.Any) -> _typing.Any:
+            """
+            Convert div softbreaks under the format's safety and compatibility rules.
+
+            Example:
+                Exercise HeuristicProcessor.detect soft breaks.convert div softbreaks through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/test_utils_parity.py
+
+
+            :param match: Value supplied for match under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             init_is_paragraph = self.check_paragraph(match.group("init_content"))
             line_two_is_paragraph = self.check_paragraph(match.group("line_two_content"))
 
@@ -874,6 +1251,19 @@ class HeuristicProcessor(object):
         return html
 
     def detect_scene_breaks(self: _typing.Self, html: _typing.Any) -> _typing.Any:
+        """
+        Perform the detect scene breaks operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HeuristicProcessor.detect scene breaks through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_utils_parity.py
+
+
+        :param html: Value supplied for html under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         scene_break_regex = (
             self.line_open
             + r"(?!("
@@ -889,13 +1279,18 @@ class HeuristicProcessor(object):
 
     def markup_user_break(self: _typing.Self, replacement_break: _typing.Any) -> _typing.Any:
         """
-        Takes string a user supplies and wraps it in markup that will be centered with
-        appropriate margins.  <hr> and <img> tags are allowed.  If the user specifies
-        a style with width attributes in the <hr> tag then the appropriate margins are
-        applied to wrapping divs.  This is because many ebook devices don't support margin:auto
-        All other html is converted to text.
-        :param replacement_break:
-        :return:
+        Takes string a user supplies and wraps it in markup that will be centered with appropriate margins. <hr> and <img> tags are allowed. If the user specifies a style with width attributes in the <hr> tag then the appropriate margins are applied to wrapping divs. This is because many ebook devices don't support margin:auto All other html is converted to text.
+
+        Example:
+            Exercise HeuristicProcessor.markup user break through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_utils_parity.py
+
+
+        :param replacement_break: Value supplied for replacement break under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         hr_open = (
             '<div id="scenebreak" style="margin-left: 45%; margin-right: 45%; margin-top:1.5em; '
@@ -944,6 +1339,19 @@ class HeuristicProcessor(object):
         return scene_break
 
     def check_paragraph(self: _typing.Self, content: _typing.Any) -> bool:
+        """
+        Perform the check paragraph operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HeuristicProcessor.check paragraph through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_utils_parity.py
+
+
+        :param content: Value supplied for content under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         content = re.sub(r"\s*</?span[^>]*>\s*", "", content)
         if re.match(r".*[\"'.!?:]$", content):
             # print "detected this as a paragraph"
@@ -952,6 +1360,19 @@ class HeuristicProcessor(object):
             return False
 
     def abbyy_processor(self: _typing.Self, html: _typing.Any) -> _typing.Any:
+        """
+        Perform the abbyy processor operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HeuristicProcessor.abbyy processor through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_utils_parity.py
+
+
+        :param html: Value supplied for html under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         abbyy_line = re.compile(
             r'((?P<linestart><p\sstyle="(?P<styles>[^"]*?);?">)(?P<content>.*?)'
             r"(?P<lineend></p>)|(?P<image><img[^>]*>))",
@@ -964,6 +1385,19 @@ class HeuristicProcessor(object):
 
         def convert_styles(match: _typing.Any) -> _typing.Any:
             # print "raw styles are: "+match.group('styles')
+            """
+            Convert styles under the format's safety and compatibility rules.
+
+            Example:
+                Exercise HeuristicProcessor.abbyy processor.convert styles through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/test_utils_parity.py
+
+
+            :param match: Value supplied for match under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             content = match.group("content")
             # print "raw content is: "+match.group('content')
             image = match.group("image")
@@ -1072,6 +1506,19 @@ class HeuristicProcessor(object):
         return html
 
     def __call__(self: _typing.Self, html: _typing.Any) -> _typing.Any:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HeuristicProcessor.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/test_utils_parity.py
+
+
+        :param html: Value supplied for html under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.log.debug("*********  Heuristic processing HTML  *********")
         # Count the words in the document to estimate how many chapters to look for and whether
         # other types of processing are attempted

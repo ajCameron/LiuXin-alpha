@@ -1,3 +1,14 @@
+"""
+Build the deterministic test_db_25 database fixture and its declared content profile.
+
+The module keeps generated data, ordering and failure modes explicit so consumers
+can assert stable behavior.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/databases/test_test_resources_manager.py
+"""
 from __future__ import print_function
 
 
@@ -7,13 +18,41 @@ from utils.lx_libraries.liuxin_random import LiuXinBadPseudoRandomGenerator
 
 
 class TestDB25Builder(TestDB23Builer):
+    """
+    Build the TestDB25Builder deterministic database profile.
+
+    Example:
+        Exercise TestDB25Builder through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+    """
     def add_new_main_tables(self, scatch_db):
+        """
+        Add the profile-specific main tables and their schema metadata.
+
+        Example:
+            Exercise TestDB25Builder.add new main tables through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param scatch_db: Scratch database receiving deterministic schema and rows.
+        :return: None; fixture state or the supplied destination is updated in place.
+        """
         pass
 
     def _populate_custom_column_6(self, scratch_db):
         """
         Populate an int, non-multiple custom column.
-        :return:
+
+        Example:
+            Exercise TestDB25Builder. populate custom column 6 through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param scratch_db: Scratch database receiving deterministic schema and rows.
+        :return: None; fixture state or the supplied destination is updated in place.
         """
         lx_random = LiuXinBadPseudoRandomGenerator(36435626)
 
@@ -54,7 +93,15 @@ class TestDB25Builder(TestDB23Builer):
     def _populate_custom_column_8(self, scratch_db):
         """
         Populate an int, non-multiple custom column.
-        :return:
+
+        Example:
+            Exercise TestDB25Builder. populate custom column 8 through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param scratch_db: Scratch database receiving deterministic schema and rows.
+        :return: None; fixture state or the supplied destination is updated in place.
         """
         lx_random = LiuXinBadPseudoRandomGenerator(36435626)
 
@@ -98,24 +145,47 @@ class TestDB25Builder(TestDB23Builer):
     def populate_interlink_tables(self, scratch_db, test_lib):
         """
         Populate the interlink tables.
-        :param scratch_db:
-        :return:
+
+        Example:
+            Exercise TestDB25Builder.populate interlink tables through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param scratch_db: Scratch database receiving deterministic schema and rows.
+        :param test_lib: Value supplied for test lib under the deterministic fixture
+            contract.
+        :return: None; fixture state or the supplied destination is updated in place.
         """
         pass
 
     def populate_intralink_tables(self, scratch_db):
         """
         Populate the intralink tables
-        :param scratch_db:
-        :return:
+
+        Example:
+            Exercise TestDB25Builder.populate intralink tables through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param scratch_db: Scratch database receiving deterministic schema and rows.
+        :return: None; fixture state or the supplied destination is updated in place.
         """
         pass
 
     def generate_fake_asset_data(self, test_db):
         """
         Populate the database with fake asset data.
-        :param test_db:
-        :return:
+
+        Example:
+            Exercise TestDB25Builder.generate fake asset data through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param test_db: Database fixture or builder being populated.
+        :return: None; fixture state or the supplied destination is updated in place.
         """
         pass
 
@@ -131,12 +201,23 @@ def build_test_db(
     test_asset_version=None,
 ):
     """
-    Construct the test database specified by this module.
-    In this case a blank database is constructed and filled with data - before being copied into the test_databases
-    folder.
-    :param dst_file_path: The file to write the database to after it's been built.
-    :param dump: HERE IGNORED
-    :return:
+    Construct the test database specified by this module. In this case a blank database is constructed and filled with data - before being copied into the test_databases folder.
+
+    Example:
+        Exercise build test db through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param dst_file_path: Destination file written with the generated database or asset.
+    :param dump: Value supplied for dump under the deterministic fixture contract.
+    :param plugin_name: Value supplied for plugin name under the deterministic fixture
+        contract.
+    :param new_db_uuid: Value supplied for new db uuid under the deterministic fixture
+        contract.
+    :param test_asset_version: Value supplied for test asset version under the
+        deterministic fixture contract.
+    :return: None; fixture state or the supplied destination is updated in place.
     """
     test_db_builder = TestDB25Builder(
         dst_file_path=dst_file_path,

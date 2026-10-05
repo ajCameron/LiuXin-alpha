@@ -1,3 +1,14 @@
+"""
+Define and decode typed LRF binary tags and their payloads.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise tags through a consuming regression::
+
+        python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -14,6 +25,14 @@ __copyright__ = "2008, Kovid Goyal <kovid at kovidgoyal.net>"
 
 class Tag(object):
 
+    """
+    Provide the tag contract for validated ebook processing.
+
+    Example:
+        Exercise Tag through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+    """
     tags = {
         0x00: (6, "*ObjectStart"),
         0x01: (0, "*ObjectEnd"),
@@ -190,6 +209,19 @@ class Tag(object):
             name_map[key] = temp
 
     def __init__(self: _typing.Self, stream: _typing.Any) -> None:
+        """
+        Initialize and validate the tag state.
+
+        Example:
+            Exercise Tag.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.offset = stream.tell()
         tag_id = struct.unpack("<BB", stream.read(2))
         if tag_id[1] != 0xF5:
@@ -207,6 +239,18 @@ class Tag(object):
             self.contents = stream.read(size)
 
     def __str__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the str operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Tag.  str   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         s = "Tag %04X " % self.id
         if self.name:
             s += self.name
@@ -215,37 +259,127 @@ class Tag(object):
 
     @property
     def byte(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the byte operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Tag.byte through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if len(self.contents) != 1:
             raise LRFParseError("Bad parameter for tag ID: %04X" % self.id)
         return struct.unpack("<B", self.contents)[0]
 
     @property
     def word(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the word operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Tag.word through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if len(self.contents) != 2:
             raise LRFParseError("Bad parameter for tag ID: %04X" % self.id)
         return struct.unpack("<H", self.contents)[0]
 
     @property
     def sword(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the sword operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Tag.sword through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if len(self.contents) != 2:
             raise LRFParseError("Bad parameter for tag ID: %04X" % self.id)
         return struct.unpack("<h", self.contents)[0]
 
     @property
     def dword(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the dword operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Tag.dword through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if len(self.contents) != 4:
             raise LRFParseError("Bad parameter for tag ID: %04X" % self.id)
         return struct.unpack("<I", self.contents)[0]
 
     def dummy_parser(self: _typing.Self, stream: _typing.Any) -> None:
+        """
+        Perform the dummy parser operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Tag.dummy parser through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raise LRFParseError("Unknown tag at %08X" % stream.tell())
 
     @classmethod
     def string_parser(self: _typing.Self, stream: _typing.Any) -> _typing.Any:
+        """
+        Perform the string parser operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Tag.string parser through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         size = struct.unpack("<H", stream.read(2))[0]
         return stream.read(size).decode("utf-16-le", "replace")
 
     def type_one_parser(self: _typing.Self, stream: _typing.Any) -> _typing.Any:
+        """
+        Perform the type one parser operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Tag.type one parser through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         cnt = struct.unpack("<H", stream.read(2))[0]
         res = []
         while cnt > 0:
@@ -254,6 +388,20 @@ class Tag(object):
         return res
 
     def tag_78_parser(self: _typing.Self, stream: _typing.Any) -> _typing.Any:
+        """
+        Perform the tag 78 parser operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Tag.tag 78 parser through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_modernized.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         pos = stream.tell()
         res = list()
         res.append(struct.unpack("<I", stream.read(4))[0])

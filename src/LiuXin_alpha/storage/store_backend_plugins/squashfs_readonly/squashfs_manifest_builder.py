@@ -1,5 +1,10 @@
 """
-Build SquashFS archives from a JSON file manifest.
+Load JSON source mappings and build a SquashFS image through temporary staging.
+
+This standalone helper writes the output path directly and can unlink an existing
+image before a forced build. Sources may be hard-linked into staging. Its report
+records hashes, sizes, and tool settings rather than transactional publication
+or independently validated archive contents.
 """
 
 from __future__ import annotations
@@ -22,14 +27,48 @@ _TARGET_KEYS = ("archive_path", "internal_path", "dest", "target")
 
 @dataclasses.dataclass(frozen=True)
 class SquashfsManifestEntry:
-    """One source-to-archive mapping entry loaded from a build manifest."""
+    """
+    Retain one source pathname and normalized archive key without constructor validation.
+
+    Example:
+        >>> SquashfsManifestEntry(pathlib.Path("source.epub"), "books/a.epub").archive_path
+        'books/a.epub'
+
+
+    :ivar source_path: Local regular source file when produced by load_manifest_entries.
+    :ivar archive_path: Normalized relative destination key when produced by the loader.
+    """
     source_path: pathlib.Path
     archive_path: str
 
 
 @dataclasses.dataclass(frozen=True)
 class SquashfsBuildReport:
-    """Summary metadata captured after a SquashFS build run."""
+    """
+    Retain observations and invocation settings from a completed manifest build.
+
+    The frozen record performs no validation. Hashes and sizes are collected at separate times;
+    deterministic records the requested flag set, not a cross-tool reproducibility guarantee.
+
+    Example:
+        >>> report = build_squashfs_from_manifest("manifest.json", "library.sqsh")  # doctest: +SKIP
+        >>> report.file_count  # doctest: +SKIP
+        2
+
+
+    :ivar manifest_path: Resolved manifest pathname.
+    :ivar output_archive: Resolved output image pathname.
+    :ivar file_count: Number of manifest entries.
+    :ivar total_input_bytes: Sum of source sizes observed before staging.
+    :ivar output_bytes: Image size observed after output hashing.
+    :ivar compression: Compression argument passed to mksquashfs.
+    :ivar deterministic: Whether fixed owner/time and no-xattr flags were requested.
+    :ivar manifest_sha256: SHA-256 of manifest bytes read after loading entries.
+    :ivar output_sha256: SHA-256 of completed output bytes.
+    :ivar mksquashfs_executable: Resolved executable or configured fallback name.
+    :ivar mksquashfs_version: First nonempty version-output line, or None when unavailable.
+    :ivar build_flags: Recorded option arguments, excluding executable and path arguments.
+    """
     manifest_path: str
     output_archive: str
     file_count: int
@@ -45,6 +84,21 @@ class SquashfsBuildReport:
 
 
 def _normalize_archive_path(raw: str) -> str:
+    """
+    Replace backslashes with slashes and remove empty or dot components from a relative target.
+
+    Absolute paths, parent components, and an empty normalized result raise ValueError. Significant
+    spaces and Unicode spelling are preserved. This helper does not enforce the reader's full key,
+    NUL, depth, or byte-limit policy.
+
+    Example:
+        >>> _normalize_archive_path("books//./ leading.epub ")
+        'books/ leading.epub '
+
+
+    :param raw: Target text stringified before separator normalization.
+    :return: Nonempty slash-separated relative key.
+    """
     text = str(raw).replace("\\", "/")
     if not text:
         raise ValueError("archive_path cannot be empty.")
@@ -64,6 +118,20 @@ def _normalize_archive_path(raw: str) -> str:
 
 
 def _pick_key(mapping: dict[str, Any], keys: Iterable[str]) -> Any:
+    """
+    Return the value for the first present key in the supplied priority order.
+
+    Presence wins even when its value is None; later aliases are not then considered.
+
+    Example:
+        >>> _pick_key({"src": "book", "source": None}, ("source", "src")) is None
+        True
+
+
+    :param mapping: Entry dictionary holding alternative field spellings.
+    :param keys: Ordered candidate keys, consumed only until the first match.
+    :return: First present value, or None if no candidate key exists.
+    """
     for key in keys:
         if key in mapping:
             return mapping[key]
@@ -71,6 +139,20 @@ def _pick_key(mapping: dict[str, Any], keys: Iterable[str]) -> Any:
 
 
 def _sha256_file(path: pathlib.Path, *, chunk_size: int = 1024 * 1024) -> str:
+    """
+    Hash a locally opened binary file through repeated read requests and close it on exit.
+
+    Chunk size is trusted: zero hashes no input, and a negative value can request the whole
+    remaining file. No before/after signature comparison detects concurrent changes.
+
+    Example:
+        >>> _sha256_file(pathlib.Path("source.epub"))  # doctest: +SKIP
+
+
+    :param path: Local pathname to open in binary read mode.
+    :param chunk_size: Bytes requested per read; callers normally use the positive 1 MiB default.
+    :return: Lowercase SHA-256 hexadecimal string; file/read errors propagate.
+    """
     hasher = hashlib.sha256()
     with path.open("rb") as handle:
         while True:
@@ -82,6 +164,20 @@ def _sha256_file(path: pathlib.Path, *, chunk_size: int = 1024 * 1024) -> str:
 
 
 def _detect_mksquashfs_version(executable: str) -> Optional[str]:
+    """
+    Run the version command and return the first nonempty decoded output line.
+
+    Stdout precedes stderr in the combined text and UTF-8 errors are replaced. Command-start/run
+    Exceptions produce None; exit status is ignored. Both output streams are captured without a size
+    limit or timeout.
+
+    Example:
+        >>> _detect_mksquashfs_version("mksquashfs")  # doctest: +SKIP
+
+
+    :param executable: Executable name or path passed directly to subprocess.run.
+    :return: First stripped nonempty line, or None after a run Exception or empty output.
+    """
     try:
         proc = subprocess.run(
             [executable, "-version"],
@@ -104,6 +200,28 @@ def load_manifest_entries(
     *,
     manifest_base_dir: pathlib.Path | None = None,
 ) -> list[SquashfsManifestEntry]:
+    """
+    Load a nonempty JSON entry list, resolve sources, and reject duplicate normalized targets.
+
+    The top-level value is a list or an object containing a files list. Source aliases are tried in
+    source/src/path/file order, target aliases in archive_path/internal_path/dest/target order. A
+    missing or None target uses the resolved source basename. Source symlinks are resolved and may
+    lead outside the manifest directory.
+
+    Entries retain manifest order. Invalid JSON, row shapes, absent/non-regular sources, malformed
+    targets, or duplicates raise before returning. The loader does not hash sources, reject
+    ancestor/file target conflicts, or apply raw-reader expansion limits.
+
+    Example:
+        >>> entries = load_manifest_entries(pathlib.Path("manifest.json"))  # doctest: +SKIP
+        >>> entries[0].archive_path  # doctest: +SKIP
+        'books/a.epub'
+
+
+    :param manifest_path: Path to UTF-8 JSON read directly by this function.
+    :param manifest_base_dir: Base for relative sources, expanded and resolved; None uses the manifest parent.
+    :return: Nonempty list of source/key records with resolved regular source paths.
+    """
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
     if isinstance(payload, dict):
         rows = payload.get("files")
@@ -157,6 +275,34 @@ def build_squashfs_from_manifest(
     quiet: bool = True,
     mksquashfs_exe: str = "mksquashfs",
 ) -> SquashfsBuildReport:
+    """
+    Stage manifest mappings and run mksquashfs directly against the destination path.
+
+    Load entries and hash the manifest, then create the output parent. If force is enabled, an
+    existing output is unlinked before source stats, staging, or tool execution; a later failure
+    does not restore it. The helper has no candidate-publication transaction or reader-based content
+    validation.
+
+    Each staged source is hard-linked where possible, falling back to copy2 on OSError. Hard links
+    share source bytes and do not freeze concurrent edits. Temporary staging is cleaned on context
+    exit. Version and build commands capture output without timeout or size limits; nonzero build
+    status raises RuntimeError and may leave partial output. Success hashes and stats the output
+    without fsync or a concurrent-change check.
+
+    Example:
+        >>> report = build_squashfs_from_manifest("manifest.json", "library.sqsh", deterministic=True)  # doctest: +SKIP
+
+
+    :param manifest_path: Manifest path expanded and resolved before loading.
+    :param output_archive: Destination image pathname expanded and resolved before parent creation.
+    :param manifest_base_dir: Optional base directory for relative sources; None uses the manifest parent.
+    :param compression: Codec argument stringified for mksquashfs without local codec validation.
+    :param deterministic: Request root ownership, no xattrs, and zero file/filesystem timestamps.
+    :param force: Allow an existing destination to be removed before the build begins.
+    :param quiet: Add -quiet; both process streams are captured in either mode.
+    :param mksquashfs_exe: Executable name or path resolved with which or used as configured.
+    :return: SquashfsBuildReport with separately observed hashes, sizes, and invocation settings.
+    """
     manifest_path = pathlib.Path(manifest_path).expanduser().resolve()
     if not manifest_path.exists():
         raise FileNotFoundError("Manifest not found: {!r}".format(str(manifest_path)))

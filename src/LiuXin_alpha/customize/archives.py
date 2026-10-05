@@ -1,7 +1,15 @@
 # -*- coding: utf-8 -*-
 
 """
+Provide customization plugins for archive-backed book formats.
 
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise archives through a consuming regression::
+
+        python -m pytest -q tests/customize/test_customize_base.py
 """
 
 from __future__ import print_function, unicode_literals
@@ -18,6 +26,11 @@ from LiuXin_alpha.customize import Archive
 class ZipfileArchive(Archive):
     """
     Interface for the Zipfile compressor object.
+
+    Example:
+        Exercise ZipfileArchive through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
     """
 
     read_formats = {"zip"}
@@ -26,12 +39,19 @@ class ZipfileArchive(Archive):
     def __init__(self, file_path, mode="a", compression_flags=None, write_type="zip"):
         """
         Initialize an object representing the compressed file.
-        :param file_path:
-        :param mode: (remember that zipfile does not have an rb mode - everything read from the archive will be bytes
-                      by default).
-        :param compression_flags:
-        :param write_type: The type of archive you want to write the files out to - at the moment the only option is
-                           zip.
+
+        Example:
+            Exercise ZipfileArchive.  init   through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param file_path: Value supplied for file path under the utility contract.
+        :param mode: Open or adapter mode controlling read/write behavior.
+        :param compression_flags: Value supplied for compression flags under the utility
+            contract.
+        :param write_type: Value supplied for write type under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         Archive.__init__(self, file_path, mode, compression_flags, write_type)
         self.arc_file = zipfile.ZipFile(file=self.file_path, mode=self.mode)
@@ -39,7 +59,15 @@ class ZipfileArchive(Archive):
     def printdir(self):
         """
         Print the contents of a zipfile.
-        :return:
+
+        Example:
+            Exercise ZipfileArchive.printdir through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.arc_file.printdir()
 
@@ -50,8 +78,16 @@ class ZipfileArchive(Archive):
     def is_valid(cls, path):
         """
         Is the file readable and valid.
-        :param path:
-        :return:
+
+        Example:
+            Exercise ZipfileArchive.is valid through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :return: True when the documented condition holds; otherwise False.
         """
         return zipfile.is_zipfile(filename=path)
 
@@ -60,26 +96,47 @@ class ZipfileArchive(Archive):
     # ------------------------------------------------------------------------------------------------------------------
     def getinfo(self, name):
         """
-        Returns info on an element in the archive.
-        Returns as a dictionary keyed with the name of the element. This is read from the ZipInfo object that is
-        returned by ZipFile.
-        :param name:
-        :return:
+        Returns info on an element in the archive. Returns as a dictionary keyed with the name of the element. This is read from the ZipInfo object that is returned by ZipFile.
+
+        Example:
+            Exercise ZipfileArchive.getinfo through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.arc_file.getinfo(name)
 
     def infolist(self):
         """
-        Return a list containing a ZipInfo object for each member of the archive. The objects are in the same order as
-        their entries in the actual ZIP file on disk if an existing archive was opened.
-        :return:
+        Return a list containing a ZipInfo object for each member of the archive. The objects are in the same order as their entries in the actual ZIP file on disk if an existing archive was opened.
+
+        Example:
+            Exercise ZipfileArchive.infolist through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.arc_file.infolist()
 
     def namelist(self):
         """
         Returns a list of all the archive members by name.
-        :return:
+
+        Example:
+            Exercise ZipfileArchive.namelist through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.arc_file.namelist()
 
@@ -87,7 +144,15 @@ class ZipfileArchive(Archive):
     def files(self):
         """
         Returns all the files in the archive.
-        :return:
+
+        Example:
+            Exercise ZipfileArchive.files through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # If the size of the object is non zero, then assume it's a file
         zip_files = set()
@@ -100,7 +165,15 @@ class ZipfileArchive(Archive):
     def folders(self):
         """
         Returns all the folders in the archive.
-        :return:
+
+        Example:
+            Exercise ZipfileArchive.folders through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # If an object in the archive has zero size, and ends with the path separator, assume that it's a folder
         zip_folders = set()
@@ -112,30 +185,57 @@ class ZipfileArchive(Archive):
     def extract(self, path, pwd, member):
         """
         Extract a member of the archive to the specified path with the specified password.
-        :param path:
-        :param pwd:
-        :param member:
-        :return:
+
+        Example:
+            Exercise ZipfileArchive.extract through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :param pwd: Value supplied for pwd under the utility contract.
+        :param member: Value supplied for member under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.arc_file.extract(member=member, path=path, pwd=pwd)
 
     def extractall(self, path, members, pwd):
         """
         Extract all members from the archive to the current working directory.
-        :param path: specifies a different directory to extract to
-        :param members: is optional and must be a subset of the list returned by namelist()
-        :param pwd: is the password used for encrypted files.
-        :return:
+
+        Example:
+            Exercise ZipfileArchive.extractall through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :param members: Value supplied for members under the utility contract.
+        :param pwd: Value supplied for pwd under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.arc_file.extractall(path=path, members=members, pwd=pwd)
 
     def get_file(self, path, member, pwd=None):
         """
         Copy a file out to the given path.
-        :param path:
-        :param member:
-        :param pwd:
-        :return:
+
+        Example:
+            Exercise ZipfileArchive.get file through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :param member: Value supplied for member under the utility contract.
+        :param pwd: Value supplied for pwd under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         with open(path, "wb") as dst_file_path:
             with self.arc_file.open(name=member, pwd=pwd) as input_file:
@@ -147,22 +247,19 @@ class ZipfileArchive(Archive):
 
     def write(self, filename, arcname, compress_type=None):
         """
-        (from https://docs.python.org/2/library/zipfile.html#zipfile.ZipFile.write)
-        Write the file named filename to the archive, giving it the archive name arcname (by default, this will be the
-        same as filename, but without a drive letter and with leading path separators removed). If given, compress_type
-        overrides the value given for the compression parameter to the constructor for the new entry. The archive must
-        be open with mode ’w’ or ’a’ – calling write() on a ZipFile created with mode ’r’ will raise a RuntimeError.
-        Note: There is no official file name encoding for ZIP files. If you have unicode file names, you must convert
-        them to byte strings in your desired encoding before passing them to write(). WinZip interprets all file names
-        as encoded in CP437, also known as DOS Latin.
-        Note: Archive names should be relative to the archive root, that is, they should not start with a path
-        separator.
-        Note: If arcname (or filename, if arcname is not given) contains a null byte, the name of the file in the
-        archive will be truncated at the null byte.
-        :param filename:
-        :param arcname:
-        :param compress_type:
-        :return:
+        (from https://docs.python.org/2/library/zipfile.html#zipfile.ZipFile.write) Write the file named filename to the archive, giving it the archive name arcname (by default, this will be the same as filename, but without a drive letter and with leading path separators removed). If given, compress_type overrides the value given for the compression parameter to the constructor for the new entry. The archive must be open with mode ’w’ or ’a’ – calling write() on a ZipFile created with mode ’r’ will raise a RuntimeError. Note: There is no official file name encoding for ZIP files. If you have unicode file names, you must convert them to byte strings in your desired encoding before passing them to write(). WinZip interprets all file names as encoded in CP437, also known as DOS Latin. Note: Archive names should be relative to the archive root, that is, they should not start with a path separator. Note: If arcname (or filename, if arcname is not given) contains a null byte, the name of the file in the archive will be truncated at the null byte.
+
+        Example:
+            Exercise ZipfileArchive.write through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param filename: Filename used for type inference or archive output.
+        :param arcname: Value supplied for arcname under the utility contract.
+        :param compress_type: Value supplied for compress type under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.arc_file.write(
             filename=filename,
@@ -173,10 +270,18 @@ class ZipfileArchive(Archive):
     def writestr(self, arcname, byte_str, compress_type=None):
         """
         Write a string to the archive. Archive must be opened with mode 'w' or 'a'
-        :param arcname: file name it will be given in the archive
-        :param bytes_str:
-        :param compress_type:
-        :return:
+
+        Example:
+            Exercise ZipfileArchive.writestr through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :param arcname: Value supplied for arcname under the utility contract.
+        :param byte_str: Value supplied for byte str under the utility contract.
+        :param compress_type: Value supplied for compress type under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.arc_file.writestr(zinfo_or_arcname=arcname, bytes=byte_str, compress_type=compress_type)
 
@@ -187,18 +292,29 @@ class ZipfileArchive(Archive):
         """
         Calls the ZipFile.testzip() method.
 
-        Read all the files in the archive and check their CRC’s and file headers. Return the name of the first bad file,
-        or else return None. Calling testzip() on a closed ZipFile will raise a RuntimeError.
-        :return:
+        Example:
+            Exercise ZipfileArchive.testarc through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self.arc_file.testzip()
 
     def close(self):
         """
-        Calls the ZipFile.close() method.
-        Close the archive file. You must call close() before exiting your program or essential records will not be
-        written.
-        :return:
+        Calls the ZipFile.close() method. Close the archive file. You must call close() before exiting your program or essential records will not be written.
+
+        Example:
+            Exercise ZipfileArchive.close through a consuming regression::
+
+                python -m pytest -q tests/customize/test_customize_base.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.arc_file.close()
 
@@ -207,6 +323,13 @@ def get_compressor_plugins():
     """
     Returns the valid and functional conmpressor plugins.
 
-    :return:
+    Example:
+        Exercise get compressor plugins through a consuming regression::
+
+            python -m pytest -q tests/customize/test_customize_base.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return [ZipfileArchive]

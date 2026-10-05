@@ -1,3 +1,13 @@
+"""
+Check relation-field shapes, default values, and unknown-ID errors using manually seeded cache tables.
+
+These in-memory semantic tests do not use the legacy database-cache opt-in gate.
+
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/caches/test_calibre_cache_07_relation_field_semantics.py
+"""
 from __future__ import annotations
 
 from collections import defaultdict
@@ -46,6 +56,18 @@ from LiuXin_alpha.errors import NotInCache
 
 
 def _metadata(*, datatype: str = "text", val_unique: bool = True) -> dict:
+    """
+    Build a fresh minimal metadata mapping for a noncustom dummy value table.
+
+    Example:
+        >>> _metadata()['datatype']
+        'text'
+
+
+    :param datatype: Datatype label, defaulting to text.
+    :param val_unique: Whether values map back to at most one book.
+    :return: New dictionary including empty display and multiplicity dictionaries.
+    """
     return {
         "datatype": datatype,
         "table": "dummy_table",
@@ -58,6 +80,21 @@ def _metadata(*, datatype: str = "text", val_unique: bool = True) -> dict:
 
 
 def _seed_one_to_many_default(*, priority: bool = False, val_unique: bool = False) -> CalibreOneToManyField:
+    """
+    Seed an untyped notes relation with two linked values, one unlinked item, and an empty second book.
+
+    Example:
+        >>> sorted(_seed_one_to_many_default().ids_for_book(1))
+        [101, 102]
+
+
+    :param priority: Select the priority-aware table class and ordered list maps instead
+        of unordered sets.
+    :param val_unique: Whether reverse item maps contain a single book ID or collections
+        of book IDs.
+    :return: New CalibreOneToManyField with the requested ordering and reverse
+        uniqueness.
+    """
     table_cls = CalibrePriorityOneToManyTable if priority else CalibreOneToManyTable
     table = table_cls("notes", metadata=_metadata(val_unique=val_unique))
     table.table_type = table._table_type
@@ -77,6 +114,20 @@ def _seed_one_to_many_default(*, priority: bool = False, val_unique: bool = Fals
 
 
 def _seed_one_to_many_typed(*, priority: bool = False, val_unique: bool = False) -> CalibreOneToManyField:
+    """
+    Seed notes grouped into primary and secondary link types, with optional ordering and unique reverse owners.
+
+    Example:
+        >>> sorted(_seed_one_to_many_typed().ids_for_book(1))
+        ['primary', 'secondary']
+
+
+    :param priority: Select the priority-aware table class and ordered list maps instead
+        of unordered sets.
+    :param val_unique: Whether reverse item maps contain a single book ID or collections
+        of book IDs.
+    :return: New CalibreOneToManyField backed by a typed table.
+    """
     table_cls = CalibrePriorityTypedOneToManyTable if priority else CalibreTypedOneToManyTable
     table = table_cls("notes", metadata=_metadata(val_unique=val_unique))
     table.table_type = table._table_type
@@ -104,6 +155,16 @@ def _seed_one_to_many_typed(*, priority: bool = False, val_unique: bool = False)
 
 
 def _seed_many_to_one_default() -> CalibreManyToOneField:
+    """
+    Seed two series values with book one linked to Series A and book two unlinked.
+
+    Example:
+        >>> _seed_many_to_one_default().ids_for_book(1)
+        201
+
+
+    :return: New untyped CalibreManyToOneField; reverse maps also include book seven.
+    """
     table = CalibreManyToOneTable("series", metadata=_metadata(datatype="series"))
     table.id_map = {201: "Series A", 202: "Series B"}
     table.seen_book_ids = {1, 2}
@@ -114,6 +175,18 @@ def _seed_many_to_one_default() -> CalibreManyToOneField:
 
 
 def _seed_many_to_one_typed(*, priority: bool = False) -> CalibreManyToOneField:
+    """
+    Seed creator values, author/editor types, and an unlinked second book.
+
+    Example:
+        >>> _seed_many_to_one_typed().ids_for_book(1)
+        201
+
+
+    :param priority: Select the priority-aware table class and ordered list maps instead
+        of unordered sets.
+    :return: New typed CalibreManyToOneField with optional ordered reverse maps.
+    """
     table_cls = CalibrePriorityTypedManyToOneTable if priority else CalibreTypedManyToOneTable
     table = table_cls("creators", metadata=_metadata())
     table.id_map = {201: "Alice", 202: "Bob"}
@@ -130,6 +203,18 @@ def _seed_many_to_one_typed(*, priority: bool = False) -> CalibreManyToOneField:
 
 
 def _seed_many_to_many_default(*, priority: bool = False) -> CalibreManyToManyField:
+    """
+    Seed fiction/classic tags linked to book one and reverse maps including book seven.
+
+    Example:
+        >>> sorted(_seed_many_to_many_default().ids_for_book(1))
+        [301, 302]
+
+
+    :param priority: Select the priority-aware table class and ordered list maps instead
+        of unordered sets.
+    :return: New CalibreManyToManyField with list or set relation maps.
+    """
     table_cls = CalibrePriorityManyToManyTable if priority else CalibreManyToManyTable
     table = table_cls("tags", metadata=_metadata())
     table.id_map = {301: "fiction", 302: "classic"}
@@ -144,6 +229,18 @@ def _seed_many_to_many_default(*, priority: bool = False) -> CalibreManyToManyFi
 
 
 def _seed_many_to_many_typed(*, priority: bool = False) -> CalibreManyToManyField:
+    """
+    Seed author/editor creator links with a known but unlinked second book.
+
+    Example:
+        >>> sorted(_seed_many_to_many_typed().ids_for_book(1))
+        ['authors', 'editors']
+
+
+    :param priority: Select the priority-aware table class and ordered list maps instead
+        of unordered sets.
+    :return: New typed CalibreManyToManyField with optional ordered list maps.
+    """
     table_cls = CalibrePriorityTypedManyToManyTable if priority else CalibreTypedManyToManyTable
     table = table_cls("creators", metadata=_metadata())
     table.id_map = {301: "Alice", 302: "Bob", 303: "Carol"}
@@ -196,6 +293,22 @@ def test_one_to_many_field_non_unique_variants_expose_expected_relation_shapes(
     expected_ids,
     expected_books_for,
 ) -> None:
+    """
+    Check one-to-many forward/reverse shapes, empty-book defaults, and unknown-ID errors across typed and ordered variants.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_calibre_cache_07_relation_field_semantics.py::test_one_to_many_field_non_unique_variants_expose_expected_relation_shapes
+
+
+    :param builder: Zero-argument callable that returns a freshly seeded relation field.
+    :param expected_for_book: Expected value collection or typed mapping for book one.
+    :param expected_ids: Expected related item IDs for book one.
+    :param expected_books_for: Expected reverse book collection or typed mapping for the
+        selected item.
+    :return: None; failed expectations raise AssertionError.
+    """
     field = builder()
 
     assert isinstance(field, CalibreOneToManyField)
@@ -220,6 +333,18 @@ def test_one_to_many_field_non_unique_variants_expose_expected_relation_shapes(
     ],
 )
 def test_one_to_many_field_unique_variants_resolve_items_back_to_single_books(builder) -> None:
+    """
+    Check unique one-to-many values resolve to one owner, unlinked values use the default, and unknown items raise.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_calibre_cache_07_relation_field_semantics.py::test_one_to_many_field_unique_variants_resolve_items_back_to_single_books
+
+
+    :param builder: Zero-argument callable that returns a freshly seeded relation field.
+    :return: None; failed expectations raise AssertionError.
+    """
     field = builder()
 
     assert field.books_for(101) == 1
@@ -240,6 +365,24 @@ def test_many_to_one_field_variants_expose_expected_reverse_relation_shapes(
     builder,
     expected_books_for,
 ) -> None:
+    """
+    Check many-to-one ID/reverse shapes, unlinked defaults, and unknown-ID errors.
+
+    The conditional forward-value assertion checks Alice only for the creators field;
+    its series branch evaluates a truthy literal rather than comparing the returned
+    value.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_calibre_cache_07_relation_field_semantics.py::test_many_to_one_field_variants_expose_expected_reverse_relation_shapes
+
+
+    :param builder: Zero-argument callable that returns a freshly seeded relation field.
+    :param expected_books_for: Expected reverse book collection or typed mapping for the
+        selected item.
+    :return: None; failed expectations raise AssertionError.
+    """
     field = builder()
 
     assert isinstance(field, CalibreManyToOneField)
@@ -289,6 +432,22 @@ def test_many_to_many_field_variants_expose_expected_relation_shapes(
     expected_ids,
     expected_books_for,
 ) -> None:
+    """
+    Check many-to-many values, IDs, reverse shapes, empty-book defaults, and unknown-ID errors across typed and ordered variants.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_calibre_cache_07_relation_field_semantics.py::test_many_to_many_field_variants_expose_expected_relation_shapes
+
+
+    :param builder: Zero-argument callable that returns a freshly seeded relation field.
+    :param expected_for_book: Expected value collection or typed mapping for book one.
+    :param expected_ids: Expected related item IDs for book one.
+    :param expected_books_for: Expected reverse book collection or typed mapping for the
+        selected item.
+    :return: None; failed expectations raise AssertionError.
+    """
     field = builder()
 
     assert isinstance(field, CalibreManyToManyField)

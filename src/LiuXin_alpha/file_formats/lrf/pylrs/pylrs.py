@@ -36,6 +36,17 @@
 #                           Plot, Image (outside of ImageBlock),
 #                           EmpLine, EmpDots
 
+"""
+Construct LRS books, pages, blocks, styles, images and navigation trees.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise pylrs through a consuming regression::
+
+        python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+"""
 from __future__ import print_function
 from __future__ import annotations
 
@@ -88,14 +99,43 @@ DEFAULT_GENREADING = "fs"  # default is yes to both lrf and lrs
 
 
 class LrsError(Exception):
+    """
+    Report a lrserror encountered while processing an ebook format.
+
+    Example:
+        Exercise LrsError through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+    """
     pass
 
 
 class ContentError(Exception):
+    """
+    Report a contenterror encountered while processing an ebook format.
+
+    Example:
+        Exercise ContentError through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+    """
     pass
 
 
 def _checkExists(filename: _typing.Any) -> None:
+    """
+    Perform the checkExists operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  checkExists through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+    :param filename: Filename used for type inference or archive output.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if not os.path.exists(filename):
         raise LrsError("file '%s' not found" % filename)
 
@@ -103,8 +143,16 @@ def _checkExists(filename: _typing.Any) -> None:
 def _formatXml(root: _typing.Any) -> None:
     """
     A helper to make the LRS output look nicer.
-    :param root:
-    :return:
+
+    Example:
+        Exercise  formatXml through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     for elem in root.iter():
         if len(elem) > 0 and (not elem.text or not elem.text.strip()):
@@ -116,10 +164,18 @@ def _formatXml(root: _typing.Any) -> None:
 def ElementWithText(tag: _typing.Any, text: _typing.Any, **extra: _typing.Any) -> _typing.Any:
     """
     A shorthand function to create Elements with text.
-    :param tag:
-    :param text:
-    :param extra:
-    :return:
+
+    Example:
+        Exercise ElementWithText through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+    :param tag: Value supplied for tag under the utility contract.
+    :param text: Text parsed, normalized or rendered.
+    :param extra: Value supplied for extra under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     e = Element(tag, **extra)
     e.text = text
@@ -129,10 +185,18 @@ def ElementWithText(tag: _typing.Any, text: _typing.Any, **extra: _typing.Any) -
 def ElementWithReading(tag: _typing.Any, text: _typing.Any, reading: bool = False) -> _typing.Any:
     """
     A helper function that creates reading attributes.
-    :param tag:
-    :param text:
-    :param reading:
-    :return:
+
+    Example:
+        Exercise ElementWithReading through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+    :param tag: Value supplied for tag under the utility contract.
+    :param text: Text parsed, normalized or rendered.
+    :param reading: Value supplied for reading under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
 
     # note: old lrs2lrf parser only allows reading = ""
@@ -154,13 +218,36 @@ def ElementWithReading(tag: _typing.Any, text: _typing.Any, reading: bool = Fals
 def appendTextElements(e: _typing.Any, contentsList: _typing.Any, se: _typing.Any) -> None:
     """
     A helper function to convert text streams into the proper elements.
-    :param e:
-    :param contentsList:
-    :param se:
-    :return:
+
+    Example:
+        Exercise appendTextElements through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+    :param e: Value supplied for e under the utility contract.
+    :param contentsList: Value supplied for contentsList under the utility contract.
+    :param se: Value supplied for se under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
 
     def uconcat(text: _typing.Any, newText: _typing.Any, se: _typing.Any) -> _typing.Any:
+        """
+        Perform the uconcat operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise appendTextElements.uconcat through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :param newText: Value supplied for newText under the utility contract.
+        :param se: Value supplied for se under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if type(newText) != type(text):
             if type(text) is str:
                 text = text.decode(se)
@@ -190,9 +277,26 @@ def appendTextElements(e: _typing.Any, contentsList: _typing.Any, se: _typing.An
 class Delegator(object):
     """
     A mixin class to create delegated methods that create elements.
+
+    Example:
+        Exercise Delegator through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
     """
 
     def __init__(self: _typing.Self, delegates: _typing.Any) -> None:
+        """
+        Initialize and validate the delegator state.
+
+        Example:
+            Exercise Delegator.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param delegates: Value supplied for delegates under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.delegates = delegates
         self.delegatedMethods = []
         # self.delegatedSettingsDict = {}
@@ -215,6 +319,21 @@ class Delegator(object):
             """
 
     def applySetting(self: _typing.Self, name: _typing.Any, value: _typing.Any, testValid: bool = False) -> _typing.Any:
+        """
+        Perform the applySetting operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Delegator.applySetting through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param value: Value normalized, stored, formatted or returned.
+        :param testValid: Value supplied for testValid under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         applied = False
         if name in self.getSettings():
             setattr(self, name, value)
@@ -234,6 +353,20 @@ class Delegator(object):
         return applied
 
     def applySettings(self: _typing.Self, settings: _typing.Any, testValid: bool = False) -> None:
+        """
+        Perform the applySettings operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Delegator.applySettings through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param settings: Value supplied for settings under the utility contract.
+        :param testValid: Value supplied for testValid under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for (setting, value) in settings.items():
             self.applySetting(setting, value, testValid)
             """
@@ -245,6 +378,20 @@ class Delegator(object):
             """
 
     def appendDelegates(self: _typing.Self, element: _typing.Any, sourceEncoding: _typing.Any) -> None:
+        """
+        Perform the appendDelegates operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Delegator.appendDelegates through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param element: Value supplied for element under the utility contract.
+        :param sourceEncoding: Value supplied for sourceEncoding under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for d in self.delegates:
             e = d.toElement(sourceEncoding)
             if e is not None:
@@ -255,29 +402,111 @@ class Delegator(object):
                     element.append(e)
 
     def appendReferencedObjects(self: _typing.Self, parent: _typing.Any) -> None:
+        """
+        Perform the appendReferencedObjects operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Delegator.appendReferencedObjects through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for d in self.delegates:
             d.appendReferencedObjects(parent)
 
     def getMethods(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the getMethods operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Delegator.getMethods through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.delegatedMethods
 
     def getSettings(self: _typing.Self) -> list[_typing.Any]:
+        """
+        Perform the getSettings operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Delegator.getSettings through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return []
 
     def toLrfDelegates(self: _typing.Self, lrfWriter: _typing.Any) -> None:
+        """
+        Perform the toLrfDelegates operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Delegator.toLrfDelegates through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param lrfWriter: Value supplied for lrfWriter under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for d in self.delegates:
             d.toLrf(lrfWriter)
 
     def toLrf(self: _typing.Self, lrfWriter: _typing.Any) -> None:
+        """
+        Perform the toLrf operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Delegator.toLrf through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param lrfWriter: Value supplied for lrfWriter under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.toLrfDelegates(lrfWriter)
 
 
 class LrsAttributes(object):
     """
     A mixin class to handle default and user supplied attributes.
+
+    Example:
+        Exercise LrsAttributes through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
     """
 
     def __init__(self: _typing.Self, defaults: _typing.Any, alsoAllow: _typing.Any = None, **settings: _typing.Any) -> None:
+        """
+        Initialize and validate the lrsattributes state.
+
+        Example:
+            Exercise LrsAttributes.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param defaults: Value supplied for defaults under the utility contract.
+        :param alsoAllow: Value supplied for alsoAllow under the utility contract.
+        :param settings: Value supplied for settings under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         if alsoAllow is None:
             alsoAllow = []
         self.attrs = defaults.copy()
@@ -292,9 +521,26 @@ class LrsAttributes(object):
 class LrsContainer(object):
     """
     This class is a mixin class for elements that are contained in or contain an unknown number of other elements.
+
+    Example:
+        Exercise LrsContainer through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
     """
 
     def __init__(self: _typing.Self, validChildren: _typing.Any) -> None:
+        """
+        Initialize and validate the lrscontainer state.
+
+        Example:
+            Exercise LrsContainer.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param validChildren: Value supplied for validChildren under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.parent = None
         self.contents = []
         self.validChildren = validChildren
@@ -303,7 +549,14 @@ class LrsContainer(object):
     def has_text(self: _typing.Self) -> bool:
         """
         Return True iff this container has non whitespace text
-        :return:
+
+        Example:
+            Exercise LrsContainer.has text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: True when the documented condition holds; otherwise False.
         """
         if hasattr(self, "text"):
             if self.text.strip():
@@ -320,27 +573,69 @@ class LrsContainer(object):
     def append_to(self: _typing.Self, parent: _typing.Any) -> None:
         """
         Append self to C{parent} iff self has non whitespace textual content
-        :param parent:
-        :return:
+
+        Example:
+            Exercise LrsContainer.append to through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.contents or self.must_append:
             parent.append(self)
 
     def appendReferencedObjects(self: _typing.Self, parent: _typing.Any) -> None:
+        """
+        Perform the appendReferencedObjects operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LrsContainer.appendReferencedObjects through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for c in self.contents:
             c.appendReferencedObjects(parent)
 
     def setParent(self: _typing.Self, parent: _typing.Any) -> None:
+        """
+        Perform the setParent operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LrsContainer.setParent through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.parent is not None:
             raise LrsError("object already has parent")
         self.parent = parent
 
     def append(self: _typing.Self, content: _typing.Any, convertText: bool = True) -> _typing.Any:
         """
-        Appends valid objects to container.  Can auto-covert text strings to Text objects.
-        :param content:
-        :param convertText:
-        :return:
+        Appends valid objects to container. Can auto-covert text strings to Text objects.
+
+        Example:
+            Exercise LrsContainer.append through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param content: Value supplied for content under the utility contract.
+        :param convertText: Value supplied for convertText under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         for validChild in self.validChildren:
             if isinstance(content, validChild):
@@ -360,6 +655,18 @@ class LrsContainer(object):
         return self
 
     def get_all(self: _typing.Self, predicate: _typing.Callable[..., _typing.Any] = lambda x: x) -> _typing.Iterator[_typing.Any]:
+        """
+        Return all under the format's safety and compatibility rules.
+
+        Example:
+            Exercise LrsContainer.get all through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param predicate: Value supplied for predicate under the utility contract.
+        :return: An iterator yielding the normalized values described above.
+        """
         for child in self.contents:
             if predicate(child):
                 yield child
@@ -371,35 +678,84 @@ class LrsContainer(object):
 class LrsObject(object):
     """
     A mixin class for elements that need an object id.
+
+    Example:
+        Exercise LrsObject through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
     """
 
     nextObjId = 0
 
     @classmethod
     def getNextObjId(selfClass: _typing.Any) -> _typing.Any:
+        """
+        Perform the getNextObjId operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LrsObject.getNextObjId through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         selfClass.nextObjId += 1
         return selfClass.nextObjId
 
     def __init__(self: _typing.Self, assignId: bool = False) -> None:
+        """
+        Initialize and validate the lrsobject state.
+
+        Example:
+            Exercise LrsObject.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param assignId: Value supplied for assignId under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         if assignId:
             self.objId = LrsObject.getNextObjId()
         else:
             self.objId = 0
 
     def assignId(self: _typing.Self) -> None:
+        """
+        Perform the assignId operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LrsObject.assignId through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.objId != 0:
             raise LrsError("id already assigned to " + self.__class__.__name__)
         self.objId = LrsObject.getNextObjId()
 
     def lrsObjectElement(self: _typing.Self, name: _typing.Any, objlabel: str = "objlabel", labelName: _typing.Any = None, labelDecorate: bool = True, **settings: _typing.Any) -> _typing.Any:
         """
+        Perform the lrsObjectElement operation under explicit file-format and conversion rules.
 
-        :param name:
-        :param objlabel:
-        :param labelName:
-        :param labelDecorate:
-        :param settings:
-        :return:
+        Example:
+            Exercise LrsObject.lrsObjectElement through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param objlabel: Value supplied for objlabel under the utility contract.
+        :param labelName: Value supplied for labelName under the utility contract.
+        :param labelDecorate: Value supplied for labelDecorate under the utility contract.
+        :param settings: Value supplied for settings under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         element = Element(name)
         element.attrib["objid"] = str(self.objId)
@@ -416,44 +772,12 @@ class LrsObject(object):
 
 class Book(Delegator):
     """
-    Main class for any lrs or lrf.  All objects must be appended to
-    the Book class in some way or another in order to be rendered as
-    an LRS or LRF file.
+    Main class for any lrs or lrf. All objects must be appended to the Book class in some way or another in order to be rendered as an LRS or LRF file.
 
-    The following settings are available on the contructor of Book:
+    Example:
+        Exercise Book through a consuming regression::
 
-    author="book author" or author=("book author", "sort as")
-    Author of the book.
-
-    title="book title" or title=("book title", "sort as")
-    Title of the book.
-
-    sourceencoding="codec"
-    Gives the assumed encoding for all non-unicode strings.
-
-
-    thumbnail="thumbnail file name"
-    A small (80x80?) graphics file with a thumbnail of the book's cover.
-
-    bookid="book id"
-    A unique id for the book.
-
-    textstyledefault=<dictionary of settings>
-    Sets the default values for all TextStyles.
-
-    pagetstyledefault=<dictionary of settings>
-    Sets the default values for all PageStyles.
-
-    blockstyledefault=<dictionary of settings>
-    Sets the default values for all BlockStyles.
-
-    booksetting=BookSetting()
-    Override the default BookSetting.
-
-    setdefault=StyleDefault()
-    Override the default SetDefault.
-
-    There are several other settings -- see the BookInfo class for more.
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
     """
 
     def __init__(
@@ -466,6 +790,27 @@ class Book(Delegator):
         **settings: _typing.Any
     ) -> None:
 
+        """
+        Initialize and validate the book state.
+
+        Example:
+            Exercise Book.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param textstyledefault: Value supplied for textstyledefault under the utility
+            contract.
+        :param blockstyledefault: Value supplied for blockstyledefault under the utility
+            contract.
+        :param pagestyledefault: Value supplied for pagestyledefault under the utility
+            contract.
+        :param optimizeTags: Value supplied for optimizeTags under the utility contract.
+        :param optimizeCompression: Value supplied for optimizeCompression under the utility
+            contract.
+        :param settings: Value supplied for settings under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.parent = None  # we are the top of the parent chain
 
         # LRF object IDs are per-book. Reset the global counter here so
@@ -524,24 +869,89 @@ class Book(Delegator):
         self.gc_count = 0
 
     def set_title(self: _typing.Self, title: _typing.Any) -> None:
+        """
+        Set title under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Book.set title through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param title: Value supplied for title under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         ot = self.delegates[0].delegates[0].delegates[0].title
         self.delegates[0].delegates[0].delegates[0].title = (title, ot[1])
 
     def set_author(self: _typing.Self, author: _typing.Any) -> None:
+        """
+        Set author under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Book.set author through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param author: Value supplied for author under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         ot = self.delegates[0].delegates[0].delegates[0].author
         self.delegates[0].delegates[0].delegates[0].author = (author, ot[1])
 
     def create_text_style(self: _typing.Self, **settings: _typing.Any) -> _typing.Any:
+        """
+        Create text style under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Book.create text style through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param settings: Value supplied for settings under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = TextStyle(**self.defaultTextStyle.attrs.copy())
         ans.update(settings)
         return ans
 
     def create_block_style(self: _typing.Self, **settings: _typing.Any) -> _typing.Any:
+        """
+        Create block style under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Book.create block style through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param settings: Value supplied for settings under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = BlockStyle(**self.defaultBlockStyle.attrs.copy())
         ans.update(settings)
         return ans
 
     def create_page_style(self: _typing.Self, **settings: _typing.Any) -> _typing.Any:
+        """
+        Create page style under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Book.create page style through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param settings: Value supplied for settings under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not self.allow_new_page:
             raise ContentError
         ans = PageStyle(**self.defaultPageStyle.attrs.copy())
@@ -551,9 +961,17 @@ class Book(Delegator):
     def create_page(self: _typing.Self, pageStyle: _typing.Any = None, **settings: _typing.Any) -> _typing.Any:
         """
         Return a new L{Page}. The page has not been appended to this book.
-        :param pageStyle:
-        :param settings:
-        :return:
+
+        Example:
+            Exercise Book.create page through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param pageStyle: Value supplied for pageStyle under the utility contract.
+        :param settings: Value supplied for settings under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if not pageStyle:
             pageStyle = self.defaultPageStyle
@@ -562,10 +980,18 @@ class Book(Delegator):
     def create_text_block(self: _typing.Self, textStyle: _typing.Any = None, blockStyle: _typing.Any = None, **settings: _typing.Any) -> _typing.Any:
         """
         Return a new L{TextBlock}. The block has not been appended to this book.
-        :param textStyle:
-        :param blockStyle:
-        :param settings:
-        :return:
+
+        Example:
+            Exercise Book.create text block through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param textStyle: Value supplied for textStyle under the utility contract.
+        :param blockStyle: Value supplied for blockStyle under the utility contract.
+        :param settings: Value supplied for settings under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if not textStyle:
             textStyle = self.defaultTextStyle
@@ -576,7 +1002,15 @@ class Book(Delegator):
     def pages(self: _typing.Self) -> _typing.Any:
         """
         Return list of Page objects in this book
-        :return:
+
+        Example:
+            Exercise Book.pages through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         ans = []
         for item in self.delegates:
@@ -590,7 +1024,15 @@ class Book(Delegator):
     def last_page(self: _typing.Self) -> _typing.Any:
         """
         Return last Page in this book
-        :return:
+
+        Example:
+            Exercise Book.last page through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         for item in self.delegates:
             if isinstance(item, Main):
@@ -601,17 +1043,51 @@ class Book(Delegator):
                         return candidate
 
     def embed_font(self: _typing.Self, file: _typing.Any, facename: _typing.Any) -> None:
+        """
+        Perform the embed font operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Book.embed font through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param file: Value supplied for file under the utility contract.
+        :param facename: Value supplied for facename under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         f = Font(file, facename)
         self.append(f)
 
     def getSettings(self: _typing.Self) -> list[_typing.Any]:
+        """
+        Perform the getSettings operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Book.getSettings through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return ["sourceencoding"]
 
     def append(self: _typing.Self, content: _typing.Any) -> None:
         """
         Find and invoke the correct appender for this content.
-        :param content:
-        :return:
+
+        Example:
+            Exercise Book.append through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param content: Value supplied for content under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         className = content.__class__.__name__
         try:
@@ -621,6 +1097,19 @@ class Book(Delegator):
         method(content)
 
     def rationalize_font_sizes(self: _typing.Self, base_font_size: int = 10) -> None:
+        """
+        Perform the rationalize font sizes operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Book.rationalize font sizes through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param base_font_size: Value supplied for base font size under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         base_font_size *= 10.0
         main = None
         for obj in self.delegates:
@@ -659,6 +1148,19 @@ class Book(Delegator):
         factor = base_font_size / old_base_font_size
 
         def rescale(old: _typing.Any) -> _typing.Any:
+            """
+            Perform the rescale operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise Book.rationalize font sizes.rescale through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+            :param old: Value supplied for old under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             return str(int(int(old) * factor))
 
         text_blocks = list(main.get_all(lambda x: isinstance(x, TextBlock)))
@@ -677,12 +1179,39 @@ class Book(Delegator):
             ts.attrs["baselineskip"] = rescale(ts.attrs["baselineskip"])
 
     def renderLrs(self: _typing.Self, lrsFile: _typing.Any, encoding: str = "UTF-8") -> None:
+        """
+        Perform the renderLrs operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Book.renderLrs through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param lrsFile: Value supplied for lrsFile under the utility contract.
+        :param encoding: Value supplied for encoding under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if isinstance(lrsFile, six_string_types):
             lrsFile = codecs.open(lrsFile, "wb", encoding=encoding)
         self.render(lrsFile, outputEncodingName=encoding)
         lrsFile.close()
 
     def renderLrf(self: _typing.Self, lrfFile: _typing.Any) -> None:
+        """
+        Perform the renderLrf operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Book.renderLrf through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param lrfFile: Value supplied for lrfFile under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.appendReferencedObjects(self)
         # Todo: Waiting until I can actually run some tests
         if isinstance(lrfFile, six_string_types):
@@ -697,6 +1226,19 @@ class Book(Delegator):
         lrfFile.close()
 
     def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
+        """
+        Perform the toElement operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Book.toElement through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param se: Value supplied for se under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         root = Element("BBeBXylog", version="1.0")
         root.append(Element("Property"))
         self.appendDelegates(root, self.sourceencoding)
@@ -705,9 +1247,18 @@ class Book(Delegator):
     def render(self: _typing.Self, f: _typing.Any, outputEncodingName: str = "UTF-8") -> None:
         """
         Write the book as an LRS to file f.
-        :param f:
-        :param outputEncodingName:
-        :return:
+
+        Example:
+            Exercise Book.render through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param f: Value supplied for f under the utility contract.
+        :param outputEncodingName: Value supplied for outputEncodingName under the utility
+            contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
 
         self.appendReferencedObjects(self)
@@ -731,12 +1282,41 @@ class Book(Delegator):
 class BookInformation(Delegator):
     """
     Just a container for the Info and TableOfContents elements.
+
+    Example:
+        Exercise BookInformation through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
     """
 
     def __init__(self: _typing.Self) -> None:
+        """
+        Initialize and validate the bookinformation state.
+
+        Example:
+            Exercise BookInformation.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         Delegator.__init__(self, [Info(), TableOfContents()])
 
     def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
+        """
+        Perform the toElement operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise BookInformation.toElement through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param se: Value supplied for se under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         bi = Element("BookInformation")
         self.appendDelegates(bi, se)
         return bi
@@ -745,16 +1325,57 @@ class BookInformation(Delegator):
 class Info(Delegator):
     """
     Just a container for the BookInfo and DocInfo elements.
+
+    Example:
+        Exercise Info through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
     """
 
     def __init__(self: _typing.Self) -> None:
+        """
+        Initialize and validate the info state.
+
+        Example:
+            Exercise Info.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         self.genreading = DEFAULT_GENREADING
         Delegator.__init__(self, [BookInfo(), DocInfo()])
 
     def getSettings(self: _typing.Self) -> list[_typing.Any]:
+        """
+        Perform the getSettings operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Info.getSettings through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return ["genreading"]  # + self.delegatedSettings
 
     def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
+        """
+        Perform the toElement operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Info.toElement through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param se: Value supplied for se under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         info = Element("Info", version="1.1")
         info.append(self.delegates[0].toElement(se, reading="s" in self.genreading))
         info.append(self.delegates[1].toElement(se))
@@ -762,6 +1383,19 @@ class Info(Delegator):
 
     def toLrf(self: _typing.Self, lrfWriter: _typing.Any) -> None:
         # this info is set in XML form in the LRF
+        """
+        Perform the toLrf operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Info.toLrf through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param lrfWriter: Value supplied for lrfWriter under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         info = Element("Info", version="1.1")
         # self.appendDelegates(info)
         info.append(self.delegates[0].toElement(lrfWriter.getSourceEncoding(), reading="f" in self.genreading))
@@ -790,19 +1424,89 @@ class Info(Delegator):
 
 
 class TableOfContents(object):
+    """
+    Provide the tableofcontents contract for validated ebook processing.
+
+    Example:
+        Exercise TableOfContents through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+    """
     def __init__(self: _typing.Self) -> None:
+        """
+        Initialize and validate the tableofcontents state.
+
+        Example:
+            Exercise TableOfContents.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         self.tocEntries = []
 
     def appendReferencedObjects(self: _typing.Self, parent: _typing.Any) -> None:
+        """
+        Perform the appendReferencedObjects operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TableOfContents.appendReferencedObjects through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pass
 
     def getMethods(self: _typing.Self) -> list[_typing.Any]:
+        """
+        Perform the getMethods operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TableOfContents.getMethods through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return ["addTocEntry"]
 
     def getSettings(self: _typing.Self) -> list[_typing.Any]:
+        """
+        Perform the getSettings operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TableOfContents.getSettings through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return []
 
     def addTocEntry(self: _typing.Self, tocLabel: _typing.Any, textBlock: _typing.Any) -> None:
+        """
+        Perform the addTocEntry operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TableOfContents.addTocEntry through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param tocLabel: Value supplied for tocLabel under the utility contract.
+        :param textBlock: Value supplied for textBlock under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if not isinstance(textBlock, (Canvas, TextBlock, ImageBlock, RuledLine)):
             raise LrsError(
                 "TOC destination must be a Canvas, TextBlock, ImageBlock or RuledLine not a " + str(type(textBlock))
@@ -825,6 +1529,19 @@ class TableOfContents(object):
         textBlock.tocLabel = tocLabel
 
     def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
+        """
+        Perform the toElement operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TableOfContents.toElement through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param se: Value supplied for se under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if len(self.tocEntries) == 0:
             return None
 
@@ -834,6 +1551,19 @@ class TableOfContents(object):
         return toc
 
     def toLrf(self: _typing.Self, lrfWriter: _typing.Any) -> None:
+        """
+        Perform the toLrf operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TableOfContents.toLrf through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param lrfWriter: Value supplied for lrfWriter under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if len(self.tocEntries) == 0:
             return
 
@@ -847,11 +1577,45 @@ class TableOfContents(object):
 
 
 class TocLabel(object):
+    """
+    Provide the toclabel contract for validated ebook processing.
+
+    Example:
+        Exercise TocLabel through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+    """
     def __init__(self: _typing.Self, label: _typing.Any, textBlock: _typing.Any) -> None:
+        """
+        Initialize and validate the toclabel state.
+
+        Example:
+            Exercise TocLabel.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param label: Value supplied for label under the utility contract.
+        :param textBlock: Value supplied for textBlock under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.label = escape(re.sub(r"&(\S+?);", entity_to_unicode, label))
         self.textBlock = textBlock
 
     def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
+        """
+        Perform the toElement operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TocLabel.toElement through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param se: Value supplied for se under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return ElementWithText(
             "TocLabel",
             self.label,
@@ -861,7 +1625,26 @@ class TocLabel(object):
 
 
 class BookInfo(object):
+    """
+    Carry normalized bookinfo data across the conversion pipeline.
+
+    Example:
+        Exercise BookInfo through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+    """
     def __init__(self: _typing.Self) -> None:
+        """
+        Initialize and validate the bookinfo state.
+
+        Example:
+            Exercise BookInfo.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         self.title = "Untitled"
         self.author = "Anonymous"
         self.bookid = None
@@ -874,12 +1657,49 @@ class BookInfo(object):
         self.classification = None
 
     def appendReferencedObjects(self: _typing.Self, parent: _typing.Any) -> None:
+        """
+        Perform the appendReferencedObjects operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise BookInfo.appendReferencedObjects through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pass
 
     def getMethods(self: _typing.Self) -> list[_typing.Any]:
+        """
+        Perform the getMethods operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise BookInfo.getMethods through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return []
 
     def getSettings(self: _typing.Self) -> list[_typing.Any]:
+        """
+        Perform the getSettings operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise BookInfo.getSettings through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return [
             "author",
             "title",
@@ -893,6 +1713,19 @@ class BookInfo(object):
         ]
 
     def _appendISBN(self: _typing.Self, bi: _typing.Any) -> None:
+        """
+        Perform the appendISBN operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise BookInfo. appendISBN through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param bi: Value supplied for bi under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pi = Element("ProductIdentifier")
         isbn_element = ElementWithText("ISBNPrintable", self.isbn)
         isbn_value_element = ElementWithText("ISBNValue", self.isbn.replace("-", ""))
@@ -902,6 +1735,20 @@ class BookInfo(object):
         bi.append(pi)
 
     def toElement(self: _typing.Self, se: _typing.Any, reading: bool = True) -> _typing.Any:
+        """
+        Perform the toElement operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise BookInfo.toElement through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param se: Value supplied for se under the utility contract.
+        :param reading: Value supplied for reading under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         bi = Element("BookInfo")
         bi.append(ElementWithReading("Title", self.title, reading=reading))
         bi.append(ElementWithReading("Author", self.author, reading=reading))
@@ -920,7 +1767,26 @@ class BookInfo(object):
 
 
 class DocInfo(object):
+    """
+    Carry normalized docinfo data across the conversion pipeline.
+
+    Example:
+        Exercise DocInfo through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+    """
     def __init__(self: _typing.Self) -> None:
+        """
+        Initialize and validate the docinfo state.
+
+        Example:
+            Exercise DocInfo.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         self.thumbnail = None
         self.language = "en"
         self.creator = None
@@ -929,12 +1795,49 @@ class DocInfo(object):
         self.numberofpages = "0"
 
     def appendReferencedObjects(self: _typing.Self, parent: _typing.Any) -> None:
+        """
+        Perform the appendReferencedObjects operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DocInfo.appendReferencedObjects through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pass
 
     def getMethods(self: _typing.Self) -> list[_typing.Any]:
+        """
+        Perform the getMethods operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DocInfo.getMethods through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return []
 
     def getSettings(self: _typing.Self) -> list[_typing.Any]:
+        """
+        Perform the getSettings operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DocInfo.getSettings through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return [
             "thumbnail",
             "language",
@@ -945,6 +1848,19 @@ class DocInfo(object):
         ]
 
     def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
+        """
+        Perform the toElement operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DocInfo.toElement through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param se: Value supplied for se under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         docInfo = Element("DocInfo")
 
         if self.thumbnail is not None:
@@ -959,24 +1875,107 @@ class DocInfo(object):
 
 
 class Main(LrsContainer):
+    """
+    Provide the main contract for validated ebook processing.
+
+    Example:
+        Exercise Main through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+    """
     def __init__(self: _typing.Self) -> None:
+        """
+        Initialize and validate the main state.
+
+        Example:
+            Exercise Main.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         LrsContainer.__init__(self, [Page])
 
     def getMethods(self: _typing.Self) -> list[_typing.Any]:
+        """
+        Perform the getMethods operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Main.getMethods through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return ["appendPage", "Page"]
 
     def getSettings(self: _typing.Self) -> list[_typing.Any]:
+        """
+        Perform the getSettings operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Main.getSettings through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return []
 
     def Page(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
+        """
+        Perform the Page operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Main.Page through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         p = Page(*args, **kwargs)
         self.append(p)
         return p
 
     def appendPage(self: _typing.Self, page: _typing.Any) -> None:
+        """
+        Perform the appendPage operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Main.appendPage through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param page: Value supplied for page under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.append(page)
 
     def toElement(self: _typing.Self, sourceEncoding: _typing.Any) -> _typing.Any:
+        """
+        Perform the toElement operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Main.toElement through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param sourceEncoding: Value supplied for sourceEncoding under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         main = Element(self.__class__.__name__)
 
         for page in self.contents:
@@ -985,6 +1984,19 @@ class Main(LrsContainer):
         return main
 
     def toLrf(self: _typing.Self, lrfWriter: _typing.Any) -> None:
+        """
+        Perform the toLrf operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Main.toLrf through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param lrfWriter: Value supplied for lrfWriter under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         page_ids = []
 
         # set this id now so that pages can see it
@@ -1005,28 +2017,124 @@ class Main(LrsContainer):
 
 
 class Solos(LrsContainer):
+    """
+    Provide the solos contract for validated ebook processing.
+
+    Example:
+        Exercise Solos through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+    """
     def __init__(self: _typing.Self) -> None:
+        """
+        Initialize and validate the solos state.
+
+        Example:
+            Exercise Solos.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         LrsContainer.__init__(self, [Solo])
 
     def getMethods(self: _typing.Self) -> list[_typing.Any]:
+        """
+        Perform the getMethods operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Solos.getMethods through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return ["appendSolo", "Solo"]
 
     def getSettings(self: _typing.Self) -> list[_typing.Any]:
+        """
+        Perform the getSettings operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Solos.getSettings through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return []
 
     def Solo(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
+        """
+        Perform the Solo operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Solos.Solo through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         p = Solo(*args, **kwargs)
         self.append(p)
         return p
 
     def appendSolo(self: _typing.Self, solo: _typing.Any) -> None:
+        """
+        Perform the appendSolo operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Solos.appendSolo through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param solo: Value supplied for solo under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.append(solo)
 
     def toLrf(self: _typing.Self, lrfWriter: _typing.Any) -> None:
+        """
+        Perform the toLrf operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Solos.toLrf through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param lrfWriter: Value supplied for lrfWriter under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for s in self.contents:
             s.toLrf(lrfWriter)
 
     def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
+        """
+        Perform the toElement operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Solos.toElement through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param se: Value supplied for se under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         solos = []
         for s in self.contents:
             solos.append(s.toElement(se))
@@ -1038,38 +2146,117 @@ class Solos(LrsContainer):
 
 
 class Solo(Main):
+    """
+    Provide the solo contract for validated ebook processing.
+
+    Example:
+        Exercise Solo through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+    """
     pass
 
 
 class Template(object):
     """
     Does nothing that I know of.
+
+    Example:
+        Exercise Template through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
     """
 
     def appendReferencedObjects(self: _typing.Self, parent: _typing.Any) -> None:
+        """
+        Perform the appendReferencedObjects operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Template.appendReferencedObjects through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pass
 
     def getMethods(self: _typing.Self) -> list[_typing.Any]:
+        """
+        Perform the getMethods operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Template.getMethods through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return []
 
     def getSettings(self: _typing.Self) -> list[_typing.Any]:
+        """
+        Perform the getSettings operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Template.getSettings through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return []
 
     def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
+        """
+        Perform the toElement operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Template.toElement through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param se: Value supplied for se under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         t = Element("Template")
         t.attrib["version"] = "1.0"
         return t
 
     def toLrf(self: _typing.Self, lrfWriter: _typing.Any) -> None:
         # does nothing
+        """
+        Perform the toLrf operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Template.toLrf through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param lrfWriter: Value supplied for lrfWriter under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pass
 
 
 class StyleDefault(LrsAttributes):
     """
-    Supply some defaults for all TextBlocks.
-    The legal values are a subset of what is allowed on a
-    TextBlock -- ruby, emphasis, and waitprop settings.
+    Supply some defaults for all TextBlocks. The legal values are a subset of what is allowed on a TextBlock -- ruby, emphasis, and waitprop settings.
+
+    Example:
+        Exercise StyleDefault through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
     """
 
     defaults = dict(
@@ -1087,23 +2274,93 @@ class StyleDefault(LrsAttributes):
     alsoAllow = ["refempdotsfont", "rubyAlignAndAdjust"]
 
     def __init__(self: _typing.Self, **settings: _typing.Any) -> None:
+        """
+        Initialize and validate the styledefault state.
+
+        Example:
+            Exercise StyleDefault.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param settings: Value supplied for settings under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         LrsAttributes.__init__(self, self.defaults, alsoAllow=self.alsoAllow, **settings)
 
     def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
+        """
+        Perform the toElement operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise StyleDefault.toElement through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param se: Value supplied for se under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return Element("SetDefault", self.attrs)
 
 
 class Style(LrsContainer, Delegator):
+    """
+    Provide the style contract for validated ebook processing.
+
+    Example:
+        Exercise Style through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+    """
     def __init__(self: _typing.Self, styledefault: _typing.Any = StyleDefault()) -> None:
+        """
+        Initialize and validate the style state.
+
+        Example:
+            Exercise Style.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param styledefault: Value supplied for styledefault under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         LrsContainer.__init__(self, [PageStyle, TextStyle, BlockStyle])
         Delegator.__init__(self, [BookStyle(styledefault=styledefault)])
         self.bookStyle = self.delegates[0]
         self.appendPageStyle = self.appendTextStyle = self.appendBlockStyle = self.append
 
     def appendReferencedObjects(self: _typing.Self, parent: _typing.Any) -> None:
+        """
+        Perform the appendReferencedObjects operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Style.appendReferencedObjects through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         LrsContainer.appendReferencedObjects(self, parent)
 
     def getMethods(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the getMethods operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Style.getMethods through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return [
             "PageStyle",
             "TextStyle",
@@ -1114,24 +2371,91 @@ class Style(LrsContainer, Delegator):
         ] + self.delegatedMethods
 
     def getSettings(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the getSettings operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Style.getSettings through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return [(self.bookStyle, x) for x in self.bookStyle.getSettings()]
 
     def PageStyle(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
+        """
+        Perform the PageStyle operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Style.PageStyle through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ps = PageStyle(*args, **kwargs)
         self.append(ps)
         return ps
 
     def TextStyle(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
+        """
+        Perform the TextStyle operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Style.TextStyle through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ts = TextStyle(*args, **kwargs)
         self.append(ts)
         return ts
 
     def BlockStyle(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
+        """
+        Perform the BlockStyle operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Style.BlockStyle through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         bs = BlockStyle(*args, **kwargs)
         self.append(bs)
         return bs
 
     def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
+        """
+        Perform the toElement operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Style.toElement through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param se: Value supplied for se under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         style = Element("Style")
         style.append(self.bookStyle.toElement(se))
 
@@ -1141,6 +2465,19 @@ class Style(LrsContainer, Delegator):
         return style
 
     def toLrf(self: _typing.Self, lrfWriter: _typing.Any) -> None:
+        """
+        Perform the toLrf operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Style.toLrf through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param lrfWriter: Value supplied for lrfWriter under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.bookStyle.toLrf(lrfWriter)
 
         for s in self.contents:
@@ -1148,7 +2485,27 @@ class Style(LrsContainer, Delegator):
 
 
 class BookStyle(LrsObject, LrsContainer):
+    """
+    Provide the bookstyle contract for validated ebook processing.
+
+    Example:
+        Exercise BookStyle through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+    """
     def __init__(self: _typing.Self, styledefault: _typing.Any = StyleDefault()) -> None:
+        """
+        Initialize and validate the bookstyle state.
+
+        Example:
+            Exercise BookStyle.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param styledefault: Value supplied for styledefault under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         LrsObject.__init__(self, assignId=True)
         LrsContainer.__init__(self, [Font])
         self.styledefault = styledefault
@@ -1156,17 +2513,68 @@ class BookStyle(LrsObject, LrsContainer):
         self.appendFont = self.append
 
     def getSettings(self: _typing.Self) -> list[_typing.Any]:
+        """
+        Perform the getSettings operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise BookStyle.getSettings through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return ["styledefault", "booksetting"]
 
     def getMethods(self: _typing.Self) -> list[_typing.Any]:
+        """
+        Perform the getMethods operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise BookStyle.getMethods through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return ["Font", "appendFont"]
 
     def Font(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> None:
+        """
+        Perform the Font operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise BookStyle.Font through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         f = Font(*args, **kwargs)
         self.append(f)
         return
 
     def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
+        """
+        Perform the toElement operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise BookStyle.toElement through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param se: Value supplied for se under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         book_style = self.lrsObjectElement("BookStyle", objlabel="stylelabel", labelDecorate=False)
         book_style.append(self.styledefault.toElement(se))
         book_style.append(self.booksetting.toElement(se))
@@ -1175,6 +2583,19 @@ class BookStyle(LrsObject, LrsContainer):
         return book_style
 
     def toLrf(self: _typing.Self, lrfWriter: _typing.Any) -> None:
+        """
+        Perform the toLrf operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise BookStyle.toLrf through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param lrfWriter: Value supplied for lrfWriter under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         book_atr = LrfObject("BookAtr", self.objId)
         book_atr.appendLrfTag(LrfTag("ChildPageTree", lrfWriter.getPageTreeId()))
         book_atr.appendTagDict(self.styledefault.attrs)
@@ -1189,7 +2610,27 @@ class BookStyle(LrsObject, LrsContainer):
 
 
 class BookSetting(LrsAttributes):
+    """
+    Provide the booksetting contract for validated ebook processing.
+
+    Example:
+        Exercise BookSetting through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+    """
     def __init__(self: _typing.Self, **settings: _typing.Any) -> None:
+        """
+        Initialize and validate the booksetting state.
+
+        Example:
+            Exercise BookSetting.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param settings: Value supplied for settings under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         defaults = dict(
             bindingdirection="Lr",
             dpi="1660",
@@ -1200,6 +2641,19 @@ class BookSetting(LrsAttributes):
         LrsAttributes.__init__(self, defaults, **settings)
 
     def toLrf(self: _typing.Self, lrfWriter: _typing.Any) -> None:
+        """
+        Perform the toLrf operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise BookSetting.toLrf through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param lrfWriter: Value supplied for lrfWriter under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         a = self.attrs
         lrfWriter.dpi = int(a["dpi"])
         lrfWriter.bindingdirection = BINDING_DIRECTION_ENCODING[a["bindingdirection"]]
@@ -1208,15 +2662,48 @@ class BookSetting(LrsAttributes):
         lrfWriter.colorDepth = int(a["colordepth"])
 
     def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
+        """
+        Perform the toElement operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise BookSetting.toElement through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param se: Value supplied for se under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return Element("BookSetting", self.attrs)
 
 
 class LrsStyle(LrsObject, LrsAttributes, LrsContainer):
     """
     A mixin class for styles.
+
+    Example:
+        Exercise LrsStyle through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
     """
 
     def __init__(self: _typing.Self, elementName: _typing.Any, defaults: _typing.Any = None, alsoAllow: _typing.Any = None, **overrides: _typing.Any) -> None:
+        """
+        Initialize and validate the lrsstyle state.
+
+        Example:
+            Exercise LrsStyle.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param elementName: Value supplied for elementName under the utility contract.
+        :param defaults: Value supplied for defaults under the utility contract.
+        :param alsoAllow: Value supplied for alsoAllow under the utility contract.
+        :param overrides: Value supplied for overrides under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         if defaults is None:
             defaults = {}
 
@@ -1230,25 +2717,89 @@ class LrsStyle(LrsObject, LrsAttributes, LrsContainer):
         # self.parent = None
 
     def update(self: _typing.Self, settings: _typing.Any) -> None:
+        """
+        Perform the update operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LrsStyle.update through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param settings: Value supplied for settings under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for name, value in settings.items():
             if name not in self.__class__.validSettings:
                 raise LrsError("%s not a valid setting for %s" % (name, self.__class__.__name__))
             self.attrs[name] = value
 
     def getLabel(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the getLabel operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LrsStyle.getLabel through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return str(self.objId)
 
     def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
+        """
+        Perform the toElement operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LrsStyle.toElement through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param se: Value supplied for se under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         element = Element(self.elementName, stylelabel=self.getLabel(), objid=str(self.objId))
         element.attrib.update(self.attrs)
         return element
 
     def toLrf(self: _typing.Self, lrfWriter: _typing.Any) -> None:
+        """
+        Perform the toLrf operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LrsStyle.toLrf through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param lrfWriter: Value supplied for lrfWriter under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         obj = LrfObject(self.elementName, self.objId)
         obj.appendTagDict(self.attrs, self.__class__.__name__)
         lrfWriter.append(obj)
 
     def __eq__(self: _typing.Self, other: _typing.Any) -> bool:
+        """
+        Perform the eq operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LrsStyle.  eq   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param other: Value supplied for other under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if hasattr(other, "attrs"):
             return self.__class__ == other.__class__ and self.attrs == other.attrs
         return False
@@ -1256,19 +2807,12 @@ class LrsStyle(LrsObject, LrsAttributes, LrsContainer):
 
 class TextStyle(LrsStyle):
     """
-    The text style of a TextBlock.  Default is 10 pt. Times Roman.
+    The text style of a TextBlock. Default is 10 pt. Times Roman.
 
-    Setting         Value                   Default
-    --------        -----                   -------
-    align           "head","center","foot"  "head" (left aligned)
-    baselineskip    points * 10             120 (12 pt. distance between
-                                              bottoms of lines)
-    fontsize        points * 10             100 (10 pt.)
-    fontweight      1 to 1000               400 (normal, 800 is bold)
-    fontwidth       points * 10 or -10      -10 (use values from font)
-    linespace       points * 10             10 (min space btw. lines?)
-    wordspace       points * 10             25 (min space btw. each word)
+    Example:
+        Exercise TextStyle through a consuming regression::
 
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
     """
 
     baseDefaults = dict(
@@ -1311,9 +2855,33 @@ class TextStyle(LrsStyle):
     defaults = baseDefaults.copy()
 
     def __init__(self: _typing.Self, **overrides: _typing.Any) -> None:
+        """
+        Initialize and validate the textstyle state.
+
+        Example:
+            Exercise TextStyle.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param overrides: Value supplied for overrides under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         LrsStyle.__init__(self, "TextStyle", self.defaults, alsoAllow=self.alsoAllow, **overrides)
 
     def copy(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the copy operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TextStyle.copy through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         tb = TextStyle()
         tb.attrs = self.attrs.copy()
         return tb
@@ -1321,13 +2889,12 @@ class TextStyle(LrsStyle):
 
 class BlockStyle(LrsStyle):
     """
-    The block style of a TextBlock.  Default is an expandable 560 pixel
-    wide area with no space for headers or footers.
+    The block style of a TextBlock. Default is an expandable 560 pixel wide area with no space for headers or footers.
 
-    Setting      Value                  Default
-    --------     -----                  -------
-    blockwidth   pixels                 560
-    sidemargin   pixels                 0
+    Example:
+        Exercise BlockStyle through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
     """
 
     baseDefaults = dict(
@@ -1349,9 +2916,33 @@ class BlockStyle(LrsStyle):
     defaults = baseDefaults.copy()
 
     def __init__(self: _typing.Self, **overrides: _typing.Any) -> None:
+        """
+        Initialize and validate the blockstyle state.
+
+        Example:
+            Exercise BlockStyle.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param overrides: Value supplied for overrides under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         LrsStyle.__init__(self, "BlockStyle", self.defaults, **overrides)
 
     def copy(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the copy operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise BlockStyle.copy through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         tb = BlockStyle()
         tb.attrs = self.attrs.copy()
         return tb
@@ -1359,11 +2950,12 @@ class BlockStyle(LrsStyle):
 
 class PageStyle(LrsStyle):
     """
-    Setting         Value                   Default
-    --------        -----                   -------
-    evensidemargin  pixels                  20
-    oddsidemargin   pixels                  20
-    topmargin       pixels                  20
+    Setting Value Default -------- ----- ------- evensidemargin pixels 20 oddsidemargin pixels 20 topmargin pixels 20
+
+    Example:
+        Exercise PageStyle through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
     """
 
     baseDefaults = dict(
@@ -1397,11 +2989,40 @@ class PageStyle(LrsStyle):
 
     @classmethod
     def translateHeaderAndFooter(selfClass: _typing.Any, parent: _typing.Any, settings: _typing.Any) -> None:
+        """
+        Perform the translateHeaderAndFooter operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PageStyle.translateHeaderAndFooter through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :param settings: Value supplied for settings under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         selfClass._fixup(parent, "header", settings)
         selfClass._fixup(parent, "footer", settings)
 
     @classmethod
     def _fixup(selfClass: _typing.Any, parent: _typing.Any, basename: _typing.Any, settings: _typing.Any) -> None:
+        """
+        Perform the fixup operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PageStyle. fixup through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :param basename: Value supplied for basename under the utility contract.
+        :param settings: Value supplied for settings under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         evenbase = "even" + basename
         oddbase = "odd" + basename
         if basename in settings:
@@ -1424,6 +3045,19 @@ class PageStyle(LrsStyle):
             settings[oddbase + "id"] = str(oddObj.objId)
 
     def appendReferencedObjects(self: _typing.Self, parent: _typing.Any) -> None:
+        """
+        Perform the appendReferencedObjects operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PageStyle.appendReferencedObjects through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.objectsAppended:
             return
         PageStyle.translateHeaderAndFooter(parent, self.attrs)
@@ -1431,18 +3065,47 @@ class PageStyle(LrsStyle):
 
     def __init__(self: _typing.Self, **settings: _typing.Any) -> None:
         # self.fixHeaderSettings(settings)
+        """
+        Initialize and validate the pagestyle state.
+
+        Example:
+            Exercise PageStyle.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param settings: Value supplied for settings under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         LrsStyle.__init__(self, "PageStyle", self.defaults, alsoAllow=self.alsoAllow, **settings)
 
 
 class Page(LrsObject, LrsContainer):
     """
-    Pages are added to Books.  Pages can be supplied a PageStyle.
-    If they are not, Page.defaultPageStyle will be used.
+    Pages are added to Books. Pages can be supplied a PageStyle. If they are not, Page.defaultPageStyle will be used.
+
+    Example:
+        Exercise Page through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
     """
 
     defaultPageStyle = PageStyle()
 
     def __init__(self: _typing.Self, pageStyle: _typing.Any = defaultPageStyle, **settings: _typing.Any) -> None:
+        """
+        Initialize and validate the page state.
+
+        Example:
+            Exercise Page.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param pageStyle: Value supplied for pageStyle under the utility contract.
+        :param settings: Value supplied for settings under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         LrsObject.__init__(self)
         LrsContainer.__init__(self, [TextBlock, BlockSpace, RuledLine, ImageBlock, Canvas])
 
@@ -1455,6 +3118,19 @@ class Page(LrsObject, LrsContainer):
         self.settings = settings.copy()
 
     def appendReferencedObjects(self: _typing.Self, parent: _typing.Any) -> None:
+        """
+        Perform the appendReferencedObjects operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Page.appendReferencedObjects through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         PageStyle.translateHeaderAndFooter(parent, self.settings)
 
         self.pageStyle.appendReferencedObjects(parent)
@@ -1465,11 +3141,39 @@ class Page(LrsObject, LrsContainer):
         LrsContainer.appendReferencedObjects(self, parent)
 
     def RuledLine(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
+        """
+        Perform the RuledLine operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Page.RuledLine through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         rl = RuledLine(*args, **kwargs)
         self.append(rl)
         return rl
 
     def BlockSpace(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
+        """
+        Perform the BlockSpace operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Page.BlockSpace through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         bs = BlockSpace(*args, **kwargs)
         self.append(bs)
         return bs
@@ -1477,9 +3181,17 @@ class Page(LrsObject, LrsContainer):
     def TextBlock(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
         """
         Create and append a new text block (shortcut).
-        :param args:
-        :param kwargs:
-        :return:
+
+        Example:
+            Exercise Page.TextBlock through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         tb = TextBlock(*args, **kwargs)
         self.append(tb)
@@ -1488,18 +3200,52 @@ class Page(LrsObject, LrsContainer):
     def ImageBlock(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
         """
         Create and append and new Image block (shorthand).
-        :param args:
-        :param kwargs:
-        :return:
+
+        Example:
+            Exercise Page.ImageBlock through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         ib = ImageBlock(*args, **kwargs)
         self.append(ib)
         return ib
 
     def addLrfObject(self: _typing.Self, objId: _typing.Any) -> None:
+        """
+        Perform the addLrfObject operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Page.addLrfObject through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param objId: Value supplied for objId under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.stream.appendLrfTag(LrfTag("Link", objId))
 
     def appendLrfTag(self: _typing.Self, lrfTag: _typing.Any) -> None:
+        """
+        Perform the appendLrfTag operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Page.appendLrfTag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param lrfTag: Value supplied for lrfTag under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.stream.appendLrfTag(lrfTag)
 
     def toLrf(self: _typing.Self, lrfWriter: _typing.Any) -> None:
@@ -1509,6 +3255,19 @@ class Page(LrsObject, LrsContainer):
         # Parent page tree id
         # stream of tags
 
+        """
+        Perform the toLrf operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Page.toLrf through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param lrfWriter: Value supplied for lrfWriter under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         p = LrfObject("Page", self.objId)
         lrfWriter.append(p)
 
@@ -1528,6 +3287,19 @@ class Page(LrsObject, LrsContainer):
         p.appendLrfTags(self.stream.getStreamTags(lrfWriter.getSourceEncoding()))
 
     def toElement(self: _typing.Self, sourceEncoding: _typing.Any) -> _typing.Any:
+        """
+        Perform the toElement operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Page.toElement through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param sourceEncoding: Value supplied for sourceEncoding under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         page = self.lrsObjectElement("Page")
         page.set("pagestyle", self.pageStyle.getLabel())
         page.attrib.update(self.settings)
@@ -1540,10 +3312,12 @@ class Page(LrsObject, LrsContainer):
 
 class TextBlock(LrsObject, LrsContainer):
     """
-    TextBlocks are added to Pages.  They hold Paragraphs or CRs.
+    TextBlocks are added to Pages. They hold Paragraphs or CRs.
 
-    If a TextBlock is used in a header, it should be appended to
-    the Book, not to a specific Page.
+    Example:
+        Exercise TextBlock through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
     """
 
     defaultTextStyle = TextStyle()
@@ -1552,10 +3326,17 @@ class TextBlock(LrsObject, LrsContainer):
     def __init__(self: _typing.Self, textStyle: _typing.Any = defaultTextStyle, blockStyle: _typing.Any = defaultBlockStyle, **settings: _typing.Any) -> None:
         """
         Create TextBlock.
-        :param textStyle:
-        :param blockStyle:
-        :param settings:
-        :return:
+
+        Example:
+            Exercise TextBlock.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param textStyle: Value supplied for textStyle under the utility contract.
+        :param blockStyle: Value supplied for blockStyle under the utility contract.
+        :param settings: Value supplied for settings under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         LrsObject.__init__(self)
         LrsContainer.__init__(self, [Paragraph, CR])
@@ -1581,6 +3362,19 @@ class TextBlock(LrsObject, LrsContainer):
         self.currentTextStyle.attrs.update(self.textSettings)
 
     def appendReferencedObjects(self: _typing.Self, parent: _typing.Any) -> None:
+        """
+        Perform the appendReferencedObjects operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TextBlock.appendReferencedObjects through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.textStyle.parent is None:
             parent.append(self.textStyle)
 
@@ -1591,11 +3385,18 @@ class TextBlock(LrsObject, LrsContainer):
 
     def Paragraph(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
         """
-        Create and append a Paragraph to this TextBlock.  A CR is automatically inserted after the Paragraph.
-        To avoid this behavior, create the Paragraph and append it to the TextBlock in a separate call.
-        :param args:
-        :param kwargs:
-        :return:
+        Create and append a Paragraph to this TextBlock. A CR is automatically inserted after the Paragraph. To avoid this behavior, create the Paragraph and append it to the TextBlock in a separate call.
+
+        Example:
+            Exercise TextBlock.Paragraph through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         p = Paragraph(*args, **kwargs)
         self.append(p)
@@ -1603,6 +3404,19 @@ class TextBlock(LrsObject, LrsContainer):
         return p
 
     def toElement(self: _typing.Self, sourceEncoding: _typing.Any) -> _typing.Any:
+        """
+        Perform the toElement operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TextBlock.toElement through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param sourceEncoding: Value supplied for sourceEncoding under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         tb = self.lrsObjectElement("TextBlock", labelName="Block")
         tb.attrib.update(self.textSettings)
         tb.attrib.update(self.blockSettings)
@@ -1617,6 +3431,18 @@ class TextBlock(LrsObject, LrsContainer):
         return tb
 
     def getReferencedObjIds(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the getReferencedObjIds operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TextBlock.getReferencedObjIds through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ids = [self.objId, self.extraId, self.blockStyle.objId, self.textStyle.objId]
         for content in self.contents:
             if hasattr(content, "getReferencedObjIds"):
@@ -1625,10 +3451,37 @@ class TextBlock(LrsObject, LrsContainer):
         return ids
 
     def toLrf(self: _typing.Self, lrfWriter: _typing.Any) -> None:
+        """
+        Perform the toLrf operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TextBlock.toLrf through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param lrfWriter: Value supplied for lrfWriter under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.toLrfContainer(lrfWriter, lrfWriter)
 
     def toLrfContainer(self: _typing.Self, lrfWriter: _typing.Any, container: _typing.Any) -> None:
         # id really belongs to the outer block
+        """
+        Perform the toLrfContainer operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TextBlock.toLrfContainer through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param lrfWriter: Value supplied for lrfWriter under the utility contract.
+        :param container: Value supplied for container under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         extraId = LrsObject.getNextObjId()
 
         b = LrfObject("Block", self.objId)
@@ -1663,16 +3516,27 @@ class TextBlock(LrsObject, LrsContainer):
 
 class Paragraph(LrsContainer):
     """
-    Note: <P> alone does not make a paragraph.  Only a CR inserted
-    into a text block right after a <P> makes a real paragraph.
-    Two Paragraphs appended in a row act like a single Paragraph.
+    Note: <P> alone does not make a paragraph. Only a CR inserted into a text block right after a <P> makes a real paragraph. Two Paragraphs appended in a row act like a single Paragraph.
 
-    Also note that there are few autoappenders for Paragraph (and
-    the things that can go in it.)  It's less confusing (to me) to use
-    explicit .append methods to build up the text stream.
+    Example:
+        Exercise Paragraph through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
     """
 
     def __init__(self: _typing.Self, text: _typing.Any = None) -> None:
+        """
+        Initialize and validate the paragraph state.
+
+        Example:
+            Exercise Paragraph.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: None; validated state is stored on the receiving object.
+        """
         LrsContainer.__init__(self, [Text, CR, DropCaps, CharButton, LrsSimpleChar1, six_string_types])
         if text is not None:
             if isinstance(text, six_string_types):
@@ -1681,11 +3545,35 @@ class Paragraph(LrsContainer):
 
     def CR(self: _typing.Self) -> _typing.Any:
         # Okay, here's a single autoappender for this common operation
+        """
+        Perform the CR operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Paragraph.CR through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         cr = CR()
         self.append(cr)
         return cr
 
     def getReferencedObjIds(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the getReferencedObjIds operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Paragraph.getReferencedObjIds through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ids = []
         for content in self.contents:
             if hasattr(content, "getReferencedObjIds"):
@@ -1693,24 +3581,86 @@ class Paragraph(LrsContainer):
         return ids
 
     def toLrfContainer(self: _typing.Self, lrfWriter: _typing.Any, parent: _typing.Any) -> None:
+        """
+        Perform the toLrfContainer operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Paragraph.toLrfContainer through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param lrfWriter: Value supplied for lrfWriter under the utility contract.
+        :param parent: Value supplied for parent under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         parent.appendLrfTag(LrfTag("pstart", 0))
         for content in self.contents:
             content.toLrfContainer(lrfWriter, parent)
         parent.appendLrfTag(LrfTag("pend"))
 
     def toElement(self: _typing.Self, sourceEncoding: _typing.Any) -> _typing.Any:
+        """
+        Perform the toElement operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Paragraph.toElement through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param sourceEncoding: Value supplied for sourceEncoding under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         p = Element("P")
         appendTextElements(p, self.contents, sourceEncoding)
         return p
 
 
 class LrsTextTag(LrsContainer):
+    """
+    Provide the lrstexttag contract for validated ebook processing.
+
+    Example:
+        Exercise LrsTextTag through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+    """
     def __init__(self: _typing.Self, text: _typing.Any, validContents: _typing.Any) -> None:
+        """
+        Initialize and validate the lrstexttag state.
+
+        Example:
+            Exercise LrsTextTag.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :param validContents: Value supplied for validContents under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         LrsContainer.__init__(self, [Text, six_string_types] + validContents)
         if text is not None:
             self.append(text)
 
     def toLrfContainer(self: _typing.Self, lrfWriter: _typing.Any, parent: _typing.Any) -> None:
+        """
+        Perform the toLrfContainer operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LrsTextTag.toLrfContainer through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param lrfWriter: Value supplied for lrfWriter under the utility contract.
+        :param parent: Value supplied for parent under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if hasattr(self, "tagName"):
             tagName = self.tagName
         else:
@@ -1724,6 +3674,19 @@ class LrsTextTag(LrsContainer):
         parent.appendLrfTag(LrfTag(tagName + "End"))
 
     def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
+        """
+        Perform the toElement operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LrsTextTag.toElement through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param se: Value supplied for se under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if hasattr(self, "tagName"):
             tagName = self.tagName
         else:
@@ -1735,13 +3698,45 @@ class LrsTextTag(LrsContainer):
 
 
 class LrsSimpleChar1(object):
+    """
+    Provide the lrssimplechar1 contract for validated ebook processing.
+
+    Example:
+        Exercise LrsSimpleChar1 through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+    """
     def isEmpty(self: _typing.Self) -> bool:
+        """
+        Perform the isEmpty operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LrsSimpleChar1.isEmpty through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         for content in self.contents:
             if not content.isEmpty():
                 return False
         return True
 
     def hasFollowingContent(self: _typing.Self) -> bool:
+        """
+        Perform the hasFollowingContent operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise LrsSimpleChar1.hasFollowingContent through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         foundSelf = False
         for content in self.parent.contents:
             if content == self:
@@ -1753,21 +3748,80 @@ class LrsSimpleChar1(object):
 
 
 class DropCaps(LrsTextTag):
+    """
+    Provide the dropcaps contract for validated ebook processing.
+
+    Example:
+        Exercise DropCaps through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+    """
     def __init__(self: _typing.Self, line: int = 1) -> None:
+        """
+        Initialize and validate the dropcaps state.
+
+        Example:
+            Exercise DropCaps.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         LrsTextTag.__init__(self, None, [LrsSimpleChar1])
         if int(line) <= 0:
             raise LrsError("A DrawChar must span at least one line.")
         self.line = int(line)
 
     def isEmpty(self: _typing.Self) -> bool:
+        """
+        Perform the isEmpty operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DropCaps.isEmpty through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.text is None or not self.text.strip()
 
     def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
+        """
+        Perform the toElement operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DropCaps.toElement through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param se: Value supplied for se under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         elem = Element("DrawChar", line=str(self.line))
         appendTextElements(elem, self.contents, se)
         return elem
 
     def toLrfContainer(self: _typing.Self, lrfWriter: _typing.Any, parent: _typing.Any) -> None:
+        """
+        Perform the toLrfContainer operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise DropCaps.toLrfContainer through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param lrfWriter: Value supplied for lrfWriter under the utility contract.
+        :param parent: Value supplied for parent under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         parent.appendLrfTag(LrfTag("DrawChar", (int(self.line),)))
 
         for content in self.contents:
@@ -1777,11 +3831,43 @@ class DropCaps(LrsTextTag):
 
 
 class Button(LrsObject, LrsContainer):
+    """
+    Provide the button contract for validated ebook processing.
+
+    Example:
+        Exercise Button through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+    """
     def __init__(self: _typing.Self, **settings: _typing.Any) -> None:
+        """
+        Initialize and validate the button state.
+
+        Example:
+            Exercise Button.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param settings: Value supplied for settings under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         LrsObject.__init__(self, **settings)
         LrsContainer.__init__(self, [PushButton])
 
     def findJumpToRefs(self: _typing.Self) -> tuple[_typing.Any, ...]:
+        """
+        Perform the findJumpToRefs operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Button.findJumpToRefs through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         for sub1 in self.contents:
             if isinstance(sub1, PushButton):
                 for sub2 in sub1.contents:
@@ -1790,6 +3876,19 @@ class Button(LrsObject, LrsContainer):
         raise LrsError("%s has no PushButton or JumpTo subs" % self.__class__.__name__)
 
     def toLrf(self: _typing.Self, lrfWriter: _typing.Any) -> None:
+        """
+        Perform the toLrf operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Button.toLrf through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param lrfWriter: Value supplied for lrfWriter under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         (refobj, refpage) = self.findJumpToRefs()
         # print "Button writing JumpTo refobj=", jumpto.refobj, ", and refpage=", jumpto.refpage
         button = LrfObject("Button", self.objId)
@@ -1802,6 +3901,19 @@ class Button(LrsObject, LrsContainer):
         lrfWriter.append(button)
 
     def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
+        """
+        Perform the toElement operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Button.toElement through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param se: Value supplied for se under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         b = self.lrsObjectElement("Button")
 
         for content in self.contents:
@@ -1811,14 +3923,55 @@ class Button(LrsObject, LrsContainer):
 
 
 class ButtonBlock(Button):
+    """
+    Provide the buttonblock contract for validated ebook processing.
+
+    Example:
+        Exercise ButtonBlock through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+    """
     pass
 
 
 class PushButton(LrsContainer):
+    """
+    Provide the pushbutton contract for validated ebook processing.
+
+    Example:
+        Exercise PushButton through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+    """
     def __init__(self: _typing.Self, **settings: _typing.Any) -> None:
+        """
+        Initialize and validate the pushbutton state.
+
+        Example:
+            Exercise PushButton.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param settings: Value supplied for settings under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         LrsContainer.__init__(self, [JumpTo])
 
     def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
+        """
+        Perform the toElement operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PushButton.toElement through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param se: Value supplied for se under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         b = Element("PushButton")
 
         for content in self.contents:
@@ -1828,14 +3981,60 @@ class PushButton(LrsContainer):
 
 
 class JumpTo(LrsContainer):
+    """
+    Provide the jumpto contract for validated ebook processing.
+
+    Example:
+        Exercise JumpTo through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+    """
     def __init__(self: _typing.Self, textBlock: _typing.Any) -> None:
+        """
+        Initialize and validate the jumpto state.
+
+        Example:
+            Exercise JumpTo.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param textBlock: Value supplied for textBlock under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         LrsContainer.__init__(self, [])
         self.textBlock = textBlock
 
     def setTextBlock(self: _typing.Self, textBlock: _typing.Any) -> None:
+        """
+        Perform the setTextBlock operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise JumpTo.setTextBlock through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param textBlock: Value supplied for textBlock under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.textBlock = textBlock
 
     def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
+        """
+        Perform the toElement operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise JumpTo.toElement through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param se: Value supplied for se under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return Element(
             "JumpTo",
             refpage=str(self.textBlock.parent.objId),
@@ -1845,9 +4044,32 @@ class JumpTo(LrsContainer):
 
 class Plot(LrsSimpleChar1, LrsContainer):
 
+    """
+    Provide the plot contract for validated ebook processing.
+
+    Example:
+        Exercise Plot through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+    """
     ADJUSTMENT_VALUES = {"center": 1, "baseline": 2, "top": 3, "bottom": 4}
 
     def __init__(self: _typing.Self, obj: _typing.Any, xsize: int = 0, ysize: int = 0, adjustment: _typing.Any = None) -> None:
+        """
+        Initialize and validate the plot state.
+
+        Example:
+            Exercise Plot.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param obj: Value supplied for obj under the utility contract.
+        :param xsize: Value supplied for xsize under the utility contract.
+        :param ysize: Value supplied for ysize under the utility contract.
+        :param adjustment: Value supplied for adjustment under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         LrsContainer.__init__(self, [])
         if obj is not None:
             self.setObj(obj)
@@ -1860,18 +4082,69 @@ class Plot(LrsSimpleChar1, LrsContainer):
         self.adjustment = adjustment
 
     def setObj(self: _typing.Self, obj: _typing.Any) -> None:
+        """
+        Perform the setObj operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Plot.setObj through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param obj: Value supplied for obj under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if not isinstance(obj, (Image, Button)):
             raise LrsError("Plot elements can only refer to Image or Button elements")
         self.obj = obj
 
     def getReferencedObjIds(self: _typing.Self) -> list[_typing.Any]:
+        """
+        Perform the getReferencedObjIds operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Plot.getReferencedObjIds through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return [self.obj.objId]
 
     def appendReferencedObjects(self: _typing.Self, parent: _typing.Any) -> None:
+        """
+        Perform the appendReferencedObjects operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Plot.appendReferencedObjects through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.obj.parent is None:
             parent.append(self.obj)
 
     def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
+        """
+        Perform the toElement operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Plot.toElement through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param se: Value supplied for se under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         elem = Element(
             "Plot",
             xsize=str(self.xsize),
@@ -1883,6 +4156,20 @@ class Plot(LrsSimpleChar1, LrsContainer):
         return elem
 
     def toLrfContainer(self: _typing.Self, lrfWriter: _typing.Any, parent: _typing.Any) -> None:
+        """
+        Perform the toLrfContainer operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Plot.toLrfContainer through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param lrfWriter: Value supplied for lrfWriter under the utility contract.
+        :param parent: Value supplied for parent under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         adj = self.adjustment if self.adjustment else "bottom"
         params = (
             int(self.xsize),
@@ -1895,17 +4182,60 @@ class Plot(LrsSimpleChar1, LrsContainer):
 
 class Text(LrsContainer):
     """
-    A object that represents raw text.  Does not have a toElement.
+    A object that represents raw text. Does not have a toElement.
+
+    Example:
+        Exercise Text through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
     """
 
     def __init__(self: _typing.Self, text: _typing.Any) -> None:
+        """
+        Initialize and validate the text state.
+
+        Example:
+            Exercise Text.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: None; validated state is stored on the receiving object.
+        """
         LrsContainer.__init__(self, [])
         self.text = text
 
     def isEmpty(self: _typing.Self) -> bool:
+        """
+        Perform the isEmpty operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Text.isEmpty through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return not self.text or not self.text.strip()
 
     def toLrfContainer(self: _typing.Self, lrfWriter: _typing.Any, parent: _typing.Any) -> None:
+        """
+        Perform the toLrfContainer operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Text.toLrfContainer through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param lrfWriter: Value supplied for lrfWriter under the utility contract.
+        :param parent: Value supplied for parent under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.text:
             if isinstance(self.text, str):
                 parent.appendLrfTag(LrfTag("rawtext", self.text))
@@ -1916,73 +4246,288 @@ class Text(LrsContainer):
 class CR(LrsSimpleChar1, LrsContainer):
     """
     A line break (when appended to a Paragraph) or a paragraph break (when appended to a TextBlock).
+
+    Example:
+        Exercise CR through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
     """
 
     def __init__(self: _typing.Self) -> None:
+        """
+        Initialize and validate the cr state.
+
+        Example:
+            Exercise CR.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         LrsContainer.__init__(self, [])
 
     def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
+        """
+        Perform the toElement operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CR.toElement through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param se: Value supplied for se under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return Element("CR")
 
     def toLrfContainer(self: _typing.Self, lrfWriter: _typing.Any, parent: _typing.Any) -> None:
+        """
+        Perform the toLrfContainer operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CR.toLrfContainer through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param lrfWriter: Value supplied for lrfWriter under the utility contract.
+        :param parent: Value supplied for parent under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         parent.appendLrfTag(LrfTag("CR"))
 
 
 class Italic(LrsSimpleChar1, LrsTextTag):
+    """
+    Provide the italic contract for validated ebook processing.
+
+    Example:
+        Exercise Italic through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+    """
     def __init__(self: _typing.Self, text: _typing.Any = None) -> None:
+        """
+        Initialize and validate the italic state.
+
+        Example:
+            Exercise Italic.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: None; validated state is stored on the receiving object.
+        """
         LrsTextTag.__init__(self, text, [LrsSimpleChar1])
 
 
 class Sub(LrsSimpleChar1, LrsTextTag):
+    """
+    Provide the sub contract for validated ebook processing.
+
+    Example:
+        Exercise Sub through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+    """
     def __init__(self: _typing.Self, text: _typing.Any = None) -> None:
+        """
+        Initialize and validate the sub state.
+
+        Example:
+            Exercise Sub.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: None; validated state is stored on the receiving object.
+        """
         LrsTextTag.__init__(self, text, [])
 
 
 class Sup(LrsSimpleChar1, LrsTextTag):
+    """
+    Provide the sup contract for validated ebook processing.
+
+    Example:
+        Exercise Sup through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+    """
     def __init__(self: _typing.Self, text: _typing.Any = None) -> None:
+        """
+        Initialize and validate the sup state.
+
+        Example:
+            Exercise Sup.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: None; validated state is stored on the receiving object.
+        """
         LrsTextTag.__init__(self, text, [])
 
 
 class NoBR(LrsSimpleChar1, LrsTextTag):
+    """
+    Provide the nobr contract for validated ebook processing.
+
+    Example:
+        Exercise NoBR through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+    """
     def __init__(self: _typing.Self, text: _typing.Any = None) -> None:
+        """
+        Initialize and validate the nobr state.
+
+        Example:
+            Exercise NoBR.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: None; validated state is stored on the receiving object.
+        """
         LrsTextTag.__init__(self, text, [LrsSimpleChar1])
 
 
 class Space(LrsSimpleChar1, LrsContainer):
+    """
+    Provide the space contract for validated ebook processing.
+
+    Example:
+        Exercise Space through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+    """
     def __init__(self: _typing.Self, xsize: int = 0, x: int = 0) -> None:
+        """
+        Initialize and validate the space state.
+
+        Example:
+            Exercise Space.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param xsize: Value supplied for xsize under the utility contract.
+        :param x: Value supplied for x under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         LrsContainer.__init__(self, [])
         if xsize == 0 and x != 0:
             xsize = x
         self.xsize = xsize
 
     def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
+        """
+        Perform the toElement operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Space.toElement through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param se: Value supplied for se under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.xsize == 0:
             return
 
         return Element("Space", xsize=str(self.xsize))
 
     def toLrfContainer(self: _typing.Self, lrfWriter: _typing.Any, container: _typing.Any) -> None:
+        """
+        Perform the toLrfContainer operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Space.toLrfContainer through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param lrfWriter: Value supplied for lrfWriter under the utility contract.
+        :param container: Value supplied for container under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.xsize != 0:
             container.appendLrfTag(LrfTag("Space", self.xsize))
 
 
 class Box(LrsSimpleChar1, LrsContainer):
     """
-    Draw a box around text.  Unfortunately, does not seem to do anything on the PRS-500.
+    Draw a box around text. Unfortunately, does not seem to do anything on the PRS-500.
+
+    Example:
+        Exercise Box through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
     """
 
     def __init__(self: _typing.Self, linetype: str = "solid") -> None:
+        """
+        Initialize and validate the box state.
+
+        Example:
+            Exercise Box.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param linetype: Value supplied for linetype under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         LrsContainer.__init__(self, [Text, six_string_types])
         if linetype not in LINE_TYPE_ENCODING:
             raise LrsError(linetype + " is not a valid line type")
         self.linetype = linetype
 
     def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
+        """
+        Perform the toElement operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Box.toElement through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param se: Value supplied for se under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         e = Element("Box", linetype=self.linetype)
         appendTextElements(e, self.contents, se)
         return e
 
     def toLrfContainer(self: _typing.Self, lrfWriter: _typing.Any, container: _typing.Any) -> None:
+        """
+        Perform the toLrfContainer operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Box.toLrfContainer through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param lrfWriter: Value supplied for lrfWriter under the utility contract.
+        :param container: Value supplied for container under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         container.appendLrfTag(LrfTag("Box", self.linetype))
         for content in self.contents:
             content.toLrfContainer(lrfWriter, container)
@@ -1990,7 +4535,28 @@ class Box(LrsSimpleChar1, LrsContainer):
 
 
 class Span(LrsSimpleChar1, LrsContainer):
+    """
+    Provide the span contract for validated ebook processing.
+
+    Example:
+        Exercise Span through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+    """
     def __init__(self: _typing.Self, text: _typing.Any = None, **attrs: _typing.Any) -> None:
+        """
+        Initialize and validate the span state.
+
+        Example:
+            Exercise Span.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :param attrs: Value supplied for attrs under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         LrsContainer.__init__(self, [LrsSimpleChar1, Text, six_string_types])
         if text is not None:
             if isinstance(text, six_string_types):
@@ -2003,6 +4569,18 @@ class Span(LrsSimpleChar1, LrsContainer):
         self.attrs = attrs
 
     def findCurrentTextStyle(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the findCurrentTextStyle operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Span.findCurrentTextStyle through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         parent = self.parent
         while 1:
             if parent is None or hasattr(parent, "currentTextStyle"):
@@ -2017,6 +4595,20 @@ class Span(LrsSimpleChar1, LrsContainer):
     def toLrfContainer(self: _typing.Self, lrfWriter: _typing.Any, container: _typing.Any) -> None:
 
         # find the currentTextStyle
+        """
+        Perform the toLrfContainer operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Span.toLrfContainer through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param lrfWriter: Value supplied for lrfWriter under the utility contract.
+        :param container: Value supplied for container under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         oldTextStyle = self.findCurrentTextStyle()
 
         # set the attributes we want changed
@@ -2041,6 +4633,19 @@ class Span(LrsSimpleChar1, LrsContainer):
             container.appendLrfTag(LrfTag(name, oldTextStyle.attrs[name]))
 
     def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
+        """
+        Perform the toElement operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Span.toElement through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param se: Value supplied for se under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         element = Element("Span")
         for (key, value) in self.attrs.items():
             element.set(key, str(value))
@@ -2051,10 +4656,33 @@ class Span(LrsSimpleChar1, LrsContainer):
 
 class EmpLine(LrsTextTag, LrsSimpleChar1):
 
+    """
+    Provide the empline contract for validated ebook processing.
+
+    Example:
+        Exercise EmpLine through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+    """
     emplinetypes = ["none", "solid", "dotted", "dashed", "double"]
     emplinepositions = ["before", "after"]
 
     def __init__(self: _typing.Self, text: _typing.Any = None, emplineposition: str = "before", emplinetype: str = "solid") -> None:
+        """
+        Initialize and validate the empline state.
+
+        Example:
+            Exercise EmpLine.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :param emplineposition: Value supplied for emplineposition under the utility
+            contract.
+        :param emplinetype: Value supplied for emplinetype under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         LrsTextTag.__init__(self, text, [LrsSimpleChar1])
         if emplineposition not in self.__class__.emplinepositions:
             raise LrsError("emplineposition for an EmpLine must be one of: " + str(self.__class__.emplinepositions))
@@ -2065,6 +4693,20 @@ class EmpLine(LrsTextTag, LrsSimpleChar1):
         self.emplineposition = emplineposition
 
     def toLrfContainer(self: _typing.Self, lrfWriter: _typing.Any, parent: _typing.Any) -> None:
+        """
+        Perform the toLrfContainer operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise EmpLine.toLrfContainer through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param lrfWriter: Value supplied for lrfWriter under the utility contract.
+        :param parent: Value supplied for parent under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         parent.appendLrfTag(LrfTag(self.__class__.__name__, (self.emplineposition, self.emplinetype)))
         parent.appendLrfTag(LrfTag("emplineposition", self.emplineposition))
         parent.appendLrfTag(LrfTag("emplinetype", self.emplinetype))
@@ -2074,6 +4716,19 @@ class EmpLine(LrsTextTag, LrsSimpleChar1):
         parent.appendLrfTag(LrfTag(self.__class__.__name__ + "End"))
 
     def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
+        """
+        Perform the toElement operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise EmpLine.toElement through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param se: Value supplied for se under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         element = Element(self.__class__.__name__)
         element.set("emplineposition", self.emplineposition)
         element.set("emplinetype", self.emplinetype)
@@ -2084,23 +4739,74 @@ class EmpLine(LrsTextTag, LrsSimpleChar1):
 
 class Bold(Span):
     """
-    There is no known "bold" lrf tag. Use Span with a fontweight in LRF,
-    but use the word Bold in the LRS.
+    There is no known "bold" lrf tag. Use Span with a fontweight in LRF, but use the word Bold in the LRS.
+
+    Example:
+        Exercise Bold through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
     """
 
     def __init__(self: _typing.Self, text: _typing.Any = None) -> None:
+        """
+        Initialize and validate the bold state.
+
+        Example:
+            Exercise Bold.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :return: None; validated state is stored on the receiving object.
+        """
         Span.__init__(self, text, fontweight=800)
 
     def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
+        """
+        Perform the toElement operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Bold.toElement through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param se: Value supplied for se under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         e = Element("Bold")
         appendTextElements(e, self.contents, se)
         return e
 
 
 class BlockSpace(LrsContainer):
-    """Can be appended to a page to move the text point."""
+    """
+    Can be appended to a page to move the text point.
+
+    Example:
+        Exercise BlockSpace through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+    """
 
     def __init__(self: _typing.Self, xspace: int = 0, yspace: int = 0, x: int = 0, y: int = 0) -> None:
+        """
+        Initialize and validate the blockspace state.
+
+        Example:
+            Exercise BlockSpace.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param xspace: Value supplied for xspace under the utility contract.
+        :param yspace: Value supplied for yspace under the utility contract.
+        :param x: Value supplied for x under the utility contract.
+        :param y: Value supplied for y under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         LrsContainer.__init__(self, [])
         if xspace == 0 and x != 0:
             xspace = x
@@ -2110,12 +4816,39 @@ class BlockSpace(LrsContainer):
         self.yspace = yspace
 
     def toLrfContainer(self: _typing.Self, lrfWriter: _typing.Any, container: _typing.Any) -> None:
+        """
+        Perform the toLrfContainer operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise BlockSpace.toLrfContainer through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param lrfWriter: Value supplied for lrfWriter under the utility contract.
+        :param container: Value supplied for container under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.xspace != 0:
             container.appendLrfTag(LrfTag("xspace", self.xspace))
         if self.yspace != 0:
             container.appendLrfTag(LrfTag("yspace", self.yspace))
 
     def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
+        """
+        Perform the toElement operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise BlockSpace.toElement through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param se: Value supplied for se under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         element = Element("BlockSpace")
 
         if self.xspace != 0:
@@ -2128,13 +4861,28 @@ class BlockSpace(LrsContainer):
 
 class CharButton(LrsSimpleChar1, LrsContainer):
     """
-    Define the text and target of a CharButton.  Must be passed a
-    JumpButton that is the destination of the CharButton.
+    Define the text and target of a CharButton. Must be passed a JumpButton that is the destination of the CharButton.
 
-    Only text or SimpleChars can be appended to the CharButton.
+    Example:
+        Exercise CharButton through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
     """
 
     def __init__(self: _typing.Self, button: _typing.Any, text: _typing.Any = None) -> None:
+        """
+        Initialize and validate the charbutton state.
+
+        Example:
+            Exercise CharButton.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param button: Value supplied for button under the utility contract.
+        :param text: Text parsed, normalized or rendered.
+        :return: None; validated state is stored on the receiving object.
+        """
         LrsContainer.__init__(self, [basestring, Text, LrsSimpleChar1])
         self.button = None
         if button != None:
@@ -2144,19 +4892,71 @@ class CharButton(LrsSimpleChar1, LrsContainer):
             self.append(text)
 
     def setButton(self: _typing.Self, button: _typing.Any) -> None:
+        """
+        Perform the setButton operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CharButton.setButton through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param button: Value supplied for button under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if not isinstance(button, (JumpButton, Button)):
             raise LrsError("CharButton button must be a JumpButton or Button")
 
         self.button = button
 
     def appendReferencedObjects(self: _typing.Self, parent: _typing.Any) -> None:
+        """
+        Perform the appendReferencedObjects operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CharButton.appendReferencedObjects through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.button.parent is None:
             parent.append(self.button)
 
     def getReferencedObjIds(self: _typing.Self) -> list[_typing.Any]:
+        """
+        Perform the getReferencedObjIds operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CharButton.getReferencedObjIds through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return [self.button.objId]
 
     def toLrfContainer(self: _typing.Self, lrfWriter: _typing.Any, container: _typing.Any) -> None:
+        """
+        Perform the toLrfContainer operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CharButton.toLrfContainer through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param lrfWriter: Value supplied for lrfWriter under the utility contract.
+        :param container: Value supplied for container under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         container.appendLrfTag(LrfTag("CharButton", self.button.objId))
 
         for content in self.contents:
@@ -2165,13 +4965,45 @@ class CharButton(LrsSimpleChar1, LrsContainer):
         container.appendLrfTag(LrfTag("CharButtonEnd"))
 
     def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
+        """
+        Perform the toElement operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise CharButton.toElement through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param se: Value supplied for se under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         cb = Element("CharButton", refobj=str(self.button.objId))
         appendTextElements(cb, self.contents, se)
         return cb
 
 
 class Objects(LrsContainer):
+    """
+    Provide the objects contract for validated ebook processing.
+
+    Example:
+        Exercise Objects through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+    """
     def __init__(self: _typing.Self) -> None:
+        """
+        Initialize and validate the objects state.
+
+        Example:
+            Exercise Objects.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         LrsContainer.__init__(
             self,
             [
@@ -2193,6 +5025,18 @@ class Objects(LrsContainer):
         ) = self.appendFooter = self.appendImageStream = self.appendImage = self.appendImageBlock = self.append
 
     def getMethods(self: _typing.Self) -> list[_typing.Any]:
+        """
+        Perform the getMethods operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Objects.getMethods through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return [
             "JumpButton",
             "appendJumpButton",
@@ -2211,44 +5055,166 @@ class Objects(LrsContainer):
         ]
 
     def getSettings(self: _typing.Self) -> list[_typing.Any]:
+        """
+        Perform the getSettings operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Objects.getSettings through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return []
 
     def ImageBlock(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
+        """
+        Perform the ImageBlock operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Objects.ImageBlock through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ib = ImageBlock(*args, **kwargs)
         self.append(ib)
         return ib
 
     def JumpButton(self: _typing.Self, textBlock: _typing.Any) -> _typing.Any:
+        """
+        Perform the JumpButton operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Objects.JumpButton through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param textBlock: Value supplied for textBlock under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         b = JumpButton(textBlock)
         self.append(b)
         return b
 
     def TextBlock(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
+        """
+        Perform the TextBlock operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Objects.TextBlock through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         tb = TextBlock(*args, **kwargs)
         self.append(tb)
         return tb
 
     def Header(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
+        """
+        Perform the Header operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Objects.Header through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         h = Header(*args, **kwargs)
         self.append(h)
         return h
 
     def Footer(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
+        """
+        Perform the Footer operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Objects.Footer through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         h = Footer(*args, **kwargs)
         self.append(h)
         return h
 
     def ImageStream(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
+        """
+        Perform the ImageStream operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Objects.ImageStream through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         i = ImageStream(*args, **kwargs)
         self.append(i)
         return i
 
     def Image(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
+        """
+        Perform the Image operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Objects.Image through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         i = Image(*args, **kwargs)
         self.append(i)
         return i
 
     def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
+        """
+        Perform the toElement operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Objects.toElement through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param se: Value supplied for se under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         o = Element("Objects")
 
         for content in self.contents:
@@ -2257,26 +5223,80 @@ class Objects(LrsContainer):
         return o
 
     def toLrf(self: _typing.Self, lrfWriter: _typing.Any) -> None:
+        """
+        Perform the toLrf operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Objects.toLrf through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param lrfWriter: Value supplied for lrfWriter under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for content in self.contents:
             content.toLrf(lrfWriter)
 
 
 class JumpButton(LrsObject, LrsContainer):
     """
-    The target of a CharButton.  Needs a parented TextBlock to jump to.
-    Actually creates several elements in the XML.  JumpButtons must
-    be eventually appended to a Book (actually, an Object.)
+    The target of a CharButton. Needs a parented TextBlock to jump to. Actually creates several elements in the XML. JumpButtons must be eventually appended to a Book (actually, an Object.)
+
+    Example:
+        Exercise JumpButton through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
     """
 
     def __init__(self: _typing.Self, textBlock: _typing.Any) -> None:
+        """
+        Initialize and validate the jumpbutton state.
+
+        Example:
+            Exercise JumpButton.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param textBlock: Value supplied for textBlock under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         LrsObject.__init__(self)
         LrsContainer.__init__(self, [])
         self.textBlock = textBlock
 
     def setTextBlock(self: _typing.Self, textBlock: _typing.Any) -> None:
+        """
+        Perform the setTextBlock operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise JumpButton.setTextBlock through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param textBlock: Value supplied for textBlock under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.textBlock = textBlock
 
     def toLrf(self: _typing.Self, lrfWriter: _typing.Any) -> None:
+        """
+        Perform the toLrf operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise JumpButton.toLrf through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param lrfWriter: Value supplied for lrfWriter under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         button = LrfObject("Button", self.objId)
         button.appendLrfTag(LrfTag("buttonflags", 0x10))  # pushbutton
         button.appendLrfTag(LrfTag("PushButtonStart"))
@@ -2287,6 +5307,19 @@ class JumpButton(LrsObject, LrsContainer):
         lrfWriter.append(button)
 
     def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
+        """
+        Perform the toElement operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise JumpButton.toElement through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param se: Value supplied for se under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         b = self.lrsObjectElement("Button")
         pb = SubElement(b, "PushButton")
         SubElement(
@@ -2300,17 +5333,48 @@ class JumpButton(LrsObject, LrsContainer):
 
 class RuledLine(LrsContainer, LrsAttributes, LrsObject):
     """
-    A line.  Default is 500 pixels long, 2 pixels wide.
+    A line. Default is 500 pixels long, 2 pixels wide.
+
+    Example:
+        Exercise RuledLine through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
     """
 
     defaults = dict(linelength="500", linetype="solid", linewidth="2", linecolor="0x00000000")
 
     def __init__(self: _typing.Self, **settings: _typing.Any) -> None:
+        """
+        Initialize and validate the ruledline state.
+
+        Example:
+            Exercise RuledLine.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param settings: Value supplied for settings under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         LrsContainer.__init__(self, [])
         LrsAttributes.__init__(self, self.defaults, **settings)
         LrsObject.__init__(self)
 
     def toLrfContainer(self: _typing.Self, lrfWriter: _typing.Any, container: _typing.Any) -> None:
+        """
+        Perform the toLrfContainer operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise RuledLine.toLrfContainer through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param lrfWriter: Value supplied for lrfWriter under the utility contract.
+        :param container: Value supplied for container under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         a = self.attrs
         container.appendLrfTag(
             LrfTag(
@@ -2320,16 +5384,30 @@ class RuledLine(LrsContainer, LrsAttributes, LrsObject):
         )
 
     def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
+        """
+        Perform the toElement operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise RuledLine.toElement through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param se: Value supplied for se under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return Element("RuledLine", self.attrs)
 
 
 class HeaderOrFooter(LrsObject, LrsContainer, LrsAttributes):
     """
-    Creates empty header or footer objects.  Append PutObj objects to
-    the header or footer to create the text.
+    Creates empty header or footer objects. Append PutObj objects to the header or footer to create the text.
 
-    Note: it seems that adding multiple PutObjs to a header or footer
-          only shows the last one.
+    Example:
+        Exercise HeaderOrFooter through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
     """
 
     defaults = dict(
@@ -2341,19 +5419,73 @@ class HeaderOrFooter(LrsObject, LrsContainer, LrsAttributes):
     )
 
     def __init__(self: _typing.Self, **settings: _typing.Any) -> None:
+        """
+        Initialize and validate the headerorfooter state.
+
+        Example:
+            Exercise HeaderOrFooter.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param settings: Value supplied for settings under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         LrsObject.__init__(self)
         LrsContainer.__init__(self, [PutObj])
         LrsAttributes.__init__(self, self.defaults, **settings)
 
     def put_object(self: _typing.Self, obj: _typing.Any, x1: _typing.Any, y1: _typing.Any) -> None:
+        """
+        Perform the put object operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HeaderOrFooter.put object through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param obj: Value supplied for obj under the utility contract.
+        :param x1: Value supplied for x1 under the utility contract.
+        :param y1: Value supplied for y1 under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.append(PutObj(obj, x1, y1))
 
     def PutObj(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> _typing.Any:
+        """
+        Perform the PutObj operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HeaderOrFooter.PutObj through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         p = PutObj(*args, **kwargs)
         self.append(p)
         return p
 
     def toLrf(self: _typing.Self, lrfWriter: _typing.Any) -> None:
+        """
+        Perform the toLrf operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HeaderOrFooter.toLrf through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param lrfWriter: Value supplied for lrfWriter under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         hd = LrfObject(self.__class__.__name__, self.objId)
         hd.appendTagDict(self.attrs)
 
@@ -2365,6 +5497,19 @@ class HeaderOrFooter(LrsObject, LrsContainer, LrsAttributes):
         lrfWriter.append(hd)
 
     def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
+        """
+        Perform the toElement operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HeaderOrFooter.toElement through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param se: Value supplied for se under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         name = self.__class__.__name__
         labelName = name.lower() + "label"
         hd = self.lrsObjectElement(name, objlabel=labelName)
@@ -2377,14 +5522,38 @@ class HeaderOrFooter(LrsObject, LrsContainer, LrsAttributes):
 
 
 class Header(HeaderOrFooter):
+    """
+    Provide the header contract for validated ebook processing.
+
+    Example:
+        Exercise Header through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+    """
     pass
 
 
 class Footer(HeaderOrFooter):
+    """
+    Provide the footer contract for validated ebook processing.
+
+    Example:
+        Exercise Footer through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+    """
     pass
 
 
 class Canvas(LrsObject, LrsContainer, LrsAttributes):
+    """
+    Provide the canvas contract for validated ebook processing.
+
+    Example:
+        Exercise Canvas through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+    """
     defaults = dict(
         framemode="square",
         layout="LrTb",
@@ -2397,6 +5566,20 @@ class Canvas(LrsObject, LrsContainer, LrsAttributes):
     )
 
     def __init__(self: _typing.Self, width: _typing.Any, height: _typing.Any, **settings: _typing.Any) -> None:
+        """
+        Initialize and validate the canvas state.
+
+        Example:
+            Exercise Canvas.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param width: Value supplied for width under the utility contract.
+        :param height: Value supplied for height under the utility contract.
+        :param settings: Value supplied for settings under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         LrsObject.__init__(self)
         LrsContainer.__init__(self, [PutObj])
         LrsAttributes.__init__(self, self.defaults, **settings)
@@ -2407,18 +5590,74 @@ class Canvas(LrsObject, LrsContainer, LrsAttributes):
         self.settings["canvaswidth"] = int(width)
 
     def put_object(self: _typing.Self, obj: _typing.Any, x1: _typing.Any, y1: _typing.Any) -> None:
+        """
+        Perform the put object operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Canvas.put object through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param obj: Value supplied for obj under the utility contract.
+        :param x1: Value supplied for x1 under the utility contract.
+        :param y1: Value supplied for y1 under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.append(PutObj(obj, x1, y1))
 
     def toElement(self: _typing.Self, source_encoding: _typing.Any) -> _typing.Any:
+        """
+        Perform the toElement operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Canvas.toElement through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param source_encoding: Value supplied for source encoding under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         el = self.lrsObjectElement("Canvas", **self.settings)
         for po in self.contents:
             el.append(po.toElement(source_encoding))
         return el
 
     def toLrf(self: _typing.Self, lrfWriter: _typing.Any) -> None:
+        """
+        Perform the toLrf operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Canvas.toLrf through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param lrfWriter: Value supplied for lrfWriter under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.toLrfContainer(lrfWriter, lrfWriter)
 
     def toLrfContainer(self: _typing.Self, lrfWriter: _typing.Any, container: _typing.Any) -> None:
+        """
+        Perform the toLrfContainer operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Canvas.toLrfContainer through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param lrfWriter: Value supplied for lrfWriter under the utility contract.
+        :param container: Value supplied for container under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         c = LrfObject("Canvas", self.objId)
         c.appendTagDict(self.settings)
         stream = LrfTagStream(STREAM_COMPRESSED)
@@ -2438,31 +5677,114 @@ class Canvas(LrsObject, LrsContainer, LrsAttributes):
         lrfWriter.append(c)
 
     def has_text(self: _typing.Self) -> _typing.Any:
+        """
+        Return whether has text holds for the supplied ebook data.
+
+        Example:
+            Exercise Canvas.has text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: True when the documented condition holds; otherwise False.
+        """
         return bool(self.contents)
 
 
 class PutObj(LrsContainer):
     """
     PutObj holds other objects that are drawn on a Canvas or Header.
+
+    Example:
+        Exercise PutObj through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
     """
 
     def __init__(self: _typing.Self, content: _typing.Any, x1: int = 0, y1: int = 0) -> None:
+        """
+        Initialize and validate the putobj state.
+
+        Example:
+            Exercise PutObj.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param content: Value supplied for content under the utility contract.
+        :param x1: Value supplied for x1 under the utility contract.
+        :param y1: Value supplied for y1 under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         LrsContainer.__init__(self, [TextBlock, ImageBlock])
         self.content = content
         self.x1 = int(x1)
         self.y1 = int(y1)
 
     def setContent(self: _typing.Self, content: _typing.Any) -> None:
+        """
+        Perform the setContent operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PutObj.setContent through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param content: Value supplied for content under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.content = content
 
     def appendReferencedObjects(self: _typing.Self, parent: _typing.Any) -> None:
+        """
+        Perform the appendReferencedObjects operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PutObj.appendReferencedObjects through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.content.parent is None:
             parent.append(self.content)
 
     def toLrfContainer(self: _typing.Self, lrfWriter: _typing.Any, container: _typing.Any) -> None:
+        """
+        Perform the toLrfContainer operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PutObj.toLrfContainer through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param lrfWriter: Value supplied for lrfWriter under the utility contract.
+        :param container: Value supplied for container under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         container.appendLrfTag(LrfTag("PutObj", (self.x1, self.y1, self.content.objId)))
 
     def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
+        """
+        Perform the toElement operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise PutObj.toElement through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param se: Value supplied for se under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         el = Element("PutObj", x1=str(self.x1), y1=str(self.y1), refobj=str(self.content.objId))
         return el
 
@@ -2470,11 +5792,30 @@ class PutObj(LrsContainer):
 class ImageStream(LrsObject, LrsContainer):
     """
     Embed an image file into an Lrf.
+
+    Example:
+        Exercise ImageStream through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
     """
 
     VALID_ENCODINGS = ["JPEG", "GIF", "BMP", "PNG"]
 
     def __init__(self: _typing.Self, file: _typing.Any = None, encoding: _typing.Any = None, comment: _typing.Any = None) -> None:
+        """
+        Initialize and validate the imagestream state.
+
+        Example:
+            Exercise ImageStream.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param file: Value supplied for file under the utility contract.
+        :param encoding: Value supplied for encoding under the utility contract.
+        :param comment: Value supplied for comment under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         LrsObject.__init__(self)
         LrsContainer.__init__(self, [])
         _checkExists(file)
@@ -2500,6 +5841,19 @@ class ImageStream(LrsObject, LrsContainer):
         self.encoding = encoding
 
     def toLrf(self: _typing.Self, lrfWriter: _typing.Any) -> None:
+        """
+        Perform the toLrf operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ImageStream.toLrf through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param lrfWriter: Value supplied for lrfWriter under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         imageFile = file(self.filename, "rb")
         imageData = imageFile.read()
         imageFile.close()
@@ -2514,6 +5868,19 @@ class ImageStream(LrsObject, LrsContainer):
         lrfWriter.append(isObj)
 
     def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
+        """
+        Perform the toElement operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ImageStream.toElement through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param se: Value supplied for se under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         element = self.lrsObjectElement(
             "ImageStream",
             objlabel="imagestreamlabel",
@@ -2526,9 +5893,36 @@ class ImageStream(LrsObject, LrsContainer):
 
 class Image(LrsObject, LrsContainer, LrsAttributes):
 
+    """
+    Provide the image contract for validated ebook processing.
+
+    Example:
+        Exercise Image through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+    """
     defaults = dict()
 
     def __init__(self: _typing.Self, refstream: _typing.Any, x0: int = 0, x1: int = 0, y0: int = 0, y1: int = 0, xsize: int = 0, ysize: int = 0, **settings: _typing.Any) -> None:
+        """
+        Initialize and validate the image state.
+
+        Example:
+            Exercise Image.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param refstream: Value supplied for refstream under the utility contract.
+        :param x0: Value supplied for x0 under the utility contract.
+        :param x1: Value supplied for x1 under the utility contract.
+        :param y0: Value supplied for y0 under the utility contract.
+        :param y1: Value supplied for y1 under the utility contract.
+        :param xsize: Value supplied for xsize under the utility contract.
+        :param ysize: Value supplied for ysize under the utility contract.
+        :param settings: Value supplied for settings under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         LrsObject.__init__(self)
         LrsContainer.__init__(self, [])
         LrsAttributes.__init__(self, self.defaults, settings)
@@ -2537,16 +5931,67 @@ class Image(LrsObject, LrsContainer, LrsAttributes):
         self.setRefstream(refstream)
 
     def setRefstream(self: _typing.Self, refstream: _typing.Any) -> None:
+        """
+        Perform the setRefstream operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Image.setRefstream through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param refstream: Value supplied for refstream under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.refstream = refstream
 
     def appendReferencedObjects(self: _typing.Self, parent: _typing.Any) -> None:
+        """
+        Perform the appendReferencedObjects operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Image.appendReferencedObjects through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.refstream.parent is None:
             parent.append(self.refstream)
 
     def getReferencedObjIds(self: _typing.Self) -> list[_typing.Any]:
+        """
+        Perform the getReferencedObjIds operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Image.getReferencedObjIds through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return [self.objId, self.refstream.objId]
 
     def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
+        """
+        Perform the toElement operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Image.toElement through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param se: Value supplied for se under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         element = self.lrsObjectElement("Image", **self.attrs)
         element.set("refstream", str(self.refstream.objId))
         for name in ["x0", "y0", "x1", "y1", "xsize", "ysize"]:
@@ -2554,6 +5999,19 @@ class Image(LrsObject, LrsContainer, LrsAttributes):
         return element
 
     def toLrf(self: _typing.Self, lrfWriter: _typing.Any) -> None:
+        """
+        Perform the toLrf operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Image.toLrf through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param lrfWriter: Value supplied for lrfWriter under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         ib = LrfObject("Image", self.objId)
         ib.appendLrfTag(LrfTag("ImageRect", (self.x0, self.y0, self.x1, self.y1)))
         ib.appendLrfTag(LrfTag("ImageSize", (self.xsize, self.ysize)))
@@ -2562,7 +6020,14 @@ class Image(LrsObject, LrsContainer, LrsAttributes):
 
 
 class ImageBlock(LrsObject, LrsContainer, LrsAttributes):
-    """Create an image on a page."""
+    """
+    Create an image on a page.
+
+    Example:
+        Exercise ImageBlock through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+    """
 
     # TODO: allow other block attributes
 
@@ -2581,6 +6046,27 @@ class ImageBlock(LrsObject, LrsContainer, LrsAttributes):
         alttext: _typing.Any = None,
         **settings: _typing.Any
     ) -> None:
+        """
+        Initialize and validate the imageblock state.
+
+        Example:
+            Exercise ImageBlock.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param refstream: Value supplied for refstream under the utility contract.
+        :param x0: Value supplied for x0 under the utility contract.
+        :param y0: Value supplied for y0 under the utility contract.
+        :param x1: Value supplied for x1 under the utility contract.
+        :param y1: Value supplied for y1 under the utility contract.
+        :param xsize: Value supplied for xsize under the utility contract.
+        :param ysize: Value supplied for ysize under the utility contract.
+        :param blockStyle: Value supplied for blockStyle under the utility contract.
+        :param alttext: Value supplied for alttext under the utility contract.
+        :param settings: Value supplied for settings under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         LrsObject.__init__(self)
         LrsContainer.__init__(self, [Text, Image])
         LrsAttributes.__init__(self, self.defaults, **settings)
@@ -2591,9 +6077,35 @@ class ImageBlock(LrsObject, LrsContainer, LrsAttributes):
         self.alttext = alttext
 
     def setRefstream(self: _typing.Self, refstream: _typing.Any) -> None:
+        """
+        Perform the setRefstream operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ImageBlock.setRefstream through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param refstream: Value supplied for refstream under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.refstream = refstream
 
     def appendReferencedObjects(self: _typing.Self, parent: _typing.Any) -> None:
+        """
+        Perform the appendReferencedObjects operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ImageBlock.appendReferencedObjects through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param parent: Value supplied for parent under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.refstream.parent is None:
             parent.append(self.refstream)
 
@@ -2601,6 +6113,18 @@ class ImageBlock(LrsObject, LrsContainer, LrsAttributes):
             parent.append(self.blockStyle)
 
     def getReferencedObjIds(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the getReferencedObjIds operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ImageBlock.getReferencedObjIds through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         objects = [self.objId, self.extraId, self.refstream.objId]
         if self.blockStyle is not None:
             objects.append(self.blockStyle.objId)
@@ -2608,11 +6132,38 @@ class ImageBlock(LrsObject, LrsContainer, LrsAttributes):
         return objects
 
     def toLrf(self: _typing.Self, lrfWriter: _typing.Any) -> None:
+        """
+        Perform the toLrf operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ImageBlock.toLrf through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param lrfWriter: Value supplied for lrfWriter under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.toLrfContainer(lrfWriter, lrfWriter)
 
     def toLrfContainer(self: _typing.Self, lrfWriter: _typing.Any, container: _typing.Any) -> None:
         # id really belongs to the outer block
 
+        """
+        Perform the toLrfContainer operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ImageBlock.toLrfContainer through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param lrfWriter: Value supplied for lrfWriter under the utility contract.
+        :param container: Value supplied for container under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         extraId = LrsObject.getNextObjId()
 
         b = LrfObject("Block", self.objId)
@@ -2636,6 +6187,19 @@ class ImageBlock(LrsObject, LrsContainer, LrsAttributes):
         self.extraId = extraId
 
     def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
+        """
+        Perform the toElement operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise ImageBlock.toElement through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param se: Value supplied for se under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         element = self.lrsObjectElement("ImageBlock", **self.attrs)
         element.set("refstream", str(self.refstream.objId))
         for name in ["x0", "y0", "x1", "y1", "xsize", "ysize"]:
@@ -2647,9 +6211,29 @@ class ImageBlock(LrsObject, LrsContainer, LrsAttributes):
 class Font(LrsContainer):
     """
     Allows a TrueType file to be embedded in an Lrf.
+
+    Example:
+        Exercise Font through a consuming regression::
+
+            python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
     """
 
     def __init__(self: _typing.Self, file: _typing.Any = None, fontname: _typing.Any = None, fontfilename: _typing.Any = None, encoding: _typing.Any = None) -> None:
+        """
+        Initialize and validate the font state.
+
+        Example:
+            Exercise Font.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param file: Value supplied for file under the utility contract.
+        :param fontname: Value supplied for fontname under the utility contract.
+        :param fontfilename: Value supplied for fontfilename under the utility contract.
+        :param encoding: Value supplied for encoding under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         LrsContainer.__init__(self, [])
         try:
             _checkExists(fontfilename)
@@ -2667,6 +6251,19 @@ class Font(LrsContainer):
         self.encoding = encoding
 
     def toLrf(self: _typing.Self, lrfWriter: _typing.Any) -> None:
+        """
+        Perform the toLrf operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Font.toLrf through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param lrfWriter: Value supplied for lrfWriter under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         font = LrfObject("Font", LrsObject.getNextObjId())
         lrfWriter.registerFontId(font.objId)
         font.appendLrfTag(LrfTag("FontFilename", lrfWriter.toUnicode(self.truefile)))
@@ -2678,6 +6275,19 @@ class Font(LrsContainer):
         lrfWriter.append(font)
 
     def toElement(self: _typing.Self, se: _typing.Any) -> _typing.Any:
+        """
+        Perform the toElement operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Font.toElement through a consuming regression::
+
+                python -m pytest -q tests/file_formats/lrf/test_lrf_output_modernized.py
+
+
+        :param se: Value supplied for se under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         element = Element(
             "RegistFont",
             encoding="TTF",

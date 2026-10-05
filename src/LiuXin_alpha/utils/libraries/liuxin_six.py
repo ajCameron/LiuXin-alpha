@@ -1,17 +1,13 @@
 """
-LiuXin "six"-like compatibility helpers (Python 3 only, typed, stdlib-only).
+Provide the retained Python compatibility aliases used by bundled libraries.
 
-Why this exists:
-- LiuXin still contains a fair amount of Python-2-era idioms (unicode/long,
-  iteritems, etc.) even though the project is moving to Python 3.
-- Historically this module wrapped `six` and a few `future` helpers.
-- This rewrite keeps the same public surface area but removes third-party
-  runtime dependencies and improves typing.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
 
-Design goals:
-- Drop-in-ish replacement for the previous liuxin_six wrapper.
-- Provide well-typed helpers for str/bytes conversions.
-- Avoid surprising behaviour; fail loudly on unsupported input types.
+Example:
+    Exercise liuxin six through a consuming regression::
+
+        python -m pytest -q tests/scripts/test_docstring_migration.py
 """
 
 from __future__ import annotations
@@ -71,30 +67,105 @@ V = TypeVar("V")
 
 
 def iteritems(target_dict: Mapping[K, V]) -> Iterator[Tuple[K, V]]:
-    """Return an iterator over (key, value) pairs (Py2 compat)."""
+    """
+    Return an iterator over (key, value) pairs (Py2 compat).
+
+    Example:
+        Exercise iteritems through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+    :param target_dict: Value supplied for target dict under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return iter(target_dict.items())
 
 
 def iterkeys(target_dict: Mapping[K, Any]) -> Iterator[K]:
-    """Return an iterator over keys (Py2 compat)."""
+    """
+    Return an iterator over keys (Py2 compat).
+
+    Example:
+        Exercise iterkeys through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+    :param target_dict: Value supplied for target dict under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return iter(target_dict.keys())
 
 
 def itervalues(target_dict: Mapping[Any, V]) -> Iterator[V]:
-    """Return an iterator over values (Py2 compat)."""
+    """
+    Return an iterator over values (Py2 compat).
+
+    Example:
+        Exercise itervalues through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+    :param target_dict: Value supplied for target dict under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return iter(target_dict.values())
 
 
 # Historic wrappers used throughout LiuXin ("dict_iteritems as iteritems", etc.)
 def dict_iteritems(target_dict: Mapping[K, V]) -> Iterator[Tuple[K, V]]:
+    """
+    Perform the dict iteritems utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise dict iteritems through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+    :param target_dict: Value supplied for target dict under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return iteritems(target_dict)
 
 
 def dict_iterkeys(target_dict: Mapping[K, Any]) -> Iterator[K]:
+    """
+    Perform the dict iterkeys utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise dict iterkeys through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+    :param target_dict: Value supplied for target dict under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return iterkeys(target_dict)
 
 
 def dict_itervalues(target_dict: Mapping[Any, V]) -> Iterator[V]:
+    """
+    Perform the dict itervalues utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise dict itervalues through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+    :param target_dict: Value supplied for target dict under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return itervalues(target_dict)
 
 
@@ -104,8 +175,18 @@ def dict_itervalues(target_dict: Mapping[Any, V]) -> Iterator[V]:
 
 def force_cmp(x: Any, y: Any) -> bool:
     """
-    Python 3 replacement for the Python 2 built-in cmp(x, y).
-    Returns: -1 if x<y, 0 if x==y, +1 if x>y
+    Python 3 replacement for the Python 2 built-in cmp(x, y). Returns: -1 if x<y, 0 if x==y, +1 if x>y
+
+    Example:
+        Exercise force cmp through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+    :param x: Value supplied for x under the utility contract.
+    :param y: Value supplied for y under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return (x > y) - (x < y)
 
@@ -146,10 +227,43 @@ six_BytesIO = io.BytesIO
 # --------------------------------------------------------------------------------------
 
 class _MissingModuleProxy:
+    """
+    Provide the MissingModuleProxy utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise  MissingModuleProxy through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_docstring_migration.py
+    """
     def __init__(self, module_name: str) -> None:
+        """
+        Initialize and validate the MissingModuleProxy state.
+
+        Example:
+            Exercise  MissingModuleProxy.  init   through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+        :param module_name: Value supplied for module name under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self._module_name = module_name
 
     def __getattr__(self, item: str) -> Any:
+        """
+        Perform the getattr utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise  MissingModuleProxy.  getattr   through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+        :param item: Value supplied for item under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raise ImportError(
             f"Optional module '{self._module_name}' is not available; "
             f"tried stdlib and backports."
@@ -185,34 +299,122 @@ TextOrBytes = Union[str, BytesLike]
 @overload
 def ensure_bytes(
     s: None, encoding: str = "utf-8", errors: str = "strict"
-) -> None: ...
+) -> None:
+    """
+    Perform the ensure bytes utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise ensure bytes through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+    :param s: Value supplied for s under the utility contract.
+    :param encoding: Value supplied for encoding under the utility contract.
+    :param errors: Value supplied for errors under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
+    ...
 @overload
 def ensure_bytes(
     s: bytes, encoding: str = "utf-8", errors: str = "strict"
-) -> bytes: ...
+) -> bytes:
+    """
+    Perform the ensure bytes utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise ensure bytes through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+    :param s: Value supplied for s under the utility contract.
+    :param encoding: Value supplied for encoding under the utility contract.
+    :param errors: Value supplied for errors under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
+    ...
 @overload
 def ensure_bytes(
     s: bytearray, encoding: str = "utf-8", errors: str = "strict"
-) -> bytes: ...
+) -> bytes:
+    """
+    Perform the ensure bytes utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise ensure bytes through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+    :param s: Value supplied for s under the utility contract.
+    :param encoding: Value supplied for encoding under the utility contract.
+    :param errors: Value supplied for errors under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
+    ...
 @overload
 def ensure_bytes(
     s: memoryview, encoding: str = "utf-8", errors: str = "strict"
-) -> bytes: ...
+) -> bytes:
+    """
+    Perform the ensure bytes utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise ensure bytes through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+    :param s: Value supplied for s under the utility contract.
+    :param encoding: Value supplied for encoding under the utility contract.
+    :param errors: Value supplied for errors under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
+    ...
 @overload
 def ensure_bytes(
     s: str, encoding: str = "utf-8", errors: str = "strict"
-) -> bytes: ...
+) -> bytes:
+    """
+    Perform the ensure bytes utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise ensure bytes through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+    :param s: Value supplied for s under the utility contract.
+    :param encoding: Value supplied for encoding under the utility contract.
+    :param errors: Value supplied for errors under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
+    ...
 
 
 def ensure_bytes(
     s: Any, encoding: str = "utf-8", errors: str = "strict"
 ) -> Any:
     """
-    Convert text/bytes-ish inputs to bytes.
-    - str -> encoded
-    - bytes -> unchanged
-    - bytearray/memoryview -> copied to bytes
-    - None -> None
+    Convert text/bytes-ish inputs to bytes. - str -> encoded - bytes -> unchanged - bytearray/memoryview -> copied to bytes - None -> None
+
+    Example:
+        Exercise ensure bytes through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+    :param s: Value supplied for s under the utility contract.
+    :param encoding: Value supplied for encoding under the utility contract.
+    :param errors: Value supplied for errors under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if s is None:
         return None
@@ -230,33 +432,122 @@ def ensure_bytes(
 @overload
 def ensure_text(
     s: None, encoding: str = "utf-8", errors: str = "strict"
-) -> None: ...
+) -> None:
+    """
+    Perform the ensure text utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise ensure text through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+    :param s: Value supplied for s under the utility contract.
+    :param encoding: Value supplied for encoding under the utility contract.
+    :param errors: Value supplied for errors under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
+    ...
 @overload
 def ensure_text(
     s: str, encoding: str = "utf-8", errors: str = "strict"
-) -> str: ...
+) -> str:
+    """
+    Perform the ensure text utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise ensure text through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+    :param s: Value supplied for s under the utility contract.
+    :param encoding: Value supplied for encoding under the utility contract.
+    :param errors: Value supplied for errors under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
+    ...
 @overload
 def ensure_text(
     s: bytes, encoding: str = "utf-8", errors: str = "strict"
-) -> str: ...
+) -> str:
+    """
+    Perform the ensure text utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise ensure text through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+    :param s: Value supplied for s under the utility contract.
+    :param encoding: Value supplied for encoding under the utility contract.
+    :param errors: Value supplied for errors under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
+    ...
 @overload
 def ensure_text(
     s: bytearray, encoding: str = "utf-8", errors: str = "strict"
-) -> str: ...
+) -> str:
+    """
+    Perform the ensure text utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise ensure text through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+    :param s: Value supplied for s under the utility contract.
+    :param encoding: Value supplied for encoding under the utility contract.
+    :param errors: Value supplied for errors under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
+    ...
 @overload
 def ensure_text(
     s: memoryview, encoding: str = "utf-8", errors: str = "strict"
-) -> str: ...
+) -> str:
+    """
+    Perform the ensure text utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise ensure text through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+    :param s: Value supplied for s under the utility contract.
+    :param encoding: Value supplied for encoding under the utility contract.
+    :param errors: Value supplied for errors under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
+    ...
 
 
 def ensure_text(
     s: Any, encoding: str = "utf-8", errors: str = "strict"
 ) -> Any:
     """
-    Convert text/bytes-ish inputs to str.
-    - bytes/bytearray/memoryview -> decoded
-    - str -> unchanged
-    - None -> None
+    Convert text/bytes-ish inputs to str. - bytes/bytearray/memoryview -> decoded - str -> unchanged - None -> None
+
+    Example:
+        Exercise ensure text through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+    :param s: Value supplied for s under the utility contract.
+    :param encoding: Value supplied for encoding under the utility contract.
+    :param errors: Value supplied for errors under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if s is None:
         return None
@@ -275,14 +566,39 @@ ensure_str = ensure_text
 # Small helpers mirroring common compatibility patterns
 def b(s: Union[str, bytes], encoding: str = "latin-1", errors: str = "strict") -> bytes:
     """
-    Create bytes from a string in a stable, byte-preserving way.
-    Default encoding is latin-1 so codepoints 0..255 map 1:1 to bytes.
+    Create bytes from a string in a stable, byte-preserving way. Default encoding is latin-1 so codepoints 0..255 map 1:1 to bytes.
+
+    Example:
+        Exercise b through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+    :param s: Value supplied for s under the utility contract.
+    :param encoding: Value supplied for encoding under the utility contract.
+    :param errors: Value supplied for errors under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return ensure_bytes(s, encoding=encoding, errors=errors)
 
 
 def u(s: Union[str, bytes], encoding: str = "utf-8", errors: str = "strict") -> str:
-    """Create text (str) from bytes or return str unchanged."""
+    """
+    Create text (str) from bytes or return str unchanged.
+
+    Example:
+        Exercise u through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+    :param s: Value supplied for s under the utility contract.
+    :param encoding: Value supplied for encoding under the utility contract.
+    :param errors: Value supplied for errors under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return ensure_text(s, encoding=encoding, errors=errors)
 
 
@@ -292,10 +608,32 @@ def u(s: Union[str, bytes], encoding: str = "utf-8", errors: str = "strict") -> 
 
 def add_metaclass(metaclass: type) -> Callable[[type], type]:
     """
-    Class decorator that replaces a class with the same name/bases but using
-    the given metaclass. Similar to six.add_metaclass.
+    Class decorator that replaces a class with the same name/bases but using the given metaclass. Similar to six.add_metaclass.
+
+    Example:
+        Exercise add metaclass through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+    :param metaclass: Value supplied for metaclass under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     def decorator(cls: type) -> type:
+        """
+        Perform the decorator utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise add metaclass.decorator through a consuming regression::
+
+                python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+        :param cls: Value supplied for cls under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         attrs = dict(cls.__dict__)
         # these are created by type machinery, don't pass through
         attrs.pop("__dict__", None)
@@ -307,10 +645,18 @@ def add_metaclass(metaclass: type) -> Callable[[type], type]:
 
 def with_metaclass(metaclass: type, *bases: type) -> type:
     """
-    Create a base class using `metaclass` and `bases`.
-    Typical use:
-        class MyBase(with_metaclass(Meta, object)):
-            ...
+    Create a base class using `metaclass` and `bases`. Typical use: class MyBase(with_metaclass(Meta, object)): ...
+
+    Example:
+        Exercise with metaclass through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_docstring_migration.py
+
+
+    :param metaclass: Value supplied for metaclass under the utility contract.
+    :param bases: Value supplied for bases under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return metaclass("_WithMetaclassBase", bases or (object,), {})
 

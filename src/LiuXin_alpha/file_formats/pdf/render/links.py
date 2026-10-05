@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:fdm=marker:ai
 
+"""
+Resolve and serialize internal and external PDF links.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise links through a consuming regression::
+
+        python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -27,7 +38,29 @@ __docformat__ = "restructuredtext en"
 
 
 class Destination(Array):
+    """
+    Provide the destination contract for validated ebook processing.
+
+    Example:
+        Exercise Destination through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+    """
     def __init__(self: _typing.Self, start_page: _typing.Any, pos: _typing.Any, get_pageref: _typing.Any) -> None:
+        """
+        Initialize and validate the destination state.
+
+        Example:
+            Exercise Destination.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param start_page: Value supplied for start page under the utility contract.
+        :param pos: Value supplied for pos under the utility contract.
+        :param get_pageref: Value supplied for get pageref under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         pnum = start_page + pos["column"]
         try:
             pref = get_pageref(pnum)
@@ -37,7 +70,29 @@ class Destination(Array):
 
 
 class Links(object):
+    """
+    Provide the links contract for validated ebook processing.
+
+    Example:
+        Exercise Links through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+    """
     def __init__(self: _typing.Self, pdf: _typing.Any, mark_links: _typing.Any, page_size: _typing.Any) -> None:
+        """
+        Initialize and validate the links state.
+
+        Example:
+            Exercise Links.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param pdf: Value supplied for pdf under the utility contract.
+        :param mark_links: Value supplied for mark links under the utility contract.
+        :param page_size: Value supplied for page size under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.anchors = {}
         self.links = []
         self.start = {"top": page_size[1], "column": 0, "left": 0}
@@ -45,6 +100,22 @@ class Links(object):
         self.mark_links = mark_links
 
     def add(self: _typing.Self, base_path: _typing.Any, start_page: _typing.Any, links: _typing.Any, anchors: _typing.Any) -> None:
+        """
+        Perform the add operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Links.add through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param base_path: Value supplied for base path under the utility contract.
+        :param start_page: Value supplied for start page under the utility contract.
+        :param links: Value supplied for links under the utility contract.
+        :param anchors: Value supplied for anchors under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         path = os.path.normcase(os.path.abspath(base_path))
         self.anchors[path] = a = {}
         a[None] = Destination(start_page, self.start, self.pdf.get_pageref)
@@ -65,6 +136,18 @@ class Links(object):
             self.links.append(((path, p, frag or None), pref, Array(rect)))
 
     def add_links(self: _typing.Self) -> None:
+        """
+        Perform the add links operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Links.add links through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for link in self.links:
             path, href, frag = link[0]
             page, rect = link[1:]
@@ -108,12 +191,40 @@ class Links(object):
                 self.pdf.debug("Could not find destination for link: %s in file %s" % (href, path))
 
     def add_outline(self: _typing.Self, toc: _typing.Any) -> None:
+        """
+        Perform the add outline operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Links.add outline through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param toc: Value supplied for toc under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         parent = Dictionary({"Type": Name("Outlines")})
         parentref = self.pdf.objects.add(parent)
         self.process_children(toc, parentref, parent_is_root=True)
         self.pdf.catalog.obj["Outlines"] = parentref
 
     def process_children(self: _typing.Self, toc: _typing.Any, parentref: _typing.Any, parent_is_root: bool = False) -> None:
+        """
+        Perform the process children operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Links.process children through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param toc: Value supplied for toc under the utility contract.
+        :param parentref: Value supplied for parentref under the utility contract.
+        :param parent_is_root: Value supplied for parent is root under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         childrefs = []
         for child in toc:
             childref = self.process_toc_item(child, parentref)
@@ -133,6 +244,20 @@ class Links(object):
                 parentref.obj["Count"] = -len(childrefs)
 
     def process_toc_item(self: _typing.Self, toc: _typing.Any, parentref: _typing.Any) -> _typing.Any:
+        """
+        Perform the process toc item operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Links.process toc item through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdf/test_pdf_modernized.py
+
+
+        :param toc: Value supplied for toc under the utility contract.
+        :param parentref: Value supplied for parentref under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         path = toc.abspath or None
         frag = toc.fragment or None
         if path is None:

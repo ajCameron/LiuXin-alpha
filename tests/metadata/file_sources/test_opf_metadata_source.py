@@ -1,3 +1,14 @@
+"""
+Verify OPF metadata parsing, precedence and rendering behavior.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test opf metadata source through its owning regression module::
+
+        python -m pytest -q tests/metadata/file_sources/test_opf_metadata_source.py
+"""
 from __future__ import annotations
 
 import io
@@ -10,6 +21,18 @@ from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 
 
 def _values(raw):
+    """
+    Perform the values test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise values through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_metadata_source.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     if raw is None:
         return []
     if isinstance(raw, Mapping):
@@ -23,6 +46,19 @@ def _values(raw):
 
 
 def _first_mapping_value(raw, default=None):
+    """
+    Perform the first mapping value test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise first mapping value through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_metadata_source.py
+
+
+    :param raw: Value supplied for raw in the focused test operation.
+    :param default: Value supplied for default in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     if isinstance(raw, Mapping):
         try:
             return next(iter(raw.values()))
@@ -32,6 +68,17 @@ def _first_mapping_value(raw, default=None):
 
 
 def _opf2_unicode_bytes() -> bytes:
+    """
+    Perform the opf2 unicode bytes test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise opf2 unicode bytes through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_metadata_source.py
+
+
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return b"""<?xml version='1.0' encoding='utf-8'?>
 <package xmlns="http://www.idpf.org/2007/opf"
          xmlns:dc="http://purl.org/dc/elements/1.1/"
@@ -60,12 +107,34 @@ def _opf2_unicode_bytes() -> bytes:
 
 
 def test_opf_metadata_module_import_smoke() -> None:
+    """
+    Verify opf metadata module import smoke.
+
+    Example:
+        Exercise test opf metadata module import smoke through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     import LiuXin_alpha.metadata.file_sources.opf as opf_md
 
     assert opf_md is not None
 
 
 def test_opf_reader_plugin_is_available_and_preserves_stream_position() -> None:
+    """
+    Verify opf reader plugin remains available and preserves stream position.
+
+    Example:
+        Exercise test opf reader plugin is available and preserves stream position through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.customize.builtins.metadata_readers import get_metadata_reader_plugins
 
     plugins = get_metadata_reader_plugins()
@@ -82,6 +151,17 @@ def test_opf_reader_plugin_is_available_and_preserves_stream_position() -> None:
 
 
 def test_opf_get_metadata_default_returns_liuxin_metadata() -> None:
+    """
+    Verify opf get metadata default returns liuxin metadata.
+
+    Example:
+        Exercise test opf get metadata default returns liuxin metadata through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.opf import get_metadata
 
     md = get_metadata(io.BytesIO(_opf2_unicode_bytes()))
@@ -95,6 +175,17 @@ def test_opf_get_metadata_default_returns_liuxin_metadata() -> None:
 
 
 def test_opf_get_metadata_calibre_mode() -> None:
+    """
+    Verify opf get metadata calibre mode.
+
+    Example:
+        Exercise test opf get metadata calibre mode through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.opf import get_metadata
 
     md = get_metadata(io.BytesIO(_opf2_unicode_bytes()), calibre=True)
@@ -105,6 +196,17 @@ def test_opf_get_metadata_calibre_mode() -> None:
 
 
 def test_opf_get_metadata_text_mode_from_string() -> None:
+    """
+    Verify opf get metadata text mode from string.
+
+    Example:
+        Exercise test opf get metadata text mode from string through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.opf import get_metadata
 
     text_payload = _opf2_unicode_bytes().decode("utf-8")
@@ -115,6 +217,18 @@ def test_opf_get_metadata_text_mode_from_string() -> None:
 
 
 def test_opf_get_metadata_inplace_pathlike(tmp_path: Path) -> None:
+    """
+    Verify opf get metadata inplace pathlike.
+
+    Example:
+        Exercise test opf get metadata inplace pathlike through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_metadata_source.py
+
+
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.opf import get_metadata_inplace
 
     path = tmp_path / "unicode_fixture.opf"
@@ -126,6 +240,17 @@ def test_opf_get_metadata_inplace_pathlike(tmp_path: Path) -> None:
 
 
 def test_opf_file_is_raw_root_can_parse_non_package_metadata_root() -> None:
+    """
+    Verify opf file remains raw root can parse non package metadata root.
+
+    Example:
+        Exercise test opf file is raw root can parse non package metadata root through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.opf import get_metadata
 
     raw = b"""<?xml version='1.0' encoding='utf-8'?>
@@ -152,6 +277,17 @@ def test_opf_file_is_raw_root_can_parse_non_package_metadata_root() -> None:
 
 
 def test_opf_invalid_payload_raises_by_default_and_can_opt_into_fallback() -> None:
+    """
+    Verify opf invalid payload raises by default and can opt into fallback.
+
+    Example:
+        Exercise test opf invalid payload raises by default and can opt into fallback through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.opf import OpfParseError, get_metadata
 
     with pytest.raises(OpfParseError):
@@ -163,6 +299,17 @@ def test_opf_invalid_payload_raises_by_default_and_can_opt_into_fallback() -> No
 
 
 def test_opf_invalid_text_mode_payload_raises_by_default_and_can_opt_into_fallback() -> None:
+    """
+    Verify opf invalid text mode payload raises by default and can opt into fallback.
+
+    Example:
+        Exercise test opf invalid text mode payload raises by default and can opt into fallback through its owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_metadata_source.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     from LiuXin_alpha.metadata.file_sources.opf import OpfParseError, get_metadata
 
     with pytest.raises(OpfParseError):

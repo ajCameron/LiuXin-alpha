@@ -1,21 +1,13 @@
-"""Import diagnostics helpers for the calibre compatibility layer.
+"""
+Observe Calibre-compat import resolution and expose actionable diagnostics.
 
-The intent is to help identify missing calibre modules (especially ``calibre.utils.*``)
-encountered when loading third-party calibre plugins inside LiuXin.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
 
-These helpers are **observational**:
-- They never swallow import errors.
-- They aim to be idempotent and safe to enable temporarily in tests or during plugin load.
+Example:
+    Exercise import diagnostics through a consuming regression::
 
-Typical usage::
-
-    from LiuXin_alpha.utils.calibre_compat.import_diagnostics import (
-        calibre_import_failure_logging,
-    )
-
-    with calibre_import_failure_logging():
-        ...  # load plugins / run plugin code
-
+        python -m pytest -q tests/utils/calibre_compat/test_import_diagnostics.py
 """
 
 from __future__ import annotations
@@ -43,6 +35,19 @@ _seen: set[tuple[str, str]] = set()
 
 
 def _is_calibre_utils_name(name: str) -> bool:
+    """
+    Perform the is calibre utils name utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  is calibre utils name through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_import_diagnostics.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return name == "calibre.utils" or name.startswith("calibre.utils.")
 
 
@@ -53,7 +58,23 @@ def _logged_import(
     fromlist: Sequence[str] | tuple[str, ...] = (),
     level: int = 0,
 ) -> Any:
-    """Replacement for :func:`builtins.__import__` that logs missing calibre imports."""
+    """
+    Replacement for :func:`builtins.__import__` that logs missing calibre imports.
+
+    Example:
+        Exercise  logged import through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_import_diagnostics.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :param globals: Value supplied for globals under the utility contract.
+    :param locals: Local template variables available during evaluation.
+    :param fromlist: Value supplied for fromlist under the utility contract.
+    :param level: Value supplied for level under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         return _prev_import(  # type: ignore[misc]
             name, globals, locals, fromlist, level
@@ -87,12 +108,18 @@ def _logged_import(
 
 
 def install_calibre_import_failure_logging(logger_name: str = _DEFAULT_LOGGER_NAME) -> None:
-    """Install the import-failure logger.
+    """
+    Install the import-failure logger.
 
-    This wraps :data:`builtins.__import__` and logs *first-time* missing imports for
-    ``calibre.utils`` and its submodules.
+    Example:
+        Exercise install calibre import failure logging through a consuming regression::
 
-    The function is idempotent.
+            python -m pytest -q tests/utils/calibre_compat/test_import_diagnostics.py
+
+
+    :param logger_name: Value supplied for logger name under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
     """
     global _prev_import, _installed
 
@@ -111,7 +138,18 @@ def install_calibre_import_failure_logging(logger_name: str = _DEFAULT_LOGGER_NA
 
 
 def uninstall_calibre_import_failure_logging() -> None:
-    """Uninstall the import-failure logger (restore previous import)."""
+    """
+    Uninstall the import-failure logger (restore previous import).
+
+    Example:
+        Exercise uninstall calibre import failure logging through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_import_diagnostics.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     global _prev_import, _installed
 
     with _lock:
@@ -126,7 +164,18 @@ def uninstall_calibre_import_failure_logging() -> None:
 
 
 def reset_calibre_import_failure_dedupe() -> None:
-    """Clear internal de-duplication state (useful in tests)."""
+    """
+    Clear internal de-duplication state (useful in tests).
+
+    Example:
+        Exercise reset calibre import failure dedupe through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_import_diagnostics.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     with _lock:
         _seen.clear()
 
@@ -135,7 +184,18 @@ def reset_calibre_import_failure_dedupe() -> None:
 def calibre_import_failure_logging(
     logger_name: str = _DEFAULT_LOGGER_NAME,
 ) -> Iterator[None]:
-    """Context manager to temporarily enable import-failure logging."""
+    """
+    Context manager to temporarily enable import-failure logging.
+
+    Example:
+        Exercise calibre import failure logging through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_import_diagnostics.py
+
+
+    :param logger_name: Value supplied for logger name under the utility contract.
+    :return: An iterator yielding the normalized values described above.
+    """
     install_calibre_import_failure_logging(logger_name=logger_name)
     try:
         yield
@@ -144,17 +204,48 @@ def calibre_import_failure_logging(
 
 
 class CalibreUtilsSpecObserver(importlib.abc.MetaPathFinder):
-    """A meta_path finder that *observes* missing ``calibre.utils.*`` specs.
+    """
+    A meta_path finder that *observes* missing ``calibre.utils.*`` specs.
 
-    This does not intercept or provide a spec; it only logs when the standard
-    :class:`~importlib.machinery.PathFinder` cannot find a spec for a matching name.
+    Example:
+        Exercise CalibreUtilsSpecObserver through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_import_diagnostics.py
     """
 
     def __init__(self, logger_name: str = _DEFAULT_LOGGER_NAME) -> None:
+        """
+        Initialize and validate the CalibreUtilsSpecObserver state.
+
+        Example:
+            Exercise CalibreUtilsSpecObserver.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_import_diagnostics.py
+
+
+        :param logger_name: Value supplied for logger name under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self._logger = logging.getLogger(logger_name)
         self._seen: set[str] = set()
 
     def find_spec(self, fullname: str, path=None, target=None):  # type: ignore[override]
+        """
+        Find spec under the documented compatibility and safety rules.
+
+        Example:
+            Exercise CalibreUtilsSpecObserver.find spec through a consuming regression::
+
+                python -m pytest -q tests/utils/calibre_compat/test_import_diagnostics.py
+
+
+        :param fullname: Value supplied for fullname under the utility contract.
+        :param path: Filesystem path read, written, normalized or validated by the
+            operation.
+        :param target: Value supplied for target under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if not _is_calibre_utils_name(fullname):
             return None
 
@@ -175,9 +266,18 @@ _spec_observer: Optional[CalibreUtilsSpecObserver] = None
 
 
 def install_calibre_meta_path_observer(logger_name: str = _DEFAULT_LOGGER_NAME) -> CalibreUtilsSpecObserver:
-    """Install a :class:`CalibreUtilsSpecObserver` into :data:`sys.meta_path`.
+    """
+    Install a :class:`CalibreUtilsSpecObserver` into :data:`sys.meta_path`.
 
-    The observer is inserted at the front. Idempotent.
+    Example:
+        Exercise install calibre meta path observer through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_import_diagnostics.py
+
+
+    :param logger_name: Value supplied for logger name under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     global _spec_observer
 
@@ -192,7 +292,18 @@ def install_calibre_meta_path_observer(logger_name: str = _DEFAULT_LOGGER_NAME) 
 
 
 def uninstall_calibre_meta_path_observer() -> None:
-    """Remove the installed :class:`CalibreUtilsSpecObserver` from :data:`sys.meta_path`."""
+    """
+    Remove the installed :class:`CalibreUtilsSpecObserver` from :data:`sys.meta_path`.
+
+    Example:
+        Exercise uninstall calibre meta path observer through a consuming regression::
+
+            python -m pytest -q tests/utils/calibre_compat/test_import_diagnostics.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     global _spec_observer
     with _lock:
         if _spec_observer is None:

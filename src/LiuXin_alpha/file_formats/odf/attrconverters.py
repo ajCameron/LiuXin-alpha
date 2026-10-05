@@ -17,6 +17,17 @@
 #
 # Contributor(s):
 #
+"""
+Validate and convert ODF attribute values by declared type.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise attrconverters through a consuming regression::
+
+        python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -33,16 +44,59 @@ pattern_vector3D = re.compile(r"\([ ]*-?([0-9]+(\.[0-9]*)?|\.[0-9]+)([ ]+-?([0-9
 
 
 def make_NCName(arg: _typing.Any) -> _typing.Any:
+    """
+    Perform the make NCName operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise make NCName through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+    :param arg: Value supplied for arg under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     for c in (":", " "):
         arg = arg.replace(c, "_%x_" % ord(c))
     return arg
 
 
 def cnv_anyURI(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
+    """
+    Perform the cnv anyURI operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise cnv anyURI through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+    :param attribute: Value supplied for attribute under the utility contract.
+    :param arg: Value supplied for arg under the utility contract.
+    :param element: Value supplied for element under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return six_unicode(arg)
 
 
 def cnv_boolean(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> str:
+    """
+    Perform the cnv boolean operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise cnv boolean through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+    :param attribute: Value supplied for attribute under the utility contract.
+    :param arg: Value supplied for arg under the utility contract.
+    :param element: Value supplied for element under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if arg.lower() in ("false", "no"):
         return "false"
     if arg:
@@ -53,17 +107,39 @@ def cnv_boolean(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) 
 # Potentially accept color values
 def cnv_color(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
     """
-    A RGB color in conformance with §5.9.11 of [XSL], that is a RGB color in notation “#rrggbb”, where
-    rr, gg and bb are 8-bit hexadecimal digits.
-    :param attribute:
-    :param arg:
-    :param element:
-    :return:
+    A RGB color in conformance with §5.9.11 of [XSL], that is a RGB color in notation “#rrggbb”, where rr, gg and bb are 8-bit hexadecimal digits.
+
+    Example:
+        Exercise cnv color through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+    :param attribute: Value supplied for attribute under the utility contract.
+    :param arg: Value supplied for arg under the utility contract.
+    :param element: Value supplied for element under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return str(arg)
 
 
 def cnv_configtype(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
+    """
+    Perform the cnv configtype operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise cnv configtype through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+    :param attribute: Value supplied for attribute under the utility contract.
+    :param arg: Value supplied for arg under the utility contract.
+    :param element: Value supplied for element under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if str(arg) not in (
         "boolean",
         "short",
@@ -79,6 +155,21 @@ def cnv_configtype(attribute: _typing.Any, arg: _typing.Any, element: _typing.An
 
 
 def cnv_data_source_has_labels(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
+    """
+    Perform the cnv data source has labels operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise cnv data source has labels through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+    :param attribute: Value supplied for attribute under the utility contract.
+    :param arg: Value supplied for arg under the utility contract.
+    :param element: Value supplied for element under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if str(arg) not in ("none", "row", "column", "both"):
         raise ValueError("'%s' not allowed" % str(arg))
     return str(arg)
@@ -86,34 +177,96 @@ def cnv_data_source_has_labels(attribute: _typing.Any, arg: _typing.Any, element
 
 # Understand different date formats
 def cnv_date(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
-    """A dateOrDateTime value is either an [xmlschema-2] date value or an [xmlschema-2] dateTime
-    value.
+    """
+    A dateOrDateTime value is either an [xmlschema-2] date value or an [xmlschema-2] dateTime value.
+
+    Example:
+        Exercise cnv date through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+    :param attribute: Value supplied for attribute under the utility contract.
+    :param arg: Value supplied for arg under the utility contract.
+    :param element: Value supplied for element under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return str(arg)
 
 
 def cnv_dateTime(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
-    """A dateOrDateTime value is either an [xmlschema-2] date value or an [xmlschema-2] dateTime
-    value.
+    """
+    A dateOrDateTime value is either an [xmlschema-2] date value or an [xmlschema-2] dateTime value.
+
+    Example:
+        Exercise cnv dateTime through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+    :param attribute: Value supplied for attribute under the utility contract.
+    :param arg: Value supplied for arg under the utility contract.
+    :param element: Value supplied for element under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return str(arg)
 
 
 def cnv_double(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
+    """
+    Perform the cnv double operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise cnv double through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+    :param attribute: Value supplied for attribute under the utility contract.
+    :param arg: Value supplied for arg under the utility contract.
+    :param element: Value supplied for element under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return str(arg)
 
 
 def cnv_duration(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
+    """
+    Perform the cnv duration operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise cnv duration through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+    :param attribute: Value supplied for attribute under the utility contract.
+    :param arg: Value supplied for arg under the utility contract.
+    :param element: Value supplied for element under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return str(arg)
 
 
 def cnv_family(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
     """
     A style family
-    :param attribute:
-    :param arg:
-    :param element:
-    :return:
+
+    Example:
+        Exercise cnv family through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+    :param attribute: Value supplied for attribute under the utility contract.
+    :param arg: Value supplied for arg under the utility contract.
+    :param element: Value supplied for element under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if str(arg) not in (
         "text",
@@ -134,6 +287,21 @@ def cnv_family(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -
 
 
 def __save_prefix(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
+    """
+    Perform the save prefix operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise   save prefix through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+    :param attribute: Value supplied for attribute under the utility contract.
+    :param arg: Value supplied for arg under the utility contract.
+    :param element: Value supplied for element under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     prefix = arg.split(":", 1)[0]
     if prefix == arg:
         return six_unicode(arg)
@@ -146,27 +314,97 @@ def __save_prefix(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any
 
 
 def cnv_formula(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
-    """A string containing a formula. Formulas do not have a predefined syntax, but the string should
-    begin with a namespace prefix, followed by a “:” (COLON, U+003A) separator, followed by the text
-    of the formula. The namespace bound to the prefix determines the syntax and semantics of the
-    formula.
+    """
+    A string containing a formula. Formulas do not have a predefined syntax, but the string should begin with a namespace prefix, followed by a “:” (COLON, U+003A) separator, followed by the text of the formula. The namespace bound to the prefix determines the syntax and semantics of the formula.
+
+    Example:
+        Exercise cnv formula through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+    :param attribute: Value supplied for attribute under the utility contract.
+    :param arg: Value supplied for arg under the utility contract.
+    :param element: Value supplied for element under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return __save_prefix(attribute, arg, element)
 
 
 def cnv_ID(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
+    """
+    Perform the cnv ID operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise cnv ID through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+    :param attribute: Value supplied for attribute under the utility contract.
+    :param arg: Value supplied for arg under the utility contract.
+    :param element: Value supplied for element under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return str(arg)
 
 
 def cnv_IDREF(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
+    """
+    Perform the cnv IDREF operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise cnv IDREF through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+    :param attribute: Value supplied for attribute under the utility contract.
+    :param arg: Value supplied for arg under the utility contract.
+    :param element: Value supplied for element under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return str(arg)
 
 
 def cnv_integer(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
+    """
+    Perform the cnv integer operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise cnv integer through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+    :param attribute: Value supplied for attribute under the utility contract.
+    :param arg: Value supplied for arg under the utility contract.
+    :param element: Value supplied for element under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return str(arg)
 
 
 def cnv_legend_position(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
+    """
+    Perform the cnv legend position operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise cnv legend position through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+    :param attribute: Value supplied for attribute under the utility contract.
+    :param arg: Value supplied for arg under the utility contract.
+    :param element: Value supplied for element under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if str(arg) not in (
         "start",
         "end",
@@ -185,8 +423,20 @@ pattern_length = re.compile(r"-?([0-9]+(\.[0-9]*)?|\.[0-9]+)((cm)|(mm)|(in)|(pt)
 
 
 def cnv_length(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
-    """A (positive or negative) physical length, consisting of magnitude and unit, in conformance with the
-    Units of Measure defined in §5.9.13 of [XSL].
+    """
+    A (positive or negative) physical length, consisting of magnitude and unit, in conformance with the Units of Measure defined in §5.9.13 of [XSL].
+
+    Example:
+        Exercise cnv length through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+    :param attribute: Value supplied for attribute under the utility contract.
+    :param arg: Value supplied for arg under the utility contract.
+    :param element: Value supplied for element under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     global pattern_length
     if not pattern_length.match(arg):
@@ -195,6 +445,21 @@ def cnv_length(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -
 
 
 def cnv_lengthorpercent(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
+    """
+    Perform the cnv lengthorpercent operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise cnv lengthorpercent through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+    :param attribute: Value supplied for attribute under the utility contract.
+    :param arg: Value supplied for arg under the utility contract.
+    :param element: Value supplied for element under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     failed = False
     try:
         return cnv_length(attribute, arg, element)
@@ -210,12 +475,42 @@ def cnv_lengthorpercent(attribute: _typing.Any, arg: _typing.Any, element: _typi
 
 
 def cnv_metavaluetype(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
+    """
+    Perform the cnv metavaluetype operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise cnv metavaluetype through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+    :param attribute: Value supplied for attribute under the utility contract.
+    :param arg: Value supplied for arg under the utility contract.
+    :param element: Value supplied for element under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if str(arg) not in ("float", "date", "time", "boolean", "string"):
         raise ValueError("'%s' not allowed" % str(arg))
     return str(arg)
 
 
 def cnv_major_minor(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> None:
+    """
+    Perform the cnv major minor operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise cnv major minor through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+    :param attribute: Value supplied for attribute under the utility contract.
+    :param arg: Value supplied for arg under the utility contract.
+    :param element: Value supplied for element under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if arg not in ("major", "minor"):
         raise ValueError("'%s' is not either 'minor' or 'major'" % arg)
 
@@ -224,6 +519,21 @@ pattern_namespacedToken = re.compile(r"[0-9a-zA-Z_]+:[0-9a-zA-Z._\-]+")
 
 
 def cnv_namespacedToken(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
+    """
+    Perform the cnv namespacedToken operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise cnv namespacedToken through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+    :param attribute: Value supplied for attribute under the utility contract.
+    :param arg: Value supplied for arg under the utility contract.
+    :param element: Value supplied for element under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     global pattern_namespacedToken
 
     if not pattern_namespacedToken.match(arg):
@@ -232,8 +542,20 @@ def cnv_namespacedToken(attribute: _typing.Any, arg: _typing.Any, element: _typi
 
 
 def cnv_NCName(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
-    """NCName is defined in http://www.w3.org/TR/REC-xml-names/#NT-NCName
-    Essentially an XML name minus ':'
+    """
+    NCName is defined in http://www.w3.org/TR/REC-xml-names/#NT-NCName Essentially an XML name minus ':'
+
+    Example:
+        Exercise cnv NCName through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+    :param attribute: Value supplied for attribute under the utility contract.
+    :param arg: Value supplied for arg under the utility contract.
+    :param element: Value supplied for element under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if isinstance(arg, str):
         return make_NCName(arg)
@@ -246,6 +568,21 @@ def cnv_NCName(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -
 # already have been converted to an NCName
 # The text-string argument is mainly for when we build a structure from XML
 def cnv_StyleNameRef(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
+    """
+    Perform the cnv StyleNameRef operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise cnv StyleNameRef through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+    :param attribute: Value supplied for attribute under the utility contract.
+    :param arg: Value supplied for arg under the utility contract.
+    :param element: Value supplied for element under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         return arg.getAttrNS(STYLENS, "name")
     except:
@@ -257,6 +594,21 @@ def cnv_StyleNameRef(attribute: _typing.Any, arg: _typing.Any, element: _typing.
 # already have been converted to an NCName
 # The text-string argument is mainly for when we build a structure from XML
 def cnv_DrawNameRef(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
+    """
+    Perform the cnv DrawNameRef operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise cnv DrawNameRef through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+    :param attribute: Value supplied for attribute under the utility contract.
+    :param arg: Value supplied for arg under the utility contract.
+    :param element: Value supplied for element under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         return arg.getAttrNS(DRAWNS, "name")
     except:
@@ -265,10 +617,40 @@ def cnv_DrawNameRef(attribute: _typing.Any, arg: _typing.Any, element: _typing.A
 
 # Must accept list of Style objects
 def cnv_NCNames(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
+    """
+    Perform the cnv NCNames operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise cnv NCNames through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+    :param attribute: Value supplied for attribute under the utility contract.
+    :param arg: Value supplied for arg under the utility contract.
+    :param element: Value supplied for element under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return " ".join(arg)
 
 
 def cnv_nonNegativeInteger(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
+    """
+    Perform the cnv nonNegativeInteger operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise cnv nonNegativeInteger through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+    :param attribute: Value supplied for attribute under the utility contract.
+    :param arg: Value supplied for arg under the utility contract.
+    :param element: Value supplied for element under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return str(arg)
 
 
@@ -276,6 +658,21 @@ pattern_percent = re.compile(r"-?([0-9]+(\.[0-9]*)?|\.[0-9]+)%")
 
 
 def cnv_percent(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
+    """
+    Perform the cnv percent operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise cnv percent through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+    :param attribute: Value supplied for attribute under the utility contract.
+    :param arg: Value supplied for arg under the utility contract.
+    :param element: Value supplied for element under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     global pattern_percent
     if not pattern_percent.match(arg):
         raise ValueError("'%s' is not a valid length" % arg)
@@ -288,6 +685,21 @@ pattern_points = re.compile(r"-?[0-9]+,-?[0-9]+([ ]+-?[0-9]+,-?[0-9]+)*")
 
 
 def cnv_points(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
+    """
+    Perform the cnv points operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise cnv points through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+    :param attribute: Value supplied for attribute under the utility contract.
+    :param arg: Value supplied for arg under the utility contract.
+    :param element: Value supplied for element under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     global pattern_points
     if isinstance(arg, str):
         if not pattern_points.match(arg):
@@ -302,14 +714,59 @@ def cnv_points(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -
 
 
 def cnv_positiveInteger(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
+    """
+    Perform the cnv positiveInteger operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise cnv positiveInteger through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+    :param attribute: Value supplied for attribute under the utility contract.
+    :param arg: Value supplied for arg under the utility contract.
+    :param element: Value supplied for element under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return str(arg)
 
 
 def cnv_string(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
+    """
+    Perform the cnv string operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise cnv string through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+    :param attribute: Value supplied for attribute under the utility contract.
+    :param arg: Value supplied for arg under the utility contract.
+    :param element: Value supplied for element under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return six_unicode(arg)
 
 
 def cnv_textnoteclass(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
+    """
+    Perform the cnv textnoteclass operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise cnv textnoteclass through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+    :param attribute: Value supplied for attribute under the utility contract.
+    :param arg: Value supplied for arg under the utility contract.
+    :param element: Value supplied for element under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if str(arg) not in ("footnote", "endnote"):
         raise ValueError("'%s' not allowed" % str(arg))
     return str(arg)
@@ -317,10 +774,40 @@ def cnv_textnoteclass(attribute: _typing.Any, arg: _typing.Any, element: _typing
 
 # Understand different time formats
 def cnv_time(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
+    """
+    Perform the cnv time operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise cnv time through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+    :param attribute: Value supplied for attribute under the utility contract.
+    :param arg: Value supplied for arg under the utility contract.
+    :param element: Value supplied for element under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return str(arg)
 
 
 def cnv_token(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
+    """
+    Perform the cnv token operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise cnv token through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+    :param attribute: Value supplied for attribute under the utility contract.
+    :param arg: Value supplied for arg under the utility contract.
+    :param element: Value supplied for element under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return str(arg)
 
 
@@ -328,6 +815,21 @@ pattern_viewbox = re.compile(r"-?[0-9]+([ ]+-?[0-9]+){3}$")
 
 
 def cnv_viewbox(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
+    """
+    Perform the cnv viewbox operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise cnv viewbox through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+    :param attribute: Value supplied for attribute under the utility contract.
+    :param arg: Value supplied for arg under the utility contract.
+    :param element: Value supplied for element under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     global pattern_viewbox
     if not pattern_viewbox.match(arg):
         raise ValueError("viewBox must be four integers separated by whitespaces")
@@ -335,6 +837,21 @@ def cnv_viewbox(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) 
 
 
 def cnv_xlinkshow(attribute: _typing.Any, arg: _typing.Any, element: _typing.Any) -> _typing.Any:
+    """
+    Perform the cnv xlinkshow operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise cnv xlinkshow through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+    :param attribute: Value supplied for attribute under the utility contract.
+    :param arg: Value supplied for arg under the utility contract.
+    :param element: Value supplied for element under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if str(arg) not in ("new", "replace", "embed"):
         raise ValueError("'%s' not allowed" % str(arg))
     return str(arg)
@@ -1564,9 +2081,29 @@ attrconverters = {
 
 
 class AttrConverters:
+    """
+    Provide the attrconverters contract for validated ebook processing.
+
+    Example:
+        Exercise AttrConverters through a consuming regression::
+
+            python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+    """
     def convert(self: _typing.Self, attribute: _typing.Any, value: _typing.Any, element: _typing.Any) -> _typing.Any:
-        """Based on the element, figures out how to check/convert the attribute value
-        All values are converted to string
+        """
+        Based on the element, figures out how to check/convert the attribute value All values are converted to string
+
+        Example:
+            Exercise AttrConverters.convert through a consuming regression::
+
+                python -m pytest -q tests/file_formats/odf/test_odf_modernized.py
+
+
+        :param attribute: Value supplied for attribute under the utility contract.
+        :param value: Value normalized, stored, formatted or returned.
+        :param element: Value supplied for element under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         conversion = attrconverters.get((attribute, element.qname), None)
         if conversion is not None:

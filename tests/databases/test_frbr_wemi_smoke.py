@@ -1,9 +1,16 @@
 # tests/databases/database_driver_plugins/sqlite_database_driver/test_sqlite_database_driver_generator_frbr_smoke.py
 
-"""Smoke tests for the FRBR database generator.
+"""
+Check packaged FRBR resources and generated column-metadata coverage.
 
-These tests are intentionally small and are meant to fail loudly if the
-generator cannot run end-to-end.
+The build case verifies physical schema metadata against inferred policies, checks
+representative semantic roles and display-column documentation, and closes the
+generated file database afterward.
+
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/test_frbr_wemi_smoke.py
 """
 
 from __future__ import annotations
@@ -25,11 +32,32 @@ from LiuXin_alpha.databases.database_driver_plugins.SQL.utility_mixins import Co
 
 
 def _frbr_pkg_root() -> pathlib.Path:
+    """
+    Resolve the directory containing the imported FRBR generator module.
+
+    Example:
+        >>> _frbr_pkg_root().is_dir()
+        True
+
+
+    :return: Resolved generator package Path.
+    """
     return pathlib.Path(frbr_gen.__file__).resolve().parent
 
 
 def test_frbr_generator_resources_are_present() -> None:
-    """Sanity-check that the FRBR generator resources are packaged and non-empty."""
+    """
+    Require three nonempty TOML files and SQL resources under both resource folders.
+
+    Checks nonempty contents for only the first twenty sorted SQL files in each folder,
+    not every resource.
+
+    Example:
+        >>> test_frbr_generator_resources_are_present()
+
+
+    :return: None; failed expectations raise AssertionError.
+    """
     pkg_root = _frbr_pkg_root()
 
     # TOML-first generator inputs.
@@ -52,7 +80,25 @@ def test_frbr_generator_resources_are_present() -> None:
 
 
 def test_frbr_generator_create_new_database_smoke(tmp_path: pathlib.Path) -> None:
-    """Run the generator end-to-end and assert that core tables exist afterwards."""
+    """
+    Build a catalogue and require metadata coverage for every managed physical column.
+
+    Checks core tables, case policies, the tag hash index, all stored inferred policies,
+    comparison-column existence and representative semantic roles. Display columns must
+    be TEXT and appear in the policy document; at least one canonical agent interlink
+    must exist. Wraps generator failure in AssertionError and closes the connection in
+    finally.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/test_frbr_wemi_smoke.py::test_frbr_generator_create_new_database_smoke
+
+
+    :param tmp_path: Pytest-provided temporary directory for isolated database or TOML
+        files.
+    :return: None; failed expectations raise AssertionError.
+    """
     db_path = tmp_path / "frbr_smoke.db"
     conn = sqlite3.connect(str(db_path))
     try:

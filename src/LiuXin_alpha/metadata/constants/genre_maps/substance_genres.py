@@ -1,6 +1,22 @@
 # Substances / creatures / motifs bucket (separate from genre + region).
 # Intended to tag content themes: vampires, witches, dragons, alchemy, etc.
 
+"""
+Provide content-theme patterns for creatures, technology, substances, and motifs.
+
+These labels are a separate dimension from genre and region. They identify matching
+text themes; the module does not classify a work or decide whether multiple labels
+should be retained.
+
+Map canonical labels to tuples of uncompiled regular-expression strings. Consumers
+choose regex flags, normalization, and first-match or multi-match policy; importing
+the module performs no classification.
+
+Example:
+    >>> import re
+    >>> any(re.search(pattern, 'dragons', re.IGNORECASE) for pattern in SUBSTANCE_BUCKET_MAPPING['Dragons']) is not False
+    True
+"""
 SUBSTANCE_BUCKET_MAPPING = {
     # --- Undead / Vampires / Zombies ---
     "Vampires": (

@@ -1,4 +1,14 @@
-"""Real-database coverage for coordinated Catalog aggregate writes."""
+"""
+Verify test catalog aggregate mutations behavior against the public catalog contracts.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test catalog aggregate mutations through its owning regression module::
+
+        python -m pytest -q tests/catalog/test_catalog_aggregate_mutations.py
+"""
 
 from __future__ import annotations
 
@@ -19,7 +29,19 @@ from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
 
 
 def test_agent_and_wemi_aggregate_mutations_are_atomic(driver_spec, tmp_path: Path) -> None:
-    """Create complete aggregates and roll back a conflicting WEMI path."""
+    """
+    Create complete aggregates and roll back a conflicting WEMI path.
+
+    Example:
+        Exercise test agent and wemi aggregate mutations are atomic through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_catalog_aggregate_mutations.py
+
+
+    :param driver_spec: Value supplied for driver spec under the catalog contract.
+    :param tmp_path: Value supplied for tmp path under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
 
     database_path = tmp_path / "catalog_aggregates.sqlite"
     with Database(

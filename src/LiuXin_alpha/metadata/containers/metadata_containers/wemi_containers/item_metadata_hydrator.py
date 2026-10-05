@@ -1,5 +1,13 @@
 """
-Hydrator/factory for concrete :class:`ItemMetadata` objects.
+Hydrate item metadata and its WEMI, relation and managed-storage context.
+
+The hydrator adapts a caller-owned read source, combines rows and graph hints, and
+builds editable bundles without writing or closing the source.
+
+Example:
+    Exercise this contract with pytest::
+
+        python -m pytest -q tests/metadata/containers/test_item_metadata_hydrator.py
 """
 
 from __future__ import annotations
@@ -23,16 +31,36 @@ from LiuXin_alpha.utils.adaptors import _boolish_to_bool
 
 class ItemMetadataHydrator:
     """
-    Build :class:`ItemMetadata` instances from database rows or views.
+    Build item bundles from ids, items Rows or mappings with item identity hints.
 
-    Supported entry points:
-    - item id
-    - live ``items`` row
-    - any mapping/row containing ``item_id`` plus optional WEMI ids such as
-      ``manifestation_id``, ``expression_id``, and ``work_id``.
+    Hydration gathers parent WEMI rows, relation metadata, identifiers, direct assets
+    and folder/store context. Cached schema snapshots gate optional lookups; each
+    collector defines its own error handling.
+
+    Example:
+        Exercise this contract with pytest::
+
+            python -m pytest -q tests/metadata/containers/test_item_metadata_hydrator.py
     """
 
     def __init__(self, database: Any) -> None:
+        """
+        Adapt the caller source and cache its table and column snapshots.
+
+        None raises ValueError. Table-list and column-map snapshot failures are
+        independently replaced with empty collections; source adaptation errors propagate.
+
+        Example:
+            >>> ItemMetadataHydrator(None)
+            Traceback (most recent call last):
+            ...
+            ValueError: ItemMetadataHydrator requires a database instance.
+
+
+        :param database: Caller-owned database or compatible metadata read source; must not
+            be None.
+        :return: None.
+        """
         if database is None:
             raise ValueError("ItemMetadataHydrator requires a database instance.")
         self.db = metadata_read_source_from(database)
@@ -46,12 +74,43 @@ class ItemMetadataHydrator:
             self._tables_and_columns = {}
 
     def from_item_id(self, item_id: int) -> ItemMetadata:
+        """
+        Resolve an items Row by integer id and hydrate its graph context.
+
+        Missing rows raise ValueError; id conversion and source lookup errors propagate.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_item_metadata_hydrator.py
+
+
+        :param item_id: Item row id converted with int before lookup.
+        :return: Concrete ItemMetadata bundle.
+        """
         item_row = self.db.get_row_from_id("items", int(item_id))
         if item_row is None:
             raise ValueError("No item found for id {}.".format(int(item_id)))
         return self._hydrate(item_row=item_row, source_row=item_row)
 
     def from_source_row(self, source_row: Mapping[str, Any] | Row) -> ItemMetadata:
+        """
+        Hydrate from a direct items Row, a resolvable id hint or an item-shaped mapping.
+
+        A direct items Row is retained as the source. Otherwise item_id is looked up; a
+        missing row may fall back to a mapping containing item_id or item_manifestation_id.
+        Unresolvable sources raise ValueError, while read errors propagate.
+
+        Example:
+            Exercise the owning hydrator regression with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py::test_item_hydrator_uses_source_manifestation_id_when_item_mapping_lacks_one
+
+
+        :param source_row: Row or mapping with item identity fields and optional WEMI graph
+            hints.
+        :return: Hydrated item bundle.
+        """
         ids = self._extract_known_ids(source_row)
         item_row = None
         if isinstance(source_row, Row) and source_row.table == "items":
@@ -67,6 +126,20 @@ class ItemMetadataHydrator:
 
     @staticmethod
     def _mapping_from(value: Mapping[str, Any] | Row | Any) -> Mapping[str, Any]:
+        """
+        Expose Row data or return a Mapping unchanged; use an empty mapping for other inputs.
+
+        Example:
+            >>> source = {'item_id': 2}
+            >>> ItemMetadataHydrator._mapping_from(source) is source
+            True
+            >>> ItemMetadataHydrator._mapping_from(object())
+            {}
+
+
+        :param value: Row, mapping or unsupported object to inspect.
+        :return: Live source mapping, or a new empty dictionary.
+        """
         if isinstance(value, Row):
             return value.row_dict
         if isinstance(value, Mapping):
@@ -74,20 +147,90 @@ class ItemMetadataHydrator:
         return {}
 
     def _has_table(self, table: str) -> bool:
+        """
+        Check either cached table-name or table-column snapshot for a table.
+
+        Example:
+            Exercise the owning hydrator regression with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py::test_hydrators_tolerate_schema_snapshot_failures
+
+
+        :param table: Exact schema table name to check.
+        :return: True when either snapshot contains the table name.
+        """
         return table in self._tables or table in self._tables_and_columns
 
     def _has_column(self, table: str, column: str) -> bool:
+        """
+        Check the cached column collection for a table without refreshing schema.
+
+        Example:
+            Exercise the owning hydrator regression with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py::test_item_hydrator_direct_fk_and_identifier_exception_paths
+
+
+        :param table: Exact schema table name.
+        :param column: Exact column name to find.
+        :return: True when the column occurs in the cached table columns.
+        """
         return column in set(self._tables_and_columns.get(table, []))
 
     def _looks_like_item_mapping(self, value: Mapping[str, Any] | Row | Any) -> bool:
+        """
+        Recognize item identity by key presence in a nonempty Row or mapping.
+
+        Either item_id or item_manifestation_id qualifies even when its value is None.
+
+        Example:
+            Exercise the owning hydrator regression with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py::test_level_hydrators_accept_mapping_only_identity_payloads
+
+
+        :param value: Row, mapping or unsupported object to inspect.
+        :return: True for an item-shaped mapping, otherwise False.
+        """
         mapping = self._mapping_from(value)
         return bool(mapping) and ("item_manifestation_id" in mapping or "item_id" in mapping)
 
     @staticmethod
     def _extract_known_ids(source_row: Mapping[str, Any] | Row | Any) -> dict[str, Optional[int]]:
+        """
+        Extract integer item and WEMI hints using truthy column-name fallbacks.
+
+        Item uses item_id. Manifestation tries manifestation_id, item_manifestation_id then
+        book_manifestation_id; expression tries expression_id then book_expression_id; work
+        tries work_id, book_work_id then title_id. Failed integer conversions yield None.
+
+        Example:
+            >>> ids = ItemMetadataHydrator._extract_known_ids({'item_id': '1', 'book_manifestation_id': '2', 'title_id': 'bad'})
+            >>> ids['item_id'], ids['manifestation_id'], ids['work_id']
+            (1, 2, None)
+
+
+        :param source_row: Row or mapping carrying graph ids; unsupported objects yield
+            absent ids.
+        :return: Dictionary with item_id, manifestation_id, expression_id and work_id
+            entries.
+        """
         mapping = ItemMetadataHydrator._mapping_from(source_row)
 
         def _as_int(value: Any) -> Optional[int]:
+            """
+            Convert a selected id hint to int, suppressing conversion exceptions.
+
+            None and empty text are missing values. This helper is local to _extract_known_ids.
+
+            Example:
+                >>> ItemMetadataHydrator._extract_known_ids({'item_id': float('inf')})['item_id'] is None
+                True
+
+
+            :param value: Selected scalar id hint.
+            :return: Integer id, or None when missing or conversion fails.
+            """
             if value in (None, ""):
                 return None
             try:
@@ -103,6 +246,25 @@ class ItemMetadataHydrator:
         }
 
     def _hydrate(self, *, item_row: Optional[Row], source_row: Mapping[str, Any] | Row) -> ItemMetadata:
+        """
+        Assemble item identity, WEMI graph links, metadata relations and asset/storage context.
+
+        A resolved Row supplies identity; otherwise an item-shaped mapping does. The stored
+        manifestation hint wins unless it is None. Explicit expression/work ids augment
+        interlinks and are marked primary without clearing other flags. Keyed Rows are
+        deduplicated and link metadata merged. Direct assets and identifiers require an item
+        id; folder/store resolution runs last.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_item_metadata_hydrator.py
+
+
+        :param item_row: Resolved items Row, or None to use source mapping identity fields.
+        :param source_row: Original Row or mapping supplying identity and graph hints.
+        :return: New concrete ItemMetadata bundle.
+        """
         ids = self._extract_known_ids(source_row)
         source_map = self._mapping_from(source_row)
 
@@ -307,6 +469,20 @@ class ItemMetadataHydrator:
 
     @staticmethod
     def _row_key(row: Row | Any) -> tuple[str, int] | None:
+        """
+        Identify a concrete Row by table and integer row id.
+
+        Non-Rows and Rows missing either component return None. Invalid row-id conversion
+        propagates.
+
+        Example:
+            >>> ItemMetadataHydrator._row_key({'item_id': 2}) is None
+            True
+
+
+        :param row: Candidate Row whose database identity should be extracted.
+        :return: Table/id tuple, or None for an unkeyed value.
+        """
         if not isinstance(row, Row):
             return None
         if row.table is None or row.row_id is None:
@@ -314,6 +490,20 @@ class ItemMetadataHydrator:
         return (str(row.table), int(row.row_id))
 
     def _dedupe_rows(self, rows: Iterable[Row]) -> list[Row]:
+        """
+        Retain the first keyed Row for each table/id pair in input order.
+
+        Unkeyed values are discarded and retained Rows remain shared.
+
+        Example:
+            Exercise the owning hydrator regression with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py::test_level_hydrator_row_helpers_cover_skip_and_duplicate_paths
+
+
+        :param rows: Iterable of candidate Rows.
+        :return: New ordered list of unique Row references.
+        """
         ordered: list[Row] = []
         seen: set[tuple[str, int]] = set()
         for row in rows:
@@ -326,6 +516,23 @@ class ItemMetadataHydrator:
 
     @staticmethod
     def _mark_primary_by_row_id(links: list[ItemRelationLink], row_id: int) -> None:
+        """
+        Replace the first matching Row-target link with a primary copy.
+
+        Matching compares integer row ids without table names. Other primary flags remain
+        unchanged. The target and metadata are retained, with a shallow copy of extra;
+        invalid Row ids can raise during conversion.
+
+        Example:
+            Exercise the owning hydrator regression with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py::test_level_hydrator_row_helpers_cover_skip_and_duplicate_paths
+
+
+        :param links: Mutable link list whose first matching entry should be replaced.
+        :param row_id: Row id to match after integer conversion.
+        :return: None.
+        """
         for index, link in enumerate(links):
             target = link.target
             if isinstance(target, Row) and int(target.row_id) == int(row_id):
@@ -346,6 +553,24 @@ class ItemMetadataHydrator:
                 break
 
     def _append_links_unique(self, container: ItemMetadata, relation: str, links: Iterable[ItemRelationLink]) -> None:
+        """
+        Append links, merging repeated keyed Row targets into the existing live bucket.
+
+        A repeated Row key replaces its existing link with merged metadata. Unkeyed and
+        non-Row targets append without deduplication. Existing duplicates are not removed;
+        incoming matches use the last existing occurrence.
+
+        Example:
+            Exercise the owning hydrator regression with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py::test_level_hydrator_row_helpers_cover_skip_and_duplicate_paths
+
+
+        :param container: Item bundle whose relation list is updated in place.
+        :param relation: Supported relation bucket name or alias.
+        :param links: Incoming links in merge order.
+        :return: None.
+        """
         existing = container.get_relation_links(relation)
         seen_rows = {
             self._row_key(link.target): index
@@ -370,6 +595,24 @@ class ItemMetadataHydrator:
         existing: ItemRelationLink,
         incoming: ItemRelationLink,
     ) -> ItemRelationLink:
+        """
+        Merge link metadata with non-None incoming fields taking precedence.
+
+        The existing target is retained. False, zero and empty strings count as supplied
+        values. Extra mappings are shallow-merged, with incoming keys winning.
+
+        Example:
+            >>> old = ItemRelationLink(target={'work_id': 1}, primary=True, priority=4, extra={'a': 1})
+            >>> new = ItemRelationLink(target={'work_id': 9}, primary=False, priority=0, extra={'b': 2})
+            >>> merged = ItemMetadataHydrator._merge_link_metadata(old, new)
+            >>> merged.target is old.target, merged.primary, merged.priority, merged.extra
+            (True, False, 0, {'a': 1, 'b': 2})
+
+
+        :param existing: Link supplying the retained target and fallback metadata.
+        :param incoming: Link supplying non-None overrides and additional extra keys.
+        :return: New ItemRelationLink retaining the existing target.
+        """
         extra = dict(existing.extra)
         extra.update(incoming.extra)
         return ItemRelationLink(
@@ -401,6 +644,26 @@ class ItemMetadataHydrator:
         source_entity_type: str,
         primary: bool | None = None,
     ) -> None:
+        """
+        Append a minimal link only when the Row has a key absent from the relation bucket.
+
+        Existing matching links are left unchanged rather than merged. Unkeyed rows are
+        ignored.
+
+        Example:
+            Exercise the owning hydrator regression with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py::test_level_hydrator_row_helpers_cover_skip_and_duplicate_paths
+
+
+        :param container: Item bundle to update.
+        :param relation: Supported relation bucket name or alias.
+        :param row: Shared target Row to link.
+        :param type_hint: Link type used only for a newly created link.
+        :param source_entity_type: Originating WEMI level recorded in extra metadata.
+        :param primary: Optional primary flag used only on insertion.
+        :return: None.
+        """
         key = self._row_key(row)
         if key is None:
             return
@@ -423,6 +686,26 @@ class ItemMetadataHydrator:
         secondary_table: str,
         source_entity_type: str,
     ) -> list[ItemRelationLink]:
+        """
+        Collect resolvable targets and link metadata from a source Row.
+
+        Missing source/table or interlink-query errors return an empty list. Driver metadata
+        discovers the target-id column and link prefix; failed target lookup skips that
+        link. Prefix discovery failure leaves optional link fields unset. Unrecognized
+        prefixed fields are retained in extra; other malformed-row or metadata errors can
+        propagate.
+
+        Example:
+            Exercise the owning hydrator regression with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py::test_item_hydrator_collect_interlink_edge_paths
+
+
+        :param source_row: Primary Row, or None to return no links.
+        :param secondary_table: Related table whose interlinks should be read.
+        :param source_entity_type: Originating WEMI level added to each link extra mapping.
+        :return: New relation links in query order, without deduplication.
+        """
         if source_row is None:
             return []
         if not self._has_table(secondary_table):
@@ -509,6 +792,26 @@ class ItemMetadataHydrator:
         fk_value: int,
         type_hint: str,
     ) -> list[ItemRelationLink]:
+        """
+        Collect links for rows matching a direct foreign key.
+
+        Missing table/column snapshots or search errors return an empty list. None rows are
+        skipped, but primary is based on the original result index: only index zero is
+        primary, even if it is skipped. No target type filtering occurs.
+
+        Example:
+            Exercise the owning hydrator regression with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py::test_item_hydrator_direct_fk_and_identifier_exception_paths
+
+
+        :param table: Table to search.
+        :param fk_column: Foreign-key column to match.
+        :param fk_value: Foreign-key value converted with int inside the guarded query.
+        :param type_hint: Link type assigned to each result.
+        :return: New links in search order, with the table name recorded as
+            source_entity_type.
+        """
         if not self._has_table(table) or not self._has_column(table, fk_column):
             return []
         try:
@@ -534,6 +837,26 @@ class ItemMetadataHydrator:
         expression_rows: list[Row],
         manifestation_rows: list[Row],
     ) -> list[ItemRelationLink]:
+        """
+        Collect item-specific and typed entity identifier links across the resolved WEMI graph.
+
+        Item-specific results precede item, manifestation, expression and work entity
+        results. Entity rows are filtered by type and carry primary/provenance metadata.
+        Optional query failures are suppressed; an item-specific iterator failure can retain
+        already appended links. Duplicates are left for the caller to merge.
+
+        Example:
+            Exercise the owning hydrator regression with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py::test_item_hydrator_direct_fk_and_identifier_exception_paths
+
+
+        :param item_id: Item id used for item-specific and typed entity searches.
+        :param work_rows: Resolved work Rows supplying typed entity ids.
+        :param expression_rows: Resolved expression Rows supplying typed entity ids.
+        :param manifestation_rows: Resolved manifestation Rows supplying typed entity ids.
+        :return: New list of identifier links.
+        """
         links: list[ItemRelationLink] = []
         if self._has_table("item_identifiers") and self._has_column("item_identifiers", "item_identifier_item_id"):
             try:
@@ -567,6 +890,24 @@ class ItemMetadataHydrator:
         return links
 
     def _hydrate_folders_and_stores(self, container: ItemMetadata, *, work_rows: list[Row]) -> None:
+        """
+        Append folder/store links resolved from file, image, replica and work context.
+
+        Only Row asset targets supply hints. Folder candidates include work interlinks;
+        their folder_store_id values supply additional stores. Candidates are deduplicated
+        by table/id within this call, but existing bundle links are not checked. Direct id
+        conversion and lookup errors propagate.
+
+        Example:
+            Exercise the owning hydrator regression with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py::test_item_hydrator_resolves_folders_and_stores_from_files_and_work_links
+
+
+        :param container: Item bundle receiving resolved folders and stores.
+        :param work_rows: Resolved work Rows whose folder interlinks should be consulted.
+        :return: None.
+        """
         folder_rows: list[Row] = []
         store_rows: list[Row] = []
 

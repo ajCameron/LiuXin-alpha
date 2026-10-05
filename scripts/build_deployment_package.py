@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
-"""Build a deployable LiuXin source bundle.
+"""
+Assemble deployment packages.
 
-The current project does not yet have a complete OS package definition. This
-script creates the practical deployment artifact we can support now: a source
-tarball with local data/cache output excluded, plus helper scripts for remote
-Python installation and PostgreSQL setup.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise build deployment package through a consuming regression::
+
+        python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
 """
 
 from __future__ import annotations
@@ -109,7 +113,14 @@ DEFAULT_EXCLUDED_GLOBS = (
 
 @dataclass(frozen=True)
 class PackagePlan:
-    """Resolved deployment archive inputs, outputs, checksum, and metadata."""
+    """
+    Resolved deployment archive inputs, outputs, checksum, and metadata.
+
+    Example:
+        Exercise PackagePlan through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+    """
 
     bundle_name: str
     output_path: Path
@@ -119,14 +130,54 @@ class PackagePlan:
 
 
 def _log(message: str) -> None:
+    """
+    Perform the log operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  log through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param message: Value supplied for message under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     print(f"[deployment-package] {message}", file=sys.stderr, flush=True)
 
 
 def _utc_timestamp() -> str:
+    """
+    Perform the utc timestamp operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  utc timestamp through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
 
 def _resolve_from_repo(repo_root: Path, path: str | Path) -> Path:
+    """
+    Perform the resolve from repo operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  resolve from repo through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param repo_root: Value supplied for repo root under the utility contract.
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     candidate = Path(path).expanduser()
     if candidate.is_absolute():
         return candidate
@@ -134,6 +185,20 @@ def _resolve_from_repo(repo_root: Path, path: str | Path) -> Path:
 
 
 def _run_git(repo_root: Path, args: Sequence[str]) -> str:
+    """
+    Perform the run git operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  run git through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param repo_root: Value supplied for repo root under the utility contract.
+    :param args: Positional values forwarded to the compatibility implementation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     try:
         result = subprocess.run(
             ["git", *args],
@@ -148,12 +213,41 @@ def _run_git(repo_root: Path, args: Sequence[str]) -> str:
 
 
 def _relative_join(directory: Path, name: str) -> Path:
+    """
+    Perform the relative join operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  relative join through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param directory: Value supplied for directory under the utility contract.
+    :param name: Field, file, function or resource name addressed by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if str(directory) == ".":
         return Path(name)
     return directory / name
 
 
 def _matches_pattern(path_text: str, parts: tuple[str, ...], pattern: str) -> bool:
+    """
+    Perform the matches pattern operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  matches pattern through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param path_text: Value supplied for path text under the utility contract.
+    :param parts: Value supplied for parts under the utility contract.
+    :param pattern: Value supplied for pattern under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if fnmatch.fnmatch(path_text, pattern):
         return True
     return any(fnmatch.fnmatch(part, pattern) for part in parts)
@@ -166,6 +260,22 @@ def should_exclude_path(
     is_dir: bool = False,
     extra_excludes: Sequence[str] = (),
 ) -> bool:
+    """
+    Perform the should exclude path operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise should exclude path through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param relative_path: Value supplied for relative path under the utility contract.
+    :param include_tests: Value supplied for include tests under the utility contract.
+    :param is_dir: Value supplied for is dir under the utility contract.
+    :param extra_excludes: Value supplied for extra excludes under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     parts = relative_path.parts
     if not parts:
         return False
@@ -198,6 +308,21 @@ def collect_package_files(
     include_tests: bool,
     extra_excludes: Sequence[str] = (),
 ) -> tuple[Path, ...]:
+    """
+    Perform the collect package files operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise collect package files through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param repo_root: Value supplied for repo root under the utility contract.
+    :param include_tests: Value supplied for include tests under the utility contract.
+    :param extra_excludes: Value supplied for extra excludes under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     files: list[Path] = []
     for root, dirs, filenames in os.walk(repo_root):
         root_path = Path(root)
@@ -221,6 +346,19 @@ def collect_package_files(
 
 
 def verify_required_paths(repo_root: Path) -> None:
+    """
+    Perform the verify required paths operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise verify required paths through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param repo_root: Value supplied for repo root under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     missing = [str(path) for path in REQUIRED_DEPLOYMENT_PATHS if not (repo_root / path).exists()]
     if missing:
         joined = "\n".join(f"  - {path}" for path in missing)
@@ -234,6 +372,22 @@ def build_source_metadata(
     source_files: Sequence[Path],
     extra_excludes: Sequence[str],
 ) -> dict[str, object]:
+    """
+    Perform the build source metadata operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise build source metadata through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param repo_root: Value supplied for repo root under the utility contract.
+    :param include_tests: Value supplied for include tests under the utility contract.
+    :param source_files: Value supplied for source files under the utility contract.
+    :param extra_excludes: Value supplied for extra excludes under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     status = _run_git(repo_root, ["status", "--short"])
     dirty_paths = [line for line in status.splitlines() if line.strip()]
     return {
@@ -254,7 +408,7 @@ def build_source_metadata(
         },
         "runtime": {
             "python": ">=3.12",
-            "default_install_extras": "postgres,search,archives",
+            "default_install_extras": "postgres,search,archives,conversion",
             "cli_module": "LiuXin_alpha.surfaces.cli",
             "cli_executable": "liuxin",
         },
@@ -275,6 +429,20 @@ def build_source_metadata(
 
 
 def make_package_plan(args: argparse.Namespace, *, repo_root: Path = REPO_ROOT) -> PackagePlan:
+    """
+    Perform the make package plan operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise make package plan through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param args: Positional values forwarded to the compatibility implementation.
+    :param repo_root: Value supplied for repo root under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     verify_required_paths(repo_root)
     output_dir = _resolve_from_repo(repo_root, args.output_dir)
     bundle_name = f"{args.name}-{_utc_timestamp()}"
@@ -306,6 +474,21 @@ def make_package_plan(args: argparse.Namespace, *, repo_root: Path = REPO_ROOT) 
 
 
 def copy_source_files(repo_root: Path, bundle_root: Path, source_files: Sequence[Path]) -> None:
+    """
+    Perform the copy source files operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise copy source files through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param repo_root: Value supplied for repo root under the utility contract.
+    :param bundle_root: Value supplied for bundle root under the utility contract.
+    :param source_files: Value supplied for source files under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     for rel_path in source_files:
         source = repo_root / rel_path
         target = bundle_root / rel_path
@@ -317,6 +500,18 @@ def copy_source_files(repo_root: Path, bundle_root: Path, source_files: Sequence
 
 
 def render_remote_install_script() -> str:
+    """
+    Perform the render remote install script operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise render remote install script through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return r'''#!/usr/bin/env bash
 set -euo pipefail
 
@@ -324,7 +519,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 BUNDLE_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 VENV_DIR="${VENV_DIR:-${BUNDLE_ROOT}/.venv}"
-LIUXIN_INSTALL_EXTRAS="${LIUXIN_INSTALL_EXTRAS:-postgres,search,archives}"
+LIUXIN_INSTALL_EXTRAS="${LIUXIN_INSTALL_EXTRAS:-postgres,search,archives,conversion}"
 RECREATE=0
 SKIP_INSTALL=0
 
@@ -338,7 +533,7 @@ this extracted bundle.
 Options:
   --python <path>       Python interpreter to use (default: python3)
   --venv <path>         Virtual environment path (default: <bundle>/.venv)
-  --extras <csv>        Extras to install (default: postgres,search,archives; use none for plain install)
+  --extras <csv>        Extras to install (default: postgres,search,archives,conversion; use none for plain install)
   --recreate            Remove and recreate the virtual environment
   --skip-install        Create/reuse the venv but do not run pip install
   -h, --help            Show this help
@@ -456,6 +651,18 @@ EOF
 
 
 def render_postgres_setup_script() -> str:
+    """
+    Perform the render postgres setup script operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise render postgres setup script through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return r'''#!/usr/bin/env bash
 set -euo pipefail
 
@@ -755,6 +962,18 @@ fi
 
 
 def render_bundle_readme() -> str:
+    """
+    Perform the render bundle readme operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise render bundle readme through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return """# LiuXin Deployment Bundle
 
 This bundle was generated from the repository working tree. It is a practical
@@ -769,7 +988,7 @@ deploy/remote_install.sh
 ```
 
 The installer creates `.venv` in the extracted bundle and installs LiuXin with
-the `postgres,search,archives` extras by default. SquashFS archives additionally
+the `postgres,search,archives,conversion` extras by default. SquashFS archives additionally
 need the operating system's `squashfs-tools` package.
 
 ## Storage-ingest preflight and run
@@ -920,6 +1139,20 @@ See `dev-docs/postgresql-backend.md` for the longer runbook.
 
 
 def write_generated_files(bundle_root: Path, metadata: dict[str, object]) -> None:
+    """
+    Write generated files under the format's safety and compatibility rules.
+
+    Example:
+        Exercise write generated files through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param bundle_root: Value supplied for bundle root under the utility contract.
+    :param metadata: Value supplied for metadata under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     deploy_dir = bundle_root / "deploy"
     deploy_dir.mkdir(parents=True, exist_ok=True)
 
@@ -938,12 +1171,41 @@ def write_generated_files(bundle_root: Path, metadata: dict[str, object]) -> Non
 
 
 def create_tarball(bundle_root: Path, output_path: Path, *, bundle_name: str) -> None:
+    """
+    Create tarball under the format's safety and compatibility rules.
+
+    Example:
+        Exercise create tarball through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param bundle_root: Value supplied for bundle root under the utility contract.
+    :param output_path: Value supplied for output path under the utility contract.
+    :param bundle_name: Value supplied for bundle name under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with tarfile.open(output_path, "w:gz", format=tarfile.PAX_FORMAT) as tar:
         tar.add(bundle_root, arcname=bundle_name)
 
 
 def sha256_file(path: Path) -> str:
+    """
+    Perform the sha256 file operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise sha256 file through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     digest = hashlib.sha256()
     with path.open("rb") as handle:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
@@ -952,6 +1214,20 @@ def sha256_file(path: Path) -> str:
 
 
 def build_deployment_package(args: argparse.Namespace, *, repo_root: Path = REPO_ROOT) -> dict[str, object]:
+    """
+    Perform the build deployment package operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise build deployment package through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param args: Positional values forwarded to the compatibility implementation.
+    :param repo_root: Value supplied for repo root under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     plan = make_package_plan(args, repo_root=repo_root)
 
     if args.dry_run:
@@ -993,6 +1269,18 @@ def build_deployment_package(args: argparse.Namespace, *, repo_root: Path = REPO
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """
+    Perform the build parser operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise build parser through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     parser = argparse.ArgumentParser(
         description="Build a deployable LiuXin source bundle with remote PostgreSQL setup helpers.",
     )
@@ -1024,6 +1312,19 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    """
+    Perform the main operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise main through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param argv: Value supplied for argv under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     args = build_parser().parse_args(argv)
     build_deployment_package(args)
     return 0

@@ -1,5 +1,13 @@
 """
-Read metadata from TXT files.
+Infer title and authors from plain text using Gutenberg, legacy header and title/byline conventions.
+
+The module keeps malformed-input, optional dependency and resource ownership
+behavior explicit for registry callers.
+
+Example:
+    Exercise txt with pytest::
+
+        python -m pytest -q tests/metadata/file_sources/test_txt_metadata_source.py
 """
 
 from __future__ import annotations
@@ -38,6 +46,19 @@ _BYLINE_RE = re.compile(r"(?iu)^\s*by\s+(?P<author>.+?)\s*$")
 
 
 def _source_name(target_file) -> str:
+    """
+    Return the best available source label for fallback titles and diagnostics.
+
+    Example:
+        Exercise  source name with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_txt_metadata_source.py
+
+
+    :param target_file: Caller-supplied path, path-like object or stream described by
+        this operation.
+    :return: Parsed, normalized or serialized value described above.
+    """
     if isinstance(target_file, os.PathLike):
         return os.fspath(target_file)
     if isinstance(target_file, str):
@@ -46,6 +67,20 @@ def _source_name(target_file) -> str:
 
 
 def _safe_seek(stream, pos: int | None) -> None:
+    """
+    Perform seek without propagating optional or recovery failures.
+
+    Example:
+        Exercise  safe seek with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_txt_metadata_source.py
+
+
+    :param stream: Caller-supplied path, path-like object or stream described by this
+        operation.
+    :param pos: Offset, bound or scalar value used by the operation.
+    :return: None.
+    """
     if pos is None or not hasattr(stream, "seek"):
         return
     try:
@@ -55,6 +90,19 @@ def _safe_seek(stream, pos: int | None) -> None:
 
 
 def _default_metadata(source_name: str):
+    """
+    Build minimally usable metadata for missing or explicitly tolerated malformed input.
+
+    Example:
+        Exercise  default metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_txt_metadata_source.py
+
+
+    :param source_name: Source or member label used for lookup, fallback titles or
+        diagnostics.
+    :return: Parsed, normalized or serialized value described above.
+    """
     title = "Unknown"
     if source_name:
         base = os.path.basename(source_name)
@@ -65,6 +113,18 @@ def _default_metadata(source_name: str):
 
 
 def _decode_head(raw: bytes) -> str:
+    """
+    Decode head using the format's ordered fallback policy.
+
+    Example:
+        Exercise  decode head with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_txt_metadata_source.py
+
+
+    :param raw: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or serialized value described above.
+    """
     if raw.startswith(b"\xef\xbb\xbf"):
         return raw.decode("utf-8-sig", "replace")
     if raw.startswith(b"\xff\xfe") or raw.startswith(b"\xfe\xff"):
@@ -79,6 +139,18 @@ def _decode_head(raw: bytes) -> str:
 
 
 def _looks_binaryish(raw: bytes) -> bool:
+    """
+    Return whether the supplied state satisfies the looks binaryish condition.
+
+    Example:
+        Exercise  looks binaryish with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_txt_metadata_source.py
+
+
+    :param raw: Raw value or payload to normalize, parse or serialize.
+    :return: True when the described condition is satisfied; otherwise False.
+    """
     if not raw:
         return False
     if raw.startswith((b"\xff\xfe", b"\xfe\xff", b"\xef\xbb\xbf")):
@@ -91,12 +163,36 @@ def _looks_binaryish(raw: bytes) -> bool:
 
 
 def _sanitize_text(text: str) -> str:
+    """
+    Perform the format-specific sanitize text operation used by this metadata source.
+
+    Example:
+        Exercise  sanitize text with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_txt_metadata_source.py
+
+
+    :param text: Policy flag controlling the behavior described above.
+    :return: Parsed, normalized or serialized value described above.
+    """
     text = text.replace("\r\n", "\n").replace("\r", "\n")
     text = _CONTROL_CHARS_RE.sub("", text)
     return text
 
 
 def _clean_field(value: str) -> str:
+    """
+    Perform the format-specific clean field operation used by this metadata source.
+
+    Example:
+        Exercise  clean field with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_txt_metadata_source.py
+
+
+    :param value: Offset, bound or scalar value used by the operation.
+    :return: Parsed, normalized or serialized value described above.
+    """
     value = " ".join((value or "").strip().split())
     value = value.strip(" \t-_,.;:")
     return value
@@ -104,7 +200,16 @@ def _clean_field(value: str) -> str:
 
 def _parse_gutenberg(lines: list[str]) -> tuple[str | None, str | None]:
     """
-    Parse common Project Gutenberg headers.
+    Extract title and author fields from a Project Gutenberg-style header.
+
+    Example:
+        Exercise  parse gutenberg with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_txt_metadata_source.py
+
+
+    :param lines: Ordered input values processed by this operation.
+    :return: Parsed, normalized or serialized value described above.
     """
     for idx, raw in enumerate(lines[:30]):
         line = raw.strip("\ufeff ").strip()
@@ -138,6 +243,18 @@ def _parse_gutenberg(lines: list[str]) -> tuple[str | None, str | None]:
 
 
 def _parse_legacy_block(text: str) -> tuple[str | None, str | None]:
+    """
+    Extract title and author fields from a short legacy key/value header block.
+
+    Example:
+        Exercise  parse legacy block with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_txt_metadata_source.py
+
+
+    :param text: Policy flag controlling the behavior described above.
+    :return: Parsed, normalized or serialized value described above.
+    """
     mo = _LEGACY_BLOCK_RE.search(text[:2048])
     if mo is None:
         return (None, None)
@@ -147,6 +264,18 @@ def _parse_legacy_block(text: str) -> tuple[str | None, str | None]:
 
 
 def _parse_title_and_byline(lines: list[str]) -> tuple[str | None, str | None]:
+    """
+    Infer a title and author from the first useful plain-text lines and byline conventions.
+
+    Example:
+        Exercise  parse title and byline with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_txt_metadata_source.py
+
+
+    :param lines: Ordered input values processed by this operation.
+    :return: Parsed, normalized or serialized value described above.
+    """
     title = None
     author = None
 
@@ -180,6 +309,19 @@ def _parse_title_and_byline(lines: list[str]) -> tuple[str | None, str | None]:
 
 
 def _set_authors(mi, raw_author: str) -> None:
+    """
+    Set authors while preserving unrelated metadata state.
+
+    Example:
+        Exercise  set authors with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_txt_metadata_source.py
+
+
+    :param mi: Metadata object supplying or receiving the supported fields.
+    :param raw_author: Raw value or payload to normalize, parse or serialize.
+    :return: None.
+    """
     raw_author = _clean_field(raw_author)
     if not raw_author:
         return
@@ -202,6 +344,18 @@ def _set_authors(mi, raw_author: str) -> None:
 
 
 def _extract_metadata_from_text(text: str) -> tuple[str | None, str | None]:
+    """
+    Apply the supported plain-text heuristics in priority order.
+
+    Example:
+        Exercise  extract metadata from text with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_txt_metadata_source.py
+
+
+    :param text: Policy flag controlling the behavior described above.
+    :return: Parsed, normalized or serialized value described above.
+    """
     lines = text.split("\n")
 
     title, author = _parse_gutenberg(lines)
@@ -217,7 +371,17 @@ def _extract_metadata_from_text(text: str) -> tuple[str | None, str | None]:
 
 def get_metadata(target_file):
     """
-    Return metadata from a TXT path/stream.
+    Read metadata from the supported path, bytes or stream input while applying module ownership and fallback policy.
+
+    Example:
+        Exercise get metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_txt_metadata_source.py
+
+
+    :param target_file: Caller-supplied path, path-like object or stream described by
+        this operation.
+    :return: Parsed, normalized or serialized value described above.
     """
     source_name = _source_name(target_file)
     mi = _default_metadata(source_name)

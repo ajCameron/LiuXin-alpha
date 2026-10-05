@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 """
-Run file_formats tests in CI-friendly lanes.
+Provide run file formats lane utility behavior.
 
-Lanes:
-  - fast: all file_formats tests except intentionally heavy paths
-  - heavy: unicode torture / end-to-end / full-stack style tests
-  - all: everything under tests/file_formats
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise run file formats lane through a consuming regression::
+
+        python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
 """
 
 from __future__ import annotations
@@ -27,11 +30,37 @@ HEAVY_HINTS = (
 
 
 def discover_test_files(repo_root: Path) -> list[Path]:
+    """
+    Perform the discover test files operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise discover test files through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param repo_root: Value supplied for repo root under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     tests_root = repo_root / "tests" / "file_formats"
     return sorted(p for p in tests_root.rglob("test_*.py") if p.is_file())
 
 
 def split_lanes(files: list[Path]) -> tuple[list[Path], list[Path]]:
+    """
+    Perform the split lanes operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise split lanes through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param files: Value supplied for files under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     heavy: list[Path] = []
     fast: list[Path] = []
     for path in files:
@@ -44,6 +73,18 @@ def split_lanes(files: list[Path]) -> tuple[list[Path], list[Path]]:
 
 
 def main() -> int:
+    """
+    Perform the main operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise main through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     parser = argparse.ArgumentParser(description="Run a specific file_formats test lane")
     parser.add_argument(
         "--lane",

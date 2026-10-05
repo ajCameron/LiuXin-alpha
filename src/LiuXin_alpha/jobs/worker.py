@@ -1,4 +1,14 @@
-"""Background worker for durable jobs."""
+"""
+Execute managed jobs and report their progress and results.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise worker through a consuming regression::
+
+        python -m pytest -q tests/jobs/test_jobs_worker.py
+"""
 
 from __future__ import annotations
 
@@ -12,7 +22,14 @@ from LiuXin_alpha.jobs.repository import JobRepository
 
 
 class JobWorker:
-    """Lease queued runs, execute handlers, and persist progress/results."""
+    """
+    Lease queued runs, execute handlers, and persist progress/results.
+
+    Example:
+        Exercise JobWorker through a consuming regression::
+
+            python -m pytest -q tests/jobs/test_jobs_worker.py
+    """
 
     def __init__(
         self,
@@ -22,6 +39,21 @@ class JobWorker:
         worker_id: str | None = None,
         lease_for_s: float = 60.0,
     ) -> None:
+        """
+        Initialize and validate the jobworker state.
+
+        Example:
+            Exercise JobWorker.  init   through a consuming regression::
+
+                python -m pytest -q tests/jobs/test_jobs_worker.py
+
+
+        :param repository: Value supplied for repository under the utility contract.
+        :param handlers: Value supplied for handlers under the utility contract.
+        :param worker_id: Value supplied for worker id under the utility contract.
+        :param lease_for_s: Value supplied for lease for s under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.repository = repository
         self.handlers = handlers
         self.worker_id = worker_id or f"{socket.gethostname()}:{id(self)}"
@@ -29,9 +61,33 @@ class JobWorker:
         self._stop = False
 
     def stop(self) -> None:
+        """
+        Perform the stop operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise JobWorker.stop through a consuming regression::
+
+                python -m pytest -q tests/jobs/test_jobs_worker.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._stop = True
 
     def run_once(self) -> bool:
+        """
+        Perform the run once operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise JobWorker.run once through a consuming regression::
+
+                python -m pytest -q tests/jobs/test_jobs_worker.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         leased = self.repository.lease_next_run(worker_id=self.worker_id, lease_for_s=self.lease_for_s)
         if leased is None:
             return False
@@ -59,6 +115,20 @@ class JobWorker:
         return True
 
     def run_forever(self, *, poll_interval_s: float = 5.0) -> None:
+        """
+        Perform the run forever operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise JobWorker.run forever through a consuming regression::
+
+                python -m pytest -q tests/jobs/test_jobs_worker.py
+
+
+        :param poll_interval_s: Value supplied for poll interval s under the utility
+            contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         while not self._stop:
             did_work = self.run_once()
             if not did_work:

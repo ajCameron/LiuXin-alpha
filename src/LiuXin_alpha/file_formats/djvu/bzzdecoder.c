@@ -3,6 +3,17 @@
  * Copyright (C) 2014 Kovid Goyal <kovid at kovidgoyal.net>
  *
  * Distributed under terms of the GPL3 license.
+ *
+ * Legacy native BZZ decoder for extracting text from DjVu TXTz payloads.
+ *
+ * Arithmetic decoding, adaptive symbol ordering, and inverse block sorting
+ * reconstruct a byte stream. The Python wrapper treats its first three bytes
+ * as the big-endian text length and returns the following text bytes.
+ *
+ * This source retains the Python-2 Py_InitModule3 entry point. It is not a
+ * Python-3 extension implementation; the plugin loader can use the separate
+ * Python fallback. The documentation below describes this legacy source,
+ * not a claim of current native-build or malformed-input safety coverage.
  */
 
 
@@ -23,13 +34,37 @@
 
 typedef uint8_t bool;
 
-typedef struct Table { 
+/*
+ * One probability/adaptation entry used to initialize the arithmetic decoder.
+ *
+ * ``p`` sets the interval split, ``m`` the upward-adaptation threshold, and
+ * ``up``/``dn`` the next context indices for the two adaptation directions.
+ * Entries are copied into State's lookup arrays before decoding begins.
+ *
+ * Example::
+ *
+ *     state->p[i] = default_ztable[i].p;
+ */
+typedef struct Table {
     uint16_t p;
     uint16_t m;
     uint8_t  up;
     uint8_t  dn;
 } Table;
 
+/*
+ * Mutable input cursor, arithmetic registers, lookup tables, and block buffer.
+ *
+ * ``raw`` borrows the next compressed byte and ``end`` is the inclusive final
+ * input address; neither is owned. ``buf`` is allocated by init_state and
+ * freed by the Python wrapper. ``xsize`` includes the block marker immediately
+ * after decode, then denotes pending payload bytes while the wrapper copies.
+ * The wrapper zero-initializes this record before assigning the input bounds.
+ *
+ * Example::
+ *
+ *     State state = {0};
+ */
 typedef struct State {
     char *raw;
     char *end;
@@ -323,6 +358,20 @@ static Table default_ztable[256] = // {{{
 #define FREQMAX  4
 #define CTXIDS  3
 
+/*
+ * Consume one compressed byte when the inclusive input range is not exhausted.
+ *
+ * Exhaustion leaves both the cursor and cached byte unchanged; callers decide
+ * whether to substitute padding or report an error.
+ *
+ * Example::
+ *
+ *     if (!read_byte(state)) state->byte = 0xff;
+ *
+ *
+ * :param state: Decoder state with the next-byte cursor and inclusive input end.
+ * :return: TRUE after storing a byte and advancing raw, or FALSE at input exhaustion.
+ */
 static inline bool read_byte(State *state) {
     if (state->raw <= state->end) {
         state->byte = *(state->raw++);
@@ -331,6 +380,20 @@ static inline bool read_byte(State *state) {
     return FALSE;
 }
 
+/*
+ * Refill the arithmetic bit buffer until it contains more than 24 buffered bits.
+ *
+ * Input exhaustion supplies 0xff padding while decrementing the finite delay
+ * budget. Exhausting that budget sets a Python ValueError and stops the refill.
+ *
+ * Example::
+ *
+ *     if (!preload(state)) return FALSE;
+ *
+ *
+ * :param state: Mutable bit-buffer state with initialized scount and padding delay.
+ * :return: TRUE after refill, or FALSE with a Python exception for excessive padding.
+ */
 static bool preload(State *state) {
     while (state->scount <= 24) {
         if (!read_byte(state)) {
@@ -345,6 +408,21 @@ static bool preload(State *state) {
     return TRUE;
 }
 
+/*
+ * Copy the default probability transitions and build leading-one lookup counts.
+ *
+ * The ffzt array must initially contain zeros: each entry is incremented for
+ * the corresponding byte's leading one bits. Repeated calls without clearing
+ * that array accumulate counts rather than reinitialize them.
+ *
+ * Example::
+ *
+ *     initialize_tables(&zero_initialized_state);
+ *
+ *
+ * :param state: Decoder state whose probability arrays and zeroed ffzt are initialized.
+ * :return: No value; lookup arrays are populated in place.
+ */
 static void initialize_tables(State* state) {
     int32_t i, j;
     for (i = 0; i < 256; i++) {
@@ -357,6 +435,22 @@ static void initialize_tables(State* state) {
     }
 }
 
+/*
+ * Initialize arithmetic decoding from the input and allocate a reusable block buffer.
+ *
+ * Start from a zeroed State with input bounds already assigned. The first two
+ * code bytes use 0xff when absent; subsequent refill uses a 25-step padding
+ * budget. The allocated buffer holds MAXBLOCK * 1024 bytes and remains owned
+ * by the wrapper, which frees it on both successful and failed decompression.
+ *
+ * Example::
+ *
+ *     if (!init_state(&state)) goto cleanup;
+ *
+ *
+ * :param state: Zero-initialized decoder state borrowing the compressed input.
+ * :return: TRUE when ready, or FALSE with a Python exception from refill/allocation.
+ */
 static bool init_state(State *state) {
     // Initialize tables
     initialize_tables(state);
@@ -378,6 +472,23 @@ static bool init_state(State *state) {
     return TRUE;
 }
 
+/*
+ * Decode a bit at a supplied interval split without adapting a context table.
+ *
+ * Select the most/least-probable branch, renormalize its interval, consume
+ * buffered bits, and update the fast-path fence. Refill failures leave the
+ * Python exception set and return the negative error sentinel.
+ *
+ * Example::
+ *
+ *     bit = decode_sub_simple(state, 0, 0x8000 + (state->a >> 1));
+ *
+ *
+ * :param state: Initialized arithmetic decoder state to advance.
+ * :param mps: Most-probable bit, either zero or one, for the supplied split.
+ * :param z: Arithmetic interval split computed by the caller.
+ * :return: Decoded zero/one bit, or -1 if bit-buffer refill fails.
+ */
 static inline int32_t decode_sub_simple(State *state, int32_t mps, uint32_t z) {
     int32_t shift = 0;
 
@@ -411,10 +522,38 @@ static inline int32_t decode_sub_simple(State *state, int32_t mps, uint32_t z) {
 }
 
 
+/*
+ * Decode one context-free bit using the fixed split derived from the current interval.
+ *
+ * Example::
+ *
+ *     bit = zpcodec_decoder(state);
+ *
+ *
+ * :param state: Initialized arithmetic decoder state to advance.
+ * :return: Zero or one, or -1 with a pending Python exception if refill fails.
+ */
 static inline int32_t zpcodec_decoder(State *state) {
     return decode_sub_simple(state, 0, 0x8000 + (state->a >> 1));
 }
 
+/*
+ * Assemble a fixed-width integer from context-free arithmetic-coded bits.
+ *
+ * This is not a direct byte read. Callers supply a small nonnegative width
+ * whose shift fits the signed integer representation. The loop does not
+ * explicitly stop on a decoder error; a pending Python exception must be
+ * checked before treating the returned integer as valid.
+ *
+ * Example::
+ *
+ *     size = decode_raw(state, 24);
+ *
+ *
+ * :param state: Initialized arithmetic decoder state to advance.
+ * :param bits: Number of bits in the unsigned value to reconstruct.
+ * :return: Reconstructed integer when no Python exception is pending.
+ */
 static inline int32_t decode_raw(State *state, int32_t bits) {
     int32_t n = 1, m = 1 << bits, b = 0;
     while (n < m) {
@@ -424,6 +563,23 @@ static inline int32_t decode_raw(State *state, int32_t bits) {
     return n - m;
 }
 
+/*
+ * Decode and adapt a context bit through the arithmetic decoder's slow path.
+ *
+ * Bound the proposed split to avoid interval reversion, select a branch,
+ * update the indexed context, and renormalize the arithmetic registers.
+ *
+ * Example::
+ *
+ *     bit = decode_sub(state, ctx, index, z);
+ *
+ *
+ * :param state: Initialized decoder state containing probability/transition tables.
+ * :param ctx: Mutable context array containing probability-table indices.
+ * :param index: Valid context-array position for the bit being decoded.
+ * :param z: Proposed split for this context and the current interval.
+ * :return: Decoded zero/one bit, or -1 with a Python exception when refill fails.
+ */
 static inline int32_t decode_sub(State *state, uint8_t *ctx, int32_t index, uint32_t z)
 {
     /* Save bit */
@@ -463,6 +619,22 @@ static inline int32_t decode_sub(State *state, uint8_t *ctx, int32_t index, uint
 
 
 
+/*
+ * Decode one adaptive-context bit, using the fence fast path when possible.
+ *
+ * The fast path advances the interval without adapting the context or refilling;
+ * other cases delegate to decode_sub for adaptation and renormalization.
+ *
+ * Example::
+ *
+ *     bit = zpcodec_decode(state, ctx, ctxid);
+ *
+ *
+ * :param state: Initialized arithmetic decoder state to advance.
+ * :param ctx: Mutable array of probability-table context indices.
+ * :param index: Valid array position selecting the context for this bit.
+ * :return: Decoded zero/one bit, or -1 with a pending Python refill exception.
+ */
 static inline int32_t zpcodec_decode(State *state, uint8_t *ctx, int32_t index) {
     uint32_t z = state->a + state->p[ctx[index]];
     if (z <= state->fence) {
@@ -472,6 +644,25 @@ static inline int32_t zpcodec_decode(State *state, uint8_t *ctx, int32_t index) 
     return decode_sub(state, ctx, index, z);
 }
 
+/*
+ * Reconstruct an integer by walking a binary tree of adaptive bit contexts.
+ *
+ * The root uses ctx[index + 1]; each decoded bit selects the next child.
+ * The caller supplies enough contexts for the requested small bit width.
+ * Pending Python errors are not checked inside this loop, so its result is
+ * valid only when decoding leaves no exception set.
+ *
+ * Example::
+ *
+ *     rank_offset = decode_binary(state, ctx, ctxid, j);
+ *
+ *
+ * :param state: Initialized arithmetic decoder state to advance.
+ * :param ctx: Mutable context storage covering the complete requested tree.
+ * :param index: Base offset preceding the tree's root context.
+ * :param bits: Nonnegative tree depth whose shifts fit the integer representation.
+ * :return: Reconstructed integer when no Python exception is pending.
+ */
 static inline int32_t decode_binary(State *state, uint8_t *ctx, int32_t index, int bits) {
   int n = 1, m = (1<<bits), b = 0;
   while (n < m) {
@@ -482,6 +673,26 @@ static inline int32_t decode_binary(State *state, uint8_t *ctx, int32_t index, i
 }
 
 
+/*
+ * Decode one BZZ block and reverse its symbol ordering and block-sort transform.
+ *
+ * Read a 24-bit size, decode adaptive ranks with frequency-based move-to-front
+ * ordering, then reconstruct the bytes using the marker and occurrence counts.
+ * A zero size denotes the stream terminator. Successful nonempty decoding leaves
+ * the payload in state->buf and xsize including its one marker byte. The wrapper
+ * subtracts that marker before copying. Temporary position storage is freed here.
+ *
+ * Example::
+ *
+ *     if (!decode(state, ctx)) {
+ *         // Distinguish a terminator from a pending Python exception.
+ *     }
+ *
+ *
+ * :param state: Initialized decoder with an allocated maximum-size block buffer.
+ * :param ctx: Mutable 300-byte context array retained across consecutive blocks.
+ * :return: TRUE for a decoded block, or FALSE for a terminator or pending Python error.
+ */
 static bool decode(State *state, uint8_t *ctx) {
     uint8_t mtf[256] = { // {{{
   0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
@@ -623,6 +834,25 @@ end:
     return state->xsize != 0;
 }
 
+/*
+ * Decode a complete legacy DjVu text payload for the Python ``decompress`` entry point.
+ *
+ * Borrow the input through PyArg_ParseTuple, concatenate decoded blocks, then
+ * interpret the first three output bytes as the text length and skip that header.
+ * This legacy implementation bounds the declared length by the total decoded
+ * count, including the header, rather than the remaining payload count. It is
+ * not a validated malformed-header boundary. All allocated buffers are freed
+ * before returning a new Python string reference or reporting an exception.
+ *
+ * Example::
+ *
+ *     {"decompress", bzz_decompress, METH_VARARGS, "..."}
+ *
+ *
+ * :param self: Unused extension-module receiver supplied by the Python call machinery.
+ * :param args: Positional argument tuple containing one compressed string accepted by s#.
+ * :return: New Python-2 byte-string reference, or NULL with a pending Python exception.
+ */
 static PyObject *
 bzz_decompress(PyObject *self, PyObject *args) {
     Py_ssize_t input_len = 0, i;
@@ -685,8 +915,17 @@ end:
  
 static PyMethodDef bzzdecmethods[] = {
     {"decompress", bzz_decompress, METH_VARARGS,
-    "decompress(bytestring) -> decompressed bytestring\n\n"
-    		"Decompress a BZZ compressed byte string. "
+    "Decode the text portion of a BZZ-compressed DjVu TXTz payload.\n\n"
+    "Decoded data begins with a three-byte big-endian text-length header; "
+    "the returned Python-2 byte string omits that header. This legacy entry "
+    "point is not a general BZZ archive API or a guarantee of malformed-input "
+    "validation.\n\n"
+    "Example:\n"
+    "    >>> text = bzzdec.decompress(compressed_txtz)  # doctest: +SKIP\n\n\n"
+    ":param bytestring: BZZ-compressed DjVu text data, passed positionally.\n"
+    ":return: Decoded text bytes selected by the embedded length header.\n"
+    ":raises ValueError: Detected block corruption or exhausted input-padding budget.\n"
+    ":raises MemoryError: Allocation of decoding/output storage failed.\n"
     },
 
     {NULL, NULL, 0, NULL}
@@ -694,11 +933,28 @@ static PyMethodDef bzzdecmethods[] = {
 
 
 
+/*
+ * Register the legacy Python-2 bzzdec extension and its single decompression callable.
+ *
+ * Python invokes this name when importing the native module. Py_InitModule3
+ * records import failures in the Python exception indicator; this void entry
+ * point returns immediately when module creation fails.
+ *
+ * Example::
+ *
+ *     import bzzdec  # Python 2, with the compatible native extension installed
+ *
+ *
+ * :return: No C value; the module is registered or a Python exception remains pending.
+ */
 PyMODINIT_FUNC
 initbzzdec(void) {
     PyObject *m;
     m = Py_InitModule3("bzzdec", bzzdecmethods,
-    "Decompress BZZ encoded strings (used in DJVU)"
+    "Legacy Python-2 extension for text extraction from BZZ-compressed DjVu data.\n\n"
+    "The decompress callable decodes TXTz data and removes its embedded text-length "
+    "header. This source uses the Python-2 module initialization API; it is not "
+    "the separate Python fallback used when a native plugin is unavailable."
     );
     if (m == NULL) return;
 }

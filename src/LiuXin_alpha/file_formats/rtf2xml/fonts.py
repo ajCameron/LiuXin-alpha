@@ -10,6 +10,17 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+"""
+Parse RTF font tables and annotate font references.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise fonts through a consuming regression::
+
+        python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -23,6 +34,11 @@ from LiuXin_alpha.file_formats.rtf2xml import open_for_read, open_for_write
 class Fonts:
     """
     Change lines with font info from font numbers to the actual font names.
+
+    Example:
+        Exercise Fonts through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
     """
 
     def __init__(
@@ -34,15 +50,21 @@ class Fonts:
         run_level: int = 1,
     ) -> None:
         """
-        Required:
-            'file'--file to parse
-            'default_font_num'--the default font number
-        Optional:
-            'copy'-- whether to make a copy of result for debugging
-            'temp_dir' --where to output temporary results (default is
-            directory from which the script is run.)
-        Returns:
-            nothing
+        Required: 'file'--file to parse 'default_font_num'--the default font number Optional: 'copy'-- whether to make a copy of result for debugging 'temp_dir' --where to output temporary results (default is directory from which the script is run.) Returns: nothing
+
+        Example:
+            Exercise Fonts.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param in_file: Value supplied for in file under the utility contract.
+        :param bug_handler: Value supplied for bug handler under the utility contract.
+        :param default_font_num: Value supplied for default font num under the utility
+            contract.
+        :param copy: Value supplied for copy under the utility contract.
+        :param run_level: Value supplied for run level under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self.__file = in_file
         self.__bug_handler = bug_handler
@@ -54,6 +76,15 @@ class Fonts:
     def __initiate_values(self: _typing.Self) -> None:
         """
         Initiate all values.
+
+        Example:
+            Exercise Fonts.  initiate values through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__special_font_dict = {
             "Symbol": 0,
@@ -74,12 +105,17 @@ class Fonts:
 
     def __default_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line
-        Returns:
-            nothing
-        Handle all lines before the font table. Check for the beginning of the
-        font table. If found, change the state. Print out all lines.
+        Requires: line Returns: nothing Handle all lines before the font table. Check for the beginning of the font table. If found, change the state. Print out all lines.
+
+        Example:
+            Exercise Fonts.  default func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.__token_info == "mi<mk<fonttb-beg":
             self.__state = "font_table"
@@ -87,18 +123,17 @@ class Fonts:
 
     def __font_table_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line
-        Returns:
-            nothing
-        Logic:
-            If the self.__token_info indicates that you have reached the end of
-            the font table, then change the state to after the font table.
-            If the self.__token_info indicates that there is a font in the
-            table, change the state to font in table. Reset the number of the
-            font to the default font (in case there is no number provided, in
-            which case RTF assumes the number will be the default font.) Reset
-            the test string (for the font name) to ''
+        Requires: line Returns: nothing Logic: If the self.__token_info indicates that you have reached the end of the font table, then change the state to after the font table. If the self.__token_info indicates that there is a font in the table, change the state to font in table. Reset the number of the font to the default font (in case there is no number provided, in which case RTF assumes the number will be the default font.) Reset the test string (for the font name) to ''
+
+        Example:
+            Exercise Fonts.  font table func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.__token_info == "mi<mk<fonttb-end":
             self.__state = "after_font_table"
@@ -110,21 +145,17 @@ class Fonts:
 
     def __font_in_table_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Requires:
-            line
-        Returns:
-            nothing
-        Logic:
-            Check for four conditions:
-                The line contains font-info. In this case, store the number in
-                self.__font_num.
-                The line contains text. In this case, add to the text string
-                self.__text_string.
-                The line marks the end of the individual font in the table. In
-                this case, add a new key-> value pair to the font-table
-                dictionary. Also create an empty tag with the name and number
-                as attributes.
-                Preamture end of font table
+        Requires: line Returns: nothing Logic: Check for four conditions: The line contains font-info. In this case, store the number in self.__font_num. The line contains text. In this case, add to the text string self.__text_string. The line marks the end of the individual font in the table. In this case, add a new key-> value pair to the font-table dictionary. Also create an empty tag with the name and number as attributes. Preamture end of font table
+
+        Example:
+            Exercise Fonts.  font in table func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # cw<ci<font-style<nu<4
         # tx<nu<__________<Times;
@@ -146,30 +177,33 @@ class Fonts:
 
     def __found_end_font_table_func(self: _typing.Self) -> None:
         """
-        Required:
-            nothing
-        Returns:
-            nothing
-        Logic:
-            If not individual fonts have been written, write one out
+        Required: nothing Returns: nothing Logic: If not individual fonts have been written, write one out
+
+        Example:
+            Exercise Fonts.  found end font table func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if not self.__wrote_ind_font:
             self.__write_obj.write("mi<tg<empty-att_" "<font-in-table<name>Times<num>0\n")
 
     def __after_font_table_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Required:
-            line
-        Returns:
-            nothing
-        Logic:
-            Check the self.__token_info. If this matches a token with font
-            info, then extract the number from the line, and look up the font
-            name in the font dictionary. If no name exists for that number,
-            print out an error. Otherwise print out the same line, except with
-            the name rather than the number.
-            If the line does not contain font info, simply print it out to the
-            file.
+        Required: line Returns: nothing Logic: Check the self.__token_info. If this matches a token with font info, then extract the number from the line, and look up the font name in the font dictionary. If no name exists for that number, print out an error. Otherwise print out the same line, except with the name rather than the number. If the line does not contain font info, simply print it out to the file.
+
+        Example:
+            Exercise Fonts.  after font table func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.__token_info == "cw<ci<font-style":
             font_num = line[20:-1]
@@ -188,17 +222,16 @@ class Fonts:
 
     def convert_fonts(self: _typing.Self) -> _typing.Any:
         """
-        Required:
-            nothing
-        Returns:
-            a dictionary indicating with values for special fonts
-        Logic:
-            Read one line in at a time. Determine what action to take based on
-            the state. If the state is font_table, looke for individual fonts
-            and add the number and font name to a dictionary. Also create a
-            tag for each individual font in the font table.
-            If the state is after the font table, look for lines with font
-            info. Substitute a font name for a font number.
+        Required: nothing Returns: a dictionary indicating with values for special fonts Logic: Read one line in at a time. Determine what action to take based on the state. If the state is font_table, looke for individual fonts and add the number and font name to a dictionary. Also create a tag for each individual font in the font table. If the state is after the font table, look for lines with font info. Substitute a font name for a font number.
+
+        Example:
+            Exercise Fonts.convert fonts through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         self.__initiate_values()
         with open_for_read(self.__file) as read_obj:

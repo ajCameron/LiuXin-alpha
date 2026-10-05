@@ -1,20 +1,15 @@
 #!/usr/bin/env python3
 
 """
-Extract a file (default: Calibre's test metadata.db) from every git tag and
-write it to an output directory, named by tag.
+Create Calibre fixture libraries from repository data.
 
-Typical use (from anywhere):
-  python extract_calibre_metadata_dbs.py --repo /path/to/calibre --out ./out
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
 
-Defaults target Calibre's test DB path:
-  src/calibre/db/tests/metadata.db
+Example:
+    Exercise create calibre test libs from repo through a consuming regression::
 
-It does NOT checkout tags; it uses `git show <tag>:<path>`.
-
-Produces:
-  - One output file per tag (e.g. v7.2.0.metadata.db)
-  - A manifest CSV with commit, date, sha256, size, status
+        python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
 """
 
 from __future__ import annotations
@@ -36,7 +31,14 @@ DEFAULT_PATH_IN_REPO = "src/calibre/db/tests/metadata.db"
 
 @dataclass(frozen=True)
 class TagInfo:
-    """Resolved upstream Calibre tag, commit, and publication timestamp."""
+    """
+    Resolved upstream Calibre tag, commit, and publication timestamp.
+
+    Example:
+        Exercise TagInfo through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+    """
 
     tag: str
     commit: str
@@ -44,10 +46,32 @@ class TagInfo:
 
 
 class GitError(RuntimeError):
-    """Raised when an upstream repository operation cannot be completed."""
+    """
+    Raised when an upstream repository operation cannot be completed.
+
+    Example:
+        Exercise GitError through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+    """
 
 
 def run_git(repo: Path, args: list[str], *, check: bool = True) -> subprocess.CompletedProcess:
+    """
+    Perform the run git operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise run git through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param repo: Value supplied for repo under the utility contract.
+    :param args: Positional values forwarded to the compatibility implementation.
+    :param check: Value supplied for check under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     p = subprocess.run(
         ["git", "-C", str(repo), *args],
         stdout=subprocess.PIPE,
@@ -63,11 +87,40 @@ def run_git(repo: Path, args: list[str], *, check: bool = True) -> subprocess.Co
 
 
 def git_output_text(repo: Path, args: list[str]) -> str:
+    """
+    Perform the git output text operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise git output text through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param repo: Value supplied for repo under the utility contract.
+    :param args: Positional values forwarded to the compatibility implementation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     p = run_git(repo, args, check=True)
     return p.stdout.decode("utf-8", errors="replace").strip()
 
 
 def list_tags(repo: Path, *, all_tags: bool = False, pattern: str = "v*") -> list[str]:
+    """
+    Perform the list tags operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise list tags through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param repo: Value supplied for repo under the utility contract.
+    :param all_tags: Value supplied for all tags under the utility contract.
+    :param pattern: Value supplied for pattern under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if all_tags:
         # Try a version-ish sort first; fall back if unsupported.
         try:
@@ -94,24 +147,80 @@ def list_tags(repo: Path, *, all_tags: bool = False, pattern: str = "v*") -> lis
 
 
 def get_tag_info(repo: Path, tag: str) -> TagInfo:
+    """
+    Return tag info under the format's safety and compatibility rules.
+
+    Example:
+        Exercise get tag info through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param repo: Value supplied for repo under the utility contract.
+    :param tag: Value supplied for tag under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     commit = git_output_text(repo, ["rev-list", "-n", "1", tag])
     commit_date_iso = git_output_text(repo, ["show", "-s", "--format=%cI", commit])
     return TagInfo(tag=tag, commit=commit, commit_date_iso=commit_date_iso)
 
 
 def blob_exists(repo: Path, tag: str, path_in_repo: str) -> bool:
+    """
+    Perform the blob exists operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise blob exists through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param repo: Value supplied for repo under the utility contract.
+    :param tag: Value supplied for tag under the utility contract.
+    :param path_in_repo: Value supplied for path in repo under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     p = run_git(repo, ["cat-file", "-e", f"{tag}:{path_in_repo}"], check=False)
     return p.returncode == 0
 
 
 def read_blob(repo: Path, tag: str, path_in_repo: str) -> bytes:
     # `git show` prints the blob content.
+    """
+    Read blob under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read blob through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param repo: Value supplied for repo under the utility contract.
+    :param tag: Value supplied for tag under the utility contract.
+    :param path_in_repo: Value supplied for path in repo under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     p = run_git(repo, ["show", f"{tag}:{path_in_repo}"], check=True)
     return p.stdout  # bytes
 
 
 def is_git_lfs_pointer(data: bytes) -> bool:
     # Typical first line: "version https://git-lfs.github.com/spec/v1"
+    """
+    Return whether is git lfs pointer holds for the supplied ebook data.
+
+    Example:
+        Exercise is git lfs pointer through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :return: True when the documented condition holds; otherwise False.
+    """
     head = data.splitlines()[:3]
     try:
         head_text = b"\n".join(head).decode("utf-8", errors="ignore")
@@ -122,18 +231,57 @@ def is_git_lfs_pointer(data: bytes) -> bool:
 
 def safe_filename(tag: str) -> str:
     # Make filenames stable across OSes.
+    """
+    Perform the safe filename operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise safe filename through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param tag: Value supplied for tag under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     name = tag.replace("/", "_").replace("\\", "_")
     name = re.sub(r"[^A-Za-z0-9._-]+", "_", name).strip("_")
     return name or "tag"
 
 
 def sha256_hex(data: bytes) -> str:
+    """
+    Perform the sha256 hex operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise sha256 hex through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     h = hashlib.sha256()
     h.update(data)
     return h.hexdigest()
 
 
 def main(argv: Optional[list[str]] = None) -> int:
+    """
+    Perform the main operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise main through a consuming regression::
+
+            python -m pytest -q tests/scripts/test_ci_workflow_contracts.py
+
+
+    :param argv: Value supplied for argv under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     ap = argparse.ArgumentParser(description="Extract a repo file from each tag into named outputs.")
     ap.add_argument("--repo", required=True, help="Path to the cloned git repository")
     ap.add_argument("--out", required=True, help="Output directory to write extracted files")

@@ -1,4 +1,16 @@
-"""Policy-free transfer and local materialisation operations for drivers."""
+"""
+Transfer, enumerate, and materialize raw driver objects without Store policy.
+
+Helpers corroborate capabilities with optional protocols and validate canonical
+result addresses. Generic copies use source stat size/digest expectations with
+staged destination writes; fallback moves additionally require version-protected
+source deletion. Native acceleration relies on its declared complete-copy contract.
+Validation after commit can fail after bytes were published; no generic rollback
+spans source and destination endpoints.
+
+Example:
+    >>> result = transfer_between_drivers(source_driver, source, destination_driver, destination)  # doctest: +SKIP
+"""
 
 from __future__ import annotations
 
@@ -52,10 +64,19 @@ def write_all(
     session: DriverWriteSessionAPI[_DestinationAddressT],
     data: bytes,
 ) -> None:
-    """Write all bytes even when a staged session accepts partial chunks.
+    """
+    Write all bytes even when a staged session accepts partial chunks.
+
+    Retry partial acceptance without committing or aborting. Zero/negative progress or a count above
+    the supplied remainder raises; an empty payload causes no session.write call.
 
     Example:
         >>> write_all(session, b"complete payload")  # doctest: +SKIP
+
+
+    :param session: Borrowed unfinished staged-write session.
+    :param data: Bytes whose unaccepted suffix is retried until exhausted.
+    :return: None after every byte is accepted; impossible counts raise StorageError.
     """
     view = memoryview(data)
     written = 0
@@ -86,22 +107,27 @@ def put_object(
     """
     Stream bytes through a driver's optional staged-write protocol.
 
+    Validate chunk/size bounds and destination capability before beginning the session. Treat falsey
+    reads as EOF before requiring nonempty chunks to be bytes. The session context handles
+    abandonment; the helper borrows the source and adds no version pin. Returned metadata validation
+    occurs after commit and cannot undo publication.
+
     Example:
         >>> import io
         >>> info = put_object(  # doctest: +SKIP
         ...     driver, address, io.BytesIO(b"book"), expected_size=4,
         ... )
 
-    :param driver:
-    :param object_address:
-    :param source:
-    :param mode:
-    :param expected_size:
-    :param expected_digest:
-    :param metadata:
-    :param chunk_size:
 
-    :return:
+    :param driver: Readable driver corroborated with the optional writable protocol.
+    :param object_address: Concrete owned address required to round-trip canonically.
+    :param source: Borrowed binary stream consumed from its current position; not closed here.
+    :param mode: Requested collision policy used for capability checks and begin_write.
+    :param expected_size: Optional expected byte length checked by staged commit.
+    :param expected_digest: Optional expected content digest checked by staged commit.
+    :param metadata: Native pairs requiring write_metadata support when nonempty.
+    :param chunk_size: Positive number of bytes requested per source read.
+    :return: Committed metadata after canonical destination/digest-capability validation.
     """
     if chunk_size < 1:
         raise ValueError("chunk_size must be at least one byte.")
@@ -152,13 +178,14 @@ def write_object_bytes(
     Example:
         >>> info = write_object_bytes(driver, address, b"book")  # doctest: +SKIP
 
-    :param driver:
-    :param object_address:
-    :param data:
-    :param mode:
-    :param expected_digest:
-    :param metadata:
-    :return:
+
+    :param driver: Destination driver supporting the selected staged-write mode.
+    :param object_address: Concrete owned address required to round-trip canonically.
+    :param data: In-memory bytes wrapped by BytesIO.
+    :param mode: Destination collision policy.
+    :param expected_digest: Optional commit-time integrity expectation.
+    :param metadata: Native metadata forwarded to put_object.
+    :return: Validated committed metadata with len(data) used as the exact size expectation.
     """
     import io
 
@@ -178,10 +205,20 @@ def iter_object_addresses(
     *,
     prefix: _SourceAddressT | None = None,
 ) -> Iterator[_SourceAddressT]:
-    """Yield addresses from the optional rich inventory protocol.
+    """
+    Yield addresses from the optional rich inventory protocol.
+
+    The generator checks capability/protocol/prefix support on iteration, tracks every yielded
+    address in a growing set, and rejects duplicates after any earlier yields. It does not validate
+    size or digest hints and does not strengthen the backend completeness/snapshot declaration.
 
     Example:
         >>> addresses = list(iter_object_addresses(driver))  # doctest: +SKIP
+
+
+    :param driver: Readable driver requiring advertised enumeration and its structural protocol.
+    :param prefix: Optional canonical owned prefix requiring prefix_enumeration support.
+    :return: Lazy iterator of canonical unique addresses; errors can arise after earlier addresses were yielded.
     """
     if driver.capabilities.enumeration is EnumerationCompleteness.UNAVAILABLE:
         raise StorageUnsupportedOperation(
@@ -225,18 +262,33 @@ def transfer_between_drivers(
     destination_metadata: tuple[tuple[str, str], ...] = (),
     chunk_size: int = DEFAULT_STORAGE_CHUNK_SIZE,
 ) -> DriverObjectInfo[_DestinationAddressT]:
-    """Copy one verified object between arbitrary reusable drivers.
+    """
+    Copy one verified object between arbitrary reusable drivers.
 
-    A same-instance native copy is used only when advertised. Otherwise bytes
-    flow through ``open_read`` and a staged destination write with expected
-    size and any authoritative source digest. Backend-native source metadata is
-    not copied implicitly; callers may provide deliberately translated
-    ``destination_metadata``.
+    A same-instance native copy is used only when advertised. Otherwise bytes flow through
+    ``open_read`` and a staged destination write with expected size and any authoritative source
+    digest. Backend-native source metadata is not copied implicitly; callers may provide
+    deliberately translated ``destination_metadata``.
+
+    Corroborate native_copy when the two driver objects are identical, then validate its result; do
+    not fall back after native failure. This native call does not receive destination_metadata or
+    chunk_size. The generic path stats once and reads without an if_version token, so consistency
+    relies on any known size/digest checks rather than a pinned snapshot.
 
     Example:
         >>> result = transfer_between_drivers(  # doctest: +SKIP
         ...     source_driver, source, destination_driver, destination,
         ... )
+
+
+    :param source_driver: Readable driver owning the source address.
+    :param source_address: Source identity checked within source_driver scope.
+    :param destination_driver: Driver owning the destination and supporting the requested write mode.
+    :param destination_address: Destination identity checked within destination_driver scope.
+    :param mode: Explicit WriteMode collision policy, defaulting to CREATE_ONLY.
+    :param destination_metadata: Explicit native pairs forwarded only on the generic streamed path.
+    :param chunk_size: Positive generic-transfer read chunk size in bytes; unused by native acceleration.
+    :return: Destination metadata validated after native copy or generic staged publication.
     """
     source_address = source_driver.require_canonical_object_address(
         source_address
@@ -295,12 +347,28 @@ def move_between_drivers(
     mode: WriteMode = WriteMode.CREATE_ONLY,
     chunk_size: int = DEFAULT_STORAGE_CHUNK_SIZE,
 ) -> DriverObjectInfo[_DestinationAddressT]:
-    """Perform verified transfer followed by conditional source deletion.
+    """
+    Perform verified transfer followed by conditional source deletion.
+
+    Stat the source before selecting native or fallback behavior. The native path forwards any
+    observed source version and trusts its own write/collision enforcement. The fallback refuses
+    deletion without both conditional_delete support and a non-None source version, then transfers
+    and deletes using that original token. Deletion failure can leave both complete copies; the
+    destination is not rolled back.
 
     Example:
         >>> result = move_between_drivers(  # doctest: +SKIP
         ...     source_driver, source, destination_driver, destination,
         ... )
+
+
+    :param source_driver: Readable driver owning the source address.
+    :param source_address: Source identity checked within source_driver scope.
+    :param destination_driver: Driver owning the destination and supporting the requested write mode.
+    :param destination_address: Destination identity checked within destination_driver scope.
+    :param mode: Explicit WriteMode collision policy, defaulting to CREATE_ONLY.
+    :param chunk_size: Positive generic-transfer read chunk size in bytes; unused by native acceleration.
+    :return: Validated destination metadata after native move or successful conditional source deletion.
     """
     source_address = source_driver.require_canonical_object_address(
         source_address
@@ -376,15 +444,30 @@ def materialize_object(
     suggested_filename: str | None = None,
     chunk_size: int = DEFAULT_STORAGE_CHUNK_SIZE,
 ) -> Generator[Path, None, None]:
-    """Yield a verified temporary local file and remove it on context exit.
+    """
+    Yield a verified temporary local file and remove it on context exit.
 
-    This is the narrow adapter for importers or metadata readers that still
-    require a filesystem path. The temporary path is never an object address
-    and carries no placement or bibliographic policy.
+    This is the narrow adapter for importers or metadata readers that still require a filesystem
+    path. The temporary path is never an object address and carries no placement or bibliographic
+    policy.
+
+    Use fresh stat size/digest for checks, not the inventory entry observations. Choose a suffix
+    from the explicit name, then entry hints, then stat hints; the remaining temporary name is
+    generated. Reads are unversioned, and no total byte ceiling is imposed. Cleanup suppresses only
+    FileNotFoundError. Digest-constructor failure occurs after temporary creation but before the
+    cleanup try, so that early failure is outside this cleanup guarantee.
 
     Example:
         >>> with materialize_object(driver, address) as local_path:  # doctest: +SKIP
         ...     metadata = legacy_reader(local_path)
+
+
+    :param driver: Readable driver supplying fresh stat metadata and an unversioned read stream.
+    :param object_address: Concrete owned address required to round-trip canonically.
+    :param entry: Optional inventory entry required to identify the same address; used for naming hints only.
+    :param suggested_filename: Optional name hint whose local Path suffix overrides entry/stat hints.
+    :param chunk_size: Positive read chunk size in bytes.
+    :return: Context manager yielding a verified temporary Path and attempting deletion when its managed body exits.
     """
     if chunk_size < 1:
         raise ValueError("chunk_size must be at least one byte.")
@@ -453,10 +536,19 @@ def _require_writable_driver(
     driver: ReadableStorageDriverAPI[_DestinationAddressT],
     mode: WriteMode,
 ) -> WritableStorageDriverAPI[_DestinationAddressT]:
-    """Validate capability flags and structural staged-write support.
+    """
+    Validate capability flags and structural staged-write support.
+
+    This checks static mechanics and protocol shape, not dynamic status. It performs no mode
+    normalization, address validation, connection, or publication.
 
     Example:
         >>> writable = _require_writable_driver(driver, WriteMode.CREATE_ONLY)  # doctest: +SKIP
+
+
+    :param driver: Driver whose capability flags and begin_write protocol are checked.
+    :param mode: WriteMode selecting create, replace, or both capabilities for UPSERT.
+    :return: Same driver cast to the writable protocol; unsupported capability/shape raises StorageUnsupportedOperation.
     """
     capabilities = driver.capabilities
     supported = {
@@ -482,12 +574,24 @@ def _require_result_address(
     *,
     operation: str,
 ) -> DriverObjectInfo[_DestinationAddressT]:
-    """Require driver metadata to describe exactly the requested object.
+    """
+    Require driver metadata to describe exactly the requested object.
+
+    Every StorageIntegrityError from require_object_info is relabeled as another-address metadata,
+    including an unadvertised stat digest; the original cause remains chained. Other error types
+    propagate unchanged.
 
     Example:
         >>> checked = _require_result_address(  # doctest: +SKIP
         ...     driver, address, info, operation="stat",
         ... )
+
+
+    :param driver: Driver enforcing metadata address/digest-advertisement checks.
+    :param expected_address: Requested canonical address that returned metadata must describe.
+    :param info: Operation result to validate.
+    :param operation: Operation label inserted into the replacement integrity-error message.
+    :return: Original validated metadata; StorageIntegrityError is re-raised with operation context and chained cause.
     """
     try:
         return driver.require_object_info(expected_address, info)

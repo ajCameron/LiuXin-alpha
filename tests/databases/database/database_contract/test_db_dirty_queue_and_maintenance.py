@@ -1,22 +1,14 @@
-"""Database contract: dirtied-record queues + maintenance bot integration.
+"""
+Check Database dirty queues, maintainer callbacks, telemetry, and close behavior across selected backends.
 
-This chunk tests two related but distinct mechanisms:
+Queue-inspection fixtures request a maintainer stop and briefly join it, but
+suppress errors and do not verify that the stop succeeded. The interlink callback
+case retains its existing expected-failure marker.
 
-1) ``Database.dirty_records_queue``
-   - A plain Queue that the Database exposes for "dirtied" records.
-   - ``Database.dirty_record()`` should enqueue ``(table, row_id, reason)`` only
-     for tables in ``db.dirtiable_tables``.
+Example:
+    Run with pytest::
 
-2) The background maintenance bot integration
-   - Drivers register SQLite functions (e.g. ``DIRTY_RECORD``) that call back
-     into the maintainer.
-   - The maintainer enqueues "dirtied" events into its own queues.
-
-These tests are written to be stable:
-* We explicitly stop the maintainer thread inside tests that inspect its queues,
-  to avoid races where the background thread consumes events.
-* We create our own tiny table + trigger to validate the callback plumbing,
-  rather than depending on whatever triggers exist in a particular fixture DB.
+        python -m pytest -q tests/databases/database/database_contract/test_db_dirty_queue_and_maintenance.py
 """
 
 from __future__ import annotations
@@ -30,6 +22,22 @@ import pytest
 
 
 def _drain(q: queue.Queue) -> list[Any]:
+    """
+    Remove available queue items without blocking until get_nowait raises Empty.
+
+    Example:
+        >>> q = queue.Queue()
+        >>> q.put('a')
+        >>> _drain(q)
+        ['a']
+        >>> _drain(q)
+        []
+
+
+    :param q: Queue to consume; concurrent producers can extend or repopulate it.
+    :return: Items removed in retrieval order; does not call task_done or wait for
+        producers.
+    """
     out: list[Any] = []
     while True:
         try:
@@ -39,7 +47,21 @@ def _drain(q: queue.Queue) -> list[Any]:
 
 
 def _stop_maintainer_thread(db) -> None:
-    """Stop and briefly join the background maintenance thread (best-effort)."""
+    """
+    Attempt to stop and join the maintenance thread for at most one second.
+
+    Return if no thread exists. Suppress ordinary stop/join exceptions and do not assert
+    termination.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_dirty_queue_and_maintenance.py
+
+
+    :param db: Caller-owned Database; this helper does not close the Database itself.
+    :return: None; successful return does not establish that the thread stopped.
+    """
 
     maint = getattr(db, "maintenance", None)
     th = getattr(maint, "maintainer", None)
@@ -58,7 +80,19 @@ def _stop_maintainer_thread(db) -> None:
 
 @pytest.fixture
 def stopped_db(open_db):
-    """A Database where the maintainer thread is stopped to avoid queue races."""
+    """
+    Request maintainer shutdown, drain both maintainer queues, and yield the existing database.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_dirty_queue_and_maintenance.py
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: Iterator yielding open_db; cleanup remains with its owning fixture.
+    """
 
     _stop_maintainer_thread(open_db)
     # Drain any stale events (some fixtures do schema checks on startup).
@@ -68,6 +102,19 @@ def stopped_db(open_db):
 
 
 def test_dirty_records_queue_is_shared_with_driver_and_wrapper(open_db):
+    """
+    Check Database exposes a Queue shared by identity with its driver and wrapper.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_dirty_queue_and_maintenance.py::test_dirty_records_queue_is_shared_with_driver_and_wrapper
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     assert open_db.dirty_records_queue is not None
     assert isinstance(open_db.dirty_records_queue, queue.Queue)
 
@@ -76,6 +123,19 @@ def test_dirty_records_queue_is_shared_with_driver_and_wrapper(open_db):
 
 
 def test_get_dirtied_count_tracks_queue_size(open_db):
+    """
+    Enqueue ten dirty events and check the reported size grows by at least ten.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_dirty_queue_and_maintenance.py::test_get_dirtied_count_tracks_queue_size
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     start = open_db.get_dirtied_count()
     # Use a valid dirtiable table if possible.
     table = "books" if "books" in open_db.dirtiable_tables else sorted(open_db.dirtiable_tables)[0]
@@ -89,6 +149,19 @@ def test_get_dirtied_count_tracks_queue_size(open_db):
 
 def test_database_dirty_record_enqueues_for_dirtiable_table(open_db):
     # Choose a stable table name.
+    """
+    Enqueue a dirtiable-table event and check count growth and the next queue tuple.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_dirty_queue_and_maintenance.py::test_database_dirty_record_enqueues_for_dirtiable_table
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     table = "books" if "books" in open_db.dirtiable_tables else sorted(open_db.dirtiable_tables)[0]
     before = open_db.get_dirtied_count()
 
@@ -100,11 +173,39 @@ def test_database_dirty_record_enqueues_for_dirtiable_table(open_db):
 
 
 def test_database_dirty_record_warns_and_does_not_enqueue_for_unknown_table(open_db, monkeypatch):
+    """
+    Check an unknown table leaves queue size unchanged and calls the patched logging helper.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_dirty_queue_and_maintenance.py::test_database_dirty_record_warns_and_does_not_enqueue_for_unknown_table
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :param monkeypatch: Pytest patch fixture; restores replaced attributes after the
+        test.
+    :return: None; failed expectations raise AssertionError.
+    """
     calls: list[tuple] = []
 
     from LiuXin_alpha.utils.logging import default_log
 
     def _fake_log_variables(*args, **kwargs):
+        """
+        Record logging arguments and return the first positional value or an empty string.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database/database_contract/test_db_dirty_queue_and_maintenance.py::test_database_dirty_record_warns_and_does_not_enqueue_for_unknown_table
+
+
+        :param args: Positional logging arguments appended to the enclosing call log.
+        :param kwargs: Keyword logging arguments appended to the enclosing call log.
+        :return: First positional argument, or an empty string when absent.
+        """
         calls.append((args, kwargs))
         return args[0] if args else ""
 
@@ -119,10 +220,38 @@ def test_database_dirty_record_warns_and_does_not_enqueue_for_unknown_table(open
 
 
 def test_database_dirty_record_is_threadsafe(open_db):
+    """
+    Start five producers of two hundred events each and check queue growth after timed joins.
+
+    The test checks the resulting count; it does not separately assert thread
+    termination.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_dirty_queue_and_maintenance.py::test_database_dirty_record_is_threadsafe
+
+
+    :param open_db: Open Database for the selected driver; its fixture attempts close at
+        teardown.
+    :return: None; failed expectations raise AssertionError.
+    """
     table = "books" if "books" in open_db.dirtiable_tables else sorted(open_db.dirtiable_tables)[0]
     start = open_db.get_dirtied_count()
 
     def worker(tid: int) -> None:
+        """
+        Enqueue two hundred dirty events using the worker ID to separate row-ID ranges.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/database/database_contract/test_db_dirty_queue_and_maintenance.py::test_database_dirty_record_is_threadsafe
+
+
+        :param tid: Worker number used in the million-offset row-ID calculation.
+        :return: None; mutates the enclosing Database dirty queue.
+        """
         for j in range(200):
             open_db.dirty_record(table, tid * 1_000_000 + j, reason="thread")
 
@@ -137,7 +266,19 @@ def test_database_dirty_record_is_threadsafe(open_db):
 
 
 def test_database_dirty_record_does_not_enqueue_to_maintainer_queues(stopped_db):
-    """Database.dirty_record() uses Database.dirty_records_queue, not the maintainer queues."""
+    """
+    Check Database dirty_record supplies its own queue tuple and leaves the main-table maintainer queue empty.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_dirty_queue_and_maintenance.py::test_database_dirty_record_does_not_enqueue_to_maintainer_queues
+
+
+    :param stopped_db: Open Database after a best-effort maintainer stop and initial
+        queue drains.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     table = "books" if "books" in stopped_db.dirtiable_tables else sorted(stopped_db.dirtiable_tables)[0]
     _drain(stopped_db.maintenance.main_table_dirtied_queue)
@@ -151,6 +292,19 @@ def test_database_dirty_record_does_not_enqueue_to_maintainer_queues(stopped_db)
 
 
 def test_write_telemetry_snapshot_observes_dirty_queue(stopped_db):
+    """
+    Check dirty-queue telemetry advances its total and records the expected source, table, ID, and reason.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_dirty_queue_and_maintenance.py::test_write_telemetry_snapshot_observes_dirty_queue
+
+
+    :param stopped_db: Open Database after a best-effort maintainer stop and initial
+        queue drains.
+    :return: None; failed expectations raise AssertionError.
+    """
     table = "books" if "books" in stopped_db.dirtiable_tables else sorted(stopped_db.dirtiable_tables)[0]
     before_total = int(stopped_db.get_write_telemetry_snapshot(recent_limit=5).get("observed_total", 0))
 
@@ -167,6 +321,19 @@ def test_write_telemetry_snapshot_observes_dirty_queue(stopped_db):
 
 
 def test_write_telemetry_snapshot_observes_trigger_callback_proxy(stopped_db):
+    """
+    Call the driver maintainer proxy and check its queue tuple and a matching telemetry source/table event.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_dirty_queue_and_maintenance.py::test_write_telemetry_snapshot_observes_trigger_callback_proxy
+
+
+    :param stopped_db: Open Database after a best-effort maintainer stop and initial
+        queue drains.
+    :return: None; failed expectations raise AssertionError.
+    """
     table = "books" if "books" in stopped_db.main_tables else sorted(stopped_db.main_tables)[0]
     _drain(stopped_db.maintenance.main_table_dirtied_queue)
 
@@ -181,7 +348,19 @@ def test_write_telemetry_snapshot_observes_trigger_callback_proxy(stopped_db):
 
 
 def test_dirty_record_sql_function_is_registered_and_enqueues(stopped_db):
-    """Calling the SQLite UDF should call Maintainer.dirty_record and enqueue an event."""
+    """
+    Call DIRTY_RECORD through SQL and check the maintainer receives the expected table/ID tuple.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_dirty_queue_and_maintenance.py::test_dirty_record_sql_function_is_registered_and_enqueues
+
+
+    :param stopped_db: Open Database after a best-effort maintainer stop and initial
+        queue drains.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     table = "books" if "books" in stopped_db.main_tables else sorted(stopped_db.main_tables)[0]
     _drain(stopped_db.maintenance.main_table_dirtied_queue)
@@ -194,7 +373,20 @@ def test_dirty_record_sql_function_is_registered_and_enqueues(stopped_db):
 
 
 def test_dirty_record_trigger_enqueues_via_callback_plumbing(stopped_db, pick_payload):
-    """A trigger that calls DIRTY_RECORD should enqueue a maintainer event."""
+    """
+    Create a dedicated insert trigger and check its callback enqueues the test table and a positive integer ID.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_dirty_queue_and_maintenance.py::test_dirty_record_trigger_enqueues_via_callback_plumbing
+
+
+    :param stopped_db: Open Database after a best-effort maintainer stop and initial
+        queue drains.
+    :param pick_payload: Fixture callable selecting a corpus payload by index.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     _drain(stopped_db.maintenance.main_table_dirtied_queue)
 
@@ -224,6 +416,20 @@ def test_dirty_record_trigger_enqueues_via_callback_plumbing(stopped_db, pick_pa
 
 
 def test_maintenance_thread_stops_on_close(driver_spec, db_metadata):
+    """
+    Open a Database, briefly allow its thread to start, close it, and check the retained thread is not alive.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_dirty_queue_and_maintenance.py::test_maintenance_thread_stops_on_close
+
+
+    :param driver_spec: Selected database driver specification, including its ID and
+        Database db_type.
+    :param db_metadata: Constructor metadata for the provisioned database path.
+    :return: None; failed expectations raise AssertionError.
+    """
     from LiuXin_alpha.databases.database import Database
 
     db = Database(metadata=db_metadata, db_type=driver_spec.db_type, create=False, backup=False)
@@ -245,7 +451,19 @@ def test_maintenance_thread_stops_on_close(driver_spec, db_metadata):
 
 @pytest.mark.xfail(reason="Bug: DIRTY_INTERLINK_RECORD registered with 4 args but maintainer expects 5")
 def test_dirty_interlink_record_udf_enqueues_interlink_queue(stopped_db):
-    """Desired: calling the UDF should enqueue an interlink dirty record."""
+    """
+    Express the expected five-argument interlink callback tuple under the existing arity-bug xfail marker.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_dirty_queue_and_maintenance.py::test_dirty_interlink_record_udf_enqueues_interlink_queue
+
+
+    :param stopped_db: Open Database after a best-effort maintainer stop and initial
+        queue drains.
+    :return: None; failed expectations raise AssertionError.
+    """
 
     _drain(stopped_db.maintenance.interlink_dirtied_queue)
 
@@ -258,6 +476,20 @@ def test_dirty_interlink_record_udf_enqueues_interlink_queue(stopped_db):
 
 
 def test_close_breaks_cycles_including_dirty_records_queue(driver_spec, db_metadata):
+    """
+    Check Database close removes its dirty_records_queue reference.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database/database_contract/test_db_dirty_queue_and_maintenance.py::test_close_breaks_cycles_including_dirty_records_queue
+
+
+    :param driver_spec: Selected database driver specification, including its ID and
+        Database db_type.
+    :param db_metadata: Constructor metadata for the provisioned database path.
+    :return: None; failed expectations raise AssertionError.
+    """
     from LiuXin_alpha.databases.database import Database
 
     db = Database(metadata=db_metadata, db_type=driver_spec.db_type, create=False, backup=False)

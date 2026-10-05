@@ -1,3 +1,14 @@
+"""
+Provide test epub container framework utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test epub container framework through a consuming regression::
+
+        python -m pytest -q tests/file_formats/epub/test_epub_container_framework.py
+"""
 from __future__ import annotations
 
 import zipfile
@@ -21,6 +32,19 @@ from tests.support.file_format_unicode import assert_fragments_present, assert_n
 
 
 def test_epub_fixture_builds_valid_container_shape_and_unicode_payload(tmp_path: Path) -> None:
+    """
+    Perform the test epub fixture builds valid container shape and unicode payload operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test epub fixture builds valid container shape and unicode payload through a consuming regression::
+
+            python -m pytest -q tests/file_formats/epub/test_epub_container_framework.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     fixture = build_unicode_epub(tmp_path / "container_Καλημέρα_世界.epub", include_image=True)
 
     with zipfile.ZipFile(fixture.path, "r") as zf:
@@ -55,6 +79,19 @@ def test_epub_fixture_builds_valid_container_shape_and_unicode_payload(tmp_path:
 
 
 def test_epub_fixture_rewrite_helper_removes_replaces_and_adds_members(tmp_path: Path) -> None:
+    """
+    Perform the test epub fixture rewrite helper removes replaces and adds members operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test epub fixture rewrite helper removes replaces and adds members through a consuming regression::
+
+            python -m pytest -q tests/file_formats/epub/test_epub_container_framework.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     fixture = build_unicode_epub(tmp_path / "base.epub")
     rewritten = tmp_path / "rewritten.epub"
     replacement_chapter = (
@@ -81,6 +118,20 @@ def test_epub_fixture_rewrite_helper_removes_replaces_and_adds_members(tmp_path:
 
 
 def test_epub_input_plugin_accepts_fixture_and_preserves_unicode_workdir(tmp_path: Path, monkeypatch) -> None:
+    """
+    Perform the test epub input plugin accepts fixture and preserves unicode workdir operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test epub input plugin accepts fixture and preserves unicode workdir through a consuming regression::
+
+            python -m pytest -q tests/file_formats/epub/test_epub_container_framework.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.conversion.plugins.epub_input import EPUBInput
 
     fixture = build_unicode_epub(tmp_path / "plugin_container.epub")
@@ -115,6 +166,20 @@ def test_epub_input_accepts_deep_nested_non_ascii_opf_and_asset_paths(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    """
+    Perform the test epub input accepts deep nested non ascii opf and asset paths operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test epub input accepts deep nested non ascii opf and asset paths through a consuming regression::
+
+            python -m pytest -q tests/file_formats/epub/test_epub_container_framework.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.conversion.plugins.epub_input import EPUBInput
 
     extra_assets = {

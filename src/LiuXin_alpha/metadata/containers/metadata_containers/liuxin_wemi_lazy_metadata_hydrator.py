@@ -1,4 +1,15 @@
-"""Lazy hydrator for item-centred LiuXin/WEMI metadata slices."""
+"""
+Hydrate item metadata with eager identities and deferred relation-backed fields.
+
+Schema snapshots and selected structural links are read during construction.
+Deferred loaders retain the hydrator and caller-owned database; keep that database
+usable until loading is complete.
+
+Example:
+    Exercise this contract with pytest::
+
+        python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+"""
 
 from __future__ import annotations
 
@@ -50,11 +61,16 @@ from LiuXin_alpha.utils.adaptors import _boolish_to_bool
 
 class LazyLiuXinWEMIMetadataHydrator:
     """
-    Build lazy LiuXin/WEMI metadata slices.
+    Resolve a selected WEMI identity chain and install deferred relation loaders.
 
-    The identity spine is resolved eagerly so common display/title/id paths work
-    immediately. Relation-backed legacy fields and non-structural WEMI
-    relations are installed as one-shot loaders.
+    Preferred structural links override legacy parent-id hints. Relation buckets retain
+    the graph separately from that selected chain. Schema and many query failures
+    produce empty fallbacks, while malformed row payloads can still raise.
+
+    Example:
+        Exercise this contract with pytest::
+
+            python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
     """
 
     _SOURCE_ENTITY_TYPE_BY_LEVEL = {
@@ -90,6 +106,22 @@ class LazyLiuXinWEMIMetadataHydrator:
     }
 
     def __init__(self, database: Any) -> None:
+        """
+        Retain a non-None database and snapshot its tables and columns.
+
+        A missing database raises ValueError. Each failed schema query falls back to an
+        empty snapshot; the hydrator never closes the database.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+        :param database: Caller-owned database/read source retained for metadata access; it
+            is not closed here.
+        :return: None.
+        """
         if database is None:
             raise ValueError("LazyLiuXinWEMIMetadataHydrator requires a database instance.")
         self.db = database
@@ -107,6 +139,27 @@ class LazyLiuXinWEMIMetadataHydrator:
         item_id: int | None = None,
         source_row: Mapping[str, Any] | Row | None = None,
     ) -> LazyLiuXinWEMIMetadata:
+        """
+        Resolve item, manifestation, expression and work identities, then defer other metadata.
+
+        Provide item_id or source_row, otherwise ValueError is raised. An explicit item id
+        wins over source hints; preferred relation targets override legacy parent ids.
+        Resolved Rows take precedence over mapping-only identity fallbacks. The title is
+        synchronized before return.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+        :param item_id: Optional item row id; overrides an item id extracted from
+            source_row.
+        :param source_row: Optional Row or mapping containing WEMI identity fields and
+            source-id hints.
+        :return: Lazy slice with selected identities, structural links and deferred
+            field/relation loaders.
+        """
         if item_id is None and source_row is None:
             raise ValueError("Provide either item_id or source_row.")
 
@@ -223,6 +276,21 @@ class LazyLiuXinWEMIMetadataHydrator:
         item_id: int | None = None,
         source_row: Mapping[str, Any] | Row | None = None,
     ) -> LazyLiuXinWEMIMetadata:
+        """
+        Build a lazy WEMI slice through the standard hydrator method name.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+        :param item_id: Optional item row id; overrides an item id extracted from
+            source_row.
+        :param source_row: Optional Row or mapping containing WEMI identity fields and
+            source-id hints.
+        :return: Lazy slice returned by get_lazy_liuxin_wemi_metadata.
+        """
         return self.get_lazy_liuxin_wemi_metadata(
             item_id=item_id,
             source_row=source_row,
@@ -233,6 +301,21 @@ class LazyLiuXinWEMIMetadataHydrator:
         item_id: int | None = None,
         source_row: Mapping[str, Any] | Row | None = None,
     ) -> LazyLiuXinWEMIMetadata:
+        """
+        Build a lazy WEMI slice through the legacy LiuXin alias.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+        :param item_id: Optional item row id; overrides an item id extracted from
+            source_row.
+        :param source_row: Optional Row or mapping containing WEMI identity fields and
+            source-id hints.
+        :return: Lazy slice returned by get_lazy_liuxin_wemi_metadata.
+        """
         return self.get_lazy_liuxin_wemi_metadata(
             item_id=item_id,
             source_row=source_row,
@@ -243,6 +326,21 @@ class LazyLiuXinWEMIMetadataHydrator:
         item_id: int | None = None,
         source_row: Mapping[str, Any] | Row | None = None,
     ) -> Any:
+        """
+        Build a lazy slice and load its dependencies during Calibre conversion.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+        :param item_id: Optional item row id; overrides an item id extracted from
+            source_row.
+        :param source_row: Optional Row or mapping containing WEMI identity fields and
+            source-id hints.
+        :return: New flat Calibre metadata object.
+        """
         return self.get_lazy_liuxin_wemi_metadata(
             item_id=item_id,
             source_row=source_row,
@@ -250,10 +348,37 @@ class LazyLiuXinWEMIMetadataHydrator:
 
     @staticmethod
     def _prefer_id(current: Any, fallback: Any) -> int | None:
+        """
+        Prefer a convertible current id, then try the fallback.
+
+        Example:
+            >>> LazyLiuXinWEMIMetadataHydrator._prefer_id('7', 9)
+            7
+
+
+        :param current: Existing id candidate to normalize.
+        :param fallback: Fallback id candidate used when current cannot be converted.
+        :return: Integer id, or None when neither candidate converts.
+        """
         return LiuXinWEMIMetadataHydrator._prefer_id(current, fallback)
 
     @classmethod
     def _prefer_relation_link_id(cls, current: Any, relation_link: Any) -> int | None:
+        """
+        Prefer a relation target Row's id over the current source-row hint.
+
+        Targets that are not database Rows do not override the hint.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+        :param current: Existing id candidate to normalize.
+        :param relation_link: Optional relation link whose target may be a database Row.
+        :return: Target row id when available, otherwise the normalized current id.
+        """
         current_id = cls._prefer_id(current, None)
         target = getattr(relation_link, "target", None)
         target_id = target.row_id if isinstance(target, Row) else None
@@ -263,12 +388,52 @@ class LazyLiuXinWEMIMetadataHydrator:
         return target_id
 
     def _has_table(self, table: str) -> bool:
+        """
+        Test whether either cached schema snapshot contains the table.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+        :param table: Database table name checked against the cached schema.
+        :return: True when the table is known.
+        """
         return table in self._tables or table in self._tables_and_columns
 
     def _has_column(self, table: str, column: str) -> bool:
+        """
+        Test for a column in the cached table-column mapping.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+        :param table: Database table name checked against the cached schema.
+        :param column: Column name checked in the cached table schema.
+        :return: True when the column is listed for the table.
+        """
         return column in set(self._tables_and_columns.get(table, []))
 
     def _resolve_row(self, table: str, row_id: int | None) -> Row | None:
+        """
+        Resolve a known table/id pair through the retained database.
+
+        Missing ids, unknown tables and ordinary lookup/conversion exceptions produce None.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+        :param table: Database table name checked against the cached schema.
+        :param row_id: Optional row id to resolve; None requests no lookup.
+        :return: Resolved database Row, or None.
+        """
         if row_id is None or not self._has_table(table):
             return None
         try:
@@ -278,6 +443,23 @@ class LazyLiuXinWEMIMetadataHydrator:
 
     @staticmethod
     def _work_identity(row: Row | None, source_map: Mapping[str, Any]) -> WorkIdentity | None:
+        """
+        Build a work identity from a resolved Row or a recognized source mapping.
+
+        The Row wins when supplied. Otherwise the mapping must contain work_id or
+        work_title; unrelated source mappings produce None.
+
+        Example:
+            >>> identity = LazyLiuXinWEMIMetadataHydrator._work_identity(None, {'work_id': 7})
+            >>> identity.work_id
+            7
+
+
+        :param row: Resolved database Row, or None to try the fallback source mapping.
+        :param source_map: Fallback mapping containing identity fields when no resolved Row
+            is available.
+        :return: Work identity, or None.
+        """
         if row is not None:
             return WorkIdentity.from_mapping(row.row_dict)
         if "work_id" in source_map or "work_title" in source_map:
@@ -289,6 +471,23 @@ class LazyLiuXinWEMIMetadataHydrator:
         row: Row | None,
         source_map: Mapping[str, Any],
     ) -> ExpressionIdentity | None:
+        """
+        Build a expression identity from a resolved Row or a recognized source mapping.
+
+        The Row wins when supplied. Otherwise the mapping must contain expression_id or
+        expression_title_override; unrelated source mappings produce None.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+        :param row: Resolved database Row, or None to try the fallback source mapping.
+        :param source_map: Fallback mapping containing identity fields when no resolved Row
+            is available.
+        :return: Expression identity, or None.
+        """
         if row is not None:
             return ExpressionIdentity.from_mapping(row.row_dict)
         if "expression_id" in source_map or "expression_title_override" in source_map:
@@ -300,6 +499,23 @@ class LazyLiuXinWEMIMetadataHydrator:
         row: Row | None,
         source_map: Mapping[str, Any],
     ) -> ManifestationIdentity | None:
+        """
+        Build a manifestation identity from a resolved Row or a recognized source mapping.
+
+        The Row wins when supplied. Otherwise the mapping must contain manifestation_id or
+        manifestation_format_detail; unrelated source mappings produce None.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+        :param row: Resolved database Row, or None to try the fallback source mapping.
+        :param source_map: Fallback mapping containing identity fields when no resolved Row
+            is available.
+        :return: Manifestation identity, or None.
+        """
         if row is not None:
             return ManifestationIdentity.from_mapping(row.row_dict)
         if "manifestation_id" in source_map or "manifestation_format_detail" in source_map:
@@ -308,6 +524,23 @@ class LazyLiuXinWEMIMetadataHydrator:
 
     @staticmethod
     def _item_identity(row: Row | None, source_map: Mapping[str, Any]) -> ItemIdentity | None:
+        """
+        Build a item identity from a resolved Row or a recognized source mapping.
+
+        The Row wins when supplied. Otherwise the mapping must contain item_id or
+        item_manifestation_id; unrelated source mappings produce None.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+        :param row: Resolved database Row, or None to try the fallback source mapping.
+        :param source_map: Fallback mapping containing identity fields when no resolved Row
+            is available.
+        :return: Item identity, or None.
+        """
         if row is not None:
             return ItemIdentity.from_mapping(row.row_dict)
         if "item_id" in source_map or "item_manifestation_id" in source_map:
@@ -325,6 +558,31 @@ class LazyLiuXinWEMIMetadataHydrator:
         expression_link: ManifestationRelationLink | None,
         work_link: ExpressionRelationLink | None,
     ) -> None:
+        """
+        Install selected parent links and merge persisted structural interlinks.
+
+        The item-to-manifestation fallback is synthesized; manifestation-to-expression and
+        expression-to-work use supplied preferred links when present. Existing targets are
+        merged by table/id. work_row participates only as the expression parent.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+        :param metadata: Metadata slice whose bundles or deferred loaders are being
+            populated.
+        :param item_row: Resolved item Row, or None.
+        :param manifestation_row: Resolved manifestation Row, or None.
+        :param expression_row: Resolved expression Row, or None.
+        :param work_row: Resolved work Row, or None.
+        :param expression_link: Preferred manifestation-to-expression link, or None for a
+            synthesized fallback.
+        :param work_link: Preferred expression-to-work link, or None for a synthesized
+            fallback.
+        :return: None.
+        """
         if item_row is not None and manifestation_row is not None:
             self._add_wemi_relation_link_unique(
                 metadata,
@@ -395,6 +653,22 @@ class LazyLiuXinWEMIMetadataHydrator:
         relation: str,
         source_row: Row,
     ) -> None:
+        """
+        Collect persisted structural links and merge them into the selected bucket.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+        :param metadata: Metadata slice whose bundles or deferred loaders are being
+            populated.
+        :param level: WEMI level identifying the bundle to access.
+        :param relation: Canonical relation bucket or target-table name.
+        :param source_row: Database Row anchoring the relation lookup.
+        :return: None.
+        """
         for link in self._collect_relation_links(
             level=level,
             source_row=source_row,
@@ -409,6 +683,25 @@ class LazyLiuXinWEMIMetadataHydrator:
         relation: str,
         link: Any,
     ) -> None:
+        """
+        Merge links sharing a database Row target, or append a new target link.
+
+        Only database Rows with table and id can be deduplicated. Matching links retain the
+        existing target and receive incoming non-None metadata.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+        :param metadata: Metadata slice whose bundles or deferred loaders are being
+            populated.
+        :param level: WEMI level identifying the bundle to access.
+        :param relation: Canonical relation bucket or target-table name.
+        :param link: Incoming relation link whose target and metadata are retained.
+        :return: None.
+        """
         links = list(metadata.get_wemi_relation_links(level, relation))
         key = self._row_key(link.target)
         if key is not None:
@@ -425,6 +718,17 @@ class LazyLiuXinWEMIMetadataHydrator:
 
     @staticmethod
     def _row_key(row: Row | Any) -> tuple[str, int] | None:
+        """
+        Identify a database Row by its table name and integer row id.
+
+        Example:
+            >>> LazyLiuXinWEMIMetadataHydrator._row_key({'work_id': 7}) is None
+            True
+
+
+        :param row: Candidate target whose database identity is inspected.
+        :return: Table/id pair, or None for non-Row or incomplete targets.
+        """
         if not isinstance(row, Row):
             return None
         if row.table is None or row.row_id is None:
@@ -433,6 +737,22 @@ class LazyLiuXinWEMIMetadataHydrator:
 
     @staticmethod
     def _merge_relation_link_metadata(existing: Any, incoming: Any) -> Any:
+        """
+        Build a replacement link retaining the existing target and concrete link class.
+
+        Incoming non-None attributes override existing attributes; incoming extra entries
+        override matching existing extra keys. Neither input link is mutated.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+        :param existing: Existing link providing the target, class and fallback metadata.
+        :param incoming: Incoming link providing non-None overrides and extra entries.
+        :return: Merged link instance.
+        """
         extra = dict(getattr(existing, "extra", {}) or {})
         extra.update(getattr(incoming, "extra", {}) or {})
         return type(existing)(
@@ -483,6 +803,25 @@ class LazyLiuXinWEMIMetadataHydrator:
         metadata: LazyLiuXinWEMIMetadata,
         source_rows_by_level: Mapping[str, Row | None],
     ) -> None:
+        """
+        Register non-structural relation loaders and legacy field mapping loaders.
+
+        Missing source Rows skip that level's relation loaders, while every configured
+        legacy field still receives a wrapper. Identifiers and item asset replicas use
+        dedicated loaders.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+        :param metadata: Metadata slice whose bundles or deferred loaders are being
+            populated.
+        :param source_rows_by_level: Mapping of canonical WEMI levels to resolved source
+            Rows or None.
+        :return: None.
+        """
         for level, source_row in source_rows_by_level.items():
             if source_row is None:
                 continue
@@ -509,6 +848,23 @@ class LazyLiuXinWEMIMetadataHydrator:
         source_row: Row,
         relation: str,
     ):
+        """
+        Capture a deferred direct-foreign-key or interlink lookup.
+
+        Item files, images and annotations use direct foreign keys; other buckets use
+        interlink rows. No relation query runs while creating the callable.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+        :param level: WEMI level identifying the bundle to access.
+        :param source_row: Database Row anchoring the relation lookup.
+        :param relation: Canonical relation bucket or target-table name.
+        :return: Zero-argument relation loader.
+        """
         direct_fk = self._direct_fk_spec(level=level, relation=relation)
         if direct_fk is not None:
             table, fk_column, type_hint = direct_fk
@@ -527,13 +883,52 @@ class LazyLiuXinWEMIMetadataHydrator:
         )
 
     def _make_item_asset_replicas_loader(self, metadata: LazyLiuXinWEMIMetadata):
+        """
+        Capture a loader that follows the item's digital assets to their replicas.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+        :param metadata: Metadata slice whose bundles or deferred loaders are being
+            populated.
+        :return: Zero-argument asset-replica loader retaining this hydrator and metadata
+            slice.
+        """
         return lambda: self._collect_item_asset_replica_links(metadata)
 
     def _make_identifier_loader(self, level: str, source_row: Row):
+        """
+        Capture a loader for observed-item and entity identifier rows.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+        :param level: WEMI level identifying the bundle to access.
+        :param source_row: Database Row anchoring the relation lookup.
+        :return: Zero-argument identifier loader retaining the source Row and hydrator.
+        """
         return lambda: self._collect_identifier_links(level=level, source_row=source_row)
 
     @staticmethod
     def _direct_fk_spec(*, level: str, relation: str) -> tuple[str, str, str] | None:
+        """
+        Select direct foreign-key metadata for item files, images or annotations.
+
+        Example:
+            >>> LazyLiuXinWEMIMetadataHydrator._direct_fk_spec(level='item', relation='files')
+            ('files', 'file_item_id', 'item_file')
+
+
+        :param level: WEMI level identifying the bundle to access.
+        :param relation: Canonical relation bucket or target-table name.
+        :return: Table, foreign-key column and link-type tuple, or None for other pairs.
+        """
         if level == "item" and relation == "files":
             return ("files", "file_item_id", "item_file")
         if level == "item" and relation == "images":
@@ -549,6 +944,22 @@ class LazyLiuXinWEMIMetadataHydrator:
         field: str,
         relation: str,
     ):
+        """
+        Capture a deferred relation-to-legacy-field projection.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+        :param metadata: Metadata slice whose bundles or deferred loaders are being
+            populated.
+        :param field: Legacy metadata field name; supported aliases are normalized by the
+            implementation.
+        :param relation: Canonical relation bucket or target-table name.
+        :return: Zero-argument callable returning the slice's ordered legacy field mapping.
+        """
         return lambda: metadata.lazy_legacy_terms_from_relation(
             field=field,
             relation_key=relation,
@@ -561,6 +972,20 @@ class LazyLiuXinWEMIMetadataHydrator:
         source_row: Row,
         secondary_table: str,
     ):
+        """
+        Select the preferred collected link using primary and priority metadata.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+        :param level: WEMI level identifying the bundle to access.
+        :param source_row: Database Row anchoring the relation lookup.
+        :param secondary_table: Target table whose related rows should be loaded.
+        :return: Preferred relation link, or None when no links resolve.
+        """
         links = self._collect_relation_links(
             level=level,
             source_row=source_row,
@@ -575,6 +1000,25 @@ class LazyLiuXinWEMIMetadataHydrator:
         source_row: Row,
         secondary_table: str,
     ) -> list[Any]:
+        """
+        Resolve interlink rows into typed WEMI relation links with provenance.
+
+        Unavailable tables or failed interlink queries yield an empty list. Rows with
+        unresolved targets are skipped; malformed target-id conversion can still raise.
+        Recognized prefixed columns populate link metadata and remaining suffixes populate
+        extra.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+        :param level: WEMI level identifying the bundle to access.
+        :param source_row: Database Row anchoring the relation lookup.
+        :param secondary_table: Target table whose related rows should be loaded.
+        :return: Resolved links in database result order.
+        """
         if source_row is None:
             return []
         if not self._has_table(secondary_table):
@@ -661,6 +1105,25 @@ class LazyLiuXinWEMIMetadataHydrator:
         fk_value: int,
         type_hint: str,
     ) -> list[Any]:
+        """
+        Search a target table by foreign key and wrap each row as a relation link.
+
+        Missing schema or failed queries yield an empty list. The first returned row is
+        marked primary, with no explicit sorting added here.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+        :param level: WEMI level identifying the bundle to access.
+        :param table: Database table name checked against the cached schema.
+        :param fk_column: Foreign-key column to match against the source id.
+        :param fk_value: Source id converted to int for the search.
+        :param type_hint: Relation type recorded on every generated link.
+        :return: Typed links in search-result order.
+        """
         if not self._has_table(table) or not self._has_column(table, fk_column):
             return []
         try:
@@ -691,6 +1154,22 @@ class LazyLiuXinWEMIMetadataHydrator:
         level: str,
         source_row: Row,
     ) -> list[Any]:
+        """
+        Collect item-observed identifiers and entity identifiers matching the WEMI level.
+
+        Missing schema or failed searches yield no rows for that branch. Entity identifiers
+        preserve primary/provenance fields; duplicate targets are not removed here.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+        :param level: WEMI level identifying the bundle to access.
+        :param source_row: Database Row anchoring the relation lookup.
+        :return: Typed identifier links, with item-observed rows before entity rows.
+        """
         links: list[Any] = []
         link_class = self._RELATION_LINK_CLASS_BY_LEVEL[level]
 
@@ -755,6 +1234,22 @@ class LazyLiuXinWEMIMetadataHydrator:
         self,
         metadata: LazyLiuXinWEMIMetadata,
     ) -> list[ItemRelationLink]:
+        """
+        Read item digital-asset links and collect replicas by asset foreign key.
+
+        Reading digital assets may itself hydrate a pending bucket. Non-Row and id-less
+        targets are skipped; results are concatenated without deduplication.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+        :param metadata: Metadata slice whose bundles or deferred loaders are being
+            populated.
+        :return: Item relation links for the resolved replicas.
+        """
         links: list[ItemRelationLink] = []
         for digital_asset_link in metadata.get_wemi_relation_links("item", "digital_assets"):
             target = digital_asset_link.target
@@ -779,6 +1274,24 @@ class LazyLiuXinWEMIMetadataHydrator:
         prefix: str,
         link_map: Mapping[str, Any],
     ) -> dict[str, Any]:
+        """
+        Collect unmodeled interlink columns after removing the relation prefix.
+
+        Known metadata suffixes and driver-reported id-column names are omitted. Failed
+        id-column discovery uses an empty exclusion set.
+
+        Example:
+            Exercise this contract with pytest::
+
+                python -m pytest -q tests/metadata/containers/test_hydrator_edge_cases.py
+
+
+        :param source_table: Source table of the interlink.
+        :param secondary_table: Target table whose related rows should be loaded.
+        :param prefix: Interlink column base used to recognize relation metadata.
+        :param link_map: Column-keyed interlink row values.
+        :return: New mapping from remaining suffixes to their original values.
+        """
         try:
             skipped_id_columns = {
                 self.db.driver_wrapper.get_id_column(source_table),

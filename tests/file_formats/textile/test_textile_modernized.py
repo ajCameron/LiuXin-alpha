@@ -1,3 +1,14 @@
+"""
+Provide test textile modernized utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test textile modernized through a consuming regression::
+
+        python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
+"""
 from __future__ import annotations
 
 import importlib
@@ -5,6 +16,18 @@ from types import SimpleNamespace
 
 
 def test_textile_modules_import_smoke() -> None:
+    """
+    Perform the test textile modules import smoke operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test textile modules import smoke through a consuming regression::
+
+            python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     modules = (
         "LiuXin_alpha.utils.libraries.smartypants",
         "LiuXin_alpha.file_formats.textile",
@@ -18,6 +41,18 @@ def test_textile_modules_import_smoke() -> None:
 
 
 def test_textile_basic_markup_conversion() -> None:
+    """
+    Perform the test textile basic markup conversion operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test textile basic markup conversion through a consuming regression::
+
+            python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     mod = importlib.import_module("LiuXin_alpha.file_formats.textile.functions")
     text = 'h1. Title\n\nA *bold* _italic_ "site":https://example.com and !img.png!'
     out = mod.textile(text)
@@ -29,6 +64,18 @@ def test_textile_basic_markup_conversion() -> None:
 
 
 def test_textile_restricted_escapes_html_and_disables_images() -> None:
+    """
+    Perform the test textile restricted escapes html and disables images operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test textile restricted escapes html and disables images through a consuming regression::
+
+            python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     mod = importlib.import_module("LiuXin_alpha.file_formats.textile.functions")
     out = mod.textile_restricted('<b>raw</b> "x":https://example.com !img.png!')
     assert "&#60;b&#62;raw&#60;/b&#62;" in out
@@ -37,6 +84,18 @@ def test_textile_restricted_escapes_html_and_disables_images() -> None:
 
 
 def test_textile_unicode_torture_is_stable() -> None:
+    """
+    Perform the test textile unicode torture is stable operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test textile unicode torture is stable through a consuming regression::
+
+            python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     mod = importlib.import_module("LiuXin_alpha.file_formats.textile.functions")
     payload = (
         "h2. Unicode Ω 世界\n\n"
@@ -58,6 +117,18 @@ def test_textile_unicode_torture_is_stable() -> None:
 
 
 def test_smartypants_quotes_and_dashes() -> None:
+    """
+    Perform the test smartypants quotes and dashes operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test smartypants quotes and dashes through a consuming regression::
+
+            python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     mod = importlib.import_module("LiuXin_alpha.utils.libraries.smartypants")
     out = mod.smartyPants('"Hello" -- world')
     assert "&#8220;Hello&#8221;" in out
@@ -65,6 +136,18 @@ def test_smartypants_quotes_and_dashes() -> None:
 
 
 def test_convert_textile_processor_wraps_html() -> None:
+    """
+    Perform the test convert textile processor wraps html operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test convert textile processor wraps html through a consuming regression::
+
+            python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     mod = importlib.import_module("LiuXin_alpha.file_formats.txt.processor")
     out = mod.convert_textile("h1. Ω 世界\n\n\"site\":https://example.com", title="T")
     assert out.startswith("<html>")
@@ -73,6 +156,18 @@ def test_convert_textile_processor_wraps_html() -> None:
 
 
 def test_textileml_check_id_tag_and_link_helpers() -> None:
+    """
+    Perform the test textileml check id tag and link helpers operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test textileml check id tag and link helpers through a consuming regression::
+
+            python -m pytest -q tests/file_formats/textile/test_textile_modernized.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     mod = importlib.import_module("LiuXin_alpha.file_formats.txt.textileml")
     ml = mod.TextileMLizer(log=SimpleNamespace(info=lambda *a, **k: None, debug=lambda *a, **k: None))
     ml.our_ids = []

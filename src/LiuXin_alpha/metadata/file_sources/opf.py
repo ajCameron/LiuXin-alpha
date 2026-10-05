@@ -1,9 +1,13 @@
 """
-Metadata extraction helpers for OPF/XML payloads.
+Read generic and Calibre OPF XML into Calibre-compatible or LiuXin metadata without requiring the full package stack.
 
-This module replaces the legacy hand-rolled OPF node switch with a robust
-parser that prefers the canonical OPF stack and falls back to tolerant XML
-field extraction when needed.
+The module keeps malformed-input, optional dependency and resource ownership
+behavior explicit for registry callers.
+
+Example:
+    Exercise opf with pytest::
+
+        python -m pytest -q tests/metadata/file_sources/test_opf_metadata_source.py
 """
 
 from __future__ import annotations
@@ -13,10 +17,17 @@ import re
 from typing import Iterable
 
 from LiuXin_alpha.metadata.constants import canonicalize_id_name
-from LiuXin_alpha.metadata.metadata import MetaData
-from LiuXin_alpha.metadata.utils import calibreMetaInformation, check_isbn, string_to_authors
+from LiuXin_alpha.metadata.containers.calibre_like_book_metadata import (
+    CalibreLikeLiuXinBookMetaData as MetaData,
+)
+from LiuXin_alpha.metadata.utils import (
+    calibreMetaInformation,
+    check_isbn,
+    string_to_authors,
+)
 from LiuXin_alpha.utils.libraries.liuxin_etree import etree
-from LiuXin_alpha.utils.localization import canonicalize_lang, trans as _
+from LiuXin_alpha.utils.localization import canonicalize_lang
+from LiuXin_alpha.utils.localization import trans as _
 from LiuXin_alpha.utils.logging import default_log
 
 VALID_FOR = ["OPF"]
@@ -28,10 +39,30 @@ _SPLIT_TAGS = re.compile(r"[;,]")
 
 
 class OpfParseError(Exception):
+    """
+    Signal content that cannot be interpreted as supported OPF metadata.
+
+    Example:
+        Exercise OpfParseError with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_metadata_source.py
+    """
     pass
 
 
 def _local_name(tag) -> str:
+    """
+    Return an XML tag's local name after removing namespace or prefix syntax.
+
+    Example:
+        Exercise  local name with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_metadata_source.py
+
+
+    :param tag: Name, type or encoding selector used for lookup or interpretation.
+    :return: Parsed, normalized or serialized value described above.
+    """
     if tag is None:
         return ""
     text = str(tag)
@@ -43,16 +74,52 @@ def _local_name(tag) -> str:
 
 
 def _normalize(raw: str | None) -> str:
+    """
+    Collapse whitespace and trim a possibly absent metadata text value.
+
+    Example:
+        Exercise  normalize with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_metadata_source.py
+
+
+    :param raw: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or serialized value described above.
+    """
     if not raw:
         return ""
     return _WHITESPACE.sub(" ", raw).strip()
 
 
 def _split_tags(raw: str) -> list[str]:
+    """
+    Perform the format-specific split tags operation used by this metadata source.
+
+    Example:
+        Exercise  split tags with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_metadata_source.py
+
+
+    :param raw: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or serialized value described above.
+    """
     return [x for x in (_normalize(part) for part in _SPLIT_TAGS.split(raw)) if x]
 
 
 def _stable_dedupe(items: Iterable[str]) -> list[str]:
+    """
+    Remove duplicate strings while preserving their first-seen order.
+
+    Example:
+        Exercise  stable dedupe with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_metadata_source.py
+
+
+    :param items: Ordered input values processed by this operation.
+    :return: Parsed, normalized or serialized value described above.
+    """
     seen = set()
     out: list[str] = []
     for item in items:
@@ -63,6 +130,19 @@ def _stable_dedupe(items: Iterable[str]) -> list[str]:
 
 
 def _default_metadata(source_name: str = ""):
+    """
+    Build minimally usable metadata for missing or explicitly tolerated malformed input.
+
+    Example:
+        Exercise  default metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_metadata_source.py
+
+
+    :param source_name: Source or member label used for lookup, fallback titles or
+        diagnostics.
+    :return: Parsed, normalized or serialized value described above.
+    """
     title = _("Unknown")
     if source_name:
         stem = os.path.splitext(os.path.basename(source_name))[0].strip()
@@ -72,6 +152,19 @@ def _default_metadata(source_name: str = ""):
 
 
 def _source_name(target_file) -> str:
+    """
+    Return the best available source label for fallback titles and diagnostics.
+
+    Example:
+        Exercise  source name with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_metadata_source.py
+
+
+    :param target_file: Caller-supplied path, path-like object or stream described by
+        this operation.
+    :return: Parsed, normalized or serialized value described above.
+    """
     if isinstance(target_file, os.PathLike):
         return os.fspath(target_file)
     if isinstance(target_file, str):
@@ -80,10 +173,34 @@ def _source_name(target_file) -> str:
 
 
 def _is_xml_element(obj) -> bool:
+    """
+    Return whether the supplied state satisfies the is xml element condition.
+
+    Example:
+        Exercise  is xml element with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_metadata_source.py
+
+
+    :param obj: Parsed XML, PDF or metadata node used as the operation context.
+    :return: True when the described condition is satisfied; otherwise False.
+    """
     return hasattr(obj, "tag") and hasattr(obj, "iter")
 
 
 def _parse_root_from_payload(payload: bytes):
+    """
+    Parse an XML payload into a root element and translate parser failures to OpfParseError.
+
+    Example:
+        Exercise  parse root from payload with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_metadata_source.py
+
+
+    :param payload: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or serialized value described above.
+    """
     if not payload:
         raise OpfParseError("Empty OPF/XML payload.")
     try:
@@ -100,6 +217,18 @@ def _parse_root_from_payload(payload: bytes):
 
 
 def _root_looks_like_opf_metadata(root) -> bool:
+    """
+    Return whether an XML root resembles an OPF package or metadata element.
+
+    Example:
+        Exercise  root looks like opf metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_metadata_source.py
+
+
+    :param root: Parsed XML, PDF or metadata node used as the operation context.
+    :return: Parsed, normalized or serialized value described above.
+    """
     root_name = _local_name(getattr(root, "tag", None))
     if root_name in {"package", "metadata", "dc-metadata"}:
         return True
@@ -107,11 +236,38 @@ def _root_looks_like_opf_metadata(root) -> bool:
 
 
 def _validate_opf_root(root) -> None:
+    """
+    Reject XML roots that do not expose supported OPF metadata structure.
+
+    Example:
+        Exercise  validate opf root with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_metadata_source.py
+
+
+    :param root: Parsed XML, PDF or metadata node used as the operation context.
+    :return: None.
+    """
     if not _root_looks_like_opf_metadata(root):
         raise OpfParseError("OPF/XML payload does not look like an OPF metadata document.")
 
 
 def _read_target_bytes(target_file, *, text: bool, file_is_raw_root: bool) -> bytes:
+    """
+    Read OPF bytes from raw content, paths, XML nodes or streams under the requested text policy.
+
+    Example:
+        Exercise  read target bytes with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_metadata_source.py
+
+
+    :param target_file: Caller-supplied path, path-like object or stream described by
+        this operation.
+    :param text: Policy flag controlling the behavior described above.
+    :param file_is_raw_root: Policy flag controlling the behavior described above.
+    :return: Parsed, normalized or serialized value described above.
+    """
     if file_is_raw_root and _is_xml_element(target_file):
         return etree.tostring(target_file, encoding="utf-8")
 
@@ -166,6 +322,18 @@ def _read_target_bytes(target_file, *, text: bool, file_is_raw_root: bool) -> by
 
 
 def _metadata_candidates(root) -> list:
+    """
+    Return OPF metadata elements in preference order, including a metadata root itself.
+
+    Example:
+        Exercise  metadata candidates with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_metadata_source.py
+
+
+    :param root: Parsed XML, PDF or metadata node used as the operation context.
+    :return: Parsed, normalized or serialized value described above.
+    """
     candidates = []
     for node in root.iter():
         if _local_name(getattr(node, "tag", None)) in {"metadata", "dc-metadata"}:
@@ -175,12 +343,34 @@ def _metadata_candidates(root) -> list:
 
 def simple_get_metadata_node(root):
     """
-    Compatibility helper retained for legacy callers.
+    Return the first metadata node found by local-name traversal.
+
+    Example:
+        Exercise simple get metadata node with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_metadata_source.py
+
+
+    :param root: Parsed XML, PDF or metadata node used as the operation context.
+    :return: Parsed, normalized or serialized value described above.
     """
     return _metadata_candidates(root)
 
 
 def _best_metadata_root(root, seek_md_node: bool):
+    """
+    Choose either the supplied XML root or its preferred nested metadata element.
+
+    Example:
+        Exercise  best metadata root with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_metadata_source.py
+
+
+    :param root: Parsed XML, PDF or metadata node used as the operation context.
+    :param seek_md_node: Policy flag controlling the behavior described above.
+    :return: Parsed, normalized or serialized value described above.
+    """
     if not seek_md_node:
         return root
     candidates = _metadata_candidates(root)
@@ -194,6 +384,19 @@ def _best_metadata_root(root, seek_md_node: bool):
 
 
 def _first_text(root, names: set[str]) -> str | None:
+    """
+    Return the first usable text under fallback policy.
+
+    Example:
+        Exercise  first text with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_metadata_source.py
+
+
+    :param root: Parsed XML, PDF or metadata node used as the operation context.
+    :param names: Value supplied for names.
+    :return: Parsed, normalized or serialized value described above.
+    """
     for node in root.iter():
         if _local_name(node.tag) not in names:
             continue
@@ -204,6 +407,19 @@ def _first_text(root, names: set[str]) -> str | None:
 
 
 def _iter_text(root, names: set[str]) -> Iterable[str]:
+    """
+    Return text in deterministic source or registry order.
+
+    Example:
+        Exercise  iter text with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_metadata_source.py
+
+
+    :param root: Parsed XML, PDF or metadata node used as the operation context.
+    :param names: Value supplied for names.
+    :return: Parsed, normalized or serialized value described above.
+    """
     for node in root.iter():
         if _local_name(node.tag) not in names:
             continue
@@ -213,6 +429,19 @@ def _iter_text(root, names: set[str]) -> Iterable[str]:
 
 
 def _extract_opf_like_meta_overrides(root, mi) -> None:
+    """
+    Apply supported calibre-style OPF meta properties to the metadata object.
+
+    Example:
+        Exercise  extract opf like meta overrides with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_metadata_source.py
+
+
+    :param root: Parsed XML, PDF or metadata node used as the operation context.
+    :param mi: Metadata object supplying or receiving the supported fields.
+    :return: Parsed, normalized or serialized value described above.
+    """
     for node in root.iter():
         if _local_name(node.tag) not in {"meta", "user-defined"}:
             continue
@@ -265,6 +494,19 @@ def _extract_opf_like_meta_overrides(root, mi) -> None:
 
 
 def _is_blank(value, *, treat_und_as_blank: bool = False) -> bool:
+    """
+    Return whether the supplied state satisfies the is blank condition.
+
+    Example:
+        Exercise  is blank with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_metadata_source.py
+
+
+    :param value: Offset, bound or scalar value used by the operation.
+    :param treat_und_as_blank: Policy flag controlling the behavior described above.
+    :return: True when the described condition is satisfied; otherwise False.
+    """
     if value is None:
         return True
     if isinstance(value, str):
@@ -278,6 +520,18 @@ def _is_blank(value, *, treat_und_as_blank: bool = False) -> bool:
 
 
 def _iter_values(value) -> list:
+    """
+    Return values in deterministic source or registry order.
+
+    Example:
+        Exercise  iter values with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_metadata_source.py
+
+
+    :param value: Offset, bound or scalar value used by the operation.
+    :return: Parsed, normalized or serialized value described above.
+    """
     if value is None:
         return []
     if isinstance(value, str):
@@ -289,6 +543,18 @@ def _iter_values(value) -> list:
 
 
 def _safe_get_identifiers(md) -> dict[str, str]:
+    """
+    Perform get identifiers without propagating optional or recovery failures.
+
+    Example:
+        Exercise  safe get identifiers with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_metadata_source.py
+
+
+    :param md: Metadata object supplying or receiving the supported fields.
+    :return: Parsed, normalized or serialized value described above.
+    """
     if md is None or not hasattr(md, "get_identifiers"):
         return {}
     try:
@@ -305,8 +571,17 @@ def _safe_get_identifiers(md) -> dict[str, str]:
 
 def _merge_calibre_metadata(preferred, fallback):
     """
-    Fill gaps in `preferred` from `fallback`, preserving preferred values where
-    present.
+    Fill blank preferred metadata fields from a fallback object without replacing meaningful values.
+
+    Example:
+        Exercise  merge calibre metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_metadata_source.py
+
+
+    :param preferred: Metadata object supplying or receiving the supported fields.
+    :param fallback: Metadata object supplying or receiving the supported fields.
+    :return: Parsed, normalized or serialized value described above.
     """
     if preferred is None:
         return fallback
@@ -378,6 +653,20 @@ def _merge_calibre_metadata(preferred, fallback):
 
 
 def _extract_generic_metadata_from_root(root, source_name: str = ""):
+    """
+    Build fallback Calibre-style metadata directly from generic namespaced XML elements.
+
+    Example:
+        Exercise  extract generic metadata from root with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_metadata_source.py
+
+
+    :param root: Parsed XML, PDF or metadata node used as the operation context.
+    :param source_name: Source or member label used for lookup, fallback titles or
+        diagnostics.
+    :return: Parsed, normalized or serialized value described above.
+    """
     mi = _default_metadata(source_name)
 
     title = _first_text(root, {"title"})
@@ -466,6 +755,18 @@ def _extract_generic_metadata_from_root(root, source_name: str = ""):
 
 
 def _parse_using_opf_stack(root):
+    """
+    Parse an OPF root through the full OPF compatibility implementation.
+
+    Example:
+        Exercise  parse using opf stack with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_metadata_source.py
+
+
+    :param root: Parsed XML, PDF or metadata node used as the operation context.
+    :return: Parsed, normalized or serialized value described above.
+    """
     from LiuXin_alpha.file_formats.opf.opf import get_metadata_from_parsed
 
     mi, _ver, _cover, _first_spine = get_metadata_from_parsed(root)
@@ -473,6 +774,18 @@ def _parse_using_opf_stack(root):
 
 
 def _to_liuxin_metadata(calibre_md):
+    """
+    Convert Calibre-compatible metadata to the LiuXin container while preserving supported fields.
+
+    Example:
+        Exercise  to liuxin metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_metadata_source.py
+
+
+    :param calibre_md: Metadata object supplying or receiving the supported fields.
+    :return: Parsed, normalized or serialized value described above.
+    """
     calibre_authors = [a for a in (_normalize(x) for x in _iter_values(getattr(calibre_md, "authors", None))) if a]
     try:
         md = MetaData.from_calibre(calibre_md)
@@ -560,14 +873,25 @@ def get_metadata(
     fallback_on_parse_error=False,
 ):
     """
-    Read metadata from an OPF/XML source.
+    Read metadata from the supported path, bytes or stream input while applying module ownership and fallback policy.
 
-    Compatibility args (`seek_md_node`, `walk`) are retained; `walk` no longer
-    changes traversal behavior as the new parser always walks metadata nodes.
+    Example:
+        Exercise get metadata with pytest::
 
-    By default this reader is strict about OPF-shaped XML. Set
-    `strict_format=False` for internal generic XML metadata extraction, or
-    `fallback_on_parse_error=True` for a best-effort shell metadata result.
+            python -m pytest -q tests/metadata/file_sources/test_opf_metadata_source.py
+
+
+    :param target_file: Caller-supplied path, path-like object or stream described by
+        this operation.
+    :param calibre: Value supplied for calibre.
+    :param text: Policy flag controlling the behavior described above.
+    :param file_is_raw_root: Policy flag controlling the behavior described above.
+    :param seek_md_node: Policy flag controlling the behavior described above.
+    :param walk: Value supplied for walk.
+    :param strict_format: Value supplied for strict format.
+    :param fallback_on_parse_error: Return safe default metadata after parse errors when
+        true; otherwise raise the format error.
+    :return: Parsed, normalized or serialized value described above.
     """
     del walk  # retained for compatibility only
     source_name = "" if text else _source_name(target_file)
@@ -613,6 +937,21 @@ def get_metadata(
 
 
 def get_metadata_inplace(path, calibre=False, **kwargs):
+    """
+    Read metadata through the path-oriented adapter exposed to registry plugins.
+
+    Example:
+        Exercise get metadata inplace with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_opf_metadata_source.py
+
+
+    :param path: Caller-supplied path, path-like object or stream described by this
+        operation.
+    :param calibre: Value supplied for calibre.
+    :param kwargs: Value supplied for kwargs.
+    :return: Parsed, normalized or serialized value described above.
+    """
     with open(path, "rb") as stream:
         return get_metadata(stream, calibre=calibre, **kwargs)
 

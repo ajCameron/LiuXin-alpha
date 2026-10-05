@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Expose the supported localization compatibility surface.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/utils/language_tools/test_pluralizers.py
+"""
 from __future__ import absolute_import, print_function
 
 import logging
@@ -23,15 +34,35 @@ logger = logging.getLogger(__name__)
 
 
 def _(string):
-    """Takes a string, translates it to the localized language. Returns the translated string."""
+    """
+    Takes a string, translates it to the localized language. Returns the translated string.
+
+    Example:
+        Exercise   through a consuming regression::
+
+            python -m pytest -q tests/utils/language_tools/test_pluralizers.py
+
+
+    :param string: Value supplied for string under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return six_unicode(string)
 
 
 def trans(string):
     """
     Frontend for _ that doesn't make code checkers complain.
-    :param string:
-    :return:
+
+    Example:
+        Exercise trans through a consuming regression::
+
+            python -m pytest -q tests/utils/language_tools/test_pluralizers.py
+
+
+    :param string: Value supplied for string under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return _(string)
 
@@ -39,9 +70,17 @@ def trans(string):
 def translate(lang, text):
     """
     Translate a given string from English into the given language
-    :param lang:
-    :param text:
-    :return:
+
+    Example:
+        Exercise translate through a consuming regression::
+
+            python -m pytest -q tests/utils/language_tools/test_pluralizers.py
+
+
+    :param lang: Value supplied for lang under the utility contract.
+    :param text: Text parsed, normalized or rendered.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return _(text)
 
@@ -49,8 +88,16 @@ def translate(lang, text):
 def __(string):
     """
     For when the string should be translated but not immediately added to the translation table.
-    :param string:
-    :return:
+
+    Example:
+        Exercise    through a consuming regression::
+
+            python -m pytest -q tests/utils/language_tools/test_pluralizers.py
+
+
+    :param string: Value supplied for string under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return six_unicode(string)
 
@@ -58,18 +105,33 @@ def __(string):
 def delayed_trans(string):
     """
     Frontend for __ that doesn't make code checkers complain.
-    :param string:
-    :return:
+
+    Example:
+        Exercise delayed trans through a consuming regression::
+
+            python -m pytest -q tests/utils/language_tools/test_pluralizers.py
+
+
+    :param string: Value supplied for string under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return __(string)
 
 
 def icu_lower(string):
     """
-    Provides a more general mapping between upper and lowercase for unicode strings.
-    Or it will.
-    :param string:
-    :return:
+    Provides a more general mapping between upper and lowercase for unicode strings. Or it will.
+
+    Example:
+        Exercise icu lower through a consuming regression::
+
+            python -m pytest -q tests/utils/language_tools/test_pluralizers.py
+
+
+    :param string: Value supplied for string under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return string.lower()
 
@@ -93,6 +155,18 @@ _available_translations = None
 
 
 def available_translations():
+    """
+    Perform the available translations utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise available translations through a consuming regression::
+
+            python -m pytest -q tests/utils/language_tools/test_pluralizers.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     global _available_translations
     if _available_translations is None:
         stats = P("localization/stats.pickle", allow_user_override=False)
@@ -105,6 +179,18 @@ def available_translations():
 
 
 def get_system_locale():
+    """
+    Return system locale under the documented compatibility and safety rules.
+
+    Example:
+        Exercise get system locale through a consuming regression::
+
+            python -m pytest -q tests/utils/language_tools/test_pluralizers.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     from LiuXin_alpha.constants import iswindows, isosx
     from LiuXin_alpha.utils.plugins import plugins
 
@@ -146,7 +232,15 @@ def get_system_locale():
 def get_lang():
     """
     Try to figure out what language to display the interface in.
-    :return lang: Default is 'en'. This should be returned even if something goes wrong.
+
+    Example:
+        Exercise get lang through a consuming regression::
+
+            python -m pytest -q tests/utils/language_tools/test_pluralizers.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     # from LiuXin.utils.calibre.utils.config_base import prefs
     from LiuXin_alpha.preferences import preferences as prefs
@@ -174,6 +268,19 @@ def get_lang():
 
 
 def get_lc_messages_path(lang):
+    """
+    Return lc messages path under the documented compatibility and safety rules.
+
+    Example:
+        Exercise get lc messages path through a consuming regression::
+
+            python -m pytest -q tests/utils/language_tools/test_pluralizers.py
+
+
+    :param lang: Value supplied for lang under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     hlang = None
     if zf_exists():
         if lang in available_translations():
@@ -186,6 +293,18 @@ def get_lc_messages_path(lang):
 
 
 def zf_exists():
+    """
+    Perform the zf exists utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise zf exists through a consuming regression::
+
+            python -m pytest -q tests/utils/language_tools/test_pluralizers.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return os.path.exists(P("localization/locales.zip", allow_user_override=False))
 
 
@@ -193,6 +312,17 @@ _lang_trans = None
 
 
 def get_all_translators():
+    """
+    Return all translators under the documented compatibility and safety rules.
+
+    Example:
+        Exercise get all translators through a consuming regression::
+
+            python -m pytest -q tests/utils/language_tools/test_pluralizers.py
+
+
+    :return: An iterator yielding the normalized values described above.
+    """
     from zipfile import ZipFile
 
     with ZipFile(P("localization/locales.zip", allow_user_override=False), "r") as zf:
@@ -254,6 +384,18 @@ lcdata = {
 
 
 def set_translators():
+    """
+    Set translators under the documented compatibility and safety rules.
+
+    Example:
+        Exercise set translators through a consuming regression::
+
+            python -m pytest -q tests/utils/language_tools/test_pluralizers.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     global _lang_trans, lcdata
     # To test different translations invoke as
     # CALIBRE_OVERRIDE_LANG=de_DE.utf8 program
@@ -403,6 +545,18 @@ for k in _extra_lang_codes:
 
 # Todo: Crack open a calibre prefs folder and extract this method
 def _load_iso639():
+    """
+    Perform the load iso639 utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  load iso639 through a consuming regression::
+
+            python -m pytest -q tests/utils/language_tools/test_pluralizers.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     global _iso639
     if _iso639 is None:
         ip = P("localization/iso639.pickle", allow_user_override=False)
@@ -412,6 +566,19 @@ def _load_iso639():
 
 
 def get_language(lang):
+    """
+    Return language under the documented compatibility and safety rules.
+
+    Example:
+        Exercise get language through a consuming regression::
+
+            python -m pytest -q tests/utils/language_tools/test_pluralizers.py
+
+
+    :param lang: Value supplied for lang under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     translate = _
     lang = _lcase_map.get(lang, lang)
     if lang in _extra_lang_codes:
@@ -435,6 +602,20 @@ def get_language(lang):
 
 
 def calibre_langcode_to_name(lc, localize=True):
+    """
+    Perform the calibre langcode to name utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise calibre langcode to name through a consuming regression::
+
+            python -m pytest -q tests/utils/language_tools/test_pluralizers.py
+
+
+    :param lc: Value supplied for lc under the utility contract.
+    :param localize: Value supplied for localize under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     iso639 = _load_iso639()
     translate = _ if localize else lambda x: x
     try:
@@ -448,8 +629,16 @@ def calibre_langcode_to_name(lc, localize=True):
 def canonicalize_lang(raw):
     """
     Attempts to bring a language into a given, useful form.
-    :param raw:
-    :return:
+
+    Example:
+        Exercise canonicalize lang through a consuming regression::
+
+            python -m pytest -q tests/utils/language_tools/test_pluralizers.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     # If None, returning None
     if not raw:
@@ -493,7 +682,18 @@ _lang_map = None
 
 
 def lang_map():
-    "Return mapping of ISO 639 3 letter codes to localized language names"
+    """
+    Return mapping of ISO 639 3 letter codes to localized language names
+
+    Example:
+        Exercise lang map through a consuming regression::
+
+            python -m pytest -q tests/utils/language_tools/test_pluralizers.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     iso639 = _load_iso639()
     translate = _
     global _lang_map
@@ -504,10 +704,17 @@ def lang_map():
 
 def langnames_to_langcodes(names):
     """
-    Given a list of localized language names return a mapping of the names to 3 letter ISO 639 language codes.
-    If a name is not recognized, it is mapped to None.
-    :param names:
-    :return:
+    Given a list of localized language names return a mapping of the names to 3 letter ISO 639 language codes. If a name is not recognized, it is mapped to None.
+
+    Example:
+        Exercise langnames to langcodes through a consuming regression::
+
+            python -m pytest -q tests/utils/language_tools/test_pluralizers.py
+
+
+    :param names: Value supplied for names under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     iso639 = _load_iso639()
     translate = _
@@ -528,11 +735,17 @@ def langnames_to_langcodes(names):
 
 def lang_as_iso639_1(name_or_code):
     """
-    Takes a language as a iso639_2 code and tries to return it as an iso639_1 code.
-    Seems to just run a lookup against a map of the 3 digit iso639_2 codes to the 2 digit iso639_1 codes and returns a
-    iso_639_1 code if found.
-    :param name_or_code:
-    :return:
+    Takes a language as a iso639_2 code and tries to return it as an iso639_1 code. Seems to just run a lookup against a map of the 3 digit iso639_2 codes to the 2 digit iso639_1 codes and returns a iso_639_1 code if found.
+
+    Example:
+        Exercise lang as iso639 1 through a consuming regression::
+
+            python -m pytest -q tests/utils/language_tools/test_pluralizers.py
+
+
+    :param name_or_code: Value supplied for name or code under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     code = canonicalize_lang(name_or_code)
     if code is not None:
@@ -551,6 +764,18 @@ _udc = None
 
 
 def get_udc():
+    """
+    Return udc under the documented compatibility and safety rules.
+
+    Example:
+        Exercise get udc through a consuming regression::
+
+            python -m pytest -q tests/utils/language_tools/test_pluralizers.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     global _udc
     if _udc is None:
         from LiuXin_alpha.file_formats.unihandecode import Unihandecoder
@@ -560,6 +785,19 @@ def get_udc():
 
 
 def localize_user_manual_link(url):
+    """
+    Perform the localize user manual link utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise localize user manual link through a consuming regression::
+
+            python -m pytest -q tests/utils/language_tools/test_pluralizers.py
+
+
+    :param url: Value supplied for url under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     lc = lang_as_iso639_1(get_lang())
     if lc == "en":
         return url

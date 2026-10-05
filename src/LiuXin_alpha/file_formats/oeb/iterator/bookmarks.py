@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Read and write persisted OEB reader bookmarks.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise bookmarks through a consuming regression::
+
+        python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -22,7 +33,28 @@ BM_LEGACY_ESC = "esc-text-%&*#%(){}ads19-end-esc"
 
 
 class BookmarksMixin(object):
+    """
+    Provide the bookmarksmixin contract for validated ebook processing.
+
+    Example:
+        Exercise BookmarksMixin through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+    """
     def parse_bookmarks(self: _typing.Self, raw: _typing.Any) -> None:
+        """
+        Parse bookmarks under the format's safety and compatibility rules.
+
+        Example:
+            Exercise BookmarksMixin.parse bookmarks through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param raw: Value supplied for raw under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for line in raw.splitlines():
             bm = None
             if line.count("^") > 0:
@@ -53,6 +85,19 @@ class BookmarksMixin(object):
                 self.bookmarks.append(bm)
 
     def serialize_bookmarks(self: _typing.Self, bookmarks: _typing.Any) -> _typing.Any:
+        """
+        Serialize bookmarks under the format's safety and compatibility rules.
+
+        Example:
+            Exercise BookmarksMixin.serialize bookmarks through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param bookmarks: Value supplied for bookmarks under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         dat = []
         for bm in bookmarks:
             if bm["type"] == "legacy":
@@ -68,6 +113,18 @@ class BookmarksMixin(object):
         return "\n".join(dat) + "\n"
 
     def read_bookmarks(self: _typing.Self) -> None:
+        """
+        Read bookmarks under the format's safety and compatibility rules.
+
+        Example:
+            Exercise BookmarksMixin.read bookmarks through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.bookmarks = []
         bmfile = os.path.join(self.base, "META-INF", "calibre_bookmarks.txt")
         raw = ""
@@ -83,6 +140,19 @@ class BookmarksMixin(object):
         self.parse_bookmarks(raw)
 
     def save_bookmarks(self: _typing.Self, bookmarks: _typing.Any = None) -> None:
+        """
+        Perform the save bookmarks operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise BookmarksMixin.save bookmarks through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param bookmarks: Value supplied for bookmarks under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if bookmarks is None:
             bookmarks = self.bookmarks
         dat = self.serialize_bookmarks(bookmarks)
@@ -101,9 +171,35 @@ class BookmarksMixin(object):
             self.config["bookmarks_" + self.pathtoebook] = dat
 
     def add_bookmark(self: _typing.Self, bm: _typing.Any) -> None:
+        """
+        Perform the add bookmark operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise BookmarksMixin.add bookmark through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param bm: Value supplied for bm under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.bookmarks = [x for x in self.bookmarks if x["title"] != bm["title"]]
         self.bookmarks.append(bm)
         self.save_bookmarks()
 
     def set_bookmarks(self: _typing.Self, bookmarks: _typing.Any) -> None:
+        """
+        Set bookmarks under the format's safety and compatibility rules.
+
+        Example:
+            Exercise BookmarksMixin.set bookmarks through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param bookmarks: Value supplied for bookmarks under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.bookmarks = bookmarks

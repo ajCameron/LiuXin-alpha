@@ -1,5 +1,8 @@
 """
-Add ins to the driver - breaking up the driver interlink monolith.
+Group the abstract driver contracts by operation family.
+
+Import each mixin from its owning module. This package initializer registers no
+driver, exports no aggregate mixin and opens no connections.
 """
 
 from __future__ import annotations

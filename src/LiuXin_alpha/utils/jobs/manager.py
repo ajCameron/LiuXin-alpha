@@ -1,10 +1,13 @@
-"""High-level job manager built on top of the low-level jobs API.
+"""
+Schedule and supervise in-memory thread or process jobs with cancellation and timeouts.
 
-This module provides a unified submission interface for asynchronous job
-execution with:
-- swappable execution backends (`process`, `serial`, or custom `JobBackend`)
-- queueing and worker concurrency via `ThreadPoolExecutor`
-- job status tracking, cancellation, waiting, and result retrieval
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise manager through a consuming regression::
+
+        python -m pytest -q tests/utils/jobs/test_jobs_manager.py
 """
 
 from __future__ import annotations
@@ -29,7 +32,14 @@ JobState = Literal["pending", "running", "succeeded", "failed", "timed_out", "ab
 
 @dataclass
 class ManagedJob:
-    """Snapshot of one submitted job."""
+    """
+    Snapshot of one submitted job.
+
+    Example:
+        Exercise ManagedJob through a consuming regression::
+
+            python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+    """
 
     job_id: str
     request: JobRequest
@@ -47,10 +57,34 @@ class ManagedJob:
 
     @property
     def done(self) -> bool:
+        """
+        Perform the done utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise ManagedJob.done through a consuming regression::
+
+                python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.state in {"succeeded", "failed", "timed_out", "aborted", "cancelled"}
 
     @property
     def duration_s(self) -> float | None:
+        """
+        Perform the duration s utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise ManagedJob.duration s through a consuming regression::
+
+                python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.started_at is None:
             return None
         end = self.finished_at if self.finished_at is not None else time.time()
@@ -59,13 +93,28 @@ class ManagedJob:
 
 @dataclass
 class _RuntimeJob:
+    """
+    Carry normalized RuntimeJob data across the Calibre compatibility boundary.
+
+    Example:
+        Exercise  RuntimeJob through a consuming regression::
+
+            python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+    """
     info: ManagedJob
     future: Future[JobExecution] | None = None
     abort_event: threading.Event = field(default_factory=threading.Event)
 
 
 class JobManagerAPI:
-    """Abstract shape for job manager implementations."""
+    """
+    Abstract shape for job manager implementations.
+
+    Example:
+        Exercise JobManagerAPI through a consuming regression::
+
+            python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+    """
 
     def submit(
         self,
@@ -77,15 +126,73 @@ class JobManagerAPI:
         backend: str | JobBackend | None = None,
         label: str | None = None,
     ) -> str:
+        """
+        Submit a callable for managed execution and return its stable job identifier.
+
+        Example:
+            Exercise JobManagerAPI.submit through a consuming regression::
+
+                python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+
+
+        :param request: Value supplied for request under the utility contract.
+        :param timeout: Maximum wait time before the operation fails.
+        :param no_output: Value supplied for no output under the utility contract.
+        :param heartbeat: Value supplied for heartbeat under the utility contract.
+        :param backend: Value supplied for backend under the utility contract.
+        :param label: Value supplied for label under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raise NotImplementedError
 
     def get(self, job_id: str) -> ManagedJob:
+        """
+        Perform the get utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise JobManagerAPI.get through a consuming regression::
+
+                python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+
+
+        :param job_id: Value supplied for job id under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raise NotImplementedError
 
     def list(self, *, states: Iterable[JobState] | None = None) -> list[ManagedJob]:
+        """
+        Perform the list utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise JobManagerAPI.list through a consuming regression::
+
+                python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+
+
+        :param states: Value supplied for states under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raise NotImplementedError
 
     def wait(self, job_id: str, *, timeout: float | None = None) -> ManagedJob:
+        """
+        Perform the wait utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise JobManagerAPI.wait through a consuming regression::
+
+                python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+
+
+        :param job_id: Value supplied for job id under the utility contract.
+        :param timeout: Maximum wait time before the operation fails.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raise NotImplementedError
 
     def result(
@@ -95,9 +202,38 @@ class JobManagerAPI:
         timeout: float | None = None,
         raise_on_failure: bool = False,
     ) -> JobExecution:
+        """
+        Perform the result utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise JobManagerAPI.result through a consuming regression::
+
+                python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+
+
+        :param job_id: Value supplied for job id under the utility contract.
+        :param timeout: Maximum wait time before the operation fails.
+        :param raise_on_failure: Value supplied for raise on failure under the utility
+            contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raise NotImplementedError
 
     def cancel(self, job_id: str) -> bool:
+        """
+        Request cancellation for the selected job and report whether the request was accepted.
+
+        Example:
+            Exercise JobManagerAPI.cancel through a consuming regression::
+
+                python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+
+
+        :param job_id: Value supplied for job id under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raise NotImplementedError
 
     def retry(
@@ -107,16 +243,52 @@ class JobManagerAPI:
         label: str | None = None,
         allow_succeeded: bool = False,
     ) -> str:
-        """Submit a new run of one completed job without rewriting history."""
+        """
+        Submit a new run of one completed job without rewriting history.
+
+        Example:
+            Exercise JobManagerAPI.retry through a consuming regression::
+
+                python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+
+
+        :param job_id: Value supplied for job id under the utility contract.
+        :param label: Value supplied for label under the utility contract.
+        :param allow_succeeded: Value supplied for allow succeeded under the utility
+            contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
 
         raise NotImplementedError
 
     def shutdown(self, *, wait: bool = True, cancel_pending: bool = False) -> None:
+        """
+        Perform the shutdown utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise JobManagerAPI.shutdown through a consuming regression::
+
+                python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+
+
+        :param wait: Value supplied for wait under the utility contract.
+        :param cancel_pending: Value supplied for cancel pending under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raise NotImplementedError
 
 
 class InMemoryJobManager(JobManagerAPI):
-    """Thread-safe in-memory job registry and scheduler."""
+    """
+    Thread-safe in-memory job registry and scheduler.
+
+    Example:
+        Exercise InMemoryJobManager through a consuming regression::
+
+            python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+    """
 
     def __init__(
         self,
@@ -124,6 +296,20 @@ class InMemoryJobManager(JobManagerAPI):
         max_workers: int = 4,
         default_backend: str | JobBackend | None = None,
     ) -> None:
+        """
+        Initialize and validate the InMemoryJobManager state.
+
+        Example:
+            Exercise InMemoryJobManager.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+
+
+        :param max_workers: Value supplied for max workers under the utility contract.
+        :param default_backend: Value supplied for default backend under the utility
+            contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self._lock = threading.RLock()
         self._jobs: dict[str, _RuntimeJob] = {}
         self._executor = ThreadPoolExecutor(max_workers=max(1, int(max_workers)), thread_name_prefix="liuxin-job")
@@ -141,6 +327,26 @@ class InMemoryJobManager(JobManagerAPI):
         label: str | None = None,
         retry_of_job_id: str | None = None,
     ) -> str:
+        """
+        Submit a callable for managed execution and return its stable job identifier.
+
+        Example:
+            Exercise InMemoryJobManager.submit through a consuming regression::
+
+                python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+
+
+        :param request: Value supplied for request under the utility contract.
+        :param timeout: Maximum wait time before the operation fails.
+        :param no_output: Value supplied for no output under the utility contract.
+        :param heartbeat: Value supplied for heartbeat under the utility contract.
+        :param backend: Value supplied for backend under the utility contract.
+        :param label: Value supplied for label under the utility contract.
+        :param retry_of_job_id: Value supplied for retry of job id under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         with self._lock:
             if self._closed:
                 raise RuntimeError("Job manager is shut down")
@@ -169,6 +375,19 @@ class InMemoryJobManager(JobManagerAPI):
             return job_id
 
     def _backend_name(self, backend: str | JobBackend | None) -> str:
+        """
+        Perform the backend name utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise InMemoryJobManager. backend name through a consuming regression::
+
+                python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+
+
+        :param backend: Value supplied for backend under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         selected = self._default_backend if backend is None else backend
         if selected is None:
             return "auto"
@@ -183,6 +402,21 @@ class InMemoryJobManager(JobManagerAPI):
         heartbeat: Callable[[], bool] | None,
         backend: str | JobBackend | None,
     ) -> JobExecution:
+        """
+        Perform the run one utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise InMemoryJobManager. run one through a consuming regression::
+
+                python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+
+
+        :param job_id: Value supplied for job id under the utility contract.
+        :param heartbeat: Value supplied for heartbeat under the utility contract.
+        :param backend: Value supplied for backend under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         with self._lock:
             runtime = self._jobs.get(job_id)
             if runtime is None:
@@ -226,6 +460,19 @@ class InMemoryJobManager(JobManagerAPI):
 
     @staticmethod
     def _state_from_execution(execution: JobExecution) -> JobState:
+        """
+        Perform the state from execution utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise InMemoryJobManager. state from execution through a consuming regression::
+
+                python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+
+
+        :param execution: Value supplied for execution under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if execution.timed_out:
             return "timed_out"
         if execution.aborted:
@@ -235,6 +482,19 @@ class InMemoryJobManager(JobManagerAPI):
         return "failed"
 
     def get(self, job_id: str) -> ManagedJob:
+        """
+        Perform the get utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise InMemoryJobManager.get through a consuming regression::
+
+                python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+
+
+        :param job_id: Value supplied for job id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         with self._lock:
             runtime = self._jobs.get(str(job_id))
             if runtime is None:
@@ -242,6 +502,19 @@ class InMemoryJobManager(JobManagerAPI):
             return self._clone_info(runtime.info)
 
     def list(self, *, states: Iterable[JobState] | None = None) -> list[ManagedJob]:
+        """
+        Perform the list utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise InMemoryJobManager.list through a consuming regression::
+
+                python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+
+
+        :param states: Value supplied for states under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         allowed = set(states) if states is not None else None
         with self._lock:
             snapshots: list[ManagedJob] = []
@@ -253,6 +526,20 @@ class InMemoryJobManager(JobManagerAPI):
         return snapshots
 
     def wait(self, job_id: str, *, timeout: float | None = None) -> ManagedJob:
+        """
+        Perform the wait utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise InMemoryJobManager.wait through a consuming regression::
+
+                python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+
+
+        :param job_id: Value supplied for job id under the utility contract.
+        :param timeout: Maximum wait time before the operation fails.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         future = self._future_for(job_id)
         if future is not None:
             try:
@@ -270,6 +557,22 @@ class InMemoryJobManager(JobManagerAPI):
         timeout: float | None = None,
         raise_on_failure: bool = False,
     ) -> JobExecution:
+        """
+        Perform the result utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise InMemoryJobManager.result through a consuming regression::
+
+                python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+
+
+        :param job_id: Value supplied for job id under the utility contract.
+        :param timeout: Maximum wait time before the operation fails.
+        :param raise_on_failure: Value supplied for raise on failure under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         info = self.wait(job_id, timeout=timeout)
         execution = info.execution
         if execution is None:
@@ -284,6 +587,19 @@ class InMemoryJobManager(JobManagerAPI):
         return execution
 
     def cancel(self, job_id: str) -> bool:
+        """
+        Request cancellation for the selected job and report whether the request was accepted.
+
+        Example:
+            Exercise InMemoryJobManager.cancel through a consuming regression::
+
+                python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+
+
+        :param job_id: Value supplied for job id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         with self._lock:
             runtime = self._jobs.get(str(job_id))
             if runtime is None:
@@ -306,7 +622,22 @@ class InMemoryJobManager(JobManagerAPI):
         label: str | None = None,
         allow_succeeded: bool = False,
     ) -> str:
-        """Replay one terminal request as a new, linked managed job."""
+        """
+        Replay one terminal request as a new, linked managed job.
+
+        Example:
+            Exercise InMemoryJobManager.retry through a consuming regression::
+
+                python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+
+
+        :param job_id: Value supplied for job id under the utility contract.
+        :param label: Value supplied for label under the utility contract.
+        :param allow_succeeded: Value supplied for allow succeeded under the utility
+            contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
 
         original = self.get(job_id)
         if not original.done:
@@ -332,6 +663,20 @@ class InMemoryJobManager(JobManagerAPI):
         )
 
     def shutdown(self, *, wait: bool = True, cancel_pending: bool = False) -> None:
+        """
+        Perform the shutdown utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise InMemoryJobManager.shutdown through a consuming regression::
+
+                python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+
+
+        :param wait: Value supplied for wait under the utility contract.
+        :param cancel_pending: Value supplied for cancel pending under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         with self._lock:
             self._closed = True
             job_ids = list(self._jobs.keys())
@@ -341,6 +686,19 @@ class InMemoryJobManager(JobManagerAPI):
         self._executor.shutdown(wait=bool(wait), cancel_futures=bool(cancel_pending))
 
     def _future_for(self, job_id: str) -> Future[JobExecution] | None:
+        """
+        Perform the future for utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise InMemoryJobManager. future for through a consuming regression::
+
+                python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+
+
+        :param job_id: Value supplied for job id under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         with self._lock:
             runtime = self._jobs.get(str(job_id))
             if runtime is None:
@@ -349,6 +707,19 @@ class InMemoryJobManager(JobManagerAPI):
 
     @staticmethod
     def _clone_info(info: ManagedJob) -> ManagedJob:
+        """
+        Perform the clone info utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise InMemoryJobManager. clone info through a consuming regression::
+
+                python -m pytest -q tests/utils/jobs/test_jobs_manager.py
+
+
+        :param info: Value supplied for info under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return ManagedJob(
             job_id=info.job_id,
             request=info.request,

@@ -1,4 +1,14 @@
-"""Unicode and hostile-text contracts for live Catalog operations."""
+"""
+Verify test catalog unicode operations behavior against the public catalog contracts.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test catalog unicode operations through its owning regression module::
+
+        python -m pytest -q tests/catalog/test_catalog_unicode_operations.py
+"""
 
 from __future__ import annotations
 
@@ -22,11 +32,34 @@ from tests.support.file_format_unicode import (
 
 
 def _token(prefix: str) -> str:
+    """
+    Perform the token test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise token through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_catalog_unicode_operations.py
+
+
+    :param prefix: Value supplied for prefix under the catalog contract.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     return f"{prefix}-{uuid.uuid4()}"
 
 
 def _equivalent_text(value: str) -> str:
-    """Return a differently encoded/cased but comparison-equivalent value."""
+    """
+    Return a differently encoded/cased but comparison-equivalent value.
+
+    Example:
+        Exercise equivalent text through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_catalog_unicode_operations.py
+
+
+    :param value: Public or stored value to normalize, compare or write.
+    :return: The deterministic value, row, identity or collection described above.
+    """
 
     return unicodedata.normalize("NFKD", value).swapcase()
 
@@ -36,7 +69,22 @@ def test_work_repository_round_trips_shared_hostile_text_corpora(
     torture_strings: Sequence[str],
     sql_injection_payloads: Sequence[str],
 ) -> None:
-    """Catalog text remains data across Unicode, controls, and SQL-shaped input."""
+    """
+    Catalog text remains data across Unicode, controls, and SQL-shaped input.
+
+    Example:
+        Exercise test work repository round trips shared hostile text corpora through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_catalog_unicode_operations.py
+
+
+    :param db: Value supplied for db under the catalog contract.
+    :param torture_strings: Value supplied for torture strings under the catalog
+        contract.
+    :param sql_injection_payloads: Value supplied for sql injection payloads under the
+        catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
 
     catalog = Catalog(db)
     values = (*torture_strings, *sql_injection_payloads)
@@ -61,7 +109,18 @@ def test_work_repository_round_trips_shared_hostile_text_corpora(
 
 
 def test_unicode_equivalent_work_agent_and_exact_values_share_identity(db) -> None:
-    """NFKC, case, and whitespace variants resolve without changing stored text."""
+    """
+    NFKC, case, and whitespace variants resolve without changing stored text.
+
+    Example:
+        Exercise test unicode equivalent work agent and exact values share identity through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_catalog_unicode_operations.py
+
+
+    :param db: Value supplied for db under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
 
     catalog = Catalog(db)
     suffix = _token("identity")
@@ -129,7 +188,18 @@ def test_unicode_equivalent_work_agent_and_exact_values_share_identity(db) -> No
 
 
 def test_wemi_stack_attachment_and_bundle_preserve_multiscript_metadata(db) -> None:
-    """One atomic WEMI operation preserves multilingual graph metadata."""
+    """
+    One atomic WEMI operation preserves multilingual graph metadata.
+
+    Example:
+        Exercise test wemi stack attachment and bundle preserve multiscript metadata through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_catalog_unicode_operations.py
+
+
+    :param db: Value supplied for db under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
 
     catalog = Catalog(db)
     suffix = _token("wemi")
@@ -226,7 +296,18 @@ def test_wemi_stack_attachment_and_bundle_preserve_multiscript_metadata(db) -> N
 
 
 def test_logical_title_operations_preserve_unicode_at_each_wemi_level(db) -> None:
-    """Embedded title columns behave as one Unicode-safe logical repository."""
+    """
+    Embedded title columns behave as one Unicode-safe logical repository.
+
+    Example:
+        Exercise test logical title operations preserve unicode at each wemi level through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_catalog_unicode_operations.py
+
+
+    :param db: Value supplied for db under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
 
     catalog = Catalog(db)
     suffix = _token("titles")
@@ -299,7 +380,18 @@ def test_logical_title_operations_preserve_unicode_at_each_wemi_level(db) -> Non
 def test_owned_text_relations_round_trip_unicode_across_declared_wemi_routes(
     db,
 ) -> None:
-    """Owned text retains Unicode and unsupported graph routes stay atomic."""
+    """
+    Owned text retains Unicode and unsupported graph routes stay atomic.
+
+    Example:
+        Exercise test owned text relations round trip unicode across declared wemi routes through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_catalog_unicode_operations.py
+
+
+    :param db: Value supplied for db under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
 
     catalog = Catalog(db)
     suffix = _token("relations")
@@ -373,7 +465,18 @@ def test_owned_text_relations_round_trip_unicode_across_declared_wemi_routes(
 
 
 def test_normalized_catalog_writers_preserve_unicode_values(db) -> None:
-    """Schema-selected column and shared-link writers preserve caller text."""
+    """
+    Schema-selected column and shared-link writers preserve caller text.
+
+    Example:
+        Exercise test normalized catalog writers preserve unicode values through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_catalog_unicode_operations.py
+
+
+    :param db: Value supplied for db under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
 
     catalog = Catalog(db)
     suffix = _token("writers")
@@ -406,7 +509,18 @@ def test_normalized_catalog_writers_preserve_unicode_values(db) -> None:
 
 
 def test_existing_and_requested_work_ids_replace_unicode_wemi_paths(db) -> None:
-    """Stack writes update requested Works and replace only the selected path."""
+    """
+    Stack writes update requested Works and replace only the selected path.
+
+    Example:
+        Exercise test existing and requested work ids replace unicode wemi paths through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_catalog_unicode_operations.py
+
+
+    :param db: Value supplied for db under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
 
     catalog = Catalog(db)
     suffix = _token("replace-stack")
@@ -477,7 +591,18 @@ def test_existing_and_requested_work_ids_replace_unicode_wemi_paths(db) -> None:
 def test_unicode_attachment_supports_existing_rows_and_rejects_bad_groups_atomically(
     db,
 ) -> None:
-    """Structured attachment accepts existing IDs and preflights every group."""
+    """
+    Structured attachment accepts existing IDs and preflights every group.
+
+    Example:
+        Exercise test unicode attachment supports existing rows and rejects bad groups atomically through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_catalog_unicode_operations.py
+
+
+    :param db: Value supplied for db under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
 
     catalog = Catalog(db)
     suffix = _token("attachment")
@@ -582,7 +707,18 @@ def test_unicode_attachment_supports_existing_rows_and_rejects_bad_groups_atomic
 def test_unicode_merge_preserves_graph_metadata_and_primary_identifier_policy(
     db,
 ) -> None:
-    """Merge fills missing values, transfers relations, and demotes conflicts."""
+    """
+    Merge fills missing values, transfers relations, and demotes conflicts.
+
+    Example:
+        Exercise test unicode merge preserves graph metadata and primary identifier policy through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_catalog_unicode_operations.py
+
+
+    :param db: Value supplied for db under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
 
     catalog = Catalog(db)
     suffix = _token("merge-unicode")
@@ -703,7 +839,18 @@ def test_unicode_merge_preserves_graph_metadata_and_primary_identifier_policy(
 
 
 def test_unicode_agent_identifier_evidence_is_explicitly_resolved(db) -> None:
-    """Unicode aliases remain subordinate to decisive identifier ownership."""
+    """
+    Unicode aliases remain subordinate to decisive identifier ownership.
+
+    Example:
+        Exercise test unicode agent identifier evidence is explicitly resolved through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_catalog_unicode_operations.py
+
+
+    :param db: Value supplied for db under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
 
     catalog = Catalog(db)
     suffix = _token("agent-evidence")
@@ -804,7 +951,18 @@ def test_unicode_agent_identifier_evidence_is_explicitly_resolved(db) -> None:
 
 
 def test_unicode_person_and_organisation_aggregates_round_trip_and_reuse(db) -> None:
-    """Agent aggregates preserve subtype, identifier, language, and text data."""
+    """
+    Agent aggregates preserve subtype, identifier, language, and text data.
+
+    Example:
+        Exercise test unicode person and organisation aggregates round trip and reuse through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_catalog_unicode_operations.py
+
+
+    :param db: Value supplied for db under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
 
     catalog = Catalog(db)
     suffix = _token("agent-aggregate")
@@ -930,7 +1088,18 @@ def test_unicode_person_and_organisation_aggregates_round_trip_and_reuse(db) -> 
 
 
 def test_agent_role_replacement_and_aggregate_failures_are_atomic(db) -> None:
-    """Role-scoped credit replacement retains other roles and failures roll back."""
+    """
+    Role-scoped credit replacement retains other roles and failures roll back.
+
+    Example:
+        Exercise test agent role replacement and aggregate failures are atomic through its owning regression module::
+
+            python -m pytest -q tests/catalog/test_catalog_unicode_operations.py
+
+
+    :param db: Value supplied for db under the catalog contract.
+    :return: None; the function records state or raises through its assertions.
+    """
 
     catalog = Catalog(db)
     suffix = _token("agent-roles")

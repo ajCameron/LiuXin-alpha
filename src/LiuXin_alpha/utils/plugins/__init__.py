@@ -1,5 +1,15 @@
 
-"""Discover native and Python plugins through LiuXin's fallback chain."""
+"""
+Expose the supported plugins compatibility surface.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+"""
 
 # LiuXin_alpha/utils/plugins/__init__.py
 from __future__ import annotations
@@ -56,6 +66,18 @@ _COMPILED_PLUGINS: Tuple[str, ...] = tuple(dict.fromkeys(UNIVERSAL_PLUGINS))
 
 
 def _platform_pkg() -> str:
+    """
+    Perform the platform pkg utility operation under explicit compatibility rules.
+
+    Example:
+        Exercise  platform pkg through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if iswindows:
         return "windows"
     if isosx:
@@ -65,6 +87,14 @@ def _platform_pkg() -> str:
 
 @dataclass
 class _Loaded:
+    """
+    Provide the Loaded utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise  Loaded through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+    """
     module: Optional[object]
     err: Optional[str]
     ok: bool
@@ -72,10 +102,12 @@ class _Loaded:
 
 class Plugins:
     """
-    Mapping-like access:
-        plugins["speedup"] -> (module_or_none, err_str_or_none)
-    Plus:
-        plugins.plugin_okay("speedup") -> bool
+    Mapping-like access: plugins["speedup"] -> (module_or_none, err_str_or_none) Plus: plugins.plugin_okay("speedup") -> bool
+
+    Example:
+        Exercise Plugins through a consuming regression::
+
+            python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
     """
 
     def __init__(
@@ -86,8 +118,16 @@ class Plugins:
         """
         Startup the plguins access class.
 
-        :param plugin_names:
-        :param extra_search_dirs:
+        Example:
+            Exercise Plugins.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+        :param plugin_names: Value supplied for plugin names under the utility contract.
+        :param extra_search_dirs: Value supplied for extra search dirs under the utility
+            contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self._names: Tuple[str, ...] = tuple(plugin_names)
         self._loaded: Dict[str, _Loaded] = {}
@@ -101,22 +141,61 @@ class Plugins:
         """
         Iter over all plugins.
 
-        :return:
+        Example:
+            Exercise Plugins.  iter   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return iter(self._names)
 
     def __len__(self) -> int:
+        """
+        Perform the len utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise Plugins.  len   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return len(self._names)
 
     def __contains__(self, name: object) -> bool:
+        """
+        Perform the contains utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise Plugins.  contains   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return name in self._names
 
     def __getitem__(self, name: str) -> Tuple[Optional[object], Optional[str]]:
         """
         Return the plugin - if loaded - and a status string.
 
-        :param name:
-        :return:
+        Example:
+            Exercise Plugins.  getitem   through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if name not in self._names:
             raise KeyError(f"No plugin named {name!r}")
@@ -130,8 +209,15 @@ class Plugins:
         """
         Has load succeeded for the given plugin?
 
-        :param name:
-        :return:
+        Example:
+            Exercise Plugins.plugin okay through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return self[name][0] is not None
 
@@ -141,8 +227,15 @@ class Plugins:
         """
         Preform a load on the plugin with all fallbacks.
 
-        :param name:
-        :return:
+        Example:
+            Exercise Plugins. load through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         base_pkg = __name__  # "LiuXin_alpha.utils.plugins"
         plat_pkg = f"{base_pkg}.{_platform_pkg()}.{name}"
@@ -192,8 +285,15 @@ class Plugins:
         """
         Attempt to load extensions from all the dirs.
 
-        :param name:
-        :return:
+        Example:
+            Exercise Plugins. load extension from dirs through a consuming regression::
+
+                python -m pytest -q tests/utils/plugins/test_plugin_layer_resolution.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         # Find candidate file: name + any valid extension suffix
         candidates: List[Path] = []

@@ -1,22 +1,34 @@
+"""
+Check lazy invalidation and scalar/relation updates against fresh schema-backed fake databases.
+
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py
+"""
 from __future__ import annotations
 
 import pytest
 
 from LiuXin_alpha.caches import SchemaBackedStorageCache
-from LiuXin_alpha.caches.api.storage_cache_api.storage_fields_api.many_many_field import (
-    LinkDstUpdate as ManyManyLinkDstUpdate,
+from LiuXin_alpha.caches.api.storage_cache_api.storage_fields_api.many_many_field_api import (
     ManyManyInTwoTableFieldUpdate,
 )
-from LiuXin_alpha.caches.api.storage_cache_api.storage_fields_api.many_one_field import (
+from LiuXin_alpha.caches.api.storage_cache_api.storage_fields_api.many_one_field_api import (
     ManyOneInTwoTableFieldUpdate,
 )
-from LiuXin_alpha.caches.api.storage_cache_api.storage_fields_api.one_many_field import (
-    LinkDstUpdate as OneManyLinkDstUpdate,
+from LiuXin_alpha.caches.api.storage_cache_api.storage_fields_api.one_many_field_api import (
     OneManyInTwoTableFieldUpdate,
 )
-from LiuXin_alpha.caches.api.storage_cache_api.storage_fields_api.one_one_field import (
-    OneOneInTwoTableFieldUpdate,
+from LiuXin_alpha.caches.api.storage_cache_api.storage_fields_api.one_one_field_api import (
     OneOneInOneTableFieldUpdate,
+    OneOneInTwoTableFieldUpdate,
+)
+from LiuXin_alpha.caches.api.storage_cache_api.storage_fields_api.util_mixins import (
+    LinkDstUpdate as ManyManyLinkDstUpdate,
+)
+from LiuXin_alpha.caches.api.storage_cache_api.storage_fields_api.util_mixins import (
+    LinkDstUpdate as OneManyLinkDstUpdate,
 )
 from LiuXin_alpha.databases.schema_specs import (
     LinkCardinality,
@@ -33,6 +45,17 @@ from tests.support.storage_cache_test_harness import (
 
 @pytest.fixture()
 def _schema_backed_cache_db() -> FakeDB:
+    """
+    Build two books and covers with one-to-one links and duplicate shared_code column names.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py
+
+
+    :return: Fresh FakeDB with independent mutable row dictionaries.
+    """
     books = make_table(
         "books",
         ("id", "title", "shared_code"),
@@ -93,6 +116,19 @@ def _schema_backed_cache_db() -> FakeDB:
 
 @pytest.fixture()
 def schema_backed_cache(_schema_backed_cache_db: FakeDB) -> SchemaBackedStorageCache:
+    """
+    Create and load schema-backed storage over the supplied cover fixture.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py
+
+
+    :param _schema_backed_cache_db: Fresh FakeDB containing two books, covers, and
+        one-to-one links.
+    :return: Loaded SchemaBackedStorageCache.
+    """
     return create_loaded_test_cache(_schema_backed_cache_db, "schema_backed")
 
 
@@ -100,11 +136,38 @@ def test_invalidation_marks_dependencies_without_eager_reload(
     schema_backed_cache: SchemaBackedStorageCache,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """
+    Check table and link invalidation defer a cover reload until relation-field access, then reload once.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py::test_invalidation_marks_dependencies_without_eager_reload
+
+
+    :param schema_backed_cache: Loaded schema-backed cache over the two-book cover
+        fixture.
+    :param monkeypatch: Pytest patch fixture that restores replaced methods after the
+        test.
+    :return: None; failed expectations raise AssertionError.
+    """
     covers = schema_backed_cache.main_tables["covers"]
     original_reload = covers.reload
     reloads: list[str] = []
 
     def tracked_reload(db) -> None:
+        """
+        Append the cover-table name to the call log, then invoke the original reload.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py::test_invalidation_marks_dependencies_without_eager_reload
+
+
+        :param db: Fake database passed to the original table reload.
+        :return: None; mutates the call log and cached table.
+        """
         reloads.append("covers")
         original_reload(db)
 
@@ -124,15 +187,55 @@ def test_id_invalidation_repairs_row_and_relation_without_full_reload(
     schema_backed_cache: SchemaBackedStorageCache,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """
+    Check cover ID invalidation repairs its projection with one row lookup and preserves the other cached cover.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py::test_id_invalidation_repairs_row_and_relation_without_full_reload
+
+
+    :param schema_backed_cache: Loaded schema-backed cache over the two-book cover
+        fixture.
+    :param monkeypatch: Pytest patch fixture that restores replaced methods after the
+        test.
+    :return: None; failed expectations raise AssertionError.
+    """
     covers = schema_backed_cache.main_tables["covers"]
     original_get_row = schema_backed_cache.db.get_row_from_id
     row_reads: list[tuple[str, int]] = []
 
     def tracked_get_row(table: str, row_id: int):
+        """
+        Record the normalized table/ID pair and delegate to the original fake row lookup.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py::test_id_invalidation_repairs_row_and_relation_without_full_reload
+
+
+        :param table: Trusted test table name, interpolated into SQL where needed.
+        :param row_id: Row ID passed through to the original lookup.
+        :return: Original row lookup result; errors propagate.
+        """
         row_reads.append((str(table), int(row_id)))
         return original_get_row(table, row_id)
 
     def reject_full_reload(_db) -> None:
+        """
+        Raise when a selected-row invalidation attempts a full table reload.
+
+        Example:
+            Run the owning tests with pytest::
+
+                python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py::test_id_invalidation_repairs_row_and_relation_without_full_reload
+
+
+        :param _db: Unused database argument accepted by the full-reload failure double.
+        :return: Never returns normally; raises AssertionError.
+        """
         raise AssertionError("selected row invalidation attempted a full reload")
 
     monkeypatch.setattr(schema_backed_cache.db, "get_row_from_id", tracked_get_row)
@@ -152,6 +255,19 @@ def test_id_invalidation_repairs_row_and_relation_without_full_reload(
 def test_id_invalidation_evicts_deleted_row_and_source_projection(
     schema_backed_cache: SchemaBackedStorageCache,
 ) -> None:
+    """
+    Delete a book externally and check ID invalidation removes the row, scalar ID, and held relation projection.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py::test_id_invalidation_evicts_deleted_row_and_source_projection
+
+
+    :param schema_backed_cache: Loaded schema-backed cache over the two-book cover
+        fixture.
+    :return: None; failed expectations raise AssertionError.
+    """
     relation = schema_backed_cache.get_field("books.covers.path")
     assert relation.get_value_from_src_id(1) == "/covers/one.jpg"
 
@@ -165,6 +281,17 @@ def test_id_invalidation_evicts_deleted_row_and_source_projection(
 
 @pytest.fixture()
 def many_one_schema_backed_cache() -> SchemaBackedStorageCache:
+    """
+    Load three books and a shared Tor Books publisher, leaving the third book unlinked.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py
+
+
+    :return: Fresh SchemaBackedStorageCache with a many-to-one relation.
+    """
     books = make_table(
         "books",
         ("id", "title"),
@@ -226,6 +353,17 @@ def many_one_schema_backed_cache() -> SchemaBackedStorageCache:
 
 @pytest.fixture()
 def one_many_schema_backed_cache() -> SchemaBackedStorageCache:
+    """
+    Load separately owned notes for two books with typed, ordered links.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py
+
+
+    :return: Fresh SchemaBackedStorageCache with a one-to-many relation.
+    """
     books = make_table(
         "books",
         ("id", "title"),
@@ -291,6 +429,17 @@ def one_many_schema_backed_cache() -> SchemaBackedStorageCache:
 
 @pytest.fixture()
 def many_many_schema_backed_cache() -> SchemaBackedStorageCache:
+    """
+    Load two books with shared Science Fiction and Classic tags and ordered links.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py
+
+
+    :return: Fresh SchemaBackedStorageCache with a many-to-many relation.
+    """
     books = make_table(
         "books",
         ("id", "title"),
@@ -354,6 +503,19 @@ def many_many_schema_backed_cache() -> SchemaBackedStorageCache:
 def test_one_to_one_relation_field_deleted_ids_unlink_without_deleting_dst_rows(
     schema_backed_cache: SchemaBackedStorageCache,
 ) -> None:
+    """
+    Check relation deletion unlinks the source while preserving the existing cover row.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py::test_one_to_one_relation_field_deleted_ids_unlink_without_deleting_dst_rows
+
+
+    :param schema_backed_cache: Loaded schema-backed cache over the two-book cover
+        fixture.
+    :return: None; failed expectations raise AssertionError.
+    """
     cache = schema_backed_cache
     field = cache.get_field("books.covers.path")
 
@@ -376,6 +538,19 @@ def test_one_to_one_relation_field_deleted_ids_unlink_without_deleting_dst_rows(
 def test_one_to_one_relation_field_updates_existing_linked_values(
     schema_backed_cache: SchemaBackedStorageCache,
 ) -> None:
+    """
+    Check cover updates agree across the relation field, cached table, and fake database row.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py::test_one_to_one_relation_field_updates_existing_linked_values
+
+
+    :param schema_backed_cache: Loaded schema-backed cache over the two-book cover
+        fixture.
+    :return: None; failed expectations raise AssertionError.
+    """
     cache = schema_backed_cache
     field = cache.get_field("books.covers.path")
 
@@ -399,6 +574,19 @@ def test_one_to_one_relation_field_updates_existing_linked_values(
 def test_one_to_one_relation_field_can_recreate_missing_link_from_existing_value(
     schema_backed_cache: SchemaBackedStorageCache,
 ) -> None:
+    """
+    Unlink a cover and check permitted link creation reuses its existing destination ID.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py::test_one_to_one_relation_field_can_recreate_missing_link_from_existing_value
+
+
+    :param schema_backed_cache: Loaded schema-backed cache over the two-book cover
+        fixture.
+    :return: None; failed expectations raise AssertionError.
+    """
     cache = schema_backed_cache
     field = cache.get_field("books.covers.path")
 
@@ -434,6 +622,19 @@ def test_one_to_one_relation_field_can_recreate_missing_link_from_existing_value
 def test_one_to_one_relation_field_can_create_missing_related_row_and_link(
     schema_backed_cache: SchemaBackedStorageCache,
 ) -> None:
+    """
+    Check permitted row/link creation supplies a new cover destination with the requested path.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py::test_one_to_one_relation_field_can_create_missing_related_row_and_link
+
+
+    :param schema_backed_cache: Loaded schema-backed cache over the two-book cover
+        fixture.
+    :return: None; failed expectations raise AssertionError.
+    """
     cache = schema_backed_cache
     field = cache.get_field("books.covers.path")
 
@@ -473,6 +674,19 @@ def test_one_to_one_relation_field_can_create_missing_related_row_and_link(
 def test_one_to_one_relation_field_refuses_to_reassign_existing_linked_dst_row(
     schema_backed_cache: SchemaBackedStorageCache,
 ) -> None:
+    """
+    Check relinking to the other book’s already-owned cover raises ValueError.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py::test_one_to_one_relation_field_refuses_to_reassign_existing_linked_dst_row
+
+
+    :param schema_backed_cache: Loaded schema-backed cache over the two-book cover
+        fixture.
+    :return: None; failed expectations raise AssertionError.
+    """
     cache = schema_backed_cache
     field = cache.get_field("books.covers.path")
 
@@ -506,6 +720,19 @@ def test_one_to_one_relation_field_refuses_to_reassign_existing_linked_dst_row(
 def test_relation_field_rejects_creating_related_rows_without_creating_links(
     schema_backed_cache: SchemaBackedStorageCache,
 ) -> None:
+    """
+    Check the inconsistent row-creation-only option raises ValueError.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py::test_relation_field_rejects_creating_related_rows_without_creating_links
+
+
+    :param schema_backed_cache: Loaded schema-backed cache over the two-book cover
+        fixture.
+    :return: None; failed expectations raise AssertionError.
+    """
     field = schema_backed_cache.get_field("books.covers.path")
 
     with pytest.raises(ValueError):
@@ -526,6 +753,19 @@ def test_relation_field_rejects_creating_related_rows_without_creating_links(
 def test_many_one_relation_field_can_create_missing_link_from_existing_value(
     many_one_schema_backed_cache: SchemaBackedStorageCache,
 ) -> None:
+    """
+    Check an unlinked third book can reuse the shared publisher when link creation is enabled.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py::test_many_one_relation_field_can_create_missing_link_from_existing_value
+
+
+    :param many_one_schema_backed_cache: Loaded cache with three books, one shared
+        publisher, and an unlinked third book.
+    :return: None; failed expectations raise AssertionError.
+    """
     cache = many_one_schema_backed_cache
     field = cache.get_field("books.publishers.publisher_name")
 
@@ -549,6 +789,19 @@ def test_many_one_relation_field_can_create_missing_link_from_existing_value(
 def test_many_one_relation_field_can_create_missing_related_row_and_link(
     many_one_schema_backed_cache: SchemaBackedStorageCache,
 ) -> None:
+    """
+    Check the third book can obtain a new publisher row and link when both creation flags are enabled.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py::test_many_one_relation_field_can_create_missing_related_row_and_link
+
+
+    :param many_one_schema_backed_cache: Loaded cache with three books, one shared
+        publisher, and an unlinked third book.
+    :return: None; failed expectations raise AssertionError.
+    """
     cache = many_one_schema_backed_cache
     field = cache.get_field("books.publishers.publisher_name")
 
@@ -576,6 +829,19 @@ def test_many_one_relation_field_can_create_missing_related_row_and_link(
 def test_one_many_relation_field_explicit_link_replacements_can_create_and_order_rows(
     one_many_schema_backed_cache: SchemaBackedStorageCache,
 ) -> None:
+    """
+    Check note replacement reuses one row, creates another, and preserves the requested order and link types.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py::test_one_many_relation_field_explicit_link_replacements_can_create_and_order_rows
+
+
+    :param one_many_schema_backed_cache: Loaded cache with two books and separately
+        owned typed, ordered notes.
+    :return: None; failed expectations raise AssertionError.
+    """
     cache = one_many_schema_backed_cache
     field = cache.get_field("books.notes.note_text")
 
@@ -621,6 +887,19 @@ def test_one_many_relation_field_explicit_link_replacements_can_create_and_order
 def test_one_many_relation_field_explicit_replacement_wont_steal_other_src_dst_rows(
     one_many_schema_backed_cache: SchemaBackedStorageCache,
 ) -> None:
+    """
+    Check matching another owner’s note creates a separate destination and preserves its original owner.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py::test_one_many_relation_field_explicit_replacement_wont_steal_other_src_dst_rows
+
+
+    :param one_many_schema_backed_cache: Loaded cache with two books and separately
+        owned typed, ordered notes.
+    :return: None; failed expectations raise AssertionError.
+    """
     cache = one_many_schema_backed_cache
     field = cache.get_field("books.notes.note_text")
 
@@ -654,6 +933,19 @@ def test_one_many_relation_field_explicit_replacement_wont_steal_other_src_dst_r
 def test_many_many_relation_field_explicit_link_replacements_can_reuse_shared_dst_rows(
     many_many_schema_backed_cache: SchemaBackedStorageCache,
 ) -> None:
+    """
+    Check tag replacement reuses a shared destination, creates a new one, and preserves the other source’s shared link.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py::test_many_many_relation_field_explicit_link_replacements_can_reuse_shared_dst_rows
+
+
+    :param many_many_schema_backed_cache: Loaded cache with two books and shared ordered
+        tag links.
+    :return: None; failed expectations raise AssertionError.
+    """
     cache = many_many_schema_backed_cache
     field = cache.get_field("books.tags.tag_name")
 
@@ -696,6 +988,19 @@ def test_many_many_relation_field_explicit_link_replacements_can_reuse_shared_ds
 def test_same_table_field_deleted_ids_nullify_column_without_deleting_rows(
     schema_backed_cache: SchemaBackedStorageCache,
 ) -> None:
+    """
+    Check scalar deletion clears the title in cache and database while retaining the book row.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py::test_same_table_field_deleted_ids_nullify_column_without_deleting_rows
+
+
+    :param schema_backed_cache: Loaded schema-backed cache over the two-book cover
+        fixture.
+    :return: None; failed expectations raise AssertionError.
+    """
     cache = schema_backed_cache
     field = cache.get_field("title")
 
@@ -717,6 +1022,19 @@ def test_same_table_field_deleted_ids_nullify_column_without_deleting_rows(
 def test_same_table_field_can_refresh_and_remove_ids_after_external_changes(
     schema_backed_cache: SchemaBackedStorageCache,
 ) -> None:
+    """
+    Check explicit scalar refresh observes an external edit and ID removal evicts a deleted row.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py::test_same_table_field_can_refresh_and_remove_ids_after_external_changes
+
+
+    :param schema_backed_cache: Loaded schema-backed cache over the two-book cover
+        fixture.
+    :return: None; failed expectations raise AssertionError.
+    """
     cache = schema_backed_cache
     field = cache.get_field("title")
 
@@ -733,6 +1051,19 @@ def test_same_table_field_can_refresh_and_remove_ids_after_external_changes(
 def test_same_table_field_refuses_to_clear_primary_key_values(
     schema_backed_cache: SchemaBackedStorageCache,
 ) -> None:
+    """
+    Check scalar deletion targeting primary-key values raises ValueError.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/caches/test_storage_cache_schema_backed.py::test_same_table_field_refuses_to_clear_primary_key_values
+
+
+    :param schema_backed_cache: Loaded schema-backed cache over the two-book cover
+        fixture.
+    :return: None; failed expectations raise AssertionError.
+    """
     cache = schema_backed_cache
     field = cache.get_field("books.id")
 

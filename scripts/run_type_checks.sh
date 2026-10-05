@@ -18,7 +18,7 @@ usage() {
     cat <<'EOF'
 Usage: scripts/run_type_checks.sh [options] [-- <tool args>]
 
-Run the repo's static typing checks against the configured strict target set.
+Run the repo's modern formatting, lint, architecture, and typing quality gates.
 
 Options:
   --basedpyright          Run only basedpyright
@@ -128,15 +128,60 @@ MYPY_CMD=("${VENV_DIR}/bin/mypy")
 RUFF_CMD=(
     "${VENV_DIR}/bin/ruff"
     "check"
+    "src/LiuXin_alpha/surfaces/terminal/browser.py"
+    "src/LiuXin_alpha/surfaces/terminal/browser_components"
+    "src/LiuXin_alpha/surfaces/terminal/windowed_ui.py"
+    "src/LiuXin_alpha/surfaces/terminal/windowed_components"
+    "tests/surfaces/test_terminal_component_ownership.py"
+    "tests/surfaces/test_terminal_component_behavior.py"
+    "src/LiuXin_alpha/surfaces/terminal/__init__.py"
+    "src/LiuXin_alpha/surfaces/terminal/app.py"
+    "src/LiuXin_alpha/surfaces/terminal/database_creation.py"
+    "src/LiuXin_alpha/surfaces/terminal/presentation.py"
+    "src/LiuXin_alpha/surfaces/terminal/commands/base.py"
+    "src/LiuXin_alpha/surfaces/terminal/plugins/base.py"
+    "tests/surfaces/test_terminal_dependency_contracts.py"
+    "src/LiuXin_alpha/surfaces/cli/__init__.py"
+    "src/LiuXin_alpha/surfaces/cli/app.py"
+    "src/LiuXin_alpha/surfaces/cli/completion.py"
+    "src/LiuXin_alpha/surfaces/cli/parser_types.py"
+    "src/LiuXin_alpha/surfaces/cli/parsers.py"
+    "src/LiuXin_alpha/surfaces/cli/squashfs_commands.py"
+    "src/LiuXin_alpha/surfaces/cli/squashfs_parsers.py"
+    "tests/surfaces/test_cli_dependency_contracts.py"
+    "src/LiuXin_alpha/surfaces/presentation.py"
+    "src/LiuXin_alpha/surfaces/acquisition_types.py"
+    "tests/surfaces/test_shared_surface_dependencies.py"
+    "tests/surfaces/test_read_model_failure_contracts.py"
+    "tests/surfaces/test_surface_read_errors.py"
+    "tests/surfaces/test_read_model_transport_errors.py"
+    "tests/databases/caches/test_writer_dependencies.py"
+    "src/LiuXin_alpha/core/commands.py"
+    "src/LiuXin_alpha/core/queries.py"
     "src/LiuXin_alpha/core/program_endpoints"
+    "src/LiuXin_alpha/core/program_api.py"
+    "src/LiuXin_alpha/core/program_services"
+    "src/LiuXin_alpha/surfaces/cli/storage_commands"
     "src/LiuXin_alpha/ingest/mixed_application.py"
     "src/LiuXin_alpha/catalog/write/host_api.py"
     "src/LiuXin_alpha/catalog/api/metadata_tools_api/facades.py"
     "src/LiuXin_alpha/storage/storage_manager/manager.py"
     "src/LiuXin_alpha/storage/storage_manager/mixins"
     "scripts/check_modern_import_cycles.py"
+    "scripts/check_internal_type_contracts.py"
+    "scripts/run_format_checks.py"
+    "tests/scripts/test_run_format_checks.py"
+    "tests/scripts/test_internal_type_contracts.py"
+    "tests/scripts/test_workflow_ownership.py"
+    "tests/core/test_evacuation_workflow.py"
+    "tests/core/test_program_workflow_facade.py"
     "tests/scripts/test_check_modern_import_cycles.py"
     "tests/scripts/test_public_documentation_boundaries.py"
+    "scripts/audit_project_docstrings.py"
+    "scripts/normalize_docstrings.py"
+    "tests/scripts/test_docstring_migration.py"
+    "tests/scripts/test_ci_workflow_contracts.py"
+    "tests/scripts/test_developer_documentation_links.py"
     "tests/scripts/test_run_type_checks.py"
     "tests/storage/api/test_storage_manager_composition.py"
     "tests/storage/api/test_storage_manager_docstrings.py"
@@ -146,9 +191,17 @@ FILE_FORMAT_ANNOTATION_CMD=(
     "${REPO_ROOT}/scripts/annotate_file_formats.py"
     "--check"
 )
+FORMAT_CMD=(
+    "${VENV_PYTHON}"
+    "${REPO_ROOT}/scripts/run_format_checks.py"
+)
 IMPORT_CYCLE_CMD=(
     "${VENV_PYTHON}"
     "${REPO_ROOT}/scripts/check_modern_import_cycles.py"
+)
+INTERNAL_CONTRACT_CMD=(
+    "${VENV_PYTHON}"
+    "${REPO_ROOT}/scripts/check_internal_type_contracts.py"
 )
 MODERN_COMPLEXITY_CMD=(
     "${VENV_DIR}/bin/ruff"
@@ -157,12 +210,34 @@ MODERN_COMPLEXITY_CMD=(
     "C901"
     "--config"
     "lint.mccabe.max-complexity=10"
+    "src/LiuXin_alpha/surfaces/terminal/browser.py"
+    "src/LiuXin_alpha/surfaces/terminal/browser_components"
+    "src/LiuXin_alpha/surfaces/terminal/windowed_ui.py"
+    "src/LiuXin_alpha/surfaces/terminal/windowed_components"
+    "src/LiuXin_alpha/surfaces/terminal/presentation.py"
+    "src/LiuXin_alpha/surfaces/terminal/__init__.py"
+    "src/LiuXin_alpha/surfaces/terminal/app.py"
+    "src/LiuXin_alpha/surfaces/terminal/database_creation.py"
+    "src/LiuXin_alpha/surfaces/terminal/commands/base.py"
+    "src/LiuXin_alpha/surfaces/terminal/plugins/base.py"
+    "src/LiuXin_alpha/surfaces/cli/__init__.py"
+    "src/LiuXin_alpha/surfaces/cli/app.py"
+    "src/LiuXin_alpha/surfaces/cli/completion.py"
+    "src/LiuXin_alpha/surfaces/cli/parser_types.py"
+    "src/LiuXin_alpha/surfaces/cli/parsers.py"
+    "src/LiuXin_alpha/surfaces/cli/squashfs_commands.py"
+    "src/LiuXin_alpha/surfaces/cli/squashfs_parsers.py"
+    "src/LiuXin_alpha/surfaces/presentation.py"
+    "src/LiuXin_alpha/surfaces/acquisition_types.py"
     "src/LiuXin_alpha/core/program_endpoints"
+    "src/LiuXin_alpha/core/program_api.py"
+    "src/LiuXin_alpha/core/program_services"
     "src/LiuXin_alpha/ingest/mixed_application.py"
     "src/LiuXin_alpha/catalog/write/host_api.py"
     "src/LiuXin_alpha/catalog/api/metadata_tools_api/facades.py"
-    "src/LiuXin_alpha/surfaces/cli/storage.py"
+    "src/LiuXin_alpha/surfaces/cli/storage_commands"
     "scripts/check_modern_import_cycles.py"
+    "scripts/run_format_checks.py"
 )
 STORAGE_MANAGER_COMPLEXITY_CMD=(
     "${VENV_DIR}/bin/ruff"
@@ -196,14 +271,20 @@ fi
 if [[ ${RUN_BASEDPYRIGHT} -eq 1 ]]; then
     printf 'basedpyright step: '
     print_cmd "${BASEDPYRIGHT_CMD[@]}"
+    printf 'internal basedpyright contract step: '
+    print_cmd "${INTERNAL_CONTRACT_CMD[@]}" --checker basedpyright
 fi
 
 if [[ ${RUN_MYPY} -eq 1 ]]; then
     printf 'mypy step: '
     print_cmd "${MYPY_CMD[@]}"
+    printf 'internal mypy contract step: '
+    print_cmd "${INTERNAL_CONTRACT_CMD[@]}" --checker mypy
 fi
 printf 'modern lint step: '
 print_cmd "${RUFF_CMD[@]}"
+printf 'modern formatting step: '
+print_cmd "${FORMAT_CMD[@]}"
 printf 'file_formats annotation step: '
 print_cmd "${FILE_FORMAT_ANNOTATION_CMD[@]}"
 printf 'modern import-cycle step: '
@@ -249,6 +330,7 @@ fi
 
 STATUS=0
 
+"${FORMAT_CMD[@]}"
 "${FILE_FORMAT_ANNOTATION_CMD[@]}"
 "${IMPORT_CYCLE_CMD[@]}"
 "${RUFF_CMD[@]}"
@@ -259,6 +341,10 @@ if [[ ${RUN_BASEDPYRIGHT} -eq 1 ]]; then
     set +e
     "${BASEDPYRIGHT_CMD[@]}"
     CHECK_STATUS=$?
+    if [[ ${CHECK_STATUS} -eq 0 ]]; then
+        "${INTERNAL_CONTRACT_CMD[@]}" --checker basedpyright
+        CHECK_STATUS=$?
+    fi
     set -e
     if [[ ${CHECK_STATUS} -ne 0 ]]; then
         STATUS=${CHECK_STATUS}
@@ -269,6 +355,10 @@ if [[ ${RUN_MYPY} -eq 1 ]]; then
     set +e
     "${MYPY_CMD[@]}"
     CHECK_STATUS=$?
+    if [[ ${CHECK_STATUS} -eq 0 ]]; then
+        "${INTERNAL_CONTRACT_CMD[@]}" --checker mypy
+        CHECK_STATUS=$?
+    fi
     set -e
     if [[ ${CHECK_STATUS} -ne 0 && ${STATUS} -eq 0 ]]; then
         STATUS=${CHECK_STATUS}

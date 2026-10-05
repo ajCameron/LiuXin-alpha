@@ -1,5 +1,16 @@
 # -*- coding: utf-8 -*-
 
+"""
+Read the source format into normalized metadata and content resources.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise reader through a consuming regression::
+
+        python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -22,10 +33,40 @@ __docformat__ = "restructuredtext en"
 
 
 class _Logger(Protocol):
-    def debug(self: _typing.Self, message: object) -> object: ...
+    """
+    Provide the logger contract for validated ebook processing.
+
+    Example:
+        Exercise  Logger through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+    """
+    def debug(self: _typing.Self, message: object) -> object:
+        """
+        Perform the debug operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise  Logger.debug through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+
+
+        :param message: Value supplied for message under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
+        ...
 
 
 class RBTocItem:
+    """
+    Provide the rbtocitem contract for validated ebook processing.
+
+    Example:
+        Exercise RBTocItem through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+    """
     def __init__(
         self: _typing.Self,
         name: str = "",
@@ -33,6 +74,21 @@ class RBTocItem:
         offset: int = 0,
         flags: int = 0,
     ) -> None:
+        """
+        Initialize and validate the rbtocitem state.
+
+        Example:
+            Exercise RBTocItem.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+
+
+        :param name: Field, file, function or resource name addressed by the operation.
+        :param size: Value supplied for size under the utility contract.
+        :param offset: Value supplied for offset under the utility contract.
+        :param flags: Value supplied for flags under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.name = name
         self.size = size
         self.offset = offset
@@ -40,10 +96,26 @@ class RBTocItem:
 
 
 class RBToc(list[RBTocItem]):
+    """
+    Provide the rbtoc contract for validated ebook processing.
+
+    Example:
+        Exercise RBToc through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+    """
     Item = RBTocItem
 
 
 class Reader(object):
+    """
+    Parse reader data into normalized ebook structures.
+
+    Example:
+        Exercise Reader through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+    """
     def __init__(
         self: _typing.Self,
         stream: BinaryIO,
@@ -53,9 +125,17 @@ class Reader(object):
         """
         Setup a reader to read from a file.
 
-        :param stream: rb stream to read from
-        :param log: log instance to write data to
-        :param encoding: assume this encoding of the source text
+        Example:
+            Exercise Reader.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param log: Value supplied for log under the utility contract.
+        :param encoding: Value supplied for encoding under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self.stream = stream
         self.log = log
@@ -66,11 +146,32 @@ class Reader(object):
         self.toc = self.get_toc()
 
     def read_i32(self: _typing.Self) -> int:
+        """
+        Read i32 under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Reader.read i32 through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return struct.unpack("<I", self.stream.read(4))[0]
 
     def verify_file(self: _typing.Self) -> None:
         """
         Check that the size recorded in the file header matches the actual file size.
+
+        Example:
+            Exercise Reader.verify file through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.stream.seek(0)
         if self.stream.read(14) != HEADER:
@@ -91,6 +192,15 @@ class Reader(object):
     def get_toc(self: _typing.Self) -> RBToc:
         """
         Read and return the file's table of contents.
+
+        Example:
+            Exercise Reader.get toc through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         self.stream.seek(24)
         toc_offset = self.read_i32()
@@ -107,6 +217,18 @@ class Reader(object):
         return toc
 
     def _read_toc_name(self: _typing.Self) -> str:
+        """
+        Read toc name under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Reader. read toc name through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         raw = self.stream.read(32).rstrip(b"\x00")
         try:
             decoded = raw.decode("utf-8")
@@ -119,6 +241,20 @@ class Reader(object):
         output_dir: str | os.PathLike[str],
         item_name: str,
     ) -> str:
+        """
+        Perform the item output path operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Reader. item output path through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+
+
+        :param output_dir: Value supplied for output dir under the utility contract.
+        :param item_name: Value supplied for item name under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return os.path.join(output_dir, os.path.basename(item_name))
 
     def get_text(
@@ -128,6 +264,17 @@ class Reader(object):
     ) -> None:
         """
         Return the text content of a toc_item.
+
+        Example:
+            Exercise Reader.get text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+
+
+        :param toc_item: Value supplied for toc item under the utility contract.
+        :param output_dir: Value supplied for output dir under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if toc_item.flags in (1, 2):
             return
@@ -157,6 +304,20 @@ class Reader(object):
         toc_item: RBTocItem,
         output_dir: str | os.PathLike[str],
     ) -> None:
+        """
+        Return image under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Reader.get image through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+
+
+        :param toc_item: Value supplied for toc item under the utility contract.
+        :param output_dir: Value supplied for output dir under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if toc_item.flags != 0:
             return
 
@@ -170,6 +331,19 @@ class Reader(object):
         self: _typing.Self,
         output_dir: str | os.PathLike[str],
     ) -> str:
+        """
+        Extract content under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Reader.extract content through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+
+
+        :param output_dir: Value supplied for output dir under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.log.debug("Extracting content from file...")
         os.makedirs(output_dir, exist_ok=True)
         html = []
@@ -194,6 +368,21 @@ class Reader(object):
         pages: list[str],
         images: list[str],
     ) -> str:
+        """
+        Create opf under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Reader.create opf through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rb/test_rb_modernized.py
+
+
+        :param output_dir: Value supplied for output dir under the utility contract.
+        :param pages: Value supplied for pages under the utility contract.
+        :param images: Value supplied for images under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         with CurrentDir(output_dir):
             opf = OPFCreator(output_dir, self.mi)
             manifest = []

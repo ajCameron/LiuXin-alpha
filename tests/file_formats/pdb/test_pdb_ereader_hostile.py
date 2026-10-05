@@ -1,3 +1,14 @@
+"""
+Provide test pdb ereader hostile utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test pdb ereader hostile through a consuming regression::
+
+        python -m pytest -q tests/file_formats/pdb/test_pdb_ereader_hostile.py
+"""
 from __future__ import annotations
 
 import zlib
@@ -18,24 +29,75 @@ from tests.support.file_format_pdb import (
 
 
 def _pdb_header(payload: bytes):
+    """
+    Perform the pdb header operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  pdb header through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_ereader_hostile.py
+
+
+    :param payload: Value supplied for payload under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     from LiuXin_alpha.file_formats.pdb.header import PdbHeaderReader
 
     return PdbHeaderReader(pdb_stream(payload))
 
 
 def _dropbook_reader(payload: bytes):
+    """
+    Perform the dropbook reader operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  dropbook reader through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_ereader_hostile.py
+
+
+    :param payload: Value supplied for payload under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     from LiuXin_alpha.file_formats.pdb.ereader.reader132 import Reader132
 
     return Reader132(_pdb_header(payload), pdb_stream(payload), PdbLog(), pdb_input_options(input_encoding="cp1252"))
 
 
 def _makebook_reader(payload: bytes):
+    """
+    Perform the makebook reader operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  makebook reader through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_ereader_hostile.py
+
+
+    :param payload: Value supplied for payload under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     from LiuXin_alpha.file_formats.pdb.ereader.reader202 import Reader202
 
     return Reader202(_pdb_header(payload), pdb_stream(payload), PdbLog(), pdb_input_options(input_encoding="cp1252"))
 
 
 def test_ereader_dispatcher_rejects_short_record0_as_ereader_error() -> None:
+    """
+    Perform the test ereader dispatcher rejects short record0 as ereader error operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test ereader dispatcher rejects short record0 as ereader error through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_ereader_hostile.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.pdb.ereader.reader import Reader
 
     payload = build_pdb([b"\0"], title="Short eReader", ident="PNRdPPrs")
@@ -45,6 +107,18 @@ def test_ereader_dispatcher_rejects_short_record0_as_ereader_error() -> None:
 
 
 def test_reader132_rejects_text_range_beyond_sections() -> None:
+    """
+    Perform the test reader132 rejects text range beyond sections operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test reader132 rejects text range beyond sections through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_ereader_hostile.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     record0 = build_ereader_header_record(
         compression=10,
         non_text_offset=5,
@@ -60,6 +134,18 @@ def test_reader132_rejects_text_range_beyond_sections() -> None:
 
 
 def test_reader132_rejects_image_range_beyond_sections() -> None:
+    """
+    Perform the test reader132 rejects image range beyond sections operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test reader132 rejects image range beyond sections through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_ereader_hostile.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     record0 = build_ereader_header_record(
         compression=10,
         non_text_offset=1,
@@ -76,6 +162,18 @@ def test_reader132_rejects_image_range_beyond_sections() -> None:
 
 
 def test_reader132_wraps_bad_zlib_text_as_ereader_error() -> None:
+    """
+    Perform the test reader132 wraps bad zlib text as ereader error operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test reader132 wraps bad zlib text as ereader error through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_ereader_hostile.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     record0 = build_ereader_header_record(
         compression=10,
         non_text_offset=2,
@@ -92,6 +190,19 @@ def test_reader132_wraps_bad_zlib_text_as_ereader_error() -> None:
 
 
 def test_reader132_sanitizes_image_names_for_dump(tmp_path) -> None:
+    """
+    Perform the test reader132 sanitizes image names for dump operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test reader132 sanitizes image names for dump through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_ereader_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     record0 = build_ereader_header_record(
         compression=10,
         non_text_offset=2,
@@ -114,6 +225,18 @@ def test_reader132_sanitizes_image_names_for_dump(tmp_path) -> None:
 
 
 def test_reader202_rejects_text_range_beyond_sections() -> None:
+    """
+    Perform the test reader202 rejects text range beyond sections operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test reader202 rejects text range beyond sections through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_ereader_hostile.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     record0 = build_ereader202_header_record(version=2, non_text_offset=4)
     payload = build_pdb([record0, b"text"], title="Bad Makebook Text", ident="PNRdPPrs")
 
@@ -122,9 +245,35 @@ def test_reader202_rejects_text_range_beyond_sections() -> None:
 
 
 def test_reader202_wraps_palmdoc_text_failures(monkeypatch) -> None:
+    """
+    Perform the test reader202 wraps palmdoc text failures operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test reader202 wraps palmdoc text failures through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_ereader_hostile.py
+
+
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.compression import palmdoc as palmdoc_compression
 
     def fail_decompress(_payload):
+        """
+        Perform the fail decompress operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise test reader202 wraps palmdoc text failures.fail decompress through a consuming regression::
+
+                python -m pytest -q tests/file_formats/pdb/test_pdb_ereader_hostile.py
+
+
+        :param _payload: Value supplied for payload under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         raise RuntimeError("synthetic eReader decompressor failure")
 
     monkeypatch.setattr(palmdoc_compression, "decompress_doc", fail_decompress)
@@ -137,6 +286,18 @@ def test_reader202_wraps_palmdoc_text_failures(monkeypatch) -> None:
 
 
 def test_reader202_sanitizes_image_names() -> None:
+    """
+    Perform the test reader202 sanitizes image names operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test reader202 sanitizes image names through a consuming regression::
+
+            python -m pytest -q tests/file_formats/pdb/test_pdb_ereader_hostile.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     record0 = build_ereader202_header_record(version=2, non_text_offset=2)
     image = build_ereader_image_record(name="..\\escape.png", payload=b"image-bytes")
     payload = build_pdb([record0, b"x", image], title="Makebook Image", ident="PNRdPPrs")

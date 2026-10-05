@@ -1,6 +1,17 @@
 #!/usr/bin/env python2
 # vim:fileencoding=utf-8
 
+"""
+Translate normalized HTML and CSS into DOCX paragraphs, runs and sections.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise from html through a consuming regression::
+
+        python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -21,7 +32,28 @@ try:
     from LiuXin_alpha.file_formats.oeb.stylizer import Stylizer as Sz, Style as St
 except Exception:
     class _MissingStylizerBase(object):
+        """
+        Provide the missingstylizerbase contract for validated ebook processing.
+
+        Example:
+            Exercise  MissingStylizerBase through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+        """
         def __init__(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> None:
+            """
+            Initialize and validate the missingstylizerbase state.
+
+            Example:
+                Exercise  MissingStylizerBase.  init   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+            :param args: Positional values forwarded to the compatibility implementation.
+            :param kwargs: Keyword values forwarded to the compatibility implementation.
+            :return: None; validated state is stored on the receiving object.
+            """
             raise RuntimeError("DOCX writer requires cssutils-backed stylizer support")
 
     Sz = _MissingStylizerBase
@@ -37,6 +69,19 @@ __copyright__ = "2013, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
 def lang_for_tag(tag: _typing.Any) -> _typing.Any:
+    """
+    Perform the lang for tag operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise lang for tag through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+    :param tag: Value supplied for tag under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     for attr in ("lang", "{http://www.w3.org/XML/1998/namespace}lang"):
         val = lang_as_iso639_1(tag.get(attr))
         if val:
@@ -44,12 +89,45 @@ def lang_for_tag(tag: _typing.Any) -> _typing.Any:
 
 
 class Style(St):
+    """
+    Provide the style contract for validated ebook processing.
+
+    Example:
+        Exercise Style through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+    """
     def __init__(self: _typing.Self, *args: _typing.Any, **kwargs: _typing.Any) -> None:
+        """
+        Initialize and validate the style state.
+
+        Example:
+            Exercise Style.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: None; validated state is stored on the receiving object.
+        """
         St.__init__(self, *args, **kwargs)
         self._letterSpacing = None
 
     @property
     def letterSpacing(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the letterSpacing operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Style.letterSpacing through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self._letterSpacing is not None:
             val = self._get("letter-spacing")
             if val == "normal":
@@ -60,7 +138,28 @@ class Style(St):
 
 
 class Stylizer(Sz):
+    """
+    Provide the stylizer contract for validated ebook processing.
+
+    Example:
+        Exercise Stylizer through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+    """
     def style(self: _typing.Self, element: _typing.Any) -> _typing.Any:
+        """
+        Perform the style operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Stylizer.style through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param element: Value supplied for element under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             return self._styles[element]
         except KeyError:
@@ -69,9 +168,33 @@ class Stylizer(Sz):
 
 class TextRun(object):
 
+    """
+    Provide the textrun contract for validated ebook processing.
+
+    Example:
+        Exercise TextRun through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+    """
     ws_pat = None
 
     def __init__(self: _typing.Self, namespace: _typing.Any, style: _typing.Any, first_html_parent: _typing.Any, lang: _typing.Any = None) -> None:
+        """
+        Initialize and validate the textrun state.
+
+        Example:
+            Exercise TextRun.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param namespace: Value supplied for namespace under the utility contract.
+        :param style: Value supplied for style under the utility contract.
+        :param first_html_parent: Value supplied for first html parent under the utility
+            contract.
+        :param lang: Value supplied for lang under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.first_html_parent = first_html_parent
         if self.ws_pat is None:
             TextRun.ws_pat = self.ws_pat = re.compile(r"\s+")
@@ -84,6 +207,23 @@ class TextRun(object):
         self.descendant_style = None
 
     def add_text(self: _typing.Self, text: _typing.Any, preserve_whitespace: _typing.Any, bookmark: _typing.Any = None, link: _typing.Any = None) -> None:
+        """
+        Perform the add text operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TextRun.add text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :param preserve_whitespace: Value supplied for preserve whitespace under the utility
+            contract.
+        :param bookmark: Value supplied for bookmark under the utility contract.
+        :param link: Value supplied for link under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if not preserve_whitespace:
             text = self.ws_pat.sub(" ", text)
             if text.strip() != text:
@@ -94,12 +234,54 @@ class TextRun(object):
         self.link = link
 
     def add_break(self: _typing.Self, clear: str = "none", bookmark: _typing.Any = None) -> None:
+        """
+        Perform the add break operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TextRun.add break through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param clear: Value supplied for clear under the utility contract.
+        :param bookmark: Value supplied for bookmark under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.texts.append((None, clear, bookmark))
 
     def add_image(self: _typing.Self, drawing: _typing.Any, bookmark: _typing.Any = None) -> None:
+        """
+        Perform the add image operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TextRun.add image through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param drawing: Value supplied for drawing under the utility contract.
+        :param bookmark: Value supplied for bookmark under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.texts.append((drawing, None, bookmark))
 
     def serialize(self: _typing.Self, p: _typing.Any, links_manager: _typing.Any) -> None:
+        """
+        Perform the serialize operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TextRun.serialize through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param p: Path-like value normalized or validated by the operation.
+        :param links_manager: Value supplied for links manager under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         makeelement = self.makeelement
         parent = p if self.link is None else links_manager.serialize_hyperlink(p, self.link)
         r = makeelement(parent, "w:r")
@@ -129,9 +311,32 @@ class TextRun(object):
                 makeelement(r, "w:bookmarkEnd", w_id=str(bid))
 
     def __repr__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the repr operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TextRun.  repr   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return repr(self.texts)
 
     def is_empty(self: _typing.Self) -> bool:
+        """
+        Return whether is empty holds for the supplied ebook data.
+
+        Example:
+            Exercise TextRun.is empty through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: True when the documented condition holds; otherwise False.
+        """
         if not self.texts:
             return True
         if len(self.texts) == 1 and self.texts[0][:2] == ("", False):
@@ -140,6 +345,18 @@ class TextRun(object):
 
     @property
     def style_weight(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the style weight operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise TextRun.style weight through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = 0
         for text, preserve_whitespace, bookmark in self.texts:
             if isinstance(text, type("")):
@@ -148,6 +365,14 @@ class TextRun(object):
 
 
 class Block(object):
+    """
+    Provide the block contract for validated ebook processing.
+
+    Example:
+        Exercise Block through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+    """
     def __init__(
         self: _typing.Self,
         namespace: _typing.Any,
@@ -159,6 +384,25 @@ class Block(object):
         float_spec: _typing.Any = None,
         is_list_item: bool = False,
     ) -> None:
+        """
+        Initialize and validate the block state.
+
+        Example:
+            Exercise Block.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param namespace: Value supplied for namespace under the utility contract.
+        :param styles_manager: Value supplied for styles manager under the utility contract.
+        :param links_manager: Value supplied for links manager under the utility contract.
+        :param html_block: Value supplied for html block under the utility contract.
+        :param style: Value supplied for style under the utility contract.
+        :param is_table_cell: Value supplied for is table cell under the utility contract.
+        :param float_spec: Value supplied for float spec under the utility contract.
+        :param is_list_item: Value supplied for is list item under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.namespace = namespace
         self.bookmarks = set()
         self.list_tag = (html_block, style) if is_list_item else None
@@ -183,6 +427,19 @@ class Block(object):
         self.block_lang = None
 
     def resolve_skipped(self: _typing.Self, next_block: _typing.Any) -> None:
+        """
+        Perform the resolve skipped operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Block.resolve skipped through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param next_block: Value supplied for next block under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if not self.is_empty():
             return
         if len(self.html_block) > 0 and self.html_block[0] is next_block.html_block:
@@ -201,6 +458,28 @@ class Block(object):
         link: _typing.Any = None,
         lang: _typing.Any = None,
     ) -> None:
+        """
+        Perform the add text operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Block.add text through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param text: Text parsed, normalized or rendered.
+        :param style: Value supplied for style under the utility contract.
+        :param ignore_leading_whitespace: Value supplied for ignore leading whitespace under
+            the utility contract.
+        :param html_parent: Value supplied for html parent under the utility contract.
+        :param is_parent_style: Value supplied for is parent style under the utility
+            contract.
+        :param bookmark: Value supplied for bookmark under the utility contract.
+        :param link: Value supplied for link under the utility contract.
+        :param lang: Value supplied for lang under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         ts = self.styles_manager.create_text_style(style, is_parent_style=is_parent_style)
         ws = style["white-space"]
         if self.runs and ts == self.runs[-1].style and link == self.runs[-1].link and lang == self.runs[-1].lang:
@@ -225,6 +504,20 @@ class Block(object):
             run.add_text(text, preserve_whitespace, bookmark=bookmark, link=link)
 
     def add_break(self: _typing.Self, clear: str = "none", bookmark: _typing.Any = None) -> None:
+        """
+        Perform the add break operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Block.add break through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param clear: Value supplied for clear under the utility contract.
+        :param bookmark: Value supplied for bookmark under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.runs:
             run = self.runs[-1]
         else:
@@ -237,6 +530,20 @@ class Block(object):
         run.add_break(clear=clear, bookmark=bookmark)
 
     def add_image(self: _typing.Self, drawing: _typing.Any, bookmark: _typing.Any = None) -> None:
+        """
+        Perform the add image operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Block.add image through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param drawing: Value supplied for drawing under the utility contract.
+        :param bookmark: Value supplied for bookmark under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.runs:
             run = self.runs[-1]
         else:
@@ -249,6 +556,19 @@ class Block(object):
         run.add_image(drawing, bookmark=bookmark)
 
     def serialize(self: _typing.Self, body: _typing.Any) -> None:
+        """
+        Perform the serialize operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Block.serialize through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param body: Value supplied for body under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         makeelement = self.namespace.makeelement
         p = makeelement(body, "w:p")
         end_bookmarks = []
@@ -290,11 +610,34 @@ class Block(object):
             makeelement(p, "w:bookmarkEnd", w_id=bmark)
 
     def __repr__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the repr operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Block.  repr   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "Block(%r)" % self.runs
 
     __str__ = __repr__
 
     def is_empty(self: _typing.Self) -> bool:
+        """
+        Return whether is empty holds for the supplied ebook data.
+
+        Example:
+            Exercise Block.is empty through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: True when the documented condition holds; otherwise False.
+        """
         for run in self.runs:
             if not run.is_empty():
                 return False
@@ -302,7 +645,29 @@ class Block(object):
 
 
 class Blocks(object):
+    """
+    Provide the blocks contract for validated ebook processing.
+
+    Example:
+        Exercise Blocks through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+    """
     def __init__(self: _typing.Self, namespace: _typing.Any, styles_manager: _typing.Any, links_manager: _typing.Any) -> None:
+        """
+        Initialize and validate the blocks state.
+
+        Example:
+            Exercise Blocks.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param namespace: Value supplied for namespace under the utility contract.
+        :param styles_manager: Value supplied for styles manager under the utility contract.
+        :param links_manager: Value supplied for links manager under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.namespace = namespace
         self.styles_manager = styles_manager
         self.links_manager = links_manager
@@ -316,9 +681,35 @@ class Blocks(object):
         self.html_tag_start_blocks = {}
 
     def current_or_new_block(self: _typing.Self, html_tag: _typing.Any, tag_style: _typing.Any) -> bool:
+        """
+        Perform the current or new block operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Blocks.current or new block through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param html_tag: Value supplied for html tag under the utility contract.
+        :param tag_style: Value supplied for tag style under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.current_block or self.start_new_block(html_tag, tag_style)
 
     def end_current_block(self: _typing.Self) -> None:
+        """
+        Perform the end current block operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Blocks.end current block through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.current_block is not None:
             self.all_blocks.append(self.current_block)
             if self.current_table is not None and self.current_table.current_row is not None:
@@ -337,6 +728,23 @@ class Blocks(object):
         float_spec: _typing.Any = None,
         is_list_item: bool = False,
     ) -> _typing.Any:
+        """
+        Perform the start new block operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Blocks.start new block through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param html_block: Value supplied for html block under the utility contract.
+        :param style: Value supplied for style under the utility contract.
+        :param is_table_cell: Value supplied for is table cell under the utility contract.
+        :param float_spec: Value supplied for float spec under the utility contract.
+        :param is_list_item: Value supplied for is list item under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.end_current_block()
         self.current_block = Block(
             self.namespace,
@@ -353,20 +761,75 @@ class Blocks(object):
         return self.current_block
 
     def start_new_table(self: _typing.Self, html_tag: _typing.Any, tag_style: _typing.Any = None) -> None:
+        """
+        Perform the start new table operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Blocks.start new table through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param html_tag: Value supplied for html tag under the utility contract.
+        :param tag_style: Value supplied for tag style under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.current_table = Table(self.namespace, html_tag, tag_style)
         self.tables.append(self.current_table)
 
     def start_new_row(self: _typing.Self, html_tag: _typing.Any, tag_style: _typing.Any) -> None:
+        """
+        Perform the start new row operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Blocks.start new row through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param html_tag: Value supplied for html tag under the utility contract.
+        :param tag_style: Value supplied for tag style under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.current_table is None:
             self.start_new_table(html_tag)
         self.current_table.start_new_row(html_tag, tag_style)
 
     def start_new_cell(self: _typing.Self, html_tag: _typing.Any, tag_style: _typing.Any) -> None:
+        """
+        Perform the start new cell operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Blocks.start new cell through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param html_tag: Value supplied for html tag under the utility contract.
+        :param tag_style: Value supplied for tag style under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.current_table is None:
             self.start_new_table(html_tag)
         self.current_table.start_new_cell(html_tag, tag_style)
 
     def finish_tag(self: _typing.Self, html_tag: _typing.Any) -> None:
+        """
+        Perform the finish tag operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Blocks.finish tag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param html_tag: Value supplied for html tag under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if self.current_block is not None and html_tag in self.open_html_blocks:
             start_block = self.html_tag_start_blocks.get(html_tag)
             if start_block is not None and start_block.html_style["page-break-after"] == "always":
@@ -388,10 +851,36 @@ class Blocks(object):
                     self.items.append(table)
 
     def serialize(self: _typing.Self, body: _typing.Any) -> None:
+        """
+        Perform the serialize operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Blocks.serialize through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param body: Value supplied for body under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for item in self.items:
             item.serialize(body)
 
     def delete_block_at(self: _typing.Self, pos: _typing.Any = None) -> None:
+        """
+        Perform the delete block at operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Blocks.delete block at through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param pos: Value supplied for pos under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         pos = self.pos if pos is None else pos
         block = self.all_blocks[pos]
         del self.all_blocks[pos]
@@ -413,10 +902,37 @@ class Blocks(object):
             pass
 
     def __enter__(self: _typing.Self) -> None:
+        """
+        Implement the conversion resource's enter lifecycle operation.
+
+        Example:
+            Exercise Blocks.  enter   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.pos = len(self.all_blocks)
         self.block_map = {}
 
     def __exit__(self: _typing.Self, etype: _typing.Any, value: _typing.Any, traceback: _typing.Any) -> None:
+        """
+        Implement the conversion resource's exit lifecycle operation.
+
+        Example:
+            Exercise Blocks.  exit   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param etype: Value supplied for etype under the utility contract.
+        :param value: Value normalized, stored, formatted or returned.
+        :param traceback: Value supplied for traceback under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if value is not None:
             return  # Since there was an exception, the data structures are not in a consistent state
         if self.current_block is not None:
@@ -432,6 +948,18 @@ class Blocks(object):
         self.block_map = {}
 
     def apply_page_break_after(self: _typing.Self) -> None:
+        """
+        Perform the apply page break after operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Blocks.apply page break after through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         for i, block in enumerate(self.all_blocks):
             if block.page_break_after and i < len(self.all_blocks) - 1:
                 next_block = self.all_blocks[i + 1]
@@ -439,6 +967,18 @@ class Blocks(object):
                     next_block.page_break_before = True
 
     def resolve_language(self: _typing.Self) -> None:
+        """
+        Perform the resolve language operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Blocks.resolve language through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         default_lang = self.styles_manager.document_lang
         for block in self.all_blocks:
             count = Counter()
@@ -453,6 +993,18 @@ class Blocks(object):
                     block.block_lang = None
 
     def __repr__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the repr operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Blocks.  repr   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "Block(%r)" % self.runs
 
 
@@ -461,11 +1013,35 @@ class Convert(object):
     # Word does not apply default styling to hyperlinks, so we ensure they get
     # default styling (the conversion pipeline does not apply any styling to
     # them).
+    """
+    Provide the convert contract for validated ebook processing.
+
+    Example:
+        Exercise Convert through a consuming regression::
+
+            python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+    """
     base_css = """
     a[href] { text-decoration: underline; color: blue }
     """
 
     def __init__(self: _typing.Self, oeb: _typing.Any, docx: _typing.Any, mi: _typing.Any, add_cover: _typing.Any, add_toc: _typing.Any) -> None:
+        """
+        Initialize and validate the convert state.
+
+        Example:
+            Exercise Convert.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param oeb: Value supplied for oeb under the utility contract.
+        :param docx: Value supplied for docx under the utility contract.
+        :param mi: Metadata object exposed to the template function.
+        :param add_cover: Value supplied for add cover under the utility contract.
+        :param add_toc: Value supplied for add toc under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.oeb, self.docx, self.add_cover, self.add_toc = (
             oeb,
             docx,
@@ -477,6 +1053,18 @@ class Convert(object):
         self.cover_img = None
 
     def __call__(self: _typing.Self) -> None:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Convert.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         from LiuXin_alpha.file_formats.oeb.transforms.rasterize import SVGRasterizer
 
         self.svg_rasterizer = SVGRasterizer(base_css=self.base_css)
@@ -528,6 +1116,19 @@ class Convert(object):
         self.write()
 
     def process_item(self: _typing.Self, item: _typing.Any) -> None:
+        """
+        Perform the process item operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Convert.process item through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param item: Value supplied for item under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.current_item = item
         stylizer = self.svg_rasterizer.stylizer_cache.get(item)
         if stylizer is None:
@@ -548,6 +1149,22 @@ class Convert(object):
                 self.process_tag(body, stylizer, is_first_tag=i == 0)
 
     def process_tag(self: _typing.Self, html_tag: _typing.Any, stylizer: _typing.Any, is_first_tag: bool = False, float_spec: _typing.Any = None) -> None:
+        """
+        Perform the process tag operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Convert.process tag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param html_tag: Value supplied for html tag under the utility contract.
+        :param stylizer: Value supplied for stylizer under the utility contract.
+        :param is_first_tag: Value supplied for is first tag under the utility contract.
+        :param float_spec: Value supplied for float spec under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         tagname = barename(html_tag.tag)
         if tagname in {"script", "style", "title", "meta"}:
             return
@@ -628,6 +1245,20 @@ class Convert(object):
             )
 
     def create_block_from_parent(self: _typing.Self, html_tag: _typing.Any, stylizer: _typing.Any) -> _typing.Any:
+        """
+        Create block from parent under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Convert.create block from parent through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param html_tag: Value supplied for html tag under the utility contract.
+        :param stylizer: Value supplied for stylizer under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         parent = html_tag.getparent()
         block = self.blocks.current_or_new_block(parent, stylizer.style(parent))
         # Do not inherit page-break-before from parent
@@ -644,6 +1275,25 @@ class Convert(object):
         float_spec: _typing.Any = None,
         is_list_item: bool = False,
     ) -> None:
+        """
+        Perform the add block tag operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Convert.add block tag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param tagname: Value supplied for tagname under the utility contract.
+        :param html_tag: Value supplied for html tag under the utility contract.
+        :param tag_style: Value supplied for tag style under the utility contract.
+        :param stylizer: Value supplied for stylizer under the utility contract.
+        :param is_table_cell: Value supplied for is table cell under the utility contract.
+        :param float_spec: Value supplied for float spec under the utility contract.
+        :param is_list_item: Value supplied for is list item under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         block = self.blocks.start_new_block(
             html_tag,
             tag_style,
@@ -668,6 +1318,22 @@ class Convert(object):
                 )
 
     def add_inline_tag(self: _typing.Self, tagname: _typing.Any, html_tag: _typing.Any, tag_style: _typing.Any, stylizer: _typing.Any) -> None:
+        """
+        Perform the add inline tag operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Convert.add inline tag through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param tagname: Value supplied for tagname under the utility contract.
+        :param html_tag: Value supplied for html tag under the utility contract.
+        :param tag_style: Value supplied for tag style under the utility contract.
+        :param stylizer: Value supplied for stylizer under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         anchor = html_tag.get("id") or html_tag.get("name") or None
         bmark = None
         if anchor:
@@ -695,9 +1361,35 @@ class Convert(object):
                 )
 
     def bookmark_for_anchor(self: _typing.Self, anchor: _typing.Any, html_tag: _typing.Any) -> _typing.Any:
+        """
+        Perform the bookmark for anchor operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Convert.bookmark for anchor through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :param anchor: Value supplied for anchor under the utility contract.
+        :param html_tag: Value supplied for html tag under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.links_manager.bookmark_for_anchor(anchor, self.current_item, html_tag)
 
     def write(self: _typing.Self) -> None:
+        """
+        Perform the write operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Convert.write through a consuming regression::
+
+                python -m pytest -q tests/file_formats/docx/test_docx_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.docx.document, self.docx.styles, body = create_skeleton(self.opts)
         self.blocks.serialize(body)
         body.append(body[0])  # Move <sectPr> to the end

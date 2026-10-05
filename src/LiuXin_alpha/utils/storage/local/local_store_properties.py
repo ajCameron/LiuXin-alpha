@@ -1,3 +1,14 @@
+"""
+Inspect capacity and path properties for local storage roots.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise local store properties through a consuming regression::
+
+        python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+"""
 from __future__ import annotations
 
 import os
@@ -13,13 +24,18 @@ def get_free_bytes(
     """
     Return free bytes on the filesystem that contains `path`, platform-independently.
 
-    - Default (include_reserved=False): free bytes available in normal usage.
-      This matches shutil.disk_usage(...).free (cross-platform).
-    - On POSIX only, include_reserved=True: includes blocks reserved for root
-      (uses statvfs f_bfree). On Windows, this flag has no effect.
+    Example:
+        Exercise get free bytes through a consuming regression::
 
-    `path` may be a file or directory; if it doesn't exist yet, we walk up to the
-    nearest existing parent directory.
+            python -m pytest -q tests/utils/storage/local/test_file_ops_smoke.py
+
+
+    :param path: Filesystem path read, written, normalized or validated by the
+        operation.
+    :param include_reserved: Value supplied for include reserved under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     p = Path(path)
 

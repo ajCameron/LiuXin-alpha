@@ -1,3 +1,14 @@
+"""
+Provide test comic malformed hostile utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test comic malformed hostile through a consuming regression::
+
+        python -m pytest -q tests/file_formats/comic/test_comic_malformed_hostile.py
+"""
 from __future__ import annotations
 
 import re
@@ -23,6 +34,18 @@ from tests.support.file_format_comic import (
 
 
 def _comic_options() -> SimpleNamespace:
+    """
+    Perform the comic options operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  comic options through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_malformed_hostile.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return SimpleNamespace(
         no_sort=False,
         verbose=False,
@@ -32,6 +55,22 @@ def _comic_options() -> SimpleNamespace:
 
 
 def _assert_comic_loss_event(options: SimpleNamespace, code: str, *, source_format: str, **details) -> None:
+    """
+    Perform the assert comic loss event operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  assert comic loss event through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_malformed_hostile.py
+
+
+    :param options: Value supplied for options under the utility contract.
+    :param code: Value supplied for code under the utility contract.
+    :param source_format: Value supplied for source format under the utility contract.
+    :param details: Value supplied for details under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     report = options.conversion_report
     events = [event for event in report.loss_events if event.code == code]
     assert len(events) == 1
@@ -53,6 +92,23 @@ def _assert_comic_convert_rejects_without_local_output(
     monkeypatch,
     match: str,
 ) -> None:
+    """
+    Perform the assert comic convert rejects without local output operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  assert comic convert rejects without local output through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_malformed_hostile.py
+
+
+    :param archive: Value supplied for archive under the utility contract.
+    :param file_ext: Value supplied for file ext under the utility contract.
+    :param workdir: Value supplied for workdir under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :param match: Value supplied for match under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.conversion.plugins.comic_input import ComicInput
 
     workdir.mkdir()
@@ -76,6 +132,24 @@ def _assert_comic_preflight_rejects_without_local_output(
     match: str,
     input_cls=None,
 ) -> NullLog:
+    """
+    Perform the assert comic preflight rejects without local output operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  assert comic preflight rejects without local output through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_malformed_hostile.py
+
+
+    :param archive: Value supplied for archive under the utility contract.
+    :param file_ext: Value supplied for file ext under the utility contract.
+    :param workdir: Value supplied for workdir under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :param match: Value supplied for match under the utility contract.
+    :param input_cls: Value supplied for input cls under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     from LiuXin_alpha.file_formats.conversion.plugins.comic_input import ComicInput
 
     workdir.mkdir()
@@ -103,6 +177,20 @@ def test_comic_input_rejects_cbz_without_image_pages(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    """
+    Perform the test comic input rejects cbz without image pages operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test comic input rejects cbz without image pages through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     fixture = build_unicode_cbz(
         tmp_path / "no_pages.cbz",
         page_members=(),
@@ -122,6 +210,20 @@ def test_comic_input_rejects_wrong_format_cbz_without_local_output(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    """
+    Perform the test comic input rejects wrong format cbz without local output operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test comic input rejects wrong format cbz without local output through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     archive = tmp_path / "not_a_zip.cbz"
     archive.write_bytes("not a comic archive: Καλημέρα".encode("utf-8"))
 
@@ -138,6 +240,20 @@ def test_comic_input_rejects_cbc_without_comics_txt(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    """
+    Perform the test comic input rejects cbc without comics txt operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test comic input rejects cbc without comics txt through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     base = build_unicode_cbc(tmp_path / "base.cbc")
     hostile = tmp_path / "missing_comics_txt.cbc"
     rewrite_comic_zip(base.path, hostile, remove=(base.comics_txt_member,))
@@ -155,6 +271,20 @@ def test_comic_input_rejects_cbc_with_invalid_comics_txt_encoding(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    """
+    Perform the test comic input rejects cbc with invalid comics txt encoding operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test comic input rejects cbc with invalid comics txt encoding through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     base = build_unicode_cbc(tmp_path / "base.cbc")
     hostile = tmp_path / "bad_comics_txt.cbc"
     rewrite_comic_zip(base.path, hostile, replace={base.comics_txt_member: b"\xff\xff\xff"})
@@ -172,6 +302,20 @@ def test_comic_input_reports_missing_cbc_member_and_uses_remaining_comics(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    """
+    Perform the test comic input reports missing cbc member and uses remaining comics operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test comic input reports missing cbc member and uses remaining comics through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.conversion.plugins.comic_input import ComicInput
 
     fixture = build_unicode_cbc(tmp_path / "collection.cbc")
@@ -214,6 +358,19 @@ def test_comic_input_reports_missing_cbc_member_and_uses_remaining_comics(
 def test_comic_collection_parser_reports_missing_listed_member(
     tmp_path: Path,
 ) -> None:
+    """
+    Perform the test comic collection parser reports missing listed member operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test comic collection parser reports missing listed member through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.conversion.plugins.comic_input import ComicInput
 
     fixture = build_unicode_cbc(tmp_path / "collection.cbc")
@@ -238,6 +395,20 @@ def test_comic_input_rejects_cbc_when_all_listed_comics_are_missing(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    """
+    Perform the test comic input rejects cbc when all listed comics are missing operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test comic input rejects cbc when all listed comics are missing through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     base = build_unicode_cbc(tmp_path / "base.cbc")
     hostile = tmp_path / "all_listed_missing.cbc"
     rewrite_comic_zip(base.path, hostile, remove=base.comic_members)
@@ -255,6 +426,20 @@ def test_comic_input_rejects_non_zip_cbz_before_extraction(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    """
+    Perform the test comic input rejects non zip cbz before extraction operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test comic input rejects non zip cbz before extraction through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     archive = tmp_path / "not_a_zip.cbz"
     archive.write_bytes("not a comic archive: Καλημέρα".encode("utf-8"))
 
@@ -271,6 +456,20 @@ def test_comic_input_rejects_non_rar_cbr_before_extraction(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    """
+    Perform the test comic input rejects non rar cbr before extraction operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test comic input rejects non rar cbr before extraction through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     archive = tmp_path / "not_a_rar.cbr"
     archive.write_bytes("not a comic archive: Καλημέρα".encode("utf-8"))
 
@@ -287,6 +486,20 @@ def test_comic_input_rejects_empty_or_truncated_rar_listing_before_extraction(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    """
+    Perform the test comic input rejects empty or truncated rar listing before extraction operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test comic input rejects empty or truncated rar listing before extraction through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     archive = tmp_path / "truncated.cbr"
     archive.write_bytes(b"Rar!\x1a\x07\x00truncated")
 
@@ -303,6 +516,20 @@ def test_comic_input_rejects_unsafe_names_only_external_rar_listing(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    """
+    Perform the test comic input rejects unsafe names only external rar listing operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test comic input rejects unsafe names only external rar listing through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     archive = write_stub_cbr(tmp_path / "fallback_unsafe.cbr")
     patch_rarfile_failure(monkeypatch)
     patch_unrar_names(monkeypatch, ("pages/01.png", "../escape.png"))
@@ -320,6 +547,20 @@ def test_comic_input_reports_both_rar_listing_backend_failures(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    """
+    Perform the test comic input reports both rar listing backend failures operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test comic input reports both rar listing backend failures through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     archive = write_stub_cbr(tmp_path / "both_backends_fail.cbr")
     patch_rarfile_failure(monkeypatch, RuntimeError("parser unavailable"))
     patch_unrar_names_failure(monkeypatch, RuntimeError("external listing unavailable"))
@@ -353,6 +594,22 @@ def test_comic_input_rejects_unsafe_cbz_member_paths_before_extraction(
     case_id: str,
     member_name: str,
 ) -> None:
+    """
+    Perform the test comic input rejects unsafe cbz member paths before extraction operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test comic input rejects unsafe cbz member paths before extraction through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :param case_id: Value supplied for case id under the utility contract.
+    :param member_name: Value supplied for member name under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     base = build_unicode_cbz(tmp_path / "base.cbz")
     hostile = tmp_path / f"{case_id}.cbz"
     rewrite_comic_zip(base.path, hostile, add={member_name: b"\x89PNG unsafe"})
@@ -382,6 +639,22 @@ def test_comic_input_rejects_unsafe_cbc_member_paths_before_extraction(
     case_id: str,
     member_name: str,
 ) -> None:
+    """
+    Perform the test comic input rejects unsafe cbc member paths before extraction operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test comic input rejects unsafe cbc member paths before extraction through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :param case_id: Value supplied for case id under the utility contract.
+    :param member_name: Value supplied for member name under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     base = build_unicode_cbc(tmp_path / "base.cbc")
     hostile = tmp_path / f"{case_id}.cbc"
     rewrite_comic_zip(base.path, hostile, add={member_name: b"unsafe"})
@@ -412,6 +685,22 @@ def test_comic_input_rejects_unsafe_cbr_member_paths_before_extraction(
     case_id: str,
     member_name: str,
 ) -> None:
+    """
+    Perform the test comic input rejects unsafe cbr member paths before extraction operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test comic input rejects unsafe cbr member paths before extraction through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :param case_id: Value supplied for case id under the utility contract.
+    :param member_name: Value supplied for member name under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     archive = write_stub_cbr(tmp_path / f"{case_id}.cbr")
     patch_rarfile_infolist(monkeypatch, (FakeRarInfo(member_name),))
 
@@ -428,6 +717,20 @@ def test_comic_input_rejects_nested_cbc_cbz_unsafe_member_before_page_extraction
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    """
+    Perform the test comic input rejects nested cbc cbz unsafe member before page extraction operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test comic input rejects nested cbc cbz unsafe member before page extraction through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     fixture = build_unicode_cbc(tmp_path / "base.cbc")
     hostile = tmp_path / "nested_unsafe.cbc"
     rewrite_comic_zip(
@@ -495,6 +798,24 @@ def test_comic_input_rejects_cbr_archive_budget_and_password_shapes(
     attrs: dict[str, int],
     match: str,
 ) -> None:
+    """
+    Perform the test comic input rejects cbr archive budget and password shapes operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test comic input rejects cbr archive budget and password shapes through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :param case_id: Value supplied for case id under the utility contract.
+    :param infos: Value supplied for infos under the utility contract.
+    :param attrs: Value supplied for attrs under the utility contract.
+    :param match: Value supplied for match under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.conversion.plugins.comic_input import ComicInput
 
     archive = write_stub_cbr(tmp_path / f"{case_id}.cbr")
@@ -515,9 +836,31 @@ def test_comic_input_rejects_too_many_cbz_members_without_partial_output(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    """
+    Perform the test comic input rejects too many cbz members without partial output operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test comic input rejects too many cbz members without partial output through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.conversion.plugins.comic_input import ComicInput
 
     class StrictComicInput(ComicInput):
+        """
+        Convert strictcomicinput sources into the normalized OEB pipeline model.
+
+        Example:
+            Exercise test comic input rejects too many cbz members without partial output.StrictComicInput through a consuming regression::
+
+                python -m pytest -q tests/file_formats/comic/test_comic_malformed_hostile.py
+        """
         max_archive_members = 4
 
     base = build_unicode_cbz(tmp_path / "small.cbz", page_members=("pages/01.png",))
@@ -542,9 +885,31 @@ def test_comic_input_rejects_oversized_cbz_member_without_partial_output(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    """
+    Perform the test comic input rejects oversized cbz member without partial output operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test comic input rejects oversized cbz member without partial output through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.conversion.plugins.comic_input import ComicInput
 
     class StrictComicInput(ComicInput):
+        """
+        Convert strictcomicinput sources into the normalized OEB pipeline model.
+
+        Example:
+            Exercise test comic input rejects oversized cbz member without partial output.StrictComicInput through a consuming regression::
+
+                python -m pytest -q tests/file_formats/comic/test_comic_malformed_hostile.py
+        """
         max_member_uncompressed_size = 10 * 1024
 
     base = build_unicode_cbz(tmp_path / "small.cbz", page_members=("pages/01.png",))
@@ -565,9 +930,31 @@ def test_comic_input_rejects_excessive_cbz_total_expansion_without_partial_outpu
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    """
+    Perform the test comic input rejects excessive cbz total expansion without partial output operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test comic input rejects excessive cbz total expansion without partial output through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.conversion.plugins.comic_input import ComicInput
 
     class StrictComicInput(ComicInput):
+        """
+        Convert strictcomicinput sources into the normalized OEB pipeline model.
+
+        Example:
+            Exercise test comic input rejects excessive cbz total expansion without partial output.StrictComicInput through a consuming regression::
+
+                python -m pytest -q tests/file_formats/comic/test_comic_malformed_hostile.py
+        """
         max_member_uncompressed_size = 100 * 1024
         max_total_uncompressed_size = 30 * 1024
 
@@ -593,9 +980,31 @@ def test_comic_input_rejects_suspicious_cbz_compression_ratio_without_partial_ou
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    """
+    Perform the test comic input rejects suspicious cbz compression ratio without partial output operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test comic input rejects suspicious cbz compression ratio without partial output through a consuming regression::
+
+            python -m pytest -q tests/file_formats/comic/test_comic_malformed_hostile.py
+
+
+    :param tmp_path: Value supplied for tmp path under the utility contract.
+    :param monkeypatch: Value supplied for monkeypatch under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.conversion.plugins.comic_input import ComicInput
 
     class StrictComicInput(ComicInput):
+        """
+        Convert strictcomicinput sources into the normalized OEB pipeline model.
+
+        Example:
+            Exercise test comic input rejects suspicious cbz compression ratio without partial output.StrictComicInput through a consuming regression::
+
+                python -m pytest -q tests/file_formats/comic/test_comic_malformed_hostile.py
+        """
         max_compression_ratio = 20
         min_compression_ratio_check_size = 32 * 1024
 

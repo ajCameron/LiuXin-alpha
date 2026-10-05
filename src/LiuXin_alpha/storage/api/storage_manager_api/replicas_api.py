@@ -1,6 +1,12 @@
 """
-Replica lifecycle operations above Store byte mechanics.
+Define public Replica lifecycle operations above configured Store byte mechanics.
+
+Lookup, replication, verification, and removal exchange domain records and reports.
+Each operation exposes its selection and safety controls without promising an
+atomic transaction across backend bytes and manager metadata.
 """
+
+from __future__ import annotations
 
 import abc
 
@@ -21,34 +27,32 @@ from LiuXin_alpha.storage.api.storage_manager_api.models import (
 
 class ReplicaLifecycleAPI(abc.ABC):
     """
-    Lifecycle operations for concrete copies of Digital Assets.
+    Define record lookup, replication, verification, and removal for concrete Asset copies.
 
-    Replica persistence is an implementation detail behind these operations;
-    callers deal in public records rather than row-shaped protocols.
+    Callers exchange public domain records while implementations own persistence and Store
+    operations. Reports describe observed outcomes; successful method return does not universally
+    imply healthy bytes or an atomic change across storage and metadata.
 
     Example:
-        >>> def verify(
-        ...     manager: ReplicaLifecycleAPI, replica_id: ReplicaID,
-        ... ) -> ReplicaVerificationReport:
-        ...     return manager.verify_replica(replica_id)
+        >>> report = manager.verify_replica(replica_id)  # doctest: +SKIP
     """
 
     @abc.abstractmethod
     def get_replica_record(self, replica_id: ReplicaID) -> ReplicaRecord:
         """
-        Return one Replica record or raise ``ReplicaNotFound``.
+        Resolve a recorded Replica identity or raise ReplicaNotFound without implying current byte
+        availability.
 
         Example:
-            >>> record = manager.get_replica_record(  # doctest: +SKIP
-            ...     ReplicaID(12),
-            ... )
+            >>> replica = manager.get_replica_record(ReplicaID(12))  # doctest: +SKIP
 
+        :param replica_id: Manager-assigned Replica ID to resolve.
 
-        :param replica_id:
-        :return:
+        :return: Replica domain record for the requested identity.
         """
         ...
 
+    # Todo: A method to just get all the replicas?
     @abc.abstractmethod
     def iter_replica_records(
         self,
@@ -58,21 +62,24 @@ class ReplicaLifecycleAPI(abc.ABC):
         mode: ReplicaMode | None = None,
     ) -> Iterator[ReplicaRecord]:
         """
-        Iterate over Replica records matching optional filters.
+        Iterate recorded claims matching all supplied filters.
+
+        No lifecycle-state filter is requested by this signature; callers must distinguish deleted
+        or unavailable claims when selecting readable copies. Ordering and snapshot behavior belong
+        to the implementation.
 
         Example:
-            >>> records = list(manager.iter_replica_records(  # doctest: +SKIP
-            ...     digital_asset_id=DigitalAssetID(7),
-            ...     mode=ReplicaMode.ACTIVE,
-            ... ))
+            >>> replicas = tuple(manager.iter_replica_records(digital_asset_id=asset_id, mode=ReplicaMode.ACTIVE))  # doctest: +SKIP
 
 
-        :param digital_asset_id:
-        :param store_ref:
-        :param mode:
-        :return:
+        :param digital_asset_id: Optional owning Asset ID; None leaves ownership unconstrained.
+        :param store_ref: Optional Store UUID; None leaves destination unconstrained.
+        :param mode: Optional operational mode; None includes every mode.
+        :return: Iterator of Replica records satisfying the selected filters.
         """
         ...
+
+    # Todo: Some form of composite digital asset methods? Check all elements of a compositie digital asset at once.
 
     @abc.abstractmethod
     def replicate_digital_asset(
@@ -86,23 +93,25 @@ class ReplicaLifecycleAPI(abc.ABC):
         verify: bool = True,
     ) -> ReplicaRecord:
         """
-        Create, publish, verify, and register another concrete copy.
+        Publish another concrete copy and register its Replica claim, optionally recording
+        verification.
+
+        An omitted source requests manager selection and an omitted destination requests the default
+        Store. Implementations should inherit recorded source placement hints unless explicitly
+        overridden. Verification may record an unhealthy result; callers should inspect the returned
+        record. Backend publication and metadata mutation need not form one transaction.
 
         Example:
-            >>> replica_record = manager.replicate_digital_asset(  # doctest: +SKIP
-            ...     DigitalAssetID(7), destination_store_ref=destination_uuid,
-            ... )
+            >>> replica = manager.replicate_digital_asset(asset_id, destination_store_ref=archive_uuid)  # doctest: +SKIP
 
 
-        :param digital_asset_id:
-        :param destination_store_ref:
-        :param source_replica_id:
-        :param placement_hints: Optional destination-placement override. When
-            omitted, implementations should reuse the source Replica's
-            recorded placement snapshot when available.
-        :param mode:
-        :param verify:
-        :return:
+        :param digital_asset_id: Manager-assigned atomic Asset ID to resolve.
+        :param destination_store_ref: Destination Store UUID, or None to use the configured default.
+        :param source_replica_id: Exact source Replica ID, or None to let the manager select a readable copy.
+        :param placement_hints: Optional destination-placement override; None requests reuse of recorded source hints.
+        :param mode: Operational purpose assigned to the resulting Replica.
+        :param verify: Whether to inspect and record the published Replica after registration.
+        :return: Registered Replica record carrying the resulting observation; errors may occur after byte publication.
         """
         ...
 
@@ -114,18 +123,23 @@ class ReplicaLifecycleAPI(abc.ABC):
         calculate_digests: bool = True,
     ) -> ReplicaVerificationReport:
         """
-        Compare one concrete copy with its Digital Asset identity.
+        Compare a concrete copy with its Asset identity and record the observation.
+
+        Missing, corrupt, or unavailable storage can produce a diagnostic report rather than an
+        exception. Other backend or metadata failures can propagate. Digest inspection may use
+        authoritative backend evidence instead of rereading bytes.
 
         Example:
-            >>> report = manager.verify_replica(ReplicaID(12))  # doctest: +SKIP
+            >>> report = manager.verify_replica(replica_id, calculate_digests=False)  # doctest: +SKIP
 
 
-        :param replica_id:
-        :param calculate_digests:
-        :return:
+        :param replica_id: Manager-assigned Replica ID to resolve.
+        :param calculate_digests: Whether to request digest evidence in addition to existence and size checks.
+        :return: Verification report for the inspected copy, whose healthy flag must be checked separately.
         """
         ...
 
+    # Todo: verify_composite_digital_asset
     @abc.abstractmethod
     def verify_digital_asset(
         self,
@@ -136,28 +150,23 @@ class ReplicaLifecycleAPI(abc.ABC):
         all_replicas: bool | None = None,
     ) -> DigitalAssetVerificationReport:
         """
-        Verify selected Replicas, enough Replicas, or every Replica.
+        Verify an explicit Replica subset or scan the Asset's nondeleted claims.
 
-        With no explicit selection, verification stops after the first healthy
-        Replica. Supplying ``replica_ids`` checks that exact subset in caller
-        order by default. ``stop_after_first_healthy`` makes either behavior
-        explicit. ``all_replicas`` is the compatibility spelling and cannot
-        be combined with an explicit stop policy.
+        An implicit scan stops after the first healthy report by default. An explicit nonempty,
+        duplicate-free subset preserves caller order and checks all selected IDs by default.
+        stop_after_first_healthy overrides either default; all_replicas is its inverse compatibility
+        spelling and cannot be supplied alongside it. Earlier observations can persist if a later
+        verification fails.
 
         Example:
-            >>> report = manager.verify_digital_asset(  # doctest: +SKIP
-            ...     DigitalAssetID(7), all_replicas=True,
-            ... )
+            >>> report = manager.verify_digital_asset(asset_id, all_replicas=True)  # doctest: +SKIP
 
 
-        :param digital_asset_id:
-        :param replica_ids: Exact Replica identities to check, or every live
-            Replica belonging to the Asset when omitted.
-        :param stop_after_first_healthy: Whether a healthy result ends the
-            scan. Defaults to true for an implicit scan and false for an exact
-            subset.
-        :param all_replicas: Compatibility alias for the inverse stop policy.
-        :return:
+        :param digital_asset_id: Manager-assigned atomic Asset ID to resolve.
+        :param replica_ids: Exact ordered nonempty subset, or None to select all nondeleted claims before applying the stop policy.
+        :param stop_after_first_healthy: Explicit early-stop policy; None selects the implicit-scan or explicit-subset default.
+        :param all_replicas: Compatibility inverse of the stop policy, mutually exclusive with an explicit stop_after_first_healthy value.
+        :return: Aggregate of reports actually produced, potentially a prefix of the selected records.
         """
         ...
 
@@ -170,18 +179,20 @@ class ReplicaLifecycleAPI(abc.ABC):
         retain_tombstone: bool = True,
     ) -> ReplicaRemovalReport:
         """
-        Coordinate physical deletion with Replica-domain state mutation.
+        Coordinate optional physical deletion with a deleted-state tombstone or record removal.
+
+        Preserving bytes and retaining a tombstone is permitted. Backend deletion and metadata
+        mutation can fail separately; a removal report is produced only when the implementation
+        completes its sequence.
 
         Example:
-            >>> report = manager.remove_replica(  # doctest: +SKIP
-            ...     ReplicaID(12), retain_tombstone=True,
-            ... )
+            >>> result = manager.remove_replica(replica_id, delete_bytes=False, retain_tombstone=True)  # doctest: +SKIP
 
 
-        :param replica_id:
-        :param delete_bytes:
-        :param retain_tombstone:
-        :return:
+        :param replica_id: Manager-assigned Replica ID to resolve.
+        :param delete_bytes: Whether to request deletion of bytes at the claimed Location.
+        :param retain_tombstone: Whether to retain a DELETED observation instead of removing the Replica record.
+        :return: Removal outcome flags and warnings, with semantics defined by the producing workflow.
         """
         ...
 
@@ -194,22 +205,23 @@ class ReplicaLifecycleAPI(abc.ABC):
         if_revision: str | None = None,
     ) -> bool:
         """
-        Forget a Replica claim without deleting physical bytes.
+        Remove a Replica claim without deleting physical bytes.
 
-        The safe default first requires evidence that the bytes are absent.
+        The default requires evidence that the claimed bytes are absent. Unknown availability must
+        remain an error rather than being interpreted as absence. A supplied revision guards
+        metadata mutation; callers can explicitly waive the byte-absence requirement.
 
         Example:
-            >>> forgotten = manager.forget_replica(  # doctest: +SKIP
-            ...     ReplicaID(12), require_bytes_absent=True,
-            ... )
+            >>> removed = manager.forget_replica(replica_id, if_revision=replica.revision)  # doctest: +SKIP
 
 
-        :param replica_id:
-        :param require_bytes_absent:
-        :param if_revision:
-        :return:
+        :param replica_id: Manager-assigned Replica ID to resolve.
+        :param require_bytes_absent: Whether storage must report the claimed object missing before metadata can be removed.
+        :param if_revision: Expected current revision, or None to omit the optimistic precondition.
+        :return: True when the claim is forgotten, False if already absent; precondition and storage failures can propagate.
         """
         ...
 
+    # Todo: We seem to have good options for regular digital assets - but not composite digital assets
 
 __all__ = ["ReplicaLifecycleAPI"]

@@ -1,3 +1,11 @@
+"""
+Check payload recovery and drift reporting when Calibre database format entries differ from on-disk files.
+
+Example:
+    Run with pytest::
+
+        python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_c_filesystem_reconciliation.py
+"""
 from __future__ import annotations
 
 from pathlib import Path
@@ -8,6 +16,24 @@ from LiuXin_alpha.utils.calibre_compat.calibre_database_emulation import Calibre
 
 
 def _payload_by_id(reader: CalibreReader, book_id: int, **kwargs):
+    """
+    Return the first streamed payload whose calibre_book_id matches the requested ID.
+
+    Forward iterator options unchanged and retain the reader’s default batch size when
+    omitted.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_c_filesystem_reconciliation.py
+
+
+    :param reader: Reader whose payload iterator is searched.
+    :param book_id: Calibre book ID to match exactly.
+    :param kwargs: Keyword options forwarded to iter_book_payloads.
+    :return: Matching payload; raises AssertionError after exhaustion if the ID is
+        absent.
+    """
     for p in reader.iter_book_payloads(**kwargs):
         if p.calibre_book_id == book_id:
             return p
@@ -15,6 +41,19 @@ def _payload_by_id(reader: CalibreReader, book_id: int, **kwargs):
 
 
 def test_reconcile_salvages_formats_when_data_rows_missing(provision_populated_calibre_library):
+    """
+    Delete a book’s data rows and check its on-disk EPUB is recovered with a db_missing_format_entries event.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_c_filesystem_reconciliation.py::test_reconcile_salvages_formats_when_data_rows_missing
+
+
+    :param provision_populated_calibre_library: Fixture factory returning an isolated
+        blank library and a builder for adding books; requires FTS5.
+    :return: None; failed expectations raise AssertionError.
+    """
     lib, builder = provision_populated_calibre_library(name="calibre_lib_c_salvage")
 
     added = builder.add_book(
@@ -40,6 +79,19 @@ def test_reconcile_salvages_formats_when_data_rows_missing(provision_populated_c
 
 
 def test_reconcile_recovers_missing_format_file_by_extension_scan(provision_populated_calibre_library):
+    """
+    Replace the expected EPUB with Recovered.epub and check the replacement reference and format_recovered_by_scan event.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_c_filesystem_reconciliation.py::test_reconcile_recovers_missing_format_file_by_extension_scan
+
+
+    :param provision_populated_calibre_library: Fixture factory returning an isolated
+        blank library and a builder for adding books; requires FTS5.
+    :return: None; failed expectations raise AssertionError.
+    """
     lib, builder = provision_populated_calibre_library(name="calibre_lib_c_recover")
 
     added = builder.add_book(
@@ -62,6 +114,19 @@ def test_reconcile_recovers_missing_format_file_by_extension_scan(provision_popu
 
 
 def test_reconcile_flags_orphan_files_and_can_include_them(provision_populated_calibre_library):
+    """
+    Add an unregistered PDF and check drift reporting plus optional inclusion in the payload formats.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_c_filesystem_reconciliation.py::test_reconcile_flags_orphan_files_and_can_include_them
+
+
+    :param provision_populated_calibre_library: Fixture factory returning an isolated
+        blank library and a builder for adding books; requires FTS5.
+    :return: None; failed expectations raise AssertionError.
+    """
     lib, builder = provision_populated_calibre_library(name="calibre_lib_c_orphans")
 
     added = builder.add_book(
@@ -86,6 +151,22 @@ def test_reconcile_flags_orphan_files_and_can_include_them(provision_populated_c
 
 
 def test_reconcile_detects_duplicate_format_files(provision_populated_calibre_library):
+    """
+    Add another EPUB and require a duplicate-format event.
+
+    The mtime adjustment is best-effort, and the test does not assert which file is
+    selected.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_c_filesystem_reconciliation.py::test_reconcile_detects_duplicate_format_files
+
+
+    :param provision_populated_calibre_library: Fixture factory returning an isolated
+        blank library and a builder for adding books; requires FTS5.
+    :return: None; failed expectations raise AssertionError.
+    """
     lib, builder = provision_populated_calibre_library(name="calibre_lib_c_dupes")
 
     added = builder.add_book(

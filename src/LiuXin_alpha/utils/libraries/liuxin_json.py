@@ -1,6 +1,17 @@
 #!/usr/bin/env python3
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Serialize and decode JSON through LiuXin's compatibility facade.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise liuxin json through a consuming regression::
+
+        python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json.py
+"""
 from __future__ import print_function
 
 # Utility class which adds the capacity to JSON to encode all the strings in base64.
@@ -27,12 +38,39 @@ from LiuXin_alpha.utils.libraries.liuxin_six import six_unicode as unicode
 
 
 class ParseError(Exception):
+    """
+    Report the ParseError Calibre compatibility failure.
+
+    Example:
+        Exercise ParseError through a consuming regression::
+
+            python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json.py
+    """
     pass
 
 
 class LiuXinJSON(object):
+    """
+    Provide the LiuXinJSON utility contract with explicit state and cleanup behavior.
+
+    Example:
+        Exercise LiuXinJSON through a consuming regression::
+
+            python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json.py
+    """
     def __init__(self):
 
+        """
+        Initialize and validate the LiuXinJSON state.
+
+        Example:
+            Exercise LiuXinJSON.  init   through a consuming regression::
+
+                python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         import LiuXin_alpha.utils.libraries.json_local_clone as m
 
         modded_json = m
@@ -44,7 +82,34 @@ class LiuXinJSON(object):
         local_decoder = modded_json._default_decoder
 
         def scanstring_base64_decoder_wrap(func):
+            """
+            Perform the scanstring base64 decoder wrap utility operation under explicit compatibility rules.
+
+            Example:
+                Exercise LiuXinJSON.  init  .scanstring base64 decoder wrap through a consuming regression::
+
+                    python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json.py
+
+
+            :param func: Value supplied for func under the utility contract.
+            :return: The normalized value, metadata record, path, stream result or collection
+                described above.
+            """
             def scanstring_wrapper(*args, **kwargs):
+                """
+                Perform the scanstring wrapper utility operation under explicit compatibility rules.
+
+                Example:
+                    Exercise LiuXinJSON.  init  .scanstring base64 decoder wrap.scanstring wrapper through a consuming regression::
+
+                        python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json.py
+
+
+                :param args: Positional values forwarded to the compatibility implementation.
+                :param kwargs: Keyword values forwarded to the compatibility implementation.
+                :return: The normalized value, metadata record, path, stream result or collection
+                    described above.
+                """
                 scaned_str, end = func(*args, **kwargs)
                 # Trim the quotes from the beginning and end of the string
                 return self.from_base64_str(base64.b64decode(scaned_str)), end
@@ -63,10 +128,18 @@ class LiuXinJSON(object):
 
     @staticmethod
     def _bytes_to_text(b):
-        """Decode bytes into text in a round-trippable way.
+        """
+        Decode bytes into text in a round-trippable way.
 
-        We use UTF-8 with surrogateescape so arbitrary bytes survive a
-        encode/decode cycle without raising.
+        Example:
+            Exercise LiuXinJSON. bytes to text through a consuming regression::
+
+                python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json.py
+
+
+        :param b: Value supplied for b under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         if b is None:
             return b
@@ -76,7 +149,19 @@ class LiuXinJSON(object):
 
     @staticmethod
     def _text_to_bytes(s):
-        """Encode text to bytes in a round-trippable way."""
+        """
+        Encode text to bytes in a round-trippable way.
+
+        Example:
+            Exercise LiuXinJSON. text to bytes through a consuming regression::
+
+                python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json.py
+
+
+        :param s: Value supplied for s under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if s is None:
             return s
         if isinstance(s, bytes):
@@ -85,7 +170,19 @@ class LiuXinJSON(object):
 
     @classmethod
     def _json_sanitize(cls, obj):
-        """Recursively convert bytes->str and dict keys->str for JSON."""
+        """
+        Recursively convert bytes->str and dict keys->str for JSON.
+
+        Example:
+            Exercise LiuXinJSON. json sanitize through a consuming regression::
+
+                python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json.py
+
+
+        :param obj: Value supplied for obj under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if isinstance(obj, bytes):
             return cls._bytes_to_text(obj)
         if isinstance(obj, (list, tuple)):
@@ -104,14 +201,38 @@ class LiuXinJSON(object):
 
     @classmethod
     def to_base64_str(cls, s) -> str:
-        """Encode a JSON string value as base64 of UTF-8 bytes."""
+        """
+        Encode a JSON string value as base64 of UTF-8 bytes.
+
+        Example:
+            Exercise LiuXinJSON.to base64 str through a consuming regression::
+
+                python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json.py
+
+
+        :param s: Value supplied for s under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         s_bytes = cls._text_to_bytes(s)
         s_encoded = base64.b64encode(s_bytes)
         return '"' + s_encoded.decode("ascii") + '"'
 
     @staticmethod
     def from_base64_str(s):
-        """Decode a base64 JSON string back to text."""
+        """
+        Decode a base64 JSON string back to text.
+
+        Example:
+            Exercise LiuXinJSON.from base64 str through a consuming regression::
+
+                python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json.py
+
+
+        :param s: Value supplied for s under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if isinstance(s, str):
             s = s.encode("ascii")
         return base64.b64decode(s).decode("utf-8", "surrogateescape")
@@ -119,9 +240,35 @@ class LiuXinJSON(object):
     def dumps(self, s):
         # Ensure bytes never reach the JSON encoder (Python 3 forbids them,
         # and dict keys must be text).
+        """
+        Serialize the supplied value into JSON text under the compatibility policy.
+
+        Example:
+            Exercise LiuXinJSON.dumps through a consuming regression::
+
+                python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json.py
+
+
+        :param s: Value supplied for s under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self.modded_json.dumps(self._json_sanitize(s))
 
     def loads(self, s):
+        """
+        Decode JSON text into Python values under the compatibility policy.
+
+        Example:
+            Exercise LiuXinJSON.loads through a consuming regression::
+
+                python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json.py
+
+
+        :param s: Value supplied for s under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return self._json_sanitize(self.local_decoder.decode(s))
 
 
@@ -158,15 +305,24 @@ def JSONObject(
 ):
     """
     Noew converts all the dictionary keyed back from base64 (if they are strings)
-    :param s_and_end:
-    :param encoding:
-    :param strict:
-    :param scan_once:
-    :param object_hook:
-    :param object_pairs_hook:
-    :param _w:
-    :param _ws:
-    :return:
+
+    Example:
+        Exercise JSONObject through a consuming regression::
+
+            python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json.py
+
+
+    :param s_and_end: Value supplied for s and end under the utility contract.
+    :param encoding: Value supplied for encoding under the utility contract.
+    :param strict: Value supplied for strict under the utility contract.
+    :param scan_once: Value supplied for scan once under the utility contract.
+    :param object_hook: Value supplied for object hook under the utility contract.
+    :param object_pairs_hook: Value supplied for object pairs hook under the utility
+        contract.
+    :param _w: Value supplied for w under the utility contract.
+    :param _ws: Value supplied for ws under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     s, end = s_and_end
     pairs = []
@@ -274,13 +430,20 @@ def py_scanstring(s, end, encoding=None, strict=True, _b=BACKSLASH, _m=STRINGCHU
     """
     Modified to decode any string values from base64 before returing them
 
-    Scan the string s for a JSON string. End is the index of the character in s after the quote that started the JSON
-    string.
-    Unescapes all valid JSON string escape sequences and raises ValueError on attempt to decode an invalid string.
-    If strict is False then literal control characters are allowed in the string.
+    Example:
+        Exercise py scanstring through a consuming regression::
 
-    Returns a tuple of the decoded string and the index of the character in s
-    after the end quote.
+            python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json.py
+
+
+    :param s: Value supplied for s under the utility contract.
+    :param end: Value supplied for end under the utility contract.
+    :param encoding: Value supplied for encoding under the utility contract.
+    :param strict: Value supplied for strict under the utility contract.
+    :param _b: Value supplied for b under the utility contract.
+    :param _m: Value supplied for m under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if encoding is None:
         encoding = DEFAULT_ENCODING
@@ -347,32 +510,17 @@ def py_scanstring(s, end, encoding=None, strict=True, _b=BACKSLASH, _m=STRINGCHU
 # Used to construct the scanner after all the other objects have been updated
 def py_make_scanner(context):
     """
-
     Performs the following translations in decoding by default:
 
-    +---------------+-------------------+
-    | JSON          | Python            |
-    +===============+===================+
-    | object        | dict              |
-    +---------------+-------------------+
-    | array         | list              |
-    +---------------+-------------------+
-    | string        | unicode           |
-    +---------------+-------------------+
-    | number (int)  | int, long         |
-    +---------------+-------------------+
-    | number (real) | float             |
-    +---------------+-------------------+
-    | true          | True              |
-    +---------------+-------------------+
-    | false         | False             |
-    +---------------+-------------------+
-    | null          | None              |
-    +---------------+-------------------+
+    Example:
+        Exercise py make scanner through a consuming regression::
 
-    It also understands ``NaN``, ``Infinity``, and ``-Infinity`` as
-    their corresponding ``float`` values, which is outside the JSON spec.
+            python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json.py
 
+
+    :param context: Value supplied for context under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     parse_object = context.parse_object
     parse_array = context.parse_array
@@ -388,6 +536,20 @@ def py_make_scanner(context):
     object_pairs_hook = context.object_pairs_hook
 
     def _scan_once(string, idx):
+        """
+        Perform the scan once utility operation under explicit compatibility rules.
+
+        Example:
+            Exercise py make scanner. scan once through a consuming regression::
+
+                python -m pytest -q tests/utils/libraries/liuxin_json/test_liuxin_json.py
+
+
+        :param string: Value supplied for string under the utility contract.
+        :param idx: Value supplied for idx under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         try:
             nextchar = string[idx]
         except IndexError:

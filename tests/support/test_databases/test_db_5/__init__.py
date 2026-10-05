@@ -1,5 +1,16 @@
 # Make a test data set with additional files test data
 
+"""
+Build the deterministic test_db_5 database fixture and its declared content profile.
+
+The module keeps generated data, ordering and failure modes explicit so consumers
+can assert stable behavior.
+
+Example:
+    Exercise   init   through a consuming regression::
+
+        python -m pytest -q tests/databases/test_test_resources_manager.py
+"""
 import os
 import shutil
 import sys
@@ -24,12 +35,23 @@ def build_test_db(
     test_asset_version=None,
 ):
     """
-    Construct the test database specified by this module.
-    In this case a blank database is constructed and filled with data - before being copied into the test_databases
-    folder.
-    :param dst_file_path: The file to write the database to after it's been built.
-    :param dump: HERE IGNORED
-    :return:
+    Construct the test database specified by this module. In this case a blank database is constructed and filled with data - before being copied into the test_databases folder.
+
+    Example:
+        Exercise build test db through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param dst_file_path: Destination file written with the generated database or asset.
+    :param dump: Value supplied for dump under the deterministic fixture contract.
+    :param plugin_name: Value supplied for plugin name under the deterministic fixture
+        contract.
+    :param new_db_uuid: Value supplied for new db uuid under the deterministic fixture
+        contract.
+    :param test_asset_version: Value supplied for test asset version under the
+        deterministic fixture contract.
+    :return: None; fixture state or the supplied destination is updated in place.
     """
     test_db_builder = TestDBFileAndFolderBuilder(
         dst_file_path=dst_file_path,
@@ -45,10 +67,27 @@ def build_test_db(
 class TestDBFileAndFolderBuilder(TestDatabaseBuilder):
     """
     Builds a test database with file and folder data baked in.
+
+    Example:
+        Exercise TestDBFileAndFolderBuilder through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
     """
 
     def load_base_database(self):
         # Load a full copy of the database with all the current test data into a scratch folder for additional work
+        """
+        Load the shared base schema and rows before profile-specific mutations.
+
+        Example:
+            Exercise TestDBFileAndFolderBuilder.load base database through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :return: The deterministic fixture value, path, bytes, record or collection
+            described above.
+        """
         full_data_backup_path = file_load_test_database_backup(base=False, scratch=True)
 
         # Open the test database - write some test data
@@ -63,6 +102,18 @@ class TestDBFileAndFolderBuilder(TestDatabaseBuilder):
         ################################################################################################################
 
         # Clear the tables that will have test data inserted into them
+        """
+        Return or record the database profiles supplied by this fixture module.
+
+        Example:
+            Exercise TestDBFileAndFolderBuilder.detail databases through a consuming regression::
+
+                python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+        :param scratch_db: Scratch database receiving deterministic schema and rows.
+        :return: None; fixture state or the supplied destination is updated in place.
+        """
         scratch_db.driver_wrapper.clear("files")
         scratch_db.driver_wrapper.clear("folders")
         scratch_db.driver_wrapper.clear("file_folder_links")

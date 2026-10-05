@@ -1,10 +1,25 @@
-"""Metadata SQL helpers for removing generic catalogue relationships."""
+"""
+Provide metadata SQL operations for generic link breaks.
+
+These helpers target the stored schema named in their SQL. The host supplies db
+and/or execution methods. Per-method notes distinguish explicit live-connection
+commits from delegated transaction handling; filesystem assets are never moved by
+these helpers.
+"""
 
 
 
 
 class CMLangTitleLinkMixin:
-    """Implement generic link-removal macros retained by metadata SQL."""
+    """
+    Implement the generic link breaks operations used by MetadataSQL.
+
+    Requires a compatible owner database or host query methods. Backend/schema errors
+    propagate except where a method explicitly documents suppression.
+
+    Example:
+        >>> metadata_sql.break_lang_title_links(1)  # doctest: +SKIP
+    """
 
 
     # ------------------------------------------------------------------------------------------------------------------
@@ -13,11 +28,23 @@ class CMLangTitleLinkMixin:
 
     def break_lang_title_links(self, title_id, link_type=None):
         """
-        Break links between the given title and any relevant languages
+        Delete a title's language links, optionally restricting the link type.
 
-        :param title_id:
-        :param link_type: Defaults to None - which will remove all links between the given title row and any languages
-        :return:
+        The title ID is bound, but a non-None link_type is interpolated into quoted SQL and
+        must be trusted. None removes every language link for the title.
+
+        Transaction and cache behavior for delegated SQL follows the host
+        execute/executemany implementation; this method adds no separate transaction guard.
+
+        Example:
+            >>> metadata_sql.break_lang_title_links(1)  # doctest: +SKIP
+
+
+        :param title_id: Title identifier bound to the operation; batch handling, where
+            supported, is described above.
+        :param link_type: Optional relationship type; binding/interpolation behavior is
+            described above.
+        :return: None.
         """
         if link_type is not None:
             stmt = (
@@ -32,14 +59,26 @@ class CMLangTitleLinkMixin:
     # Todo: This is a bad name - it breaks generic LINKS
     def break_generic_link(self, link_table, link_col, remove_id, link_type=None):
         """
-        Break a generic link - all links matching the given remove_id will be deleted.
+        Delete generic links matching one ID or untyped batch bindings.
 
-        :param link_table:
-        :param link_col:
-        :param remove_id: If remove_id is an int, only that row will be removed. If it's an iterable then all the ids
-                          in that iterable will be removed.
-        :param link_type: If provided
-        :return:
+        Interpolates trusted table/column identifiers. A supplied link_type is bound using
+        the conventionally derived type column. Typed integer deletion is supported; typed
+        batch deletion raises NotImplementedError before execution.
+
+        Transaction and cache behavior for delegated SQL follows the host
+        execute/executemany implementation; this method adds no separate transaction guard.
+
+        Example:
+            >>> metadata_sql.break_generic_link("creator_title_links", "creator_title_link_title_id", 1)  # doctest: +SKIP
+
+
+        :param link_table: Trusted relationship-table name interpolated into SQL.
+        :param link_col: Trusted match-column name interpolated into SQL.
+        :param remove_id: Integer match ID or batch bindings; typed batch removal is
+            unsupported.
+        :param link_type: Optional relationship type; binding/interpolation behavior is
+            described above.
+        :return: None.
         """
         if link_type is None:
             stmt = "DELETE FROM {0} WHERE {1} = ?;".format(link_table, link_col)
@@ -59,13 +98,23 @@ class CMLangTitleLinkMixin:
 
     def break_generic_single_link(self, link_table, left_link_col, right_link_col, left_id, right_id):
         """
-        Break a specified link between two entities.
-        :param link_table:
-        :param left_link_col:
-        :param right_link_col:
-        :param left_id:
-        :param right_id:
-        :return:
+        Delete generic links matching both bound endpoint IDs.
+
+        Interpolates trusted table and endpoint-column names; no type filter is added.
+
+        Transaction and cache behavior for delegated SQL follows the host
+        execute/executemany implementation; this method adds no separate transaction guard.
+
+        Example:
+            >>> metadata_sql.break_generic_single_link("creator_title_links", "creator_title_link_creator_id", "creator_title_link_title_id", 1, 1)  # doctest: +SKIP
+
+
+        :param link_table: Trusted relationship-table name interpolated into SQL.
+        :param left_link_col: Trusted first endpoint column interpolated into SQL.
+        :param right_link_col: Trusted second endpoint column interpolated into SQL.
+        :param left_id: First endpoint ID, parameter-bound.
+        :param right_id: Second endpoint ID, parameter-bound.
+        :return: None.
         """
         del_stmt = "DELETE FROM {0} WHERE {1} = ? AND {2} = ?;".format(link_table, left_link_col, right_link_col)
         self.execute(del_stmt, (left_id, right_id))

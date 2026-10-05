@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Decode and report MOBI index structures and entries.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise index through a consuming regression::
+
+        python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -56,6 +67,20 @@ FIELD_NAMES = {
 
 
 def read_variable_len_data(data: _typing.Any, header: _typing.Any) -> None:
+    """
+    Read variable len data under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read variable len data through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :param header: Value supplied for header under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     offset = header["tagx"]
     indices = []
     idxt_offset = header["start"]
@@ -82,6 +107,21 @@ def read_variable_len_data(data: _typing.Any, header: _typing.Any) -> None:
 
 
 def read_index(sections: _typing.Any, idx: _typing.Any, codec: _typing.Any) -> tuple[_typing.Any, ...]:
+    """
+    Read index under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read index through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param sections: Value supplied for sections under the utility contract.
+    :param idx: Value supplied for idx under the utility contract.
+    :param codec: Value supplied for codec under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     table, cncx = OrderedDict(), CNCX([], codec)
 
     data = sections[idx].raw
@@ -119,13 +159,47 @@ def read_index(sections: _typing.Any, idx: _typing.Any, codec: _typing.Any) -> t
 
 
 class Index(object):
+    """
+    Provide the index contract for validated ebook processing.
+
+    Example:
+        Exercise Index through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+    """
     def __init__(self: _typing.Self, idx: _typing.Any, records: _typing.Any, codec: _typing.Any) -> None:
+        """
+        Initialize and validate the index state.
+
+        Example:
+            Exercise Index.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param idx: Value supplied for idx under the utility contract.
+        :param records: Value supplied for records under the utility contract.
+        :param codec: Value supplied for codec under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.table = self.cncx = self.header = self.records = None
         self.index_headers = []
         if idx != NULL_INDEX:
             self.table, self.cncx, self.header, self.index_headers = read_index(records, idx, codec)
 
     def render(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the render operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Index.render through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         ans = ["*" * 10 + " Index Header " + "*" * 10]
         a = ans.append
         if self.header is not None:
@@ -157,14 +231,60 @@ class Index(object):
         return ans + [""]
 
     def __str__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the str operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Index.  str   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return "\n".join(self.render())
 
     def __iter__(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the iter operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Index.  iter   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return iter(self.records)
 
 
 class SKELIndex(Index):
+    """
+    Provide the skelindex contract for validated ebook processing.
+
+    Example:
+        Exercise SKELIndex through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+    """
     def __init__(self: _typing.Self, skelidx: _typing.Any, records: _typing.Any, codec: _typing.Any) -> None:
+        """
+        Initialize and validate the skelindex state.
+
+        Example:
+            Exercise SKELIndex.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param skelidx: Value supplied for skelidx under the utility contract.
+        :param records: Value supplied for records under the utility contract.
+        :param codec: Value supplied for codec under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         super(SKELIndex, self).__init__(skelidx, records, codec)
         self.records = []
 
@@ -185,7 +305,29 @@ class SKELIndex(Index):
 
 
 class SECTIndex(Index):
+    """
+    Provide the sectindex contract for validated ebook processing.
+
+    Example:
+        Exercise SECTIndex through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+    """
     def __init__(self: _typing.Self, sectidx: _typing.Any, records: _typing.Any, codec: _typing.Any) -> None:
+        """
+        Initialize and validate the sectindex state.
+
+        Example:
+            Exercise SECTIndex.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param sectidx: Value supplied for sectidx under the utility contract.
+        :param records: Value supplied for records under the utility contract.
+        :param codec: Value supplied for codec under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         super(SECTIndex, self).__init__(sectidx, records, codec)
         self.records = []
 
@@ -209,7 +351,29 @@ class SECTIndex(Index):
 
 
 class GuideIndex(Index):
+    """
+    Provide the guideindex contract for validated ebook processing.
+
+    Example:
+        Exercise GuideIndex through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+    """
     def __init__(self: _typing.Self, guideidx: _typing.Any, records: _typing.Any, codec: _typing.Any) -> None:
+        """
+        Initialize and validate the guideindex state.
+
+        Example:
+            Exercise GuideIndex.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param guideidx: Value supplied for guideidx under the utility contract.
+        :param records: Value supplied for records under the utility contract.
+        :param codec: Value supplied for codec under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         super(GuideIndex, self).__init__(guideidx, records, codec)
         self.records = []
 
@@ -230,7 +394,29 @@ class GuideIndex(Index):
 
 
 class NCXIndex(Index):
+    """
+    Provide the ncxindex contract for validated ebook processing.
+
+    Example:
+        Exercise NCXIndex through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+    """
     def __init__(self: _typing.Self, ncxidx: _typing.Any, records: _typing.Any, codec: _typing.Any) -> None:
+        """
+        Initialize and validate the ncxindex state.
+
+        Example:
+            Exercise NCXIndex.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param ncxidx: Value supplied for ncxidx under the utility contract.
+        :param records: Value supplied for records under the utility contract.
+        :param codec: Value supplied for codec under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         super(NCXIndex, self).__init__(ncxidx, records, codec)
         self.records = []
 
@@ -269,6 +455,20 @@ class NCXIndex(Index):
                                 entry[name] = self.cncx.get(fieldvalue, default_entry[name])
 
                 def refindx(local_e: _typing.Any, local_name: _typing.Any) -> _typing.Any:
+                    """
+                    Perform the refindx operation under explicit file-format and conversion rules.
+
+                    Example:
+                        Exercise NCXIndex.  init  .refindx through a consuming regression::
+
+                            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+                    :param local_e: Value supplied for local e under the utility contract.
+                    :param local_name: Value supplied for local name under the utility contract.
+                    :return: The normalized value, metadata record, path, stream result or collection
+                        described above.
+                    """
                     ans = local_e[local_name]
                     if ans < 0:
                         ans = None

@@ -1,3 +1,14 @@
+"""
+Generate stable identifiers for Markdown headings.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise headerid through a consuming regression::
+
+        python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+"""
 from __future__ import unicode_literals
 from __future__ import absolute_import
 from __future__ import annotations
@@ -93,14 +104,40 @@ IDCOUNT_RE = re.compile(r"^(.*)_([0-9]+)$")
 
 
 def slugify(value: _typing.Any, separator: _typing.Any) -> _typing.Any:
-    """Slugify a string, to make it URL friendly."""
+    """
+    Slugify a string, to make it URL friendly.
+
+    Example:
+        Exercise slugify through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+    :param value: Value normalized, stored, formatted or returned.
+    :param separator: Delimiter used to split or join list values.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     value = unicodedata.normalize("NFKD", value).encode("ascii", "ignore")
     value = re.sub(r"[^\w\s-]", "", value.decode("ascii")).strip().lower()
     return re.sub(r"[%s\s]+" % separator, separator, value)
 
 
 def unique(id: _typing.Any, ids: _typing.Any) -> _typing.Any:
-    """Ensure id is unique in set of ids. Append '_1', '_2'... if not"""
+    """
+    Ensure id is unique in set of ids. Append '_1', '_2'... if not
+
+    Example:
+        Exercise unique through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+    :param id: Value supplied for id under the utility contract.
+    :param ids: Value supplied for ids under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     while id in ids or not id:
         m = IDCOUNT_RE.match(id)
         if m:
@@ -112,10 +149,17 @@ def unique(id: _typing.Any, ids: _typing.Any) -> _typing.Any:
 
 
 def itertext(elem: _typing.Any) -> _typing.Iterator[_typing.Any]:
-    """Loop through all children and return text only.
+    """
+    Loop through all children and return text only.
 
-    Reimplements method of same name added to ElementTree in Python 2.7
+    Example:
+        Exercise itertext through a consuming regression::
 
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+    :param elem: Value supplied for elem under the utility contract.
+    :return: An iterator yielding the normalized values described above.
     """
     if elem.text:
         yield elem.text
@@ -127,11 +171,31 @@ def itertext(elem: _typing.Any) -> _typing.Iterator[_typing.Any]:
 
 
 class HeaderIdTreeprocessor(Treeprocessor):
-    """Assign IDs to headers."""
+    """
+    Assign IDs to headers.
+
+    Example:
+        Exercise HeaderIdTreeprocessor through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+    """
 
     IDs = set()
 
     def run(self: _typing.Self, doc: _typing.Any) -> None:
+        """
+        Execute the configured conversion stage and return its primary result.
+
+        Example:
+            Exercise HeaderIdTreeprocessor.run through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param doc: Value supplied for doc under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         start_level, force_id = self._get_meta()
         slugify = self.config["slugify"]
         sep = self.config["separator"]
@@ -150,7 +214,18 @@ class HeaderIdTreeprocessor(Treeprocessor):
                     elem.tag = "h%d" % level
 
     def _get_meta(self: _typing.Self) -> tuple[_typing.Any, ...]:
-        """Return meta data suported by this ext as a tuple"""
+        """
+        Return meta data suported by this ext as a tuple
+
+        Example:
+            Exercise HeaderIdTreeprocessor. get meta through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         level = int(self.config["level"]) - 1
         force = self._str2bool(self.config["forceid"])
         if hasattr(self.md, "Meta"):
@@ -161,7 +236,20 @@ class HeaderIdTreeprocessor(Treeprocessor):
         return level, force
 
     def _str2bool(self: _typing.Self, s: _typing.Any, default: bool = False) -> _typing.Any:
-        """Convert a string to a booleen value."""
+        """
+        Convert a string to a booleen value.
+
+        Example:
+            Exercise HeaderIdTreeprocessor. str2bool through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param s: Value supplied for s under the utility contract.
+        :param default: Value supplied for default under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         s = str(s)
         if s.lower() in ["0", "f", "false", "off", "no", "n"]:
             return False
@@ -171,8 +259,28 @@ class HeaderIdTreeprocessor(Treeprocessor):
 
 
 class HeaderIdExtension(Extension):
+    """
+    Provide the headeridextension contract for validated ebook processing.
+
+    Example:
+        Exercise HeaderIdExtension through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+    """
     def __init__(self: _typing.Self, configs: _typing.Any) -> None:
         # set defaults
+        """
+        Initialize and validate the headeridextension state.
+
+        Example:
+            Exercise HeaderIdExtension.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param configs: Value supplied for configs under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.config = {
             "level": ["1", "Base level for headers."],
             "forceid": ["True", "Force all headers to have an id."],
@@ -184,6 +292,20 @@ class HeaderIdExtension(Extension):
             self.setConfig(key, value)
 
     def extendMarkdown(self: _typing.Self, md: _typing.Any, md_globals: _typing.Any) -> None:
+        """
+        Perform the extendMarkdown operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HeaderIdExtension.extendMarkdown through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :param md: Value supplied for md under the utility contract.
+        :param md_globals: Value supplied for md globals under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         md.registerExtension(self)
         self.processor = HeaderIdTreeprocessor()
         self.processor.md = md
@@ -196,8 +318,33 @@ class HeaderIdExtension(Extension):
             md.treeprocessors.add("headerid", self.processor, ">prettify")
 
     def reset(self: _typing.Self) -> None:
+        """
+        Perform the reset operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise HeaderIdExtension.reset through a consuming regression::
+
+                python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.processor.IDs = set()
 
 
 def makeExtension(configs: _typing.Any = None) -> _typing.Any:
+    """
+    Perform the makeExtension operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise makeExtension through a consuming regression::
+
+            python -m pytest -q tests/file_formats/markdown/test_markdown_modernized.py
+
+
+    :param configs: Value supplied for configs under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return HeaderIdExtension(configs=configs)

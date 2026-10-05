@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=utf-8
 
+"""
+Inspect font families, declarations and embedded font resources.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise fonts through a consuming regression::
+
+        python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -13,6 +24,20 @@ try:
     from LiuXin_alpha.file_formats.oeb.normalize_css import normalize_font
 except Exception:
     def normalize_font(*args: _typing.Any, **kwargs: _typing.Any) -> dict[_typing.Any, _typing.Any]:
+        """
+        Normalize font under the format's safety and compatibility rules.
+
+        Example:
+            Exercise normalize font through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :param kwargs: Keyword values forwarded to the compatibility implementation.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return {}
 
 # Py2/Py3 compatiblity layer
@@ -23,12 +48,39 @@ __copyright__ = "2014, Kovid Goyal <kovid at kovidgoyal.net>"
 
 
 def unquote(x: _typing.Any) -> _typing.Any:
+    """
+    Perform the unquote operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise unquote through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param x: Value supplied for x under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if x and len(x) > 1 and x[0] == x[-1] and x[0] in ('"', "'"):
         x = x[1:-1]
     return x
 
 
 def font_family_data_from_declaration(style: _typing.Any, families: _typing.Any) -> None:
+    """
+    Perform the font family data from declaration operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise font family data from declaration through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param style: Value supplied for style under the utility contract.
+    :param families: Value supplied for families under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     font_families = []
     f = style.getProperty("font")
     if f is not None:
@@ -44,6 +96,20 @@ def font_family_data_from_declaration(style: _typing.Any, families: _typing.Any)
 
 
 def font_family_data_from_sheet(sheet: _typing.Any, families: _typing.Any) -> None:
+    """
+    Perform the font family data from sheet operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise font family data from sheet through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param sheet: Value supplied for sheet under the utility contract.
+    :param families: Value supplied for families under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     for rule in sheet.cssRules:
         if rule.type == rule.STYLE_RULE:
             font_family_data_from_declaration(rule.style, families)
@@ -55,6 +121,19 @@ def font_family_data_from_sheet(sheet: _typing.Any, families: _typing.Any) -> No
 
 
 def font_family_data(container: _typing.Any) -> _typing.Any:
+    """
+    Perform the font family data operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise font family data through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     families = {}
     for name, mt in iteritems(container.mime_map):
         if mt in OEB_STYLES:
@@ -78,11 +157,41 @@ def change_font_family_value(cssvalue: _typing.Any, new_name: _typing.Any) -> No
     # name properly (it will not enclose it in quotes). So we
     # use the following hack (setting an internal property of the
     # Value class)
+    """
+    Perform the change font family value operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise change font family value through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param cssvalue: Value supplied for cssvalue under the utility contract.
+    :param new_name: Value supplied for new name under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     cssvalue.value = new_name
     cssvalue._type = "STRING"
 
 
 def change_font_family_in_property(style: _typing.Any, prop: _typing.Any, old_name: _typing.Any, new_name: _typing.Any = None) -> _typing.Any:
+    """
+    Perform the change font family in property operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise change font family in property through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param style: Value supplied for style under the utility contract.
+    :param prop: Value supplied for prop under the utility contract.
+    :param old_name: Value supplied for old name under the utility contract.
+    :param new_name: Value supplied for new name under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     changed = False
     families = {x.value for x in prop.propertyValue}
     _dummy_family = "d7d81cf1-1c8c-4993-b788-e1ab596c0f1f"
@@ -107,6 +216,21 @@ def change_font_family_in_property(style: _typing.Any, prop: _typing.Any, old_na
 
 
 def change_font_in_declaration(style: _typing.Any, old_name: _typing.Any, new_name: _typing.Any = None) -> _typing.Any:
+    """
+    Perform the change font in declaration operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise change font in declaration through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param style: Value supplied for style under the utility contract.
+    :param old_name: Value supplied for old name under the utility contract.
+    :param new_name: Value supplied for new name under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     changed = False
     for x in ("font", "font-family"):
         prop = style.getProperty(x)
@@ -116,6 +240,22 @@ def change_font_in_declaration(style: _typing.Any, old_name: _typing.Any, new_na
 
 
 def remove_embedded_font(container: _typing.Any, sheet: _typing.Any, rule: _typing.Any, sheet_name: _typing.Any) -> None:
+    """
+    Perform the remove embedded font operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise remove embedded font through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :param sheet: Value supplied for sheet under the utility contract.
+    :param rule: Value supplied for rule under the utility contract.
+    :param sheet_name: Value supplied for sheet name under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     src = getattr(rule.style.getProperty("src"), "value")
     if src is not None:
         if src.startswith("url("):
@@ -129,6 +269,23 @@ def remove_embedded_font(container: _typing.Any, sheet: _typing.Any, rule: _typi
 
 
 def change_font_in_sheet(container: _typing.Any, sheet: _typing.Any, old_name: _typing.Any, new_name: _typing.Any, sheet_name: _typing.Any) -> _typing.Any:
+    """
+    Perform the change font in sheet operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise change font in sheet through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :param sheet: Value supplied for sheet under the utility contract.
+    :param old_name: Value supplied for old name under the utility contract.
+    :param new_name: Value supplied for new name under the utility contract.
+    :param sheet_name: Value supplied for sheet name under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     changed = False
     removals = []
     for rule in sheet.cssRules:
@@ -148,14 +305,19 @@ def change_font_in_sheet(container: _typing.Any, sheet: _typing.Any, old_name: _
 
 def change_font(container: _typing.Any, old_name: _typing.Any, new_name: _typing.Any = None) -> _typing.Any:
     """
-    Change a font family from old_name to new_name. Changes all occurrences of
-    the font family in stylesheets, style tags and style attributes.
-    If the old_name refers to an embedded font, it is removed. You can set
-    new_name to None to remove the font family instead of changing it.
-    :param container:
-    :param old_name:
-    :param new_name:
-    :return:
+    Change a font family from old_name to new_name. Changes all occurrences of the font family in stylesheets, style tags and style attributes. If the old_name refers to an embedded font, it is removed. You can set new_name to None to remove the font family instead of changing it.
+
+    Example:
+        Exercise change font through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :param old_name: Value supplied for old name under the utility contract.
+    :param new_name: Value supplied for new name under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     changed = False
     for name, mt in tuple(iteritems(container.mime_map)):

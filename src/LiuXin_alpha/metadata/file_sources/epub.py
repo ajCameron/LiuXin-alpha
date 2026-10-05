@@ -1,5 +1,13 @@
 """
-Read/write EPUB metadata.
+Read and update EPUB OPF metadata, OCF container state, encryption metadata and cover resources.
+
+The module keeps binary parsing, optional dependency and stream ownership policy
+explicit for registry callers.
+
+Example:
+    Exercise epub with pytest::
+
+        python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
 """
 
 from __future__ import annotations
@@ -38,37 +46,119 @@ RUN_COST = ["LOW"]
 
 
 class EpubParseError(Exception):
+    """
+    Signal that an EPUB package cannot be parsed as valid metadata input.
+
+    Example:
+        Exercise EpubParseError with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+    """
     pass
 
 
 class EPubException(Exception):
+    """
+    Provide the legacy base exception for EPUB container operations.
+
+    Example:
+        Exercise EPubException with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+    """
     pass
 
 
 class OCFException(EPubException):
+    """
+    Signal a failure while reading an Open Container Format package.
+
+    Example:
+        Exercise OCFException with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+    """
     pass
 
 
 class ContainerException(OCFException):
+    """
+    Signal a missing or malformed OCF container descriptor.
+
+    Example:
+        Exercise ContainerException with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+    """
     pass
 
 
 def _is_path_like(target: Any) -> bool:
+    """
+    Return whether the supplied value satisfies the path like condition.
+
+    Example:
+        Exercise  is path like with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param target: Caller-supplied path, path-like object or stream described by this
+        operation.
+    :return: True when the condition is satisfied; otherwise False.
+    """
     return isinstance(target, (str, bytes, os.PathLike))
 
 
 def _source_name(target: Any) -> str:
+    """
+    Derive the name used for fallback metadata and diagnostics.
+
+    Example:
+        Exercise  source name with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param target: Caller-supplied path, path-like object or stream described by this
+        operation.
+    :return: Parsed, normalized or updated value described above.
+    """
     if _is_path_like(target):
         return os.fspath(target)
     return getattr(target, "name", "<stream>")
 
 
 def _localname(tag: Any) -> str:
+    """
+    Perform the format-specific localname operation used by the metadata reader or writer.
+
+    Example:
+        Exercise  localname with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param tag: Value supplied for tag.
+    :return: Parsed, normalized or updated value described above.
+    """
     text = str(tag)
     return text.rsplit("}", 1)[-1]
 
 
 def _ensure_bytes(raw: Any) -> bytes:
+    """
+    Coerce bytes to the required representation or supply its documented fallback.
+
+    Example:
+        Exercise  ensure bytes with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param raw: Raw value or payload to normalize, parse or serialize.
+    :return: Parsed, normalized or updated value described above.
+    """
     if isinstance(raw, bytes):
         return raw
     if isinstance(raw, bytearray):
@@ -79,6 +169,19 @@ def _ensure_bytes(raw: Any) -> bytes:
 
 
 def _cover_format_from_path(path: str | None) -> str:
+    """
+    Perform the format-specific cover format from path operation used by the metadata reader or writer.
+
+    Example:
+        Exercise  cover format from path with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param path: Caller-supplied path, path-like object or stream described by this
+        operation.
+    :return: Parsed, normalized or updated value described above.
+    """
     ext = os.path.splitext(path or "")[1].lower().lstrip(".")
     if ext == "jpg":
         return "jpeg"
@@ -88,6 +191,19 @@ def _cover_format_from_path(path: str | None) -> str:
 
 
 def _serialize_cover_data(new_cdata: bytes, cpath: str) -> bytes:
+    """
+    Serialize cover data into the binary or XML representation required by the container.
+
+    Example:
+        Exercise  serialize cover data with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param new_cdata: Value supplied for new cdata.
+    :param cpath: Value supplied for cpath.
+    :return: Parsed, normalized or updated value described above.
+    """
     try:
         from LiuXin_alpha.utils.image_tools.img import save_cover_data_to
     except Exception:
@@ -99,6 +215,19 @@ def _serialize_cover_data(new_cdata: bytes, cpath: str) -> bytes:
 
 
 def _resolve_member(base_path: str, href: str | None) -> str | None:
+    """
+    Resolve member against the package's normalized member references.
+
+    Example:
+        Exercise  resolve member with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param base_path: Value supplied for base path.
+    :param href: Value supplied for href.
+    :return: Parsed, normalized or updated value described above.
+    """
     if not href:
         return None
     if href.startswith("/"):
@@ -107,6 +236,18 @@ def _resolve_member(base_path: str, href: str | None) -> str | None:
 
 
 def _extract_cover_payload(mi: Any) -> bytes | None:
+    """
+    Extract cover payload using the format-specific ordering and validation rules.
+
+    Example:
+        Exercise  extract cover payload with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param mi: Metadata object supplying or receiving supported fields.
+    :return: Parsed, normalized or updated value described above.
+    """
     cover_data = getattr(mi, "cover_data", None)
     if isinstance(cover_data, tuple) and len(cover_data) == 2 and cover_data[1]:
         return _ensure_bytes(cover_data[1])
@@ -129,12 +270,33 @@ def _extract_cover_payload(mi: Any) -> bytes | None:
 
 
 def _to_liuxin_metadata(calibre_md: calibreMetadata):
+    """
+    Perform the format-specific to liuxin metadata operation used by the metadata reader or writer.
+
+    Example:
+        Exercise  to liuxin metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param calibre_md: Value supplied for calibre md.
+    :return: Parsed, normalized or updated value described above.
+    """
     return CalibreLikeLiuXinBookMetaData.from_calibre(calibre_md)
 
 
 def _as_opf_calibre_metadata(mi: Any):
     """
-    Convert metadata to the calibre-compat class expected by OPF helpers.
+    Perform the format-specific as opf calibre metadata operation used by the metadata reader or writer.
+
+    Example:
+        Exercise  as opf calibre metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param mi: Metadata object supplying or receiving supported fields.
+    :return: Parsed, normalized or updated value described above.
     """
     from LiuXin_alpha.utils.calibre_compat.ebooks.metadata.book.base import Metadata as OPFCalibreMetadata
 
@@ -159,14 +321,36 @@ def _as_opf_calibre_metadata(mi: Any):
 
 def get_metadata_inplace(target_epub_path):
     """
-    Extract metadata from a filesystem EPUB path.
+    Read metadata through the path-oriented adapter used by registry plugins that support in-place access.
+
+    Example:
+        Exercise get metadata inplace with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param target_epub_path: Caller-supplied path, path-like object or stream described
+        by this operation.
+    :return: Parsed, normalized or updated value described above.
     """
     return get_metadata(target_epub_path, extract_cover=False, calibre_metadata=False)
 
 
 def get_metadata(stream_or_path, extract_cover: bool = True, calibre_metadata: bool = True):
     """
-    Read metadata from an EPUB stream/path.
+    Read metadata from the supported path or stream input while applying the module's ownership and fallback policy.
+
+    Example:
+        Exercise get metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param stream_or_path: Caller-supplied path, path-like object or stream described by
+        this operation.
+    :param extract_cover: Attempt cover discovery and extraction when true.
+    :param calibre_metadata: Value supplied for calibre metadata.
+    :return: Parsed, normalized or updated value described above.
     """
     if _is_path_like(stream_or_path):
         with open(stream_or_path, "rb") as stream:
@@ -239,17 +423,45 @@ def get_metadata(stream_or_path, extract_cover: bool = True, calibre_metadata: b
 
 def get_quick_metadata(stream_or_path):
     """
-    Read metadata without cover extraction.
+    Return quick metadata derived from the current parser or container state.
+
+    Example:
+        Exercise get quick metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param stream_or_path: Caller-supplied path, path-like object or stream described by
+        this operation.
+    :return: Parsed, normalized or updated value described above.
     """
     return get_metadata(stream_or_path, extract_cover=False)
 
 
 class Container(dict):
     """
-    Parsed OCF container map (media-type -> full-path).
+    Map OCF rootfile media types to normalized package member paths.
+
+    Example:
+        Exercise Container with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
     """
 
     def __init__(self, stream=None):
+        """
+        Implement init for the format helper while retaining caller-owned underlying objects.
+
+        Example:
+            Exercise Container.  init   with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+        :param stream: Caller-supplied path, path-like object or stream described by this
+            operation.
+        :return: None.
+        """
         super().__init__()
         if stream is None:
             return
@@ -283,18 +495,57 @@ class Container(dict):
 
 
 class OCF:
+    """
+    Provide shared OCF constants and extension points for package readers.
+
+    Example:
+        Exercise OCF with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+    """
     MIMETYPE = "application/epub+zip"
     CONTAINER_PATH = "META-INF/container.xml"
     ENCRYPTION_PATH = "META-INF/encryption.xml"
 
     def __init__(self):
+        """
+        Implement init for the format helper while retaining caller-owned underlying objects.
+
+        Example:
+            Exercise OCF.  init   with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+        :return: None.
+        """
         raise NotImplementedError("Abstract base class")
 
 
 class Encryption:
+    """
+    Index encryption.xml entries and answer whether a package member is encrypted.
+
+    Example:
+        Exercise Encryption with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+    """
     OBFUSCATION_ALGORITHMS = frozenset({"http://ns.adobe.com/pdf/enc#RC", "http://www.idpf.org/2008/embedding"})
 
     def __init__(self, raw):
+        """
+        Implement init for the format helper while retaining caller-owned underlying objects.
+
+        Example:
+            Exercise Encryption.  init   with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+        :param raw: Raw value or payload to normalize, parse or serialize.
+        :return: None.
+        """
         self.entries: dict[str, str] = {}
         if not raw:
             return
@@ -318,6 +569,18 @@ class Encryption:
                 self.entries[uri] = algorithm
 
     def is_encrypted(self, uri: str | None) -> bool:
+        """
+        Return whether the supplied value satisfies the encrypted condition.
+
+        Example:
+            Exercise Encryption.is encrypted with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+        :param uri: Value supplied for uri.
+        :return: True when the condition is satisfied; otherwise False.
+        """
         if not uri:
             return False
         algorithm = self.entries.get(uri)
@@ -325,7 +588,26 @@ class Encryption:
 
 
 class OCFReader(OCF):
+    """
+    Define the common member, encryption and byte-reading surface for OCF readers.
+
+    Example:
+        Exercise OCFReader with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+    """
     def __init__(self):
+        """
+        Implement init for the format helper while retaining caller-owned underlying objects.
+
+        Example:
+            Exercise OCFReader.  init   with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+        :return: None.
+        """
         try:
             mimetype = self.open("mimetype").read().rstrip()
             if isinstance(mimetype, bytes):
@@ -348,6 +630,17 @@ class OCFReader(OCF):
 
     @property
     def encryption_meta(self) -> Encryption:
+        """
+        Perform the format-specific encryption meta operation used by the metadata reader or writer.
+
+        Example:
+            Exercise OCFReader.encryption meta with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+        :return: Parsed, normalized or updated value described above.
+        """
         if self._encryption_meta_cached is None:
             try:
                 with self.open(self.ENCRYPTION_PATH) as stream:
@@ -357,12 +650,47 @@ class OCFReader(OCF):
         return self._encryption_meta_cached
 
     def read_bytes(self, name: str) -> bytes:
+        """
+        Read bytes while enforcing the format's bounds and binary-input expectations.
+
+        Example:
+            Exercise OCFReader.read bytes with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+        :param name: Value supplied for name.
+        :return: Parsed, normalized or updated value described above.
+        """
         with self.open(name) as stream:
             return _ensure_bytes(stream.read())
 
 
 class OCFZipReader(OCFReader):
+    """
+    Read OCF members from a ZIP stream with optional rooted member resolution.
+
+    Example:
+        Exercise OCFZipReader with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+    """
     def __init__(self, stream, mode: str = "r", root: str | None = None):
+        """
+        Implement init for the format helper while retaining caller-owned underlying objects.
+
+        Example:
+            Exercise OCFZipReader.  init   with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+        :param stream: Caller-supplied path, path-like object or stream described by this
+            operation.
+        :param mode: Value supplied for mode.
+        :param root: XML or metadata node used as the operation context.
+        :return: None.
+        """
         if isinstance(stream, (LocalZipFile, ZipFile)):
             self.archive = stream
         else:
@@ -374,17 +702,53 @@ class OCFZipReader(OCFReader):
         super().__init__()
 
     def open(self, name, mode: str = "r"):
+        """
+        Return open from the current container using normalized member or record addressing.
+
+        Example:
+            Exercise OCFZipReader.open with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+        :param name: Value supplied for name.
+        :param mode: Value supplied for mode.
+        :return: Parsed, normalized or updated value described above.
+        """
         if isinstance(self.archive, LocalZipFile):
             return self.archive.open(name)
         return BytesIO(self.archive.read(name))
 
     def read_bytes(self, name):
+        """
+        Read bytes while enforcing the format's bounds and binary-input expectations.
+
+        Example:
+            Exercise OCFZipReader.read bytes with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+        :param name: Value supplied for name.
+        :return: Parsed, normalized or updated value described above.
+        """
         return _ensure_bytes(self.archive.read(name))
 
 
 def get_zip_reader(stream, root: str | None = None):
     """
-    Open a ZIP reader with fallback to local-header parser for damaged files.
+    Open an OCF ZIP reader and fall back to the local-header implementation for damaged central directories.
+
+    Example:
+        Exercise get zip reader with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param stream: Caller-supplied path, path-like object or stream described by this
+        operation.
+    :param root: XML or metadata node used as the operation context.
+    :return: Parsed, normalized or updated value described above.
     """
     try:
         zf = ZipFile(stream, mode="r")
@@ -407,15 +771,64 @@ def get_zip_reader(stream, root: str | None = None):
 
 
 class OCFDirReader(OCFReader):
+    """
+    Read OCF members from an extracted directory tree.
+
+    Example:
+        Exercise OCFDirReader with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+    """
     def __init__(self, path):
+        """
+        Implement init for the format helper while retaining caller-owned underlying objects.
+
+        Example:
+            Exercise OCFDirReader.  init   with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+        :param path: Caller-supplied path, path-like object or stream described by this
+            operation.
+        :return: None.
+        """
         self.root = path
         super().__init__()
 
     def open(self, path, *args, **kwargs):
+        """
+        Return open from the current container using normalized member or record addressing.
+
+        Example:
+            Exercise OCFDirReader.open with pytest::
+
+                python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+        :param path: Caller-supplied path, path-like object or stream described by this
+            operation.
+        :param args: Value supplied for args.
+        :param kwargs: Value supplied for kwargs.
+        :return: Parsed, normalized or updated value described above.
+        """
         return open(os.path.join(self.root, path), *args, **kwargs)
 
 
 def _extract_cover_from_member(reader: OCFZipReader, member_name: str | None) -> bytes | None:
+    """
+    Extract cover from member using the format-specific ordering and validation rules.
+
+    Example:
+        Exercise  extract cover from member with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param reader: Value supplied for reader.
+    :param member_name: Value supplied for member name.
+    :return: Parsed, normalized or updated value described above.
+    """
     if not member_name or reader.encryption_meta.is_encrypted(member_name):
         return None
     try:
@@ -425,6 +838,19 @@ def _extract_cover_from_member(reader: OCFZipReader, member_name: str | None) ->
 
 
 def _render_cover_from_spine(reader: OCFZipReader, first_spine_item: str | None) -> bytes | None:
+    """
+    Perform the format-specific render cover from spine operation used by the metadata reader or writer.
+
+    Example:
+        Exercise  render cover from spine with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param reader: Value supplied for reader.
+    :param first_spine_item: Value supplied for first spine item.
+    :return: Parsed, normalized or updated value described above.
+    """
     if not first_spine_item or reader.encryption_meta.is_encrypted(first_spine_item):
         return None
     try:
@@ -447,6 +873,20 @@ def _render_cover_from_spine(reader: OCFZipReader, first_spine_item: str | None)
 
 
 def get_cover(raster_cover, first_spine_item, reader):
+    """
+    Return cover bytes selected by the format-specific cover discovery policy, or None when no usable cover exists.
+
+    Example:
+        Exercise get cover with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param raster_cover: Value supplied for raster cover.
+    :param first_spine_item: Value supplied for first spine item.
+    :param reader: Value supplied for reader.
+    :return: Parsed, normalized or updated value described above.
+    """
     cdata = _extract_cover_from_member(reader, raster_cover)
     if cdata:
         return cdata
@@ -454,12 +894,40 @@ def get_cover(raster_cover, first_spine_item, reader):
 
 
 def normalize_languages(opf_languages, mi_languages):
+    """
+    Merge and normalize OPF and metadata language values without duplicating equivalent codes.
+
+    Example:
+        Exercise normalize languages with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param opf_languages: Value supplied for opf languages.
+    :param mi_languages: Value supplied for mi languages.
+    :return: Parsed, normalized or updated value described above.
+    """
     return normalize_languages_impl(opf_languages, mi_languages)
 
 
 def update_metadata(opf, mi, apply_null: bool = False, update_timestamp: bool = False, force_identifiers: bool = False):
     """
-    Update an OPF2 object in-place using metadata from `mi`.
+    Update supported OPF fields from the supplied metadata object under the requested null, timestamp and identifier policies.
+
+    Example:
+        Exercise update metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param opf: XML or metadata node used as the operation context.
+    :param mi: Metadata object supplying or receiving supported fields.
+    :param apply_null: Clear supported destination fields when the source metadata marks
+        them null.
+    :param update_timestamp: Refresh the package modification timestamp when true.
+    :param force_identifiers: Replace identifiers even when the destination already
+        contains values.
+    :return: None.
     """
     mi = _as_opf_calibre_metadata(mi)
 
@@ -494,7 +962,24 @@ def set_metadata(
     add_missing_cover: bool = True,
 ):
     """
-    Write metadata into an EPUB path or read/write stream.
+    Write supported metadata fields to a path or mutable binary stream without taking ownership of caller-supplied streams.
+
+    Example:
+        Exercise set metadata with pytest::
+
+            python -m pytest -q tests/metadata/file_sources/test_epub_metadata_source.py
+
+
+    :param stream_or_path: Caller-supplied path, path-like object or stream described by
+        this operation.
+    :param mi: Metadata object supplying or receiving supported fields.
+    :param apply_null: Clear supported destination fields when the source metadata marks
+        them null.
+    :param update_timestamp: Refresh the package modification timestamp when true.
+    :param force_identifiers: Replace identifiers even when the destination already
+        contains values.
+    :param add_missing_cover: Value supplied for add missing cover.
+    :return: None.
     """
     mi = _as_opf_calibre_metadata(mi)
 

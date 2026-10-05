@@ -1,3 +1,14 @@
+"""
+Exercise book metadata edge cases for dates, identifiers, covers and field metadata.
+
+The module keeps its fixtures and doubles local so the assertions remain
+deterministic.
+
+Example:
+    Exercise test book metadata edges through its owning regression module::
+
+        python -m pytest -q tests/metadata/book/test_book_metadata_edges.py
+"""
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -18,6 +29,23 @@ def _meta(
     extra: object = None,
     display: dict[str, object] | None = None,
 ) -> dict[str, object]:
+    """
+    Perform the meta test-helper operation with deterministic inputs.
+
+    Example:
+        Exercise meta through its owning regression module::
+
+            python -m pytest -q tests/metadata/book/test_book_metadata_edges.py
+
+
+    :param name: Value supplied for name in the focused test operation.
+    :param datatype: Value supplied for datatype in the focused test operation.
+    :param is_multiple: Value supplied for is multiple in the focused test operation.
+    :param value: Value stored, compared or projected by the operation.
+    :param extra: Value supplied for extra in the focused test operation.
+    :param display: Value supplied for display in the focused test operation.
+    :return: The deterministic value, row, identity or collection described above.
+    """
     metadata: dict[str, object] = {
         "name": name,
         "datatype": datatype,
@@ -31,8 +59,40 @@ def _meta(
 
 
 def test_metadata_housekeeping_and_lazy_composite_evaluation() -> None:
+    """
+    Verify metadata housekeeping and lazy composite evaluation.
+
+    Example:
+        Exercise test metadata housekeeping and lazy composite evaluation through its owning regression module::
+
+            python -m pytest -q tests/metadata/book/test_book_metadata_edges.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     class Formatter:
+        """
+        Provide the Formatter test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test metadata housekeeping and lazy composite evaluation.Formatter through its owning regression module::
+
+                python -m pytest -q tests/metadata/book/test_book_metadata_edges.py
+        """
         def safe_format(self, *args: object, **kwargs: object) -> str:
+            """
+            Perform the safe format test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test metadata housekeeping and lazy composite evaluation.Formatter.safe format through its owning regression module::
+
+                    python -m pytest -q tests/metadata/book/test_book_metadata_edges.py
+
+
+            :param args: Positional values forwarded by the test double.
+            :param kwargs: Keyword values forwarded by the test double.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             return " computed composite "
 
     reset_field_metadata()
@@ -65,6 +125,17 @@ def test_metadata_housekeeping_and_lazy_composite_evaluation() -> None:
 
 
 def test_deepcopy_and_metadata_field_descriptions_are_isolated() -> None:
+    """
+    Verify deepcopy and metadata field descriptions remain isolated.
+
+    Example:
+        Exercise test deepcopy and metadata field descriptions are isolated through its owning regression module::
+
+            python -m pytest -q tests/metadata/book/test_book_metadata_edges.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     metadata = calibreMetadata("Field Book", ["Author"])
     metadata.set_user_metadata(
         "#custom",
@@ -92,6 +163,20 @@ def test_deepcopy_and_metadata_field_descriptions_are_isolated() -> None:
 
 
 def test_opf_and_database_delegation(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    """
+    Verify opf and database delegation.
+
+    Example:
+        Exercise test opf and database delegation through its owning regression module::
+
+            python -m pytest -q tests/metadata/book/test_book_metadata_edges.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :param tmp_path: Pytest-managed temporary directory for filesystem assertions.
+    :return: None; the function records state or raises through its assertions.
+    """
     source_metadata = calibreMetadata("From OPF", ["OPF Author"])
     calls: dict[str, object] = {}
 
@@ -103,12 +188,34 @@ def test_opf_and_database_delegation(monkeypatch: pytest.MonkeyPatch, tmp_path) 
     )
 
     def fake_to_opf_file(metadata, path, *, default_lang=None):
+        """
+        Perform the fake to opf file test-helper operation with deterministic inputs.
+
+        Example:
+            Exercise test opf and database delegation.fake to opf file through its owning regression module::
+
+                python -m pytest -q tests/metadata/book/test_book_metadata_edges.py
+
+
+        :param metadata: Metadata container or mapping supplied to the assertion helper.
+        :param path: Value supplied for path in the focused test operation.
+        :param default_lang: Value supplied for default lang in the focused test operation.
+        :return: The deterministic value, row, identity or collection described above.
+        """
         calls["opf_file"] = (metadata, path, default_lang)
         return "written"
 
     monkeypatch.setattr(opf_tools, "metadata_to_opf_file", fake_to_opf_file)
 
     class SubMetadata(calibreMetadata):
+        """
+        Provide the SubMetadata test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test opf and database delegation.SubMetadata through its owning regression module::
+
+                python -m pytest -q tests/metadata/book/test_book_metadata_edges.py
+        """
         pass
 
     assert calibreMetadata.from_opf("source") is source_metadata
@@ -122,10 +229,43 @@ def test_opf_and_database_delegation(monkeypatch: pytest.MonkeyPatch, tmp_path) 
     assert calls["opf_file"] == (source_metadata, path, "fra")
 
     class FakeWriter:
+        """
+        Provide the FakeWriter test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test opf and database delegation.FakeWriter through its owning regression module::
+
+                python -m pytest -q tests/metadata/book/test_book_metadata_edges.py
+        """
         def __init__(self, database):
+            """
+            Initialize the FakeWriter test double.
+
+            Example:
+                Exercise test opf and database delegation.FakeWriter.init through its owning regression module::
+
+                    python -m pytest -q tests/metadata/book/test_book_metadata_edges.py
+
+
+            :param database: Database double or adapter under test.
+            :return: None; the function records state or raises through its assertions.
+            """
             calls["database"] = database
 
         def write(self, metadata, **kwargs):
+            """
+            Record a batch mutation and return its configured result.
+
+            Example:
+                Exercise test opf and database delegation.FakeWriter.write through its owning regression module::
+
+                    python -m pytest -q tests/metadata/book/test_book_metadata_edges.py
+
+
+            :param metadata: Metadata container or mapping supplied to the assertion helper.
+            :param kwargs: Keyword values forwarded by the test double.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             calls["write"] = (metadata, kwargs)
             return "report"
 
@@ -144,6 +284,19 @@ def test_opf_and_database_delegation(monkeypatch: pytest.MonkeyPatch, tmp_path) 
 def test_set_user_metadata_defaults_validation_and_template_copy(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """
+    Verify set user metadata defaults validation and template copy.
+
+    Example:
+        Exercise test set user metadata defaults validation and template copy through its owning regression module::
+
+            python -m pytest -q tests/metadata/book/test_book_metadata_edges.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     metadata = calibreMetadata("Template Target", ["Unknown"])
 
     metadata.set_all_user_metadata(
@@ -169,7 +322,29 @@ def test_set_user_metadata_defaults_validation_and_template_copy(
         metadata.set_user_metadata("bad", _meta(name="Bad", datatype="text"))
 
     class FakeFormatter:
+        """
+        Provide the FakeFormatter test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test set user metadata defaults validation and template copy.FakeFormatter through its owning regression module::
+
+                python -m pytest -q tests/metadata/book/test_book_metadata_edges.py
+        """
         def safe_format(self, template, *_args, **_kwargs):
+            """
+            Perform the safe format test-helper operation with deterministic inputs.
+
+            Example:
+                Exercise test set user metadata defaults validation and template copy.FakeFormatter.safe format through its owning regression module::
+
+                    python -m pytest -q tests/metadata/book/test_book_metadata_edges.py
+
+
+            :param template: Value supplied for template in the focused test operation.
+            :param _args: Value supplied for args in the focused test operation.
+            :param _kwargs: Value supplied for kwargs in the focused test operation.
+            :return: The deterministic value, row, identity or collection described above.
+            """
             values = {
                 "{tags}": "One, Two",
                 "{authors}": "Ada & Grace",
@@ -200,6 +375,17 @@ def test_set_user_metadata_defaults_validation_and_template_copy(
 
 
 def test_smart_update_replace_and_plain_object_identifier_paths() -> None:
+    """
+    Verify smart update replace and plain object identifier paths.
+
+    Example:
+        Exercise test smart update replace and plain object identifier paths through its owning regression module::
+
+            python -m pytest -q tests/metadata/book/test_book_metadata_edges.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     target = calibreMetadata("Target", ["Old"])
     target.series = "Old Series"
     source = calibreMetadata("Source", ["New"])
@@ -230,6 +416,14 @@ def test_smart_update_replace_and_plain_object_identifier_paths() -> None:
     assert target.series_index is None
 
     class PlainOther:
+        """
+        Provide the PlainOther test fixture or double with explicit deterministic behavior.
+
+        Example:
+            Exercise test smart update replace and plain object identifier paths.PlainOther through its owning regression module::
+
+                python -m pytest -q tests/metadata/book/test_book_metadata_edges.py
+        """
         title = "Plain"
         title_sort = "Plain Sort"
         authors = ["Plain Author"]
@@ -248,6 +442,17 @@ def test_smart_update_replace_and_plain_object_identifier_paths() -> None:
 
 
 def test_smart_update_handles_custom_multiple_type_mismatch() -> None:
+    """
+    Verify smart update handles custom multiple type mismatch.
+
+    Example:
+        Exercise test smart update handles custom multiple type mismatch through its owning regression module::
+
+            python -m pytest -q tests/metadata/book/test_book_metadata_edges.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     target = calibreMetadata("Target", ["Author"])
     target.set_user_metadata(
         "#labels",
@@ -271,6 +476,19 @@ def test_smart_update_handles_custom_multiple_type_mismatch() -> None:
 
 
 def test_extended_formatting_paths(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Verify extended formatting paths.
+
+    Example:
+        Exercise test extended formatting paths through its owning regression module::
+
+            python -m pytest -q tests/metadata/book/test_book_metadata_edges.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     monkeypatch.setattr(book_base, "sort_key", lambda value: str(value).casefold())
 
     metadata = calibreMetadata("Format Paths", ["Author"])
@@ -334,6 +552,19 @@ def test_extended_formatting_paths(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_rendering_bool_and_print_helpers(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Verify rendering bool and print helpers.
+
+    Example:
+        Exercise test rendering bool and print helpers through its owning regression module::
+
+            python -m pytest -q tests/metadata/book/test_book_metadata_edges.py
+
+
+    :param monkeypatch: Pytest fixture used to isolate collaborators or environment
+        state.
+    :return: None; the function records state or raises through its assertions.
+    """
     metadata = calibreMetadata("Renderable", ["Author"])
     calls: list[object] = []
 
@@ -350,6 +581,17 @@ def test_rendering_bool_and_print_helpers(monkeypatch: pytest.MonkeyPatch) -> No
 
 
 def test_author_parsing_and_datetime_field_from_string() -> None:
+    """
+    Verify author parsing and datetime field from string.
+
+    Example:
+        Exercise test author parsing and datetime field from string through its owning regression module::
+
+            python -m pytest -q tests/metadata/book/test_book_metadata_edges.py
+
+
+    :return: None; the function records state or raises through its assertions.
+    """
     metadata = calibreMetadata("Authors", ["Unknown"])
     metadata.authors_from_string("Ada Lovelace & Grace Hopper")
 

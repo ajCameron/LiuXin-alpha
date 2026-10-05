@@ -1,16 +1,16 @@
-"""Read-only identity-decision contracts for Catalog entities.
+"""
+Export read-only identity-decision protocols for Catalog matcher services.
 
-Matching never writes. Each matcher returns :class:`MatchResult`, preserving
-the difference between no match, ambiguity, and conflict::
+Work, Agent, curated Identifier, and observed Item-Identifier matchers have
+specialized contracts. Value entities share ExactEntityMatcherAPI, while
+CatalogMatchingAPI groups them and resolves supported exact-entity names.
+Final MatchResult decisions distinguish no_match, ambiguous, and conflict even
+when no entity ID is selected. Repository mutation owners interpret those
+decisions; querying a matcher does not create a catalogue entity.
 
-    decision = catalog.matching.works.best(candidate)
-    if decision.is_match:
-        use(decision.entity_id)
-    elif decision.requires_resolution:
-        ask_user(decision.alternatives, decision.evidence)
-
-Repository ``match_or_create`` methods build on these decisions and create only
-for a genuine no-match.
+Example:
+    >>> result = catalog.matching.works.best(candidate)  # doctest: +SKIP
+    >>> requires_review = result.requires_resolution  # doctest: +SKIP
 """
 
 # Todo: Worth thinking about where file and storage related db ops should live...
@@ -32,15 +32,35 @@ from LiuXin_alpha.catalog.api.matching_api.work_matcher import WorkMatcherAPI
 
 @runtime_checkable
 class CatalogMatchingAPI(Protocol):
-    """Grouped, mutation-free matching API exposed by Catalog.
+    """
+    Describe the grouped specialized and exact-default matching surface.
 
-    Works, Agents, curated Identifiers, and observed Item identifiers have
-    specialized matchers. Reusable value entities share exact-default matchers.
+    Dedicated attributes expose Work, Agent, curated Identifier, and observed Item-Identifier
+    matchers. Eleven value-entity attributes share the exact matcher contract, including entities
+    whose repositories disallow global reuse. for_entity selects only that exact-default subset.
+    This structural protocol supplies no implementation; runtime checks do not verify signatures,
+    result semantics, or database readiness.
 
-    Example::
+    Example:
+        >>> matching: CatalogMatchingAPI = catalog.matching  # doctest: +SKIP
+        >>> result = matching.for_entity("tags").exact("Gothic")  # doctest: +SKIP
 
-        decision = catalog.matching.works.best(candidate)
-        exact_tag = catalog.matching.tags.exact("gothic")
+
+    :ivar works: Specialized Work matcher using descriptive, Agent, and identifier evidence.
+    :ivar agents: Specialized Agent matcher using names, aliases, types, and identifier evidence.
+    :ivar identifiers: Matcher for normalized curated identifier storage rows.
+    :ivar item_identifiers: Matcher for observed identifiers with optional Item scope.
+    :ivar tags: Exact-default Tag matcher.
+    :ivar labels: Exact-default Label matcher.
+    :ivar genres: Exact-default Genre matcher with optional parent scope.
+    :ivar subjects: Exact-default Subject matcher with optional parent scope.
+    :ivar series: Exact-default Series matcher with optional parent scope.
+    :ivar languages: Matcher for seeded Language names and code variants.
+    :ivar ratings: Exact Rating matcher, with scale/source constraints when supplied.
+    :ivar comments: Exact Comment matcher; matching does not permit global creation/reuse.
+    :ivar synopses: Exact Synopsis matcher.
+    :ivar notes: Exact Note matcher.
+    :ivar annotations: Exact Annotation matcher requiring Item scope; candidate matching also requires identity fields.
     """
 
     works: WorkMatcherAPI
@@ -60,16 +80,24 @@ class CatalogMatchingAPI(Protocol):
     annotations: ExactEntityMatcherAPI
 
     def for_entity(self, entity_name: str) -> ExactEntityMatcherAPI:
-        """Return an exact-default matcher by entity or table name.
+        """
+        Resolve a supported exact-entity matcher by singular or plural public name.
 
-        :param entity_name: Singular/plural public entity name or table name,
-            for example ``"tag"`` or ``"languages"``.
-        :return: Configured exact-default matcher.
-        :raises KeyError: If no exact-default matcher is registered.
+        The concrete group strips whitespace, case-folds, and changes hyphens to underscores before
+        consulting its explicit aliases. Supported families are Tag, Label, Genre, Subject, Series,
+        Language, Rating, Comment, Synopsis, Note, and Annotation. Work, Agent, and identifier
+        matchers have dedicated attributes and are not returned by this lookup. The existing group
+        member is returned without constructing a matcher or querying rows.
 
-        Example::
+        Example:
+            >>> catalog.matching.for_entity(" TAG ") is catalog.matching.tags  # doctest: +SKIP
+            True
 
-            result = catalog.matching.for_entity("tags").exact("gothic")
+
+        :param entity_name: Supported singular or plural entity name, accepting the concrete group's case/whitespace normalization.
+        :return: The configured exact-default matcher currently stored in the group.
+        :raises TypeError: If entity_name is not a string in the concrete implementation.
+        :raises KeyError: If the normalized name has no exact-default matcher.
         """
 
         ...

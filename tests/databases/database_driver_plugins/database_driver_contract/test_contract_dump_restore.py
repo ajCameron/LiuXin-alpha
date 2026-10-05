@@ -1,15 +1,13 @@
-"""Driver contract: dump/restore round trips.
+"""
+Check dump output and restoration using sentinel rows, a marker table, and SQLite integrity.
 
-This module exercises:
+Restoration assertions compare the seeded row count and exact marker value; they do
+not establish file-replacement atomicity or compare every restored payload.
 
-* sql_dump() generator (iterdump wrapper)
-* dump_and_restore(callback, sql=None)
+Example:
+    Run with pytest::
 
-The goal is to ensure the driver can produce a SQL dump and then restore it
-into a fresh DB file (atomic replace) while preserving data.
-
-These tests are intentionally strict (fail-loud): a backend that cannot
-round-trip its own dump is not acceptable for multi-driver parity.
+        python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_dump_restore.py
 """
 
 from __future__ import annotations
@@ -23,7 +21,21 @@ _MARKER_TABLE = "contract_dump_restore_marker"
 
 @pytest.fixture
 def dump_table(driver, pick_payload) -> str:
-    """Create and seed a small contract table used by dump/restore tests."""
+    """
+    Drop and recreate the dump contract table, insert three sentinel rows, and require a count of three.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_dump_restore.py
+
+
+    :param driver: Driver owned by the isolated database fixture; teardown attempts to
+        close it.
+    :param pick_payload: Fixture callable selecting corpus strings by a wrapping integer
+        index.
+    :return: Trusted seeded table name; the database fixture owns cleanup.
+    """
     table = _CONTRACT_TABLE
 
     sql = f"""
@@ -64,7 +76,23 @@ def dump_table(driver, pick_payload) -> str:
 
 
 def test_sql_dump_contains_contract_table_and_sentinels(driver, dump_table: str):
-    """sql_dump() should include the CREATE TABLE and at least one sentinel payload."""
+    """
+    Scan dump lines for the contract CREATE TABLE statement and any sentinel payload.
+
+    Stop as soon as both appear, or after inspecting index 250001; the generator need
+    not be exhausted.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_dump_restore.py::test_sql_dump_contains_contract_table_and_sentinels
+
+
+    :param driver: Driver owned by the isolated database fixture; teardown attempts to
+        close it.
+    :param dump_table: Contract table seeded with three sentinel-bearing rows.
+    :return: None; failed expectations raise AssertionError.
+    """
     found_create = False
     found_sentinel = False
 
@@ -89,13 +117,24 @@ def test_sql_dump_contains_contract_table_and_sentinels(driver, dump_table: str)
 
 def test_dump_and_restore_roundtrip_preserves_data_and_applies_pre_sql(driver, dump_table: str, assert_integrity, pick_payload):
     """
-    dump_and_restore() should preserve existing data and can prepend extra SQL.
+    Restore with marker-creation SQL and require both tables, the original row count, and the exact marker value.
 
-    :param driver:
-    :param dump_table:
-    :param assert_integrity:
-    :param pick_payload:
-    :return:
+    Refresh table caches after restoration and run the shared integrity helper.
+
+    Example:
+        Run the owning tests with pytest::
+
+            python -m pytest -q tests/databases/database_driver_plugins/database_driver_contract/test_contract_dump_restore.py::test_dump_and_restore_roundtrip_preserves_data_and_applies_pre_sql
+
+
+    :param driver: Driver owned by the isolated database fixture; teardown attempts to
+        close it.
+    :param dump_table: Contract table seeded with three sentinel-bearing rows.
+    :param assert_integrity: Fixture callable checking the first retained
+        integrity_check result for ok.
+    :param pick_payload: Fixture callable selecting corpus strings by a wrapping integer
+        index.
+    :return: None; failed expectations raise AssertionError.
     """
     before_count = driver.direct_get_record_count(dump_table)
     assert before_count == 3

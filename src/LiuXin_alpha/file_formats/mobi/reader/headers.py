@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
+"""
+Decode and report PalmDB, MOBI and EXTH header fields.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise headers through a consuming regression::
+
+        python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+"""
 from __future__ import absolute_import, print_function
 from __future__ import annotations
 
@@ -36,17 +47,64 @@ MAX_MOBI_HEADER_LENGTH = 500
 
 
 def _require_bytes(raw: _typing.Any, length: _typing.Any, context: _typing.Any) -> None:
+    """
+    Perform the require bytes operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  require bytes through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :param length: Value supplied for length under the utility contract.
+    :param context: Value supplied for context under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if len(raw) < length:
         raise MobiError("Truncated MOBI data while reading %s" % context)
 
 
 def _unpack(fmt: _typing.Any, raw: _typing.Any, offset: _typing.Any, context: _typing.Any) -> _typing.Any:
+    """
+    Perform the unpack operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  unpack through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param fmt: Date, number or template format specification.
+    :param raw: Value supplied for raw under the utility contract.
+    :param offset: Value supplied for offset under the utility contract.
+    :param context: Value supplied for context under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     length = struct.calcsize(fmt)
     _require_bytes(raw, offset + length, context)
     return struct.unpack_from(fmt, raw, offset)
 
 
 def _read_exact(stream: _typing.Any, length: _typing.Any, context: _typing.Any) -> _typing.Any:
+    """
+    Read exact under the format's safety and compatibility rules.
+
+    Example:
+        Exercise  read exact through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param stream: Input or output stream wrapped by the terminal or compatibility
+        layer.
+    :param length: Value supplied for length under the utility contract.
+    :param context: Value supplied for context under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     raw = stream.read(length)
     if len(raw) != length:
         raise MobiError("Truncated MOBI data while reading %s" % context)
@@ -54,6 +112,20 @@ def _read_exact(stream: _typing.Any, length: _typing.Any, context: _typing.Any) 
 
 
 def _stream_length(stream: _typing.Any) -> _typing.Any:
+    """
+    Perform the stream length operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise  stream length through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param stream: Input or output stream wrapped by the terminal or compatibility
+        layer.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if not (hasattr(stream, "seek") and hasattr(stream, "tell")):
         return None
     pos = stream.tell()
@@ -65,11 +137,39 @@ def _stream_length(stream: _typing.Any) -> _typing.Any:
 
 
 def _validate_record_count(count: _typing.Any) -> None:
+    """
+    Validate record count under the format's safety and compatibility rules.
+
+    Example:
+        Exercise  validate record count through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param count: Value supplied for count under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if count > MAX_PALMDB_RECORDS:
         raise MobiError("PalmDB record count %d exceeds limit %d" % (count, MAX_PALMDB_RECORDS))
 
 
 def _validate_record_offsets(offsets: _typing.Any, *, data_size: _typing.Any, table_end: _typing.Any) -> None:
+    """
+    Validate record offsets under the format's safety and compatibility rules.
+
+    Example:
+        Exercise  validate record offsets through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param offsets: Value supplied for offsets under the utility contract.
+    :param data_size: Value supplied for data size under the utility contract.
+    :param table_end: Value supplied for table end under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     previous = None
     for index, offset in enumerate(offsets):
         if offset < table_end:
@@ -82,6 +182,19 @@ def _validate_record_offsets(offsets: _typing.Any, *, data_size: _typing.Any, ta
 
 
 def read_palmdb_record_table(raw: _typing.Any) -> tuple[_typing.Any, ...]:
+    """
+    Read palmdb record table under the format's safety and compatibility rules.
+
+    Example:
+        Exercise read palmdb record table through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+    :param raw: Value supplied for raw under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     _require_bytes(raw, PALMDB_HEADER_SIZE, "PalmDB header")
     count = _unpack(">H", raw, 76, "PalmDB record count")[0]
     if count < 1:
@@ -104,7 +217,29 @@ def read_palmdb_record_table(raw: _typing.Any) -> tuple[_typing.Any, ...]:
 
 
 class EXTHHeader(object):  # {{{
+    """
+    Provide the exthheader contract for validated ebook processing.
+
+    Example:
+        Exercise EXTHHeader through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+    """
     def __init__(self: _typing.Self, raw: _typing.Any, codec: _typing.Any, title: _typing.Any) -> None:
+        """
+        Initialize and validate the exthheader state.
+
+        Example:
+            Exercise EXTHHeader.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param raw: Value supplied for raw under the utility contract.
+        :param codec: Value supplied for codec under the utility contract.
+        :param title: Value supplied for title under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         _require_bytes(raw, 12, "EXTH header")
         self.doctype = raw[:4]
         if self.doctype != b"EXTH":
@@ -194,6 +329,21 @@ class EXTHHeader(object):  # {{{
             self.mi.title = replace_entities(clean_xml_chars(clean_ascii_chars(title)))
 
     def process_metadata(self: _typing.Self, idx: _typing.Any, content: _typing.Any, codec: _typing.Any) -> None:
+        """
+        Perform the process metadata operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise EXTHHeader.process metadata through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param idx: Value supplied for idx under the utility contract.
+        :param content: Value supplied for content under the utility contract.
+        :param codec: Value supplied for codec under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if idx == 100:
             if self.mi.is_null("authors"):
                 self.mi.authors = []
@@ -272,7 +422,32 @@ class EXTHHeader(object):  # {{{
 
 
 class BookHeader(object):
+    """
+    Provide the bookheader contract for validated ebook processing.
+
+    Example:
+        Exercise BookHeader through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+    """
     def __init__(self: _typing.Self, raw: _typing.Any, ident: _typing.Any, user_encoding: _typing.Any, log: _typing.Any, try_extra_data_fix: bool = False) -> None:
+        """
+        Initialize and validate the bookheader state.
+
+        Example:
+            Exercise BookHeader.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param raw: Value supplied for raw under the utility contract.
+        :param ident: Value supplied for ident under the utility contract.
+        :param user_encoding: Value supplied for user encoding under the utility contract.
+        :param log: Value supplied for log under the utility contract.
+        :param try_extra_data_fix: Value supplied for try extra data fix under the utility
+            contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.log = log
         ident_text = ident.decode("ascii", "ignore") if isinstance(ident, (bytes, bytearray)) else str(ident)
         self.compression_type = raw[:2]
@@ -394,7 +569,29 @@ class BookHeader(object):
 
 
 class MetadataHeader(BookHeader):
+    """
+    Provide the metadataheader contract for validated ebook processing.
+
+    Example:
+        Exercise MetadataHeader through a consuming regression::
+
+            python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+    """
     def __init__(self: _typing.Self, stream: _typing.Any, log: _typing.Any) -> None:
+        """
+        Initialize and validate the metadataheader state.
+
+        Example:
+            Exercise MetadataHeader.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param stream: Input or output stream wrapped by the terminal or compatibility
+            layer.
+        :param log: Value supplied for log under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self.stream = stream
         self._stream_size = _stream_length(stream)
         self.ident = self.identity()
@@ -409,6 +606,18 @@ class MetadataHeader(BookHeader):
 
     @property
     def kf8_type(self: _typing.Self) -> str | None:
+        """
+        Perform the kf8 type operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MetadataHeader.kf8 type through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if self.mobi_version == 8 and getattr(self, "skelidx", NULL_INDEX) != NULL_INDEX:
             return "standalone"
 
@@ -423,6 +632,18 @@ class MetadataHeader(BookHeader):
         return None
 
     def identity(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the identity operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MetadataHeader.identity through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.stream.seek(60)
         ident = _read_exact(self.stream, 8, "PalmDB identity").upper()
         if ident not in (b"BOOKMOBI", b"TEXTREAD"):
@@ -430,10 +651,34 @@ class MetadataHeader(BookHeader):
         return ident
 
     def section_count(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the section count operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MetadataHeader.section count through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         self.stream.seek(76)
         return struct.unpack(">H", _read_exact(self.stream, 2, "PalmDB record count"))[0]
 
     def _read_record_offsets(self: _typing.Self) -> _typing.Any:
+        """
+        Read record offsets under the format's safety and compatibility rules.
+
+        Example:
+            Exercise MetadataHeader. read record offsets through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         table_end = PALMDB_HEADER_SIZE + (self.num_sections * PALMDB_RECORD_TABLE_ENTRY_SIZE) + 2
         if self._stream_size is not None and table_end > self._stream_size:
             raise MobiError("Truncated MOBI data while reading PalmDB record table")
@@ -447,6 +692,19 @@ class MetadataHeader(BookHeader):
         return offsets
 
     def section_offset(self: _typing.Self, number: _typing.Any) -> _typing.Any:
+        """
+        Perform the section offset operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MetadataHeader.section offset through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param number: Value supplied for number under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if number < 0 or number >= self.num_sections:
             raise MobiError("non-existent MOBI section %r" % number)
         if hasattr(self, "_record_offsets"):
@@ -455,6 +713,18 @@ class MetadataHeader(BookHeader):
         return struct.unpack(">LBBBB", _read_exact(self.stream, 8, "PalmDB record table entry"))[0]
 
     def header(self: _typing.Self) -> _typing.Any:
+        """
+        Perform the header operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MetadataHeader.header through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         section_headers = list()
         # First section with the metadata
         section_headers.append(self.section_offset(0))
@@ -469,6 +739,19 @@ class MetadataHeader(BookHeader):
         return _read_exact(self.stream, end_off - off, "MOBI record 0")
 
     def section_data(self: _typing.Self, number: _typing.Any) -> _typing.Any:
+        """
+        Perform the section data operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise MetadataHeader.section data through a consuming regression::
+
+                python -m pytest -q tests/file_formats/mobi/test_mobi_modernized.py
+
+
+        :param number: Value supplied for number under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         if number < 0 or number >= self.num_sections:
             raise MobiError("non-existent MOBI section %r" % number)
         start = self.section_offset(number)

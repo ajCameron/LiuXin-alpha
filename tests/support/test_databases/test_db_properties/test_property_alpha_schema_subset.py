@@ -1,3 +1,14 @@
+"""
+Verify alpha schema subset across registered database profiles.
+
+The module keeps generated data, ordering and failure modes explicit so consumers
+can assert stable behavior.
+
+Example:
+    Exercise test property alpha schema subset through a consuming regression::
+
+        python -m pytest -q tests/support/test_databases/test_db_properties/test_property_alpha_schema_subset.py
+"""
 from __future__ import annotations
 
 import sqlite3
@@ -39,6 +50,20 @@ ALPHA_NORMALIZED_DB_NAMES = (
 
 @pytest.mark.parametrize("db_name", ALPHA_NORMALIZED_DB_NAMES, ids=ALPHA_NORMALIZED_DB_NAMES)
 def test_alpha_property_subset_matches_live_schema(provision_test_database, db_name: str) -> None:
+    """
+    Verify alpha property subset matches live schema.
+
+    Example:
+        Exercise test alpha property subset matches live schema through a consuming regression::
+
+            python -m pytest -q tests/support/test_databases/test_db_properties/test_property_alpha_schema_subset.py
+
+
+    :param provision_test_database: Value supplied for provision test database under the
+        deterministic fixture contract.
+    :param db_name: Registered test-database profile name.
+    :return: None; completion is expressed through state changes or assertions.
+    """
     properties_class = TEST_DB_PROPERTY_CLASS_MAP[db_name]
     provisioned = provision_test_database(db_name)
 

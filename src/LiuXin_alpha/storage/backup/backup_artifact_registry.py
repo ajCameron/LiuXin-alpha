@@ -1,14 +1,20 @@
-"""Register successful SquashFS artifacts as stable read-only Stores."""
+"""
+Register successful backup images as configured Stores with source-presence metadata.
+
+The registry reuses persisted Store/image associations and can attach them to a borrowed
+manager. Registration writes can have partial effects, and reuse does not revalidate bytes
+or complete a previously interrupted attachment/link pass. Physical image creation and
+whole-image Asset provenance remain separate operations.
+"""
 
 from __future__ import annotations
 
 import pathlib
-
 from collections.abc import Iterator
 from urllib.parse import unquote, urlparse
 from uuid import UUID, uuid4
 
-from LiuXin_alpha.databases import Row
+from LiuXin_alpha.databases.row import Row
 from LiuXin_alpha.storage.api import (
     BackupArtifactRegistration,
     BackupArtifactRegistryAPI,
@@ -25,9 +31,39 @@ from LiuXin_alpha.storage.backup.backup_workflow_repository import (
 
 
 class BackupArtifactRegistry(BackupArtifactRegistryAPI):
-    """Persist artifact Store identity and protected source-presence links."""
+    """
+    Associate completed image references with stable Store rows and protected member-presence links.
+
+    The registry borrows a database and optional manager and creates a repository adapter over that
+    database. It configures a SquashFS read-only Store for an image without parsing archive contents
+    or recording the entire image as a derived atomic Asset. New registration can perform Store,
+    checkpoint/output, presence, and manager updates in sequence with no encompassing transaction.
+
+    Existing registrations are reused before current path checks or new options are applied. Failed
+    later attachment or linking can leave earlier metadata visible; retrying a now-visible
+    registration does not automatically finish the interrupted work. Results use
+    the public BackupArtifactRegistration value.
+
+    Example:
+        >>> registry = BackupArtifactRegistry(db, storage_manager=manager)  # doctest: +SKIP
+        >>> registration = registry.register_artifact(3, result)  # doctest: +SKIP
+    """
 
     def __init__(self, db, *, storage_manager=None) -> None:
+        """
+        Retain database/manager references and construct the workflow repository adapter.
+
+        No schema check, startup, transaction, or ownership transfer occurs. The caller controls
+        both borrowed objects' lifetimes.
+
+        Example:
+            >>> registry = BackupArtifactRegistry(db, storage_manager=manager)  # doctest: +SKIP
+
+
+        :param db: Borrowed database containing workflow, Store, and presence-link tables.
+        :param storage_manager: Optional borrowed manager used to resolve routed local images and attach registered Stores.
+        :return: None after retaining dependencies and creating BackupWorkflowRepository over the same database.
+        """
         self.db = db
         self.storage_manager = storage_manager
         self.repository = BackupWorkflowRepository(db)
@@ -40,6 +76,37 @@ class BackupArtifactRegistry(BackupArtifactRegistryAPI):
         store_name: str | None = None,
         link_sources: bool = True,
     ) -> BackupArtifactRegistration:
+        """
+        Register a successful result's image and optionally insert source-presence evidence.
+
+        Int-convert workflow_id, require successful fields and a compatible optional result ID, then
+        return any existing registration immediately. For a new registration, resolve a local image
+        path and require a file. Reuse/create its Store row, record the result, attach that Store ID
+        to the last output row, then optionally insert member links and attach the Store to the
+        manager.
+
+        A falsey store_name falls back to image stem/name. Existing Store rows retain their own
+        name/configuration. Member fallback names use the number of links newly inserted so far, not
+        the source ordinal; a duplicate that inserts nothing leaves that fallback counter unchanged.
+        The returned new-registration count reports insertions from this call, whereas later lookup
+        counts current links for the whole Store.
+
+        This does not validate a SquashFS signature, read members, or establish rollback across
+        writes. A late link/attachment error can leave a discoverable registration, and a retry then
+        takes the early-return path without repairing unfinished work.
+
+        Example:
+            >>> registration = registry.register_artifact(  # doctest: +SKIP
+            ...     3, result, store_name="nightly", link_sources=True,
+            ... )
+
+
+        :param workflow_id: Int-convertible durable workflow ID; the result ID must be None or equal it.
+        :param result: Successful terminal result with a non-None image reference and source declaration.
+        :param store_name: Optional name for a newly inserted Store row; falsey input derives a basename.
+        :param link_sources: Whether a new registration should record source-member presence; existing registrations ignore this option.
+        :return: Existing or newly completed BackupArtifactRegistration; errors may follow partial metadata/manager effects.
+        """
         workflow_id = int(workflow_id)
         if not result.successful or result.output_artifact_reference is None:
             raise StoreIntegrityError(
@@ -107,6 +174,25 @@ class BackupArtifactRegistry(BackupArtifactRegistryAPI):
         self,
         workflow_id: int,
     ) -> BackupArtifactRegistration | None:
+        """
+        Reconstruct the last search-result output associated with a Store for one workflow.
+
+        Ignore output rows with None/empty Store IDs and return None when none remain. Require the
+        referenced Store and a nonempty UUID, then decode the original artifact reference and count
+        all current presence links for that Store, across workflows. Search order determines the
+        selected output; it is not explicitly sorted by creation time.
+
+        Lookup does not inspect image existence, readability, or member contents. Missing Store
+        identity raises StoreIntegrityError; invalid UUID/reference spelling or malformed rows can
+        raise their own errors.
+
+        Example:
+            >>> registration = registry.get_artifact_registration(3)  # doctest: +SKIP
+
+
+        :param workflow_id: Int-convertible workflow ID whose Store-associated output is requested.
+        :return: Reconstructed registration with current Store-wide link count, or None when no output has a Store association.
+        """
         rows = self.db.search(
             "backup_workflow_outputs",
             "backup_workflow_output_workflow_id",
@@ -144,6 +230,20 @@ class BackupArtifactRegistry(BackupArtifactRegistryAPI):
         )
 
     def iter_artifact_registrations(self) -> Iterator[BackupArtifactRegistration]:
+        """
+        Yield reconstructed registrations once per successfully resolved workflow ID.
+
+        Materialize output rows in adapter order, skip missing IDs, and int-convert the rest. A
+        workflow enters the seen set only when lookup returns a registration; an unregistered
+        duplicate may therefore be queried repeatedly. Reconstruction failures propagate after any
+        earlier yields, without a pinned metadata snapshot or image check.
+
+        Example:
+            >>> registrations = tuple(registry.iter_artifact_registrations())  # doctest: +SKIP
+
+
+        :return: Iterator of available workflow registrations with duplicate successful workflow IDs suppressed.
+        """
         seen: set[int] = set()
         for row in self._all_output_rows():
             workflow_id = row["backup_workflow_output_workflow_id"]
@@ -158,6 +258,27 @@ class BackupArtifactRegistry(BackupArtifactRegistryAPI):
                 yield registration
 
     def _artifact_path(self, reference: str | Location) -> pathlib.Path:
+        """
+        Resolve an image reference to a local pathname suitable for Store configuration.
+
+        Strings accept ordinary paths or file URIs; other URI schemes reject. File URIs use the
+        decoded path component only, ignoring authority/query/fragment, while ordinary paths expand
+        user syntax. No file existence check occurs in this helper.
+
+        Routed input needs a manager and a Store exposing root_path. Pass the reference through
+        Store.locate, resolve the root and joined key, and require current containment beneath that
+        root. This rejects a presently escaping symlink but does not lock pathname state against
+        later changes.
+
+        Example:
+            >>> registry = BackupArtifactRegistry(None)
+            >>> registry._artifact_path("file:///tmp/nightly%20pack.sqsh").name
+            'nightly pack.sqsh'
+
+
+        :param reference: Local path/file-URI text or managed Location backed by a Store exposing a local root.
+        :return: Resolved local Path; unsupported routing/schemes or current containment failure raise typed Store errors.
+        """
         if isinstance(reference, str):
             parsed = urlparse(reference)
             if parsed.scheme == "file":
@@ -196,6 +317,29 @@ class BackupArtifactRegistry(BackupArtifactRegistryAPI):
         store_name: str,
         workflow_id: int,
     ):
+        """
+        Reuse the first Store row for an image path or insert its read-only SquashFS configuration.
+
+        Search canonical file URI first, then historical raw path text. An existing row is returned
+        without checking or replacing name, kind, capabilities, or workflow metadata; only a missing
+        UUID is generated and synchronized. A new row uses an archive role, configured read-only
+        capabilities, backup/archive modes, and a workflow scratch reference, filtered to columns
+        the schema reports.
+
+        The caller supplies an absolute image path. No image parsing, manager registration,
+        concurrency lock, or enclosing transaction occurs.
+
+        Example:
+            >>> store_row = registry._find_or_create_store(  # doctest: +SKIP
+            ...     image_path, store_name="nightly", workflow_id=3,
+            ... )
+
+
+        :param artifact_path: Absolute image Path used for canonical URI and legacy-path searches.
+        :param store_name: Display name assigned only when inserting a new Store row.
+        :param workflow_id: Workflow ID embedded in new-row scratch metadata.
+        :return: Original reused Store row or newly inserted Row with a stable UUID; schema/persistence errors propagate.
+        """
         root_uri = artifact_path.as_uri()
         existing = self.db.search("stores", "store_root_uri", root_uri)
         if not existing:
@@ -243,6 +387,22 @@ class BackupArtifactRegistry(BackupArtifactRegistryAPI):
         artifact_path: pathlib.Path,
         registration: BackupArtifactRegistration,
     ) -> None:
+        """
+        Ensure the borrowed manager knows the registered Store without requesting startup.
+
+        No manager is a no-op. Any existing get_store result is accepted without comparing
+        configuration or health. Only StoreConfigurationNotFound triggers creation with the
+        registration UUID/name and a read-only SquashFS URI. Other lookup errors and create_store
+        failures propagate after prior registry writes.
+
+        Example:
+            >>> registry._attach_to_manager(image_path, registration)  # doctest: +SKIP
+
+
+        :param artifact_path: Absolute image Path whose file URI configures a newly attached Store.
+        :param registration: Stable Store identity/name retained by the registry.
+        :return: None after an absent-manager/existing-Store no-op or successful create_store(startup=False).
+        """
         if self.storage_manager is None:
             return
         try:
@@ -264,6 +424,20 @@ class BackupArtifactRegistry(BackupArtifactRegistryAPI):
         )
 
     def _all_output_rows(self):
+        """
+        Materialize output rows through the first exposed database enumeration interface.
+
+        Prefer driver_wrapper.read, then get_all_rows(iterator_return=False), then connection SQL
+        with column headings and strict positional pairing. Selection checks attribute presence
+        without callability validation. No sort, streaming bound, or snapshot transaction is added;
+        missing interfaces and adapter failures propagate.
+
+        Example:
+            >>> rows = registry._all_output_rows()  # doctest: +SKIP
+
+
+        :return: List of output rows or reconstructed dictionaries in adapter query order.
+        """
         wrapper = getattr(self.db, "driver_wrapper", None)
         if wrapper is not None and hasattr(wrapper, "read"):
             return list(wrapper.read("backup_workflow_outputs"))
@@ -287,6 +461,21 @@ class BackupArtifactRegistry(BackupArtifactRegistryAPI):
 def _decode_artifact_reference(value: str) -> str | Location:
     # Keep the persistence envelope private to the repository module while
     # sharing its exact decoder within the concrete backup package.
+    """
+    Delegate artifact-reference reconstruction to the repository's exact private decoder.
+
+    Import the decoder lazily to share its versioned-envelope and historical raw-path behavior
+    without exposing the encoding through the public API. Recognized-envelope errors propagate
+    unchanged.
+
+    Example:
+        >>> _decode_artifact_reference("/backups/legacy.sqsh")
+        '/backups/legacy.sqsh'
+
+
+    :param value: Persisted reference string from a workflow output row.
+    :return: Decoded text/Location or original unrecognized spelling according to the repository decoder.
+    """
     from LiuXin_alpha.storage.backup.backup_workflow_repository import (
         _decode_reference,
     )
@@ -294,7 +483,8 @@ def _decode_artifact_reference(value: str) -> str | Location:
     return _decode_reference(value)
 
 
-RegisteredBackupArtifact = BackupArtifactRegistration
 
 
-__all__ = ["BackupArtifactRegistry", "RegisteredBackupArtifact"]
+__all__ = [
+    "BackupArtifactRegistry",
+]

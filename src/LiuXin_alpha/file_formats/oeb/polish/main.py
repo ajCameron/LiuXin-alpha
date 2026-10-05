@@ -1,6 +1,17 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:fdm=marker:ai
 
+"""
+Coordinate EPUB/OEB polishing and validation operations.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise main through a consuming regression::
+
+        python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+"""
 from __future__ import unicode_literals, division, absolute_import, print_function
 from __future__ import annotations
 
@@ -41,6 +52,14 @@ __docformat__ = "restructuredtext en"
 
 
 class Log(object):
+    """
+    Provide the log contract for validated ebook processing.
+
+    Example:
+        Exercise Log through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+    """
     DEBUG = logging.DEBUG
     INFO = logging.INFO
     WARN = logging.WARNING
@@ -48,11 +67,37 @@ class Log(object):
     ERROR = logging.ERROR
 
     def __init__(self: _typing.Self, level: _typing.Any = logging.INFO) -> None:
+        """
+        Initialize and validate the log state.
+
+        Example:
+            Exercise Log.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param level: Value supplied for level under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         self._logger = get_compat_logger("LiuXin_alpha.oeb.polish")
         self.filter_level = level
         self._logger.setLevel(level)
 
     def _emit(self: _typing.Self, level: _typing.Any, *args: _typing.Any) -> None:
+        """
+        Perform the emit operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Log. emit through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param level: Value supplied for level under the utility contract.
+        :param args: Positional values forwarded to the compatibility implementation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         if not args:
             msg = ""
         else:
@@ -60,23 +105,101 @@ class Log(object):
         self._logger.log(level, msg)
 
     def __call__(self: _typing.Self, *args: _typing.Any) -> None:
+        """
+        Perform the call operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Log.  call   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._emit(self.INFO, *args)
 
     def debug(self: _typing.Self, *args: _typing.Any) -> None:
+        """
+        Perform the debug operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Log.debug through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._emit(self.DEBUG, *args)
 
     def info(self: _typing.Self, *args: _typing.Any) -> None:
+        """
+        Perform the info operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Log.info through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._emit(self.INFO, *args)
 
     def warn(self: _typing.Self, *args: _typing.Any) -> None:
+        """
+        Perform the warn operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Log.warn through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._emit(self.WARN, *args)
 
     warning = warn
 
     def error(self: _typing.Self, *args: _typing.Any) -> None:
+        """
+        Perform the error operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Log.error through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._emit(self.ERROR, *args)
 
     def exception(self: _typing.Self, *args: _typing.Any) -> None:
+        """
+        Perform the exception operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Log.exception through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param args: Positional values forwarded to the compatibility implementation.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self._logger.exception(" ".join(str(x) for x in args))
 
 
@@ -174,6 +297,20 @@ that need to parse them all.</p>
 
 
 def hfix(name: _typing.Any, raw: _typing.Any) -> _typing.Any:
+    """
+    Perform the hfix operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise hfix through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :param raw: Value supplied for raw under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if name == "about":
         return raw.format("")
     raw = raw.replace("\n\n", "__XX__")
@@ -188,6 +325,20 @@ CLI_HELP = {x: hfix(x, re.sub("<.*?>", "", y)) for x, y in iteritems(HELP)}
 
 
 def update_metadata(ebook: _typing.Any, new_opf: _typing.Any) -> None:
+    """
+    Perform the update metadata operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise update metadata through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param ebook: Value supplied for ebook under the utility contract.
+    :param new_opf: Value supplied for new opf under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.opf.opf2 import OPF
     from LiuXin_alpha.metadata.file_sources.epub import update_metadata
 
@@ -209,7 +360,36 @@ def update_metadata(ebook: _typing.Any, new_opf: _typing.Any) -> None:
 
 
 def polish_one(ebook: _typing.Any, opts: _typing.Any, report: _typing.Any, customization: _typing.Any = None) -> _typing.Any:
+    """
+    Perform the polish one operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise polish one through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param ebook: Value supplied for ebook under the utility contract.
+    :param opts: Value supplied for opts under the utility contract.
+    :param report: Value supplied for report under the utility contract.
+    :param customization: Value supplied for customization under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     def rt(x: _typing.Any) -> _typing.Any:
+        """
+        Perform the rt operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise polish one.rt through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+        :param x: Value supplied for x under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return report("\n### " + x)
 
     jacket = None
@@ -291,6 +471,22 @@ def polish_one(ebook: _typing.Any, opts: _typing.Any, report: _typing.Any, custo
 
 
 def polish(file_map: _typing.Any, opts: _typing.Any, log: _typing.Any, report: _typing.Any) -> None:
+    """
+    Apply the requested book-polishing operations to the editable container.
+
+    Example:
+        Exercise polish through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param file_map: Value supplied for file map under the utility contract.
+    :param opts: Value supplied for opts under the utility contract.
+    :param log: Value supplied for log under the utility contract.
+    :param report: Value supplied for report under the utility contract.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     st = time.time()
     for inbook, outbook in iteritems(file_map):
         report(_("## Polishing: %s") % (inbook.rpartition(".")[-1].upper()))
@@ -305,6 +501,19 @@ REPORT = "{0} REPORT {0}".format("-" * 30)
 
 
 def gui_polish(data: _typing.Any) -> _typing.Any:
+    """
+    Perform the gui polish operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise gui polish through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     files = data.pop("files")
 
     if not data.pop("metadata"):
@@ -329,6 +538,21 @@ def gui_polish(data: _typing.Any) -> _typing.Any:
 
 
 def tweak_polish(container: _typing.Any, actions: _typing.Any, customization: _typing.Any = None) -> tuple[_typing.Any, ...]:
+    """
+    Perform the tweak polish operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise tweak polish through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param container: Value supplied for container under the utility contract.
+    :param actions: Value supplied for actions under the utility contract.
+    :param customization: Value supplied for customization under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     opts = ALL_OPTS.copy()
     opts.update(actions)
     o = namedtuple("Options", " ".join(iterkeys(ALL_OPTS)))
@@ -339,6 +563,18 @@ def tweak_polish(container: _typing.Any, actions: _typing.Any, customization: _t
 
 
 def option_parser() -> _typing.Any:
+    """
+    Perform the option parser operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise option parser through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     from LiuXin_alpha.utils.config.config_tools import OptionParser
 
     usage = "%prog [options] input_file [output_file]\n\n" + re.sub(r"<.*?>", "", CLI_HELP["about"])
@@ -371,6 +607,19 @@ def option_parser() -> _typing.Any:
 
 
 def main(args: _typing.Any = None) -> None:
+    """
+    Perform the main operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise main through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_polish_smoke.py
+
+
+    :param args: Positional values forwarded to the compatibility implementation.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     parser = option_parser()
     opts, args = parser.parse_args(args or sys.argv[1:])
     log = Log(level=Log.DEBUG if opts.verbose else Log.INFO)

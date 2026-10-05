@@ -1,13 +1,13 @@
-"""Shared Calibre-reader types.
+"""
+Define immutable Calibre emulation paths, records, issues, reports and import policies.
 
-These objects are intentionally *data only* and JSON-serialisable (via
-:meth:`to_dict`) so tests can snapshot outputs and import pipelines can log
-cleanly.
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
 
-Stage A1 scope:
-- Library path container
-- Schema-info container
-- Book row containers (raw + normalised import payload)
+Example:
+    Exercise types through a consuming regression::
+
+        python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_types.py
 """
 
 from __future__ import annotations
@@ -22,8 +22,15 @@ def _jsonify_path(p: Optional[Path]) -> Optional[str]:
     """
     Take a path, and turn it into a json string.
 
-    :param p:
-    :return:
+    Example:
+        Exercise  jsonify path through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_types.py
+
+
+    :param p: Path-like value normalized or validated by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     return None if p is None else str(p)
 
@@ -32,8 +39,15 @@ def _jsonify_seq(seq: Sequence[Any]) -> list[Any]:
     """
     Any sequence will come out as a json list.
 
-    :param seq:
-    :return:
+    Example:
+        Exercise  jsonify seq through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_types.py
+
+
+    :param seq: Value supplied for seq under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     # Convert tuples to lists, and recursively jsonify paths / dataclasses.
     out: list[Any] = []
@@ -51,6 +65,11 @@ def _jsonify_seq(seq: Sequence[Any]) -> list[Any]:
 class CalibreLibraryPaths:
     """
     Filesystem paths for a Calibre library.
+
+    Example:
+        Exercise CalibreLibraryPaths through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_types.py
     """
 
     library_root: Path
@@ -63,8 +82,15 @@ class CalibreLibraryPaths:
         """
         Populate self with likely library paths.
 
-        :param library_root:
-        :return:
+        Example:
+            Exercise CalibreLibraryPaths.from root through a consuming regression::
+
+                python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_types.py
+
+
+        :param library_root: Root directory of the Calibre library being inspected.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         root = Path(library_root)
         return cls(
@@ -78,7 +104,14 @@ class CalibreLibraryPaths:
         """
         Return the contents of this class as a dict.
 
-        :return:
+        Example:
+            Exercise CalibreLibraryPaths.to dict through a consuming regression::
+
+                python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_types.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return {
             "library_root": str(self.library_root),
@@ -93,14 +126,10 @@ class CalibreCustomColumnDef:
     """
     Definition of a Calibre custom column from the `custom_columns` table.
 
-    Calibre creates dynamic tables per custom column id:
+    Example:
+        Exercise CalibreCustomColumnDef through a consuming regression::
 
-    - value table:   ``custom_column_{id}``
-    - link table:    ``books_custom_column_{id}_link`` (only for normalised columns)
-
-    We store both the *expected* table names and (when known) their presence in
-    sqlite_master so higher-level readers can be robust in the face of partial
-    or mangled libraries.
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_types.py
     """
 
     num: int
@@ -128,6 +157,17 @@ class CalibreCustomColumnDef:
 
     def __post_init__(self) -> None:
         # Fill defaults in a frozen dataclass.
+        """
+        Initialize and validate the CalibreCustomColumnDef state.
+
+        Example:
+            Exercise CalibreCustomColumnDef.  post init   through a consuming regression::
+
+                python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_types.py
+
+
+        :return: None; validated state is stored on the receiving object.
+        """
         if self.normalized is None:
             object.__setattr__(
                 self,
@@ -153,6 +193,18 @@ class CalibreCustomColumnDef:
             )
 
     def to_dict(self) -> Mapping[str, Any]:
+        """
+        Serialize the normalized compatibility record into JSON-safe values.
+
+        Example:
+            Exercise CalibreCustomColumnDef.to dict through a consuming regression::
+
+                python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_types.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return {
             "num": self.num,
             "label": self.label,
@@ -177,8 +229,10 @@ class CalibreIssue:
     """
     Structured issues discovered while reading a Calibre library.
 
-    These are intended for diagnostics and snapshot tests, not as a logging system.
-    Keep messages short and stable.
+    Example:
+        Exercise CalibreIssue through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_types.py
     """
 
     severity: str  # "info" | "warning" | "error"
@@ -187,6 +241,18 @@ class CalibreIssue:
     context: Mapping[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Mapping[str, Any]:
+        """
+        Serialize the normalized compatibility record into JSON-safe values.
+
+        Example:
+            Exercise CalibreIssue.to dict through a consuming regression::
+
+                python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_types.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return {
             "severity": self.severity,
             "code": self.code,
@@ -200,8 +266,10 @@ class CalibreDriftEvent:
     """
     Per-book filesystem drift events.
 
-    These are derived from reconciling DB expectations with on-disk reality.
-    Keep codes stable so callers can build ingestion policies.
+    Example:
+        Exercise CalibreDriftEvent through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_types.py
     """
 
     severity: str  # "info" | "warning" | "error"
@@ -210,6 +278,18 @@ class CalibreDriftEvent:
     context: Mapping[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Mapping[str, Any]:
+        """
+        Serialize the normalized compatibility record into JSON-safe values.
+
+        Example:
+            Exercise CalibreDriftEvent.to dict through a consuming regression::
+
+                python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_types.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return {
             "severity": self.severity,
             "code": self.code,
@@ -223,8 +303,10 @@ class CalibreVersionPlan:
     """
     A lightweight plan/report for handling a Calibre schema version.
 
-    This is advisory only: it records what we observed and how it compares to
-    the Calibre SQL snapshot vendored with LiuXin (if available).
+    Example:
+        Exercise CalibreVersionPlan through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_types.py
     """
 
     application_id: int
@@ -242,7 +324,14 @@ class CalibreVersionPlan:
         """
         dict based representation of this plan.
 
-        :return:
+        Example:
+            Exercise CalibreVersionPlan.to dict through a consuming regression::
+
+                python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_types.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return {
             "application_id": self.application_id,
@@ -262,6 +351,11 @@ class CalibreVersionPlan:
 class CalibreSchemaInfo:
     """
     Observed schema information for a Calibre library.
+
+    Example:
+        Exercise CalibreSchemaInfo through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_types.py
     """
 
     application_id: int
@@ -275,6 +369,18 @@ class CalibreSchemaInfo:
     issues: Tuple[CalibreIssue, ...] = ()
 
     def to_dict(self) -> Mapping[str, Any]:
+        """
+        Serialize the normalized compatibility record into JSON-safe values.
+
+        Example:
+            Exercise CalibreSchemaInfo.to dict through a consuming regression::
+
+                python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_types.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return {
             "application_id": self.application_id,
             "user_version": self.user_version,
@@ -292,12 +398,29 @@ class CalibreSchemaInfo:
 class CalibreSeriesRef:
     """
     Series value (name + optional numeric index).
+
+    Example:
+        Exercise CalibreSeriesRef through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_types.py
     """
 
     name: str
     index: Optional[float] = None
 
     def to_dict(self) -> Mapping[str, Any]:
+        """
+        Serialize the normalized compatibility record into JSON-safe values.
+
+        Example:
+            Exercise CalibreSeriesRef.to dict through a consuming regression::
+
+                python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_types.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return {"name": self.name, "index": self.index}
 
 
@@ -305,6 +428,11 @@ class CalibreSeriesRef:
 class CalibreFormatRef:
     """
     A reference to a format file on disk.
+
+    Example:
+        Exercise CalibreFormatRef through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_types.py
     """
 
     fmt: str
@@ -315,7 +443,14 @@ class CalibreFormatRef:
         """
         Dict based rep of the format on disk.
 
-        :return:
+        Example:
+            Exercise CalibreFormatRef.to dict through a consuming regression::
+
+                python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_types.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return {
             "fmt": self.fmt,
@@ -329,8 +464,10 @@ class CalibreBookRow:
     """
     A *raw-ish* book row plus common pre-joined fields.
 
-    This is intended for reader internals: it can retain the original DB row
-    (as a mapping) while also carrying resolved/joined relationships.
+    Example:
+        Exercise CalibreBookRow through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_types.py
     """
 
     book_id: int
@@ -349,7 +486,14 @@ class CalibreBookRow:
         """
         Dict based rep of the format on disk.
 
-        :return:
+        Example:
+            Exercise CalibreBookRow.to dict through a consuming regression::
+
+                python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_types.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return {
             "book_id": self.book_id,
@@ -371,7 +515,10 @@ class CalibreBookNormalized:
     """
     A normalised import payload derived from a Calibre library.
 
-    This represents a single book which can be pulled into LiuXin.
+    Example:
+        Exercise CalibreBookNormalized through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_types.py
     """
 
     calibre_book_id: int
@@ -389,6 +536,18 @@ class CalibreBookNormalized:
     warnings: Tuple[str, ...] = ()
 
     def to_dict(self) -> Mapping[str, Any]:
+        """
+        Serialize the normalized compatibility record into JSON-safe values.
+
+        Example:
+            Exercise CalibreBookNormalized.to dict through a consuming regression::
+
+                python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_types.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return {
             "calibre_book_id": self.calibre_book_id,
             "title": self.title,
@@ -410,6 +569,11 @@ class CalibreBookNormalized:
 class CalibreScanCounts:
     """
     Aggregate counts produced by a best-effort scan.
+
+    Example:
+        Exercise CalibreScanCounts through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_types.py
     """
 
     books: int = 0
@@ -420,6 +584,18 @@ class CalibreScanCounts:
     drift_events_total: int = 0
 
     def to_dict(self) -> Mapping[str, Any]:
+        """
+        Serialize the normalized compatibility record into JSON-safe values.
+
+        Example:
+            Exercise CalibreScanCounts.to dict through a consuming regression::
+
+                python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_types.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return {
             "books": int(self.books),
             "formats_total": int(self.formats_total),
@@ -434,6 +610,11 @@ class CalibreScanCounts:
 class CalibreDriftSummary:
     """
     Summary of filesystem drift observations.
+
+    Example:
+        Exercise CalibreDriftSummary through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_types.py
     """
 
     by_code: Mapping[str, int] = field(default_factory=dict)
@@ -441,6 +622,18 @@ class CalibreDriftSummary:
     examples: Tuple[Mapping[str, Any], ...] = ()
 
     def to_dict(self) -> Mapping[str, Any]:
+        """
+        Serialize the normalized compatibility record into JSON-safe values.
+
+        Example:
+            Exercise CalibreDriftSummary.to dict through a consuming regression::
+
+                python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_types.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return {
             "by_code": dict(self.by_code),
             "by_severity": dict(self.by_severity),
@@ -450,7 +643,14 @@ class CalibreDriftSummary:
 
 @dataclass(frozen=True, slots=True)
 class CalibreScanReport:
-    """A best-effort scan report for a Calibre library root."""
+    """
+    A best-effort scan report for a Calibre library root.
+
+    Example:
+        Exercise CalibreScanReport through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_types.py
+    """
 
     library_root: Path
     mode: str  # "db" | "opf"
@@ -461,6 +661,18 @@ class CalibreScanReport:
     sample_books: Tuple[Mapping[str, Any], ...] = ()
 
     def to_dict(self) -> Mapping[str, Any]:
+        """
+        Serialize the normalized compatibility record into JSON-safe values.
+
+        Example:
+            Exercise CalibreScanReport.to dict through a consuming regression::
+
+                python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_types.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return {
             "library_root": str(self.library_root),
             "mode": self.mode,
@@ -477,8 +689,10 @@ class CalibreImportPolicy:
     """
     Policy for classifying Calibre books into ingestion jobs.
 
-    This is deliberately simple and stable; callers can layer more complex
-    behaviour on top.
+    Example:
+        Exercise CalibreImportPolicy through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_types.py
     """
 
     action_default: str = "full"  # "full" | "metadata_only" | "skip"
@@ -492,6 +706,18 @@ class CalibreImportPolicy:
     metadata_only_keep_formats: bool = False
 
     def to_dict(self) -> Mapping[str, Any]:
+        """
+        Serialize the normalized compatibility record into JSON-safe values.
+
+        Example:
+            Exercise CalibreImportPolicy.to dict through a consuming regression::
+
+                python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_types.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
+        """
         return {
             "action_default": self.action_default,
             "action_on_error_drift": self.action_on_error_drift,
@@ -508,7 +734,10 @@ class CalibreImportJob:
     """
     A single streaming ingestion job yielded by :func:`iter_import_jobs`.
 
-    Individual tasks to be done to import a book from calibre into Liuxin.
+    Example:
+        Exercise CalibreImportJob through a consuming regression::
+
+            python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_types.py
     """
 
     library_root: Path
@@ -521,7 +750,14 @@ class CalibreImportJob:
         """
         Render the import job as a dict.
 
-        :return:
+        Example:
+            Exercise CalibreImportJob.to dict through a consuming regression::
+
+                python -m pytest -q tests/databases/database_calibre_emultation/test_calibre_emulation_types.py
+
+
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         return {
             "library_root": str(self.library_root),

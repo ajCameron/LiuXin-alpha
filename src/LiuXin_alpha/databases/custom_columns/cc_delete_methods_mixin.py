@@ -1,6 +1,8 @@
 
 """
-Methods for deleting from custom columns.
+Delete legacy custom-column values and collect their affected owner IDs.
+
+These helpers require a host with custom metadata, naming/macros and, for cache-aware deletion, dirtying and cache-update hooks. Their SQL, cache and notification steps do not share a transaction established by this mixin.
 """
 
 from __future__ import annotations
@@ -14,7 +16,12 @@ if TYPE_CHECKING:
 
 class CCDeleteMethodsMixin:
     """
-    Methods to delete entries from custom columns.
+    Offer value deletion for custom-column facades with legacy host hooks.
+
+    The methods use label-first metadata selection and stored in_table for naming. Cache refresh and transaction behavior differ between the two deletion paths.
+
+    Example:
+        A configured facade can use delete_item_from_multiple("old tag", num=column_id) for a text/multiple column, subject to the legacy macro naming conventions.
     """
 
     def delete_custom_item_using_id(
@@ -23,13 +30,21 @@ class CCDeleteMethodsMixin:
             label: Optional[str] = None,
             num: Optional[int] = None) -> None:
         """
-        Delete the custom item using its id
+        Dirty referencing owners, delete a custom value and request cache replacement.
 
-        :param idx: The id of the resource to delete
-        :param label: The label of the custom column (either this, or the num must be not None, to tell the method which
-                      custom column to delete from).
-        :param num:
-        :return:
+        Resolve table names, call custom_dirty_books_referencing with commit=False, then delete_cc_item. Finally call rename_custom_item_in_data(target_ids=..., column_num=..., new_value=None). Current CustomColumns names that first parameter book_ids, so this final call raises TypeError after deletion has already occurred. The SQL delete macro may commit independently; no rollback or compensation is provided here.
+
+        Example:
+            Given a host with a compatible target_ids cache hook, delete_custom_item_using_id(value_id, num=column_id) removes the value and replaces cached references; the current CustomColumns hook needs a signature fix before that full workflow succeeds.
+
+
+        :param idx: Truthy value-row ID; None, zero and other false values return immediately.
+        :param label: Optional label selecting custom_column_label_map; takes precedence over num.
+        :param num: Numeric custom-column ID used when label is None.
+        :return: None; false IDs perform no work.
+        :raises NotImplementedError: Neither label nor num is supplied.
+        :raises KeyError: The chosen metadata key is absent.
+        :raises TypeError: The cache replacement hook rejects target_ids, as current CustomColumns does.
         """
         # Todo: Whhyyyyyyyy?
         if idx:
@@ -61,13 +76,21 @@ class CCDeleteMethodsMixin:
             label: Optional[str] = None,
             num: Optional[int] = None) -> list[int]:
         """
-        Delete an item which is reference by multiple books.
+        Remove the first case-insensitive matching value from a text/multiple column.
 
-        :param item: The item to delete
-        :param label: One of label or num must be not None - to indicate which of the custom columns is being
-                      referred to
-        :param num:
-        :return:
+        Require datatype text and is_multiple. Search the facade’s unordered all_custom result and choose its first lowercase match. Query referencing owners, delete link/value rows and commit self.conn when a truthy ID is found. This path does not dirty owners or update the results cache. Legacy macros assume compatible book/value column names, even for alternate attachment tables.
+
+        Example:
+            For a configured text/multiple facade, affected = delete_item_from_multiple("travel", num=column_id) returns owners found before the matching value is removed.
+
+
+        :param item: Tag text compared with lower rather than casefold.
+        :param label: Optional label selecting custom_column_label_map; takes precedence over num.
+        :param num: Numeric custom-column ID used when label is None.
+        :return: List of owner IDs extracted from macro result rows, or an empty list when no usable value ID is found.
+        :raises NotImplementedError: Neither label nor num is supplied.
+        :raises KeyError: The chosen metadata key is absent.
+        :raises ValueError: The selected column is not text with multiple values.
         """
         if label is not None:
             data = self.custom_column_label_map[label]

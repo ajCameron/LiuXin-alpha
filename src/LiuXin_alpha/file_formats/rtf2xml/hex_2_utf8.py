@@ -10,6 +10,17 @@
 #                                                                       #
 #                                                                       #
 #########################################################################
+"""
+Decode RTF hexadecimal escapes into normalized Unicode text.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise hex 2 utf8 through a consuming regression::
+
+        python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+"""
 from __future__ import annotations
 
 import typing as _typing
@@ -25,6 +36,11 @@ from LiuXin_alpha.file_formats.rtf2xml import open_for_read, open_for_write
 class Hex2Utf8:
     """
     Convert Microsoft hexadecimal numbers to utf-8
+
+    Example:
+        Exercise Hex2Utf8 through a consuming regression::
+
+            python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
     """
 
     def __init__(
@@ -45,21 +61,32 @@ class Hex2Utf8:
         run_level: int = 1,
     ) -> None:
         """
-        Required:
-            'file'
-            'area_to_convert'--the area of file to convert
-            'char_file'--the file containing the character mappings
-            'default_char_map'--name of default character map
-        Optional:
-            'copy'-- whether to make a copy of result for debugging
-            'temp_dir' --where to output temporary results (default is
-            directory from which the script is run.)
-            'symbol'--whether to load the symbol character map
-            'winddings'--whether to load the wingdings character map
-            'caps'--whether to load the caps character map
-            'convert_to_caps'--wether to convert caps to utf-8
-        Returns:
-            nothing
+        Required: 'file' 'area_to_convert'--the area of file to convert 'char_file'--the file containing the character mappings 'default_char_map'--name of default character map Optional: 'copy'-- whether to make a copy of result for debugging 'temp_dir' --where to output temporary results (default is directory from which the script is run.) 'symbol'--whether to load the symbol character map 'winddings'--whether to load the wingdings character map 'caps'--whether to load the caps character map 'convert_to_caps'--wether to convert caps to utf-8 Returns: nothing
+
+        Example:
+            Exercise Hex2Utf8.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param in_file: Value supplied for in file under the utility contract.
+        :param area_to_convert: Value supplied for area to convert under the utility
+            contract.
+        :param char_file: Value supplied for char file under the utility contract.
+        :param default_char_map: Value supplied for default char map under the utility
+            contract.
+        :param bug_handler: Value supplied for bug handler under the utility contract.
+        :param invalid_rtf_handler: Value supplied for invalid rtf handler under the utility
+            contract.
+        :param copy: Value supplied for copy under the utility contract.
+        :param temp_dir: Value supplied for temp dir under the utility contract.
+        :param symbol: Value supplied for symbol under the utility contract.
+        :param wingdings: Value supplied for wingdings under the utility contract.
+        :param caps: Value supplied for caps under the utility contract.
+        :param convert_caps: Value supplied for convert caps under the utility contract.
+        :param dingbats: Value supplied for dingbats under the utility contract.
+        :param run_level: Value supplied for run level under the utility contract.
+        :return: None; validated state is stored on the receiving object.
         """
         self.__file = in_file
         self.__copy = copy
@@ -103,20 +130,31 @@ class Hex2Utf8:
         dingbats: _typing.Any = None,
     ) -> None:
         """
-        Required:
-            'file'
-            'area_to_convert'--the area of file to convert
-            'char_file'--the file containing the character mappings
-        Optional:
-            'copy'-- whether to make a copy of result for debugging
-            'temp_dir' --where to output temporary results (default is
-            directory from which the script is run.)
-            'symbol'--whether to load the symbol character map
-            'winddings'--whether to load the wingdings character map
-            'caps'--whether to load the caps character map
-            'convert_to_caps'--wether to convert caps to utf-8
-        Returns:
-            nothing
+        Required: 'file' 'area_to_convert'--the area of file to convert 'char_file'--the file containing the character mappings Optional: 'copy'-- whether to make a copy of result for debugging 'temp_dir' --where to output temporary results (default is directory from which the script is run.) 'symbol'--whether to load the symbol character map 'winddings'--whether to load the wingdings character map 'caps'--whether to load the caps character map 'convert_to_caps'--wether to convert caps to utf-8 Returns: nothing
+
+        Example:
+            Exercise Hex2Utf8.update values through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param file: Value supplied for file under the utility contract.
+        :param area_to_convert: Value supplied for area to convert under the utility
+            contract.
+        :param char_file: Value supplied for char file under the utility contract.
+        :param convert_caps: Value supplied for convert caps under the utility contract.
+        :param convert_symbol: Value supplied for convert symbol under the utility contract.
+        :param convert_wingdings: Value supplied for convert wingdings under the utility
+            contract.
+        :param convert_zapf: Value supplied for convert zapf under the utility contract.
+        :param copy: Value supplied for copy under the utility contract.
+        :param temp_dir: Value supplied for temp dir under the utility contract.
+        :param symbol: Value supplied for symbol under the utility contract.
+        :param wingdings: Value supplied for wingdings under the utility contract.
+        :param caps: Value supplied for caps under the utility contract.
+        :param dingbats: Value supplied for dingbats under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__file = file
         self.__copy = copy
@@ -140,13 +178,16 @@ class Hex2Utf8:
 
     def __initiate_values(self: _typing.Self) -> None:
         """
-        Required:
-            Nothing
-        Set values, including those for the dictionaries.
-        The file that contains the maps is broken down into many different
-        sets. For example, for the Symbol font, there is the standard part for
-        hexadecimal numbers, and the part for Microsoft characters. Read
-        each part in, and then combine them.
+        Required: Nothing Set values, including those for the dictionaries. The file that contains the maps is broken down into many different sets. For example, for the Symbol font, there is the standard part for hexadecimal numbers, and the part for Microsoft characters. Read each part in, and then combine them.
+
+        Example:
+            Exercise Hex2Utf8.  initiate values through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # the default encoding system, the lower map for characters 0 through
         # 128, and the encoding system for Microsoft characters.
@@ -218,15 +259,17 @@ class Hex2Utf8:
 
     def __hex_text_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Required:
-            'line' -- the line
-        Logic:
-            get the hex_num and look it up in the default dictionary. If the
-            token is in the dictionary, then check if the value starts with a
-            "&". If it does, then tag the result as utf text. Otherwise, tag it
-            as normal text.
-            If the hex_num is not in the dictionary, then a mistake has been
-            made.
+        Required: 'line' -- the line Logic: get the hex_num and look it up in the default dictionary. If the token is in the dictionary, then check if the value starts with a "&". If it does, then tag the result as utf text. Otherwise, tag it as normal text. If the hex_num is not in the dictionary, then a mistake has been made.
+
+        Example:
+            Exercise Hex2Utf8.  hex text func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         hex_num = line[17:-1]
         converted = self.__current_dict.get(hex_num)
@@ -267,16 +310,52 @@ class Hex2Utf8:
                     raise self.__bug_handler(msg)
 
     def __found_body_func(self: _typing.Self, line: _typing.Any) -> None:
+        """
+        Perform the found body func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Hex2Utf8.  found body func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.__state = "body"
         self.__write_obj.write(line)
 
     def __body_func(self: _typing.Self, line: _typing.Any) -> None:
         """
         When parsing preamble
+
+        Example:
+            Exercise Hex2Utf8.  body func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__write_obj.write(line)
 
     def __preamble_func(self: _typing.Self, line: _typing.Any) -> None:
+        """
+        Perform the preamble func operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Hex2Utf8.  preamble func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         action = self.__preamble_state_dict.get(self.__token_info)
         if action is not None:
             action(line)
@@ -284,6 +363,18 @@ class Hex2Utf8:
             self.__write_obj.write(line)
 
     def __convert_preamble(self: _typing.Self) -> None:
+        """
+        Perform the convert preamble operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Hex2Utf8.  convert preamble through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.__state = "preamble"
         with open_for_write(self.__write_to) as self.__write_obj:
             with open_for_read(self.__file) as read_obj:
@@ -301,12 +392,17 @@ class Hex2Utf8:
 
     def __preamble_for_body_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Required:
-            line -- line to parse
-        Returns:
-            nothing
-        Logic:
-            Used when parsing the body.
+        Required: line -- line to parse Returns: nothing Logic: Used when parsing the body.
+
+        Example:
+            Exercise Hex2Utf8.  preamble for body func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if self.__token_info == "mi<mk<body-open_":
             self.__found_body_func(line)
@@ -314,12 +410,17 @@ class Hex2Utf8:
 
     def __body_for_body_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Required:
-            line -- line to parse
-        Returns:
-            nothing
-        Logic:
-            Used when parsing the body.
+        Required: line -- line to parse Returns: nothing Logic: Used when parsing the body.
+
+        Example:
+            Exercise Hex2Utf8.  body for body func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         action = self.__in_body_dict.get(self.__token_info)
         if action is not None:
@@ -329,12 +430,17 @@ class Hex2Utf8:
 
     def __start_font_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Required:
-            line -- line to parse
-        Returns:
-            nothing
-        Logic:
-            add font face to font_list
+        Required: line -- line to parse Returns: nothing Logic: add font face to font_list
+
+        Example:
+            Exercise Hex2Utf8.  start font func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         face = line[17:-1]
         self.__font_list.append(face)
@@ -353,12 +459,17 @@ class Hex2Utf8:
 
     def __end_font_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Required:
-            line -- line to parse
-        Returns:
-            nothing
-        Logic:
-            pop font_list
+        Required: line -- line to parse Returns: nothing Logic: pop font_list
+
+        Example:
+            Exercise Hex2Utf8.  end font func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if len(self.__font_list) > 1:
             self.__font_list.pop()
@@ -382,12 +493,17 @@ class Hex2Utf8:
 
     def __start_special_font_func_old(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Required:
-            line -- line
-        Returns;
-            nothing
-        Logic:
-            change the dictionary to use in conversion
+        Required: line -- line Returns; nothing Logic: change the dictionary to use in conversion
+
+        Example:
+            Exercise Hex2Utf8.  start special font func old through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         # for error checking
         if self.__token_info == "mi<mk<font-symbo":
@@ -405,12 +521,17 @@ class Hex2Utf8:
 
     def __end_special_font_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Required:
-            line --line to parse
-        Returns:
-            nothing
-        Logic:
-            pop the last dictionary, which should be a special font
+        Required: line --line to parse Returns: nothing Logic: pop the last dictionary, which should be a special font
+
+        Example:
+            Exercise Hex2Utf8.  end special font func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if len(self.__current_dict) < 2:
             sys.stderr.write("module is hex_2_utf 8\n")
@@ -424,25 +545,33 @@ class Hex2Utf8:
 
     def __start_caps_func_old(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Required:
-            line -- line to parse
-        Returns:
-            nothing
-        Logic:
-            A marker that marks the start of caps has been found. Set
-            self.__in_caps to 1
+        Required: line -- line to parse Returns: nothing Logic: A marker that marks the start of caps has been found. Set self.__in_caps to 1
+
+        Example:
+            Exercise Hex2Utf8.  start caps func old through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__in_caps = 1
 
     def __start_caps_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Required:
-            line -- line to parse
-        Returns:
-            nothing
-        Logic:
-            A marker that marks the start of caps has been found. Set
-            self.__in_caps to 1
+        Required: line -- line to parse Returns: nothing Logic: A marker that marks the start of caps has been found. Set self.__in_caps to 1
+
+        Example:
+            Exercise Hex2Utf8.  start caps func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         self.__in_caps = 1
         value = line[17:-1]
@@ -450,13 +579,17 @@ class Hex2Utf8:
 
     def __end_caps_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Required:
-            line -- line to parse
-        Returns:
-            nothing
-        Logic:
-            A marker that marks the end of caps has been found.
-            set self.__in_caps to 0
+        Required: line -- line to parse Returns: nothing Logic: A marker that marks the end of caps has been found. set self.__in_caps to 0
+
+        Example:
+            Exercise Hex2Utf8.  end caps func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         if len(self.__caps_list) > 1:
             self.__caps_list.pop()
@@ -467,12 +600,17 @@ class Hex2Utf8:
 
     def __text_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Required:
-            line -- line to parse
-        Returns:
-            nothing
-        Logic:
-            if in caps, convert. Otherwise, print out.
+        Required: line -- line to parse Returns: nothing Logic: if in caps, convert. Otherwise, print out.
+
+        Example:
+            Exercise Hex2Utf8.  text func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         text = line[17:-1]
         # print line
@@ -503,12 +641,17 @@ class Hex2Utf8:
 
     def __utf_to_caps_func(self: _typing.Self, line: _typing.Any) -> None:
         """
-        Required:
-            line -- line to parse
-        returns
-            nothing
-        Logic
-            Get the text, and use another method to convert
+        Required: line -- line to parse returns nothing Logic Get the text, and use another method to convert
+
+        Example:
+            Exercise Hex2Utf8.  utf to caps func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param line: Value supplied for line under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
         """
         utf_text = line[17:-1]
         if self.__caps_list[-1] == "true" and self.__convert_caps:
@@ -518,14 +661,17 @@ class Hex2Utf8:
 
     def __utf_token_to_caps_func(self: _typing.Self, char_entity: _typing.Any) -> _typing.Any:
         """
-        Required:
-            utf_text -- such as &xxx;
-        Returns:
-            token converted to the capital equivalent
-        Logic:
-            RTF often stores text in the improper values. For example, a
-            capital umlaut o (?), is stores as ?. This function swaps the
-            case by looking up the value in a dictionary.
+        Required: utf_text -- such as &xxx; Returns: token converted to the capital equivalent Logic: RTF often stores text in the improper values. For example, a capital umlaut o (?), is stores as ?. This function swaps the case by looking up the value in a dictionary.
+
+        Example:
+            Exercise Hex2Utf8.  utf token to caps func through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :param char_entity: Value supplied for char entity under the utility contract.
+        :return: The normalized value, metadata record, path, stream result or collection
+            described above.
         """
         hex_num = char_entity[3:]
         length = len(hex_num)
@@ -542,6 +688,18 @@ class Hex2Utf8:
             return converted
 
     def __convert_body(self: _typing.Self) -> None:
+        """
+        Perform the convert body operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise Hex2Utf8.  convert body through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.__state = "body"
         with open_for_read(self.__file) as read_obj:
             with open_for_write(self.__write_to) as self.__write_obj:
@@ -558,6 +716,18 @@ class Hex2Utf8:
         os.remove(self.__write_to)
 
     def convert_hex_2_utf8(self: _typing.Self) -> None:
+        """
+        Convert hex 2 utf8 under the format's safety and compatibility rules.
+
+        Example:
+            Exercise Hex2Utf8.convert hex 2 utf8 through a consuming regression::
+
+                python -m pytest -q tests/file_formats/rtf/test_rtf2xml_regressions.py
+
+
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         self.__initiate_values()
         if self.__area_to_convert == "preamble":
             self.__convert_preamble()

@@ -1,6 +1,22 @@
+"""
+Declare expected capabilities and contents for common db properties.
+
+The module keeps generated data, ordering and failure modes explicit so consumers
+can assert stable behavior.
+
+Example:
+    Exercise common db properties through a consuming regression::
+
+        python -m pytest -q tests/databases/test_test_resources_manager.py
+"""
 class CommonDBProperties(object):
     """
     These properties should be true for EVERY test database. Unless there is very good reason that they be different.
+
+    Example:
+        Exercise CommonDBProperties through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
     """
 
     # ------------------------------------------------------------------

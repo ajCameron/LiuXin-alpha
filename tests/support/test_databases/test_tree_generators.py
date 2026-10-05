@@ -1,3 +1,14 @@
+"""
+Build deterministic test-database test tree generators data and relationships.
+
+The module keeps generated data, ordering and failure modes explicit so consumers
+can assert stable behavior.
+
+Example:
+    Exercise test tree generators through a consuming regression::
+
+        python -m pytest -q tests/databases/test_test_resources_manager.py
+"""
 from __future__ import annotations
 
 from datetime import datetime, timedelta
@@ -8,6 +19,20 @@ from tests.support.test_databases._tree_generators import generate_test_tree, ge
 
 
 def _new_subject_root(db, name: str):
+    """
+    Perform the new subject root step with deterministic fixture inputs.
+
+    Example:
+        Exercise  new subject root through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param db: Database connection, wrapper or fixture addressed by the operation.
+    :param name: Stable fixture, profile, member or field name.
+    :return: The deterministic fixture value, path, bytes, record or collection
+        described above.
+    """
     row = db.get_blank_row("subjects")
     row["subject"] = name
     row.sync()
@@ -17,6 +42,21 @@ def _new_subject_root(db, name: str):
 def test_generate_test_tree_preserves_legacy_subject_tree_shape(
     provision_test_database, driver_spec
 ) -> None:
+    """
+    Verify generate test tree preserves legacy subject tree shape.
+
+    Example:
+        Exercise test generate test tree preserves legacy subject tree shape through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param provision_test_database: Value supplied for provision test database under the
+        deterministic fixture contract.
+    :param driver_spec: Value supplied for driver spec under the deterministic fixture
+        contract.
+    :return: None; completion is expressed through state changes or assertions.
+    """
     provisioned = provision_test_database("test_db_1")
 
     with Database(
@@ -37,6 +77,21 @@ def test_generate_test_tree_preserves_legacy_subject_tree_shape(
 def test_generate_test_tree_accepts_python3_iterators_for_generated_names(
     provision_test_database, driver_spec
 ) -> None:
+    """
+    Verify generate test tree accepts python3 iterators for generated names.
+
+    Example:
+        Exercise test generate test tree accepts python3 iterators for generated names through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param provision_test_database: Value supplied for provision test database under the
+        deterministic fixture contract.
+    :param driver_spec: Value supplied for driver spec under the deterministic fixture
+        contract.
+    :return: None; completion is expressed through state changes or assertions.
+    """
     provisioned = provision_test_database("test_db_1")
 
     with Database(
@@ -70,6 +125,21 @@ def test_generate_test_tree_accepts_python3_iterators_for_generated_names(
 def test_generate_test_tree_with_datestamps_assigns_monotonic_values(
     provision_test_database, driver_spec
 ) -> None:
+    """
+    Verify generate test tree with datestamps assigns monotonic values.
+
+    Example:
+        Exercise test generate test tree with datestamps assigns monotonic values through a consuming regression::
+
+            python -m pytest -q tests/databases/test_test_resources_manager.py
+
+
+    :param provision_test_database: Value supplied for provision test database under the
+        deterministic fixture contract.
+    :param driver_spec: Value supplied for driver spec under the deterministic fixture
+        contract.
+    :return: None; completion is expressed through state changes or assertions.
+    """
     provisioned = provision_test_database("test_db_1")
 
     with Database(

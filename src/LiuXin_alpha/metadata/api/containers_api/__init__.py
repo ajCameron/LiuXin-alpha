@@ -1,7 +1,14 @@
-"""Canonical public metadata-container API surface.
+"""
+Expose public metadata-container contracts, relation helpers, and write-report types.
 
-This package re-exports metadata-container contracts only. Concrete
-implementations live under ``LiuXin_alpha.metadata.containers``.
+This facade gathers row and WEMI identity/projection/relation APIs from their owning
+modules. Concrete containers are exported by LiuXin_alpha.metadata.containers; this
+package does not construct or hydrate them.
+
+Example:
+    Exercise the owning behavior with pytest::
+
+        python -m pytest -q tests/metadata/api/test_metadata_package_surface.py
 """
 
 from __future__ import annotations

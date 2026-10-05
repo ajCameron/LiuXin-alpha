@@ -1,5 +1,13 @@
 """
-Read metadata from Haodoo.net PDB files.
+Adapt the legacy Haodoo PDB reader to normalized metadata with safe header-only fallback.
+
+The module makes ordering, fallback, ownership and optional-integration behavior
+explicit for callers.
+
+Example:
+    Exercise haodoo with the owning regression module::
+
+        python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
 """
 
 from __future__ import annotations
@@ -16,6 +24,18 @@ __docformat__ = "restructuredtext en"
 
 
 def _normalize_authors(raw_authors) -> list[str]:
+    """
+    Normalize scalar, mapping or iterable author input into non-empty strings.
+
+    Example:
+        Exercise  normalize authors with the owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+
+
+    :param raw_authors: Scalar, mapping or iterable author value from a legacy reader.
+    :return: The normalized row, metadata object or value described above.
+    """
     if isinstance(raw_authors, list):
         return [str(x) for x in raw_authors if x]
     if isinstance(raw_authors, dict):
@@ -29,7 +49,18 @@ def _normalize_authors(raw_authors) -> list[str]:
 
 def get_metadata(stream, extract_cover: bool = True):
     """
-    Return metadata as a metadata object.
+    Read normalized metadata using this module's format-specific parser and fallback policy.
+
+    Example:
+        Exercise get metadata with the owning regression module::
+
+            python -m pytest -q tests/metadata/file_sources/test_legacy_dispatcher_worker_edge_cases.py
+
+
+    :param stream: Caller-owned seekable binary PDB stream.
+    :param extract_cover: Request cover extraction when the underlying format supports
+        it.
+    :return: The normalized row, metadata object or value described above.
     """
     del extract_cover  # Haodoo metadata does not carry cover bytes.
     stream.seek(0)

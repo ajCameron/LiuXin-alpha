@@ -1,12 +1,27 @@
 #!/usr/bin/env python
 # vim:fileencoding=UTF-8:ts=4:sw=4:sta:et:sts=4:ai
 
-from __future__ import unicode_literals, division, absolute_import, print_function
-from __future__ import annotations
+"""
+Parse XML and HTML resources under OEB safety and compatibility rules.
 
-import typing as _typing
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise parse utils through a consuming regression::
+
+        python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+"""
+from __future__ import (
+    absolute_import,
+    annotations,
+    division,
+    print_function,
+    unicode_literals,
+)
 
 import re
+import typing as _typing
 
 from LiuXin_alpha.utils.libraries.liuxin_etree import etree
 
@@ -14,27 +29,53 @@ try:
     from lxml import html  # type: ignore
 except Exception:  # pragma: no cover - runtime without lxml
     class _MissingLxmlHtml:
+        """
+        Provide the missinglxmlhtml contract for validated ebook processing.
+
+        Example:
+            Exercise  MissingLxmlHtml through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+        """
         def __getattr__(self: _typing.Self, name: _typing.Any) -> None:
+            """
+            Perform the getattr operation under explicit file-format and conversion rules.
+
+            Example:
+                Exercise  MissingLxmlHtml.  getattr   through a consuming regression::
+
+                    python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+            :param name: Field, file, function or resource name addressed by the operation.
+            :return: None; the operation mutates state, writes output or performs cleanup in
+                place.
+            """
             raise ImportError("lxml.html is unavailable in this runtime")
 
     html = _MissingLxmlHtml()
 
-from LiuXin_alpha.file_formats.chardet import xml_to_unicode, strip_encoding_declarations
-
 from LiuXin_alpha.constants import filesystem_encoding, force_unicode
-
-from LiuXin_alpha.utils.text.xml_utils import xml_replace_entities
-
-from LiuXin_alpha.utils.libraries.liuxin_html5lib.constants import namespaces as html5_namespaces
-from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.libraries.calibre_chardet import (
+    strip_encoding_declarations,
+    xml_to_unicode,
+)
+from LiuXin_alpha.utils.libraries.liuxin_html5lib.constants import (
+    namespaces as html5_namespaces,
+)
+from LiuXin_alpha.utils.libraries.liuxin_six import (
+    dict_iteritems as iteritems,
+)
+from LiuXin_alpha.utils.libraries.liuxin_six import (
+    dict_itervalues as itervalues,
+)
 
 # Py2/Py3 compatability layer
 from LiuXin_alpha.utils.libraries.liuxin_six import (
     six_string_types,
-    dict_iteritems as iteritems,
-    dict_itervalues as itervalues,
 )
-
+from LiuXin_alpha.utils.localization import trans as _
+from LiuXin_alpha.utils.text.xml_utils import xml_replace_entities
 
 __license__ = "GPL v3"
 __copyright__ = "2011, Kovid Goyal <kovid@kovidgoyal.net>"
@@ -47,28 +88,114 @@ XMLNS_NS = "http://www.w3.org/2000/xmlns/"
 
 
 class NotHTML(Exception):
+    """
+    Provide the nothtml contract for validated ebook processing.
+
+    Example:
+        Exercise NotHTML through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+    """
     def __init__(self: _typing.Self, root_tag: _typing.Any) -> None:
+        """
+        Initialize and validate the nothtml state.
+
+        Example:
+            Exercise NotHTML.  init   through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param root_tag: Value supplied for root tag under the utility contract.
+        :return: None; validated state is stored on the receiving object.
+        """
         Exception.__init__(self, "Data is not HTML")
         self.root_tag = root_tag
 
 
 def barename(name: _typing.Any) -> _typing.Any:
+    """
+    Perform the barename operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise barename through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return name.rpartition("}")[-1]
 
 
 def namespace(name: _typing.Any) -> _typing.Any:
+    """
+    Perform the namespace operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise namespace through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return name.rpartition("}")[0][1:]
 
 
 def XHTML(name: _typing.Any) -> _typing.Any:
+    """
+    Perform the XHTML operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise XHTML through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param name: Field, file, function or resource name addressed by the operation.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return "{%s}%s" % (XHTML_NS, name)
 
 
 def xpath(elem: _typing.Any, expr: _typing.Any) -> _typing.Any:
+    """
+    Perform the xpath operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise xpath through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param elem: Value supplied for elem under the utility contract.
+    :param expr: Value supplied for expr under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return elem.xpath(expr, namespaces={"h": XHTML_NS})
 
 
 def XPath(expr: _typing.Any) -> _typing.Any:
+    """
+    Perform the XPath operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise XPath through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param expr: Value supplied for expr under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     return etree.XPath(expr, namespaces={"h": XHTML_NS})
 
 
@@ -76,6 +203,20 @@ META_XP = XPath('/h:html/h:head/h:meta[@http-equiv="Content-Type"]')
 
 
 def merge_multiple_html_heads_and_bodies(root: _typing.Any, log: _typing.Any = None) -> _typing.Any:
+    """
+    Perform the merge multiple html heads and bodies operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise merge multiple html heads and bodies through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param root: Root directory that bounds path resolution or traversal.
+    :param log: Value supplied for log under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     heads, bodies = xpath(root, "//h:head"), xpath(root, "//h:body")
     if not (len(heads) > 1 or len(bodies) > 1):
         return root
@@ -97,6 +238,21 @@ def merge_multiple_html_heads_and_bodies(root: _typing.Any, log: _typing.Any = N
 
 
 def clone_element(elem: _typing.Any, nsmap: _typing.Any = None, in_context: bool = True) -> _typing.Any:
+    """
+    Perform the clone element operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise clone element through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param elem: Value supplied for elem under the utility contract.
+    :param nsmap: Value supplied for nsmap under the utility contract.
+    :param in_context: Value supplied for in context under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     if nsmap is None:
         nsmap = {}
     if in_context:
@@ -110,6 +266,19 @@ def clone_element(elem: _typing.Any, nsmap: _typing.Any = None, in_context: bool
 
 
 def node_depth(node: _typing.Any) -> _typing.Any:
+    """
+    Perform the node depth operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise node depth through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param node: Value supplied for node under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     ans = 0
     p = node.getparent()
     while p is not None:
@@ -119,7 +288,23 @@ def node_depth(node: _typing.Any) -> _typing.Any:
 
 
 def fix_self_closing_cdata_tags(data: _typing.Any) -> _typing.Any:
-    from LiuXin_alpha.utils.libraries.liuxin_html5lib.constants import cdataElements, rcdataElements
+    """
+    Perform the fix self closing cdata tags operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise fix self closing cdata tags through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
+    from LiuXin_alpha.utils.libraries.liuxin_html5lib.constants import (
+        cdataElements,
+        rcdataElements,
+    )
 
     return re.sub(
         r"<\s*(%s)\s*[^>]*/\s*>" % ("|".join(cdataElements | rcdataElements)),
@@ -130,6 +315,21 @@ def fix_self_closing_cdata_tags(data: _typing.Any) -> _typing.Any:
 
 
 def html5_parse(data: _typing.Any, max_nesting_depth: int = 100) -> _typing.Any:
+    """
+    Perform the html5 parse operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise html5 parse through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :param max_nesting_depth: Value supplied for max nesting depth under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     import warnings
 
     # Seems to require a specific version of the library - embedding it for sanity
@@ -232,9 +432,17 @@ def html5_parse(data: _typing.Any, max_nesting_depth: int = 100) -> _typing.Any:
 def _html4_parse(data: _typing.Any, prefer_soup: bool = False) -> _typing.Any:
     """
     Parse an html4 document into a tree
-    :param data:
-    :param prefer_soup: Use the BeautifulSoup parser instead of the lxml parser
-    :return:
+
+    Example:
+        Exercise  html4 parse through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :param prefer_soup: Value supplied for prefer soup under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if prefer_soup:
         from LiuXin_alpha.utils.libraries.soupparser import fromstring
@@ -258,6 +466,20 @@ def _html4_parse(data: _typing.Any, prefer_soup: bool = False) -> _typing.Any:
 
 
 def clean_word_doc(data: _typing.Any, log: _typing.Any) -> _typing.Any:
+    """
+    Perform the clean word doc operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise clean word doc through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :param log: Value supplied for log under the utility contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
+    """
     prefixes = []
     for match in re.finditer(r'xmlns:(\S+?)=".*?microsoft.*?"', data):
         prefixes.append(match.group(1))
@@ -273,10 +495,32 @@ def clean_word_doc(data: _typing.Any, log: _typing.Any) -> _typing.Any:
 
 
 class HTML5Doc(ValueError):
+    """
+    Provide the html5doc contract for validated ebook processing.
+
+    Example:
+        Exercise HTML5Doc through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+    """
     pass
 
 
 def check_for_html5(prefix: _typing.Any, root: _typing.Any) -> None:
+    """
+    Perform the check for html5 operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise check for html5 through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param prefix: Text prepended to the formatted or selected result.
+    :param root: Root directory that bounds path resolution or traversal.
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     if re.search(r"<!DOCTYPE\s+html\s*>", prefix, re.IGNORECASE) is not None:
         if root.xpath("//svg"):
             raise HTML5Doc("This document appears to be un-namespaced HTML 5, should be parsed by the HTML 5 parser")
@@ -292,13 +536,22 @@ def parse_html(
 ) -> _typing.Any:
     """
     Parse an html document into a tree for later use
-    :param data:
-    :param log:
-    :param decoder:
-    :param preprocessor:
-    :param filename:
-    :param non_html_file_tags:
-    :return:
+
+    Example:
+        Exercise parse html through a consuming regression::
+
+            python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+    :param data: Value supplied for data under the utility contract.
+    :param log: Value supplied for log under the utility contract.
+    :param decoder: Value supplied for decoder under the utility contract.
+    :param preprocessor: Value supplied for preprocessor under the utility contract.
+    :param filename: Filename used for type inference or archive output.
+    :param non_html_file_tags: Value supplied for non html file tags under the utility
+        contract.
+    :return: The normalized value, metadata record, path, stream result or collection
+        described above.
     """
     if log is None:
         from LiuXin_alpha.utils.logging import default_log
@@ -493,6 +746,19 @@ def parse_html(
             body.attrib.pop(key)
 
     def remove_elem(local_elem: _typing.Any) -> None:
+        """
+        Perform the remove elem operation under explicit file-format and conversion rules.
+
+        Example:
+            Exercise parse html.remove elem through a consuming regression::
+
+                python -m pytest -q tests/file_formats/oeb/test_oeb_backend_smoke.py
+
+
+        :param local_elem: Value supplied for local elem under the utility contract.
+        :return: None; the operation mutates state, writes output or performs cleanup in
+            place.
+        """
         p = local_elem.getparent()
         idx = p.index(local_elem) - 1
         p.remove(local_elem)

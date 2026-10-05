@@ -1,9 +1,32 @@
+"""
+Provide test conversion edges utility behavior.
+
+The module keeps compatibility policy, normalization and resource ownership explicit
+for callers.
+
+Example:
+    Exercise test conversion edges through a consuming regression::
+
+        python -m pytest -q tests/file_formats/conversion/test_conversion_edges.py
+"""
 from __future__ import annotations
 
 from types import SimpleNamespace
 
 
 def test_legacy_oeb_edge_records_current_pipeline_shape() -> None:
+    """
+    Perform the test legacy oeb edge records current pipeline shape operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test legacy oeb edge records current pipeline shape through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/test_conversion_edges.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.conversion.edges import ConversionEdgeKind, legacy_oeb_edge
 
     edge = legacy_oeb_edge(
@@ -29,6 +52,18 @@ def test_legacy_oeb_edge_records_current_pipeline_shape() -> None:
 
 
 def test_registry_prefers_lower_priority_edges_deterministically() -> None:
+    """
+    Perform the test registry prefers lower priority edges deterministically operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test registry prefers lower priority edges deterministically through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/test_conversion_edges.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.conversion.edges import ConversionEdgeRegistry, direct_edge, legacy_oeb_edge
 
     registry = ConversionEdgeRegistry()
@@ -41,6 +76,18 @@ def test_registry_prefers_lower_priority_edges_deterministically() -> None:
 
 
 def test_external_tool_edges_record_tool_diagnostics() -> None:
+    """
+    Perform the test external tool edges record tool diagnostics operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test external tool edges record tool diagnostics through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/test_conversion_edges.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.conversion.edges import ConversionEdgeKind, external_tool_edge
 
     edge = external_tool_edge(
@@ -59,6 +106,18 @@ def test_external_tool_edges_record_tool_diagnostics() -> None:
 
 
 def test_build_legacy_oeb_edges_crosses_input_and_output_formats() -> None:
+    """
+    Perform the test build legacy oeb edges crosses input and output formats operation under explicit file-format and conversion rules.
+
+    Example:
+        Exercise test build legacy oeb edges crosses input and output formats through a consuming regression::
+
+            python -m pytest -q tests/file_formats/conversion/test_conversion_edges.py
+
+
+    :return: None; the operation mutates state, writes output or performs cleanup in
+        place.
+    """
     from LiuXin_alpha.file_formats.conversion.edges import build_legacy_oeb_edges
 
     registry = build_legacy_oeb_edges(["HTML", ".txt"], ["PMLZ", "EPUB"])

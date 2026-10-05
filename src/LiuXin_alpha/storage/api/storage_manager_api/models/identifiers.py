@@ -1,5 +1,10 @@
 """
-Nominal database identifiers used by storage-manager domain objects.
+Define nominal integer IDs for storage-manager records and library Item links.
+
+NewType distinguishes these identities for static type checking. Calling one of
+the aliases returns its argument unchanged at runtime; it does not coerce to int,
+validate positivity, allocate a row, or check that a repository record exists.
+Owning models and manager operations provide their separate validation rules.
 """
 
 from typing import NewType
